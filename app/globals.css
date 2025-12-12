@@ -28,5 +28,26 @@ body {
   }
 }
 
+/* 输入框 Placeholder 样式优化 - 确保清晰可见 */
+@layer components {
+  textarea::placeholder,
+  input::placeholder {
+    @apply text-gray-500;
+    opacity: 1; /* 确保不透明度为1，避免浏览器默认降低 */
+  }
+  
+  /* 聚焦时的 placeholder 稍微变浅，但不消失 */
+  textarea:focus::placeholder,
+  input:focus::placeholder {
+    @apply text-gray-400;
+  }
+  
+  /* 禁用状态的 placeholder */
+  textarea:disabled::placeholder,
+  input:disabled::placeholder {
+    @apply text-gray-400;
+  }
+}
+
 
 
