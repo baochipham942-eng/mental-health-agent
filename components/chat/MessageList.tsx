@@ -18,10 +18,10 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400">
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <p className="text-lg mb-2">👋 你好，我是你的心理疗愈助手</p>
-          <p className="text-sm">可以随时和我聊聊你的感受和困扰</p>
+          <p className="text-lg mb-2 font-semibold text-gray-700">👋 你好，我是你的心理疗愈助手</p>
+          <p className="text-sm text-gray-600">可以随时和我聊聊你的感受和困扰</p>
         </div>
       </div>
     );
@@ -34,11 +34,11 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
       ))}
       {isLoading && (
         <div className="flex items-start gap-2 mb-4">
-          <div className="bg-gray-100 rounded-lg px-4 py-3">
-            <div className="flex gap-1">
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+            <div className="flex gap-1.5">
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         </div>
@@ -47,4 +47,6 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
     </div>
   );
 }
+
+
 

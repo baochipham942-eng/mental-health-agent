@@ -61,10 +61,12 @@ export function ChatInput({ onSend, isLoading, disabled }: ChatInputProps) {
           {isLoading ? '发送中...' : '发送'}
         </button>
       </div>
-      <p className="text-xs text-gray-500 mt-2">
+      <p className="text-xs text-gray-600 mt-2 font-medium">
         按 Enter 发送，Shift + Enter 换行
       </p>
     </form>
   );
 }
+
+
 

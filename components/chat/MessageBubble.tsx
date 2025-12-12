@@ -21,23 +21,30 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     >
       <div
         className={cn(
-          'max-w-[80%] rounded-lg px-4 py-3',
+          'max-w-[80%] rounded-lg px-4 py-3 shadow-sm',
           isUser
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-100 text-gray-900'
+            ? 'bg-blue-600 text-white'
+            : 'bg-white text-gray-900 border border-gray-200'
         )}
       >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
       </div>
       
       {!isUser && message.emotion && (
-        <EmotionIndicator emotion={message.emotion} />
+        <div className="px-2">
+          <EmotionIndicator emotion={message.emotion} />
+        </div>
       )}
       
-      <span className="text-xs text-gray-400 px-2">
+      <span className={cn(
+        'text-xs px-2 font-medium',
+        isUser ? 'text-gray-500' : 'text-gray-600'
+      )}>
         {formatTime(message.timestamp)}
       </span>
     </div>
   );
 }
+
+
 

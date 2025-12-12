@@ -13,3 +13,5 @@ export interface EmotionAnalysis {
   confidence: number; // 0-1
 }
 
+
+

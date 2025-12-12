@@ -9,17 +9,17 @@ export function ChatContainer() {
   const { messages, isLoading, error, sendMessage, clearHistory } = useChat();
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-100">
       {/* 头部 */}
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">心理疗愈助手</h1>
-          <p className="text-sm text-gray-500">基于认知行为疗法的AI心理咨询</p>
+          <h1 className="text-xl font-bold text-gray-900">心理疗愈助手</h1>
+          <p className="text-sm text-gray-700 font-medium">基于认知行为疗法的AI心理咨询</p>
         </div>
         {messages.length > 0 && (
           <button
             onClick={clearHistory}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
           >
             清空对话
           </button>
@@ -41,4 +41,6 @@ export function ChatContainer() {
     </div>
   );
 }
+
+
 
