@@ -6,13 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "smoke": "ts-node --project tsconfig.scripts.json scripts/run-smoke.ts",
+    "validate:skills": "ts-node --project tsconfig.scripts.json scripts/validate-skills.ts",
+    "verify:config": "ts-node --project tsconfig.scripts.json scripts/verify-smoke-config.ts",
+    "test:contract": "ts-node --project tsconfig.scripts.json scripts/contract-smoke.ts",
+    "test:contract:edge": "ts-node --project tsconfig.scripts.json scripts/contract-edge-smoke.ts",
+    "test:strip": "ts-node --project tsconfig.scripts.json scripts/conclusion-strip-smoke.ts",
+    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run validate:skills && cross-env SKILL_MODE=steps_and_cards npm run test:contract && cross-env SKILL_MODE=steps_and_cards npm run test:contract:edge && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run smoke"
   },
   "dependencies": {
+    "clsx": "^2.1.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
@@ -20,9 +28,10 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.17",
+    "cross-env": "^7.0.3",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }
-
