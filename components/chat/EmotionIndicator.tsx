@@ -37,3 +37,4 @@ export function EmotionIndicator({ emotion, className }: EmotionIndicatorProps) 
 
 
 
+
