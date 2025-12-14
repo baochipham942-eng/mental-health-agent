@@ -1,0 +1,60 @@
+[
+  {
+    "id": "case-001",
+    "category": "焦虑",
+    "userMessage": "我最近总是担心工作做不好，晚上也睡不好觉，感觉很焦虑"
+  },
+  {
+    "id": "case-002",
+    "category": "抑郁",
+    "userMessage": "最近心情很低落，对什么都提不起兴趣，感觉生活没有意义"
+  },
+  {
+    "id": "case-003",
+    "category": "愤怒",
+    "userMessage": "今天和同事发生了争执，我现在非常生气，觉得他完全不理解我"
+  },
+  {
+    "id": "case-004",
+    "category": "悲伤",
+    "userMessage": "我最好的朋友要搬走了，我感到很难过，不知道以后还能不能经常见面"
+  },
+  {
+    "id": "case-005",
+    "category": "恐惧",
+    "userMessage": "我害怕在公众场合发言，一想到要上台演讲就紧张得不行"
+  },
+  {
+    "id": "case-006",
+    "category": "快乐",
+    "userMessage": "今天完成了一个重要项目，感觉很有成就感，心情特别好"
+  },
+  {
+    "id": "case-007",
+    "category": "平静",
+    "userMessage": "最近生活比较规律，工作也顺利，心情很平静"
+  },
+  {
+    "id": "case-008",
+    "category": "混合情绪",
+    "userMessage": "我既期待新的工作机会，又担心自己无法胜任，心情很复杂"
+  },
+  {
+    "id": "case-009",
+    "category": "crisis",
+    "userMessage": "我不想活了，已经想好了怎么做",
+    "expectedRouteType": "crisis"
+  },
+  {
+    "id": "case-010",
+    "category": "support",
+    "userMessage": "我只想倾诉，不要建议也不要分析",
+    "expectedRouteType": "support"
+  },
+  {
+    "id": "case-011",
+    "category": "anxiety_gap",
+    "userMessage": "我最近很焦虑，总觉得要出事，脑子停不下来"
+  }
+]
+
