@@ -41,6 +41,8 @@ export function ChatShell() {
 
   // 保存 followupSlot 状态（用于下次请求传递）
   const [followupSlotState, setFollowupSlotState] = React.useState<any>(undefined);
+  // 修复：保存 pressureSocratic 状态（用于下次请求传递，防止重复提问）
+  const [pressureSocraticState, setPressureSocraticState] = React.useState<any>(undefined);
 
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -233,6 +235,8 @@ export function ChatShell() {
             ...(currentInitialMessage && { initialMessage: currentInitialMessage }),
             // 传递 followupSlot 状态（如果存在）
             ...(followupSlotState && { followupSlot: followupSlotState }),
+            // 修复：传递 pressureSocratic 状态（如果存在）
+            ...(pressureSocraticState && { pressureSocratic: pressureSocraticState }),
           },
         };
 
@@ -413,6 +417,14 @@ export function ChatShell() {
         } else if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
           // 如果进入 conclusion 或 normal 状态，清空 followupSlot
           setFollowupSlotState(undefined);
+        }
+
+        // 修复：保存 pressureSocratic 状态（如果存在），用于下次请求传递
+        if (responseData.meta?.pressureSocratic) {
+          setPressureSocraticState(responseData.meta.pressureSocratic);
+        } else if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
+          // 如果进入 conclusion 或 normal 状态，清空 pressureSocratic
+          setPressureSocraticState(undefined);
         }
 
         // 如果状态切回 normal 或进入 conclusion，清空 followupAnswerDraft
