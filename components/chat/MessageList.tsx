@@ -86,7 +86,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     container.addEventListener('scroll', handleScroll);
     // 初始检查一次
     handleScroll();
-    
+
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIfNearBottom, getScrollContainer]);
 
@@ -96,34 +96,33 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
     const isNewUserMessage = lastMessage && lastMessage.role === 'user' && lastMessageRoleRef.current !== 'user';
     const isNewAssistantMessage = lastMessage && lastMessage.role === 'assistant' && lastMessageRoleRef.current !== 'assistant';
-    
+
     // 触发自动滚动的条件：
-    // 1. 有新消息（消息数量变化）
-    // 2. 正在加载或发送中
-    // 3. 流式更新（isLoading 变化）
-    if (isNewMessage || isLoading || isSending || isNewUserMessage || isNewAssistantMessage) {
-      // 只有在接近底部时才自动滚动
-      // 如果用户正在往上看历史（不在底部），则不强制拉回底部
-      const shouldAutoScroll = checkIfNearBottom();
-      
-      if (shouldAutoScroll) {
-        // 使用 requestAnimationFrame + setTimeout 确保 DOM 更新后再滚动
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            scrollToBottom('smooth');
-            // 滚动后隐藏"回到底部"按钮
-            setShowScrollToBottom(false);
-          }, 100); // 增加延迟确保 DOM 完全更新
-        });
-      } else {
-        // 如果不在底部，显示"回到底部"按钮
-        setShowScrollToBottom(true);
-      }
-      
+    // 1. 新消息（User 或 Assistant）：强制滚动到底部
+    // 2. 流式更新（Loading/Sending）：只有在用户接近底部时才跟随滚动
+    if (isNewMessage || isNewUserMessage || isNewAssistantMessage) {
+      // 新消息出现，强制滚动
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          scrollToBottom('smooth');
+          setShowScrollToBottom(false);
+        }, 100);
+      });
+
       // 更新 ref
       lastMessageCountRef.current = messages.length;
       if (lastMessage) {
         lastMessageRoleRef.current = lastMessage.role;
+      }
+    } else if (isLoading || isSending) {
+      // 流式输出或发送中：检查是否跟随
+      const shouldAutoScroll = checkIfNearBottom();
+      if (shouldAutoScroll) {
+        requestAnimationFrame(() => {
+          scrollToBottom('smooth');
+        });
+      } else {
+        setShowScrollToBottom(true);
       }
     }
   }, [messages, isLoading, isSending, checkIfNearBottom, scrollToBottom]);
@@ -155,47 +154,47 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   return (
     <div className="w-full px-4 py-4 pb-6" ref={containerRef}>
       <div className="relative w-full space-y-2 min-h-full">
-      {messages.map((message) => {
-        const extras = messageExtras?.get(message.id);
-        return (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            routeType={extras?.routeType}
-            assessmentStage={extras?.assessmentStage}
-            actionCards={extras?.actionCards}
-            assistantQuestions={extras?.assistantQuestions}
-            validationError={extras?.validationError}
-            onSendMessage={onSendMessage}
-            isSending={isSending}
-          />
-        );
-      })}
-      {(isLoading || isSending) && (
-        <div className="flex items-start gap-2 mb-4">
-          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
-            <div className="flex gap-1.5">
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        {messages.map((message) => {
+          const extras = messageExtras?.get(message.id);
+          return (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              routeType={extras?.routeType}
+              assessmentStage={extras?.assessmentStage}
+              actionCards={extras?.actionCards}
+              assistantQuestions={extras?.assistantQuestions}
+              validationError={extras?.validationError}
+              onSendMessage={onSendMessage}
+              isSending={isSending}
+            />
+          );
+        })}
+        {(isLoading || isSending) && (
+          <div className="flex items-start gap-2 mb-4">
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+              <div className="flex gap-1.5">
+                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      <div ref={endRef} />
-      
-      {/* 回到底部按钮（修复B: 调整位置，避免被输入框遮挡） */}
-      {showScrollToBottom && (
-        <button
-          onClick={() => {
-            scrollToBottom('smooth');
-            setShowScrollToBottom(false);
-          }}
-          className="fixed bottom-32 right-4 z-40 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          回到最新
-        </button>
-      )}
+        )}
+        <div ref={endRef} />
+
+        {/* 回到底部按钮（修复B: 调整位置，避免被输入框遮挡） */}
+        {showScrollToBottom && (
+          <button
+            onClick={() => {
+              scrollToBottom('smooth');
+              setShowScrollToBottom(false);
+            }}
+            className="fixed bottom-32 right-4 z-40 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            回到最新
+          </button>
+        )}
       </div>
     </div>
   );
