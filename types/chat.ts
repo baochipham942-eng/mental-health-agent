@@ -58,6 +58,7 @@ export interface ActionCard {
   steps: string[];
   when: string;
   effort: 'low' | 'medium' | 'high';
+  widget?: 'breathing' | 'mood_tracker'; // 新增：关联的互动组件类型
 }
 
 export interface ChatResponse {

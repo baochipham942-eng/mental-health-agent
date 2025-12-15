@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ActionCard } from '@/types/chat';
 import { useChatStore } from '@/store/chatStore';
+import { BreathingExercise } from './widgets/BreathingExercise';
 
 interface ActionCardItemProps {
   card: ActionCard;
@@ -23,7 +24,7 @@ function getCardId(card: ActionCard): string {
 export function ActionCardItem({ card, index }: ActionCardItemProps) {
   const cardId = getCardId(card);
   const { skillProgress, updateSkillProgress, getSkillProgress } = useChatStore();
-  
+
   const progress = getSkillProgress(cardId);
   const [isDetailView, setIsDetailView] = useState(false); // Detail 视图（步骤态）
   const [showPreTest, setShowPreTest] = useState(false);
@@ -70,9 +71,9 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
     const newCompletedSteps = completedSteps.includes(stepIndex)
       ? completedSteps.filter(i => i !== stepIndex)
       : [...completedSteps, stepIndex];
-    
+
     const allStepsCompleted = newCompletedSteps.length === stepsCount;
-    
+
     updateSkillProgress(cardId, {
       status: allStepsCompleted ? 'done' : 'in_progress',
       completedSteps: newCompletedSteps,
@@ -112,12 +113,12 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
           completedSteps: completedSteps,
         });
       }
-      
+
       // 如果还没做后测，显示后测
       if (!postTestScore) {
         setShowPostTest(true);
       }
-      
+
       // 标记完成后退出 Detail 视图，回到列表
       setIsDetailView(false);
     }
@@ -139,8 +140,8 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
   };
 
   // 前后测变化值
-  const scoreChange = preTestScore !== null && postTestScore !== null 
-    ? postTestScore - preTestScore 
+  const scoreChange = preTestScore !== null && postTestScore !== null
+    ? postTestScore - preTestScore
     : null;
 
   // 估算时间（简单估算：每步约30秒-1分钟）
@@ -164,7 +165,7 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
             </div>
           </div>
           <p className="text-xs text-gray-600 mb-2 line-clamp-1">{card.when}</p>
-          
+
           {/* 步骤摘要 */}
           {stepsCount > 0 && (
             <div className="flex items-center gap-1.5 mb-2.5">
@@ -176,13 +177,13 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
               </span>
             </div>
           )}
-          
+
           {/* 前后测变化显示 */}
           {scoreChange !== null && (
             <div className="mb-2 p-1.5 bg-blue-50 rounded border border-blue-200">
               <p className="text-[10px] text-gray-600 mb-0.5">前后测变化：</p>
               <p className="text-xs font-semibold text-blue-700">
-                {preTestScore} → {postTestScore} 
+                {preTestScore} → {postTestScore}
                 <span className={scoreChange < 0 ? 'text-green-600' : scoreChange > 0 ? 'text-red-600' : 'text-gray-600'}>
                   {' '}({scoreChange > 0 ? '+' : ''}{scoreChange})
                 </span>
@@ -208,7 +209,7 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
               </button>
             )}
           </div>
-          
+
           {/* 进行中状态显示已完成标记 */}
           {isInProgress && completedSteps.length > 0 && (
             <p className="text-[10px] text-gray-500 mt-1.5 text-center">
@@ -237,39 +238,43 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
         </button>
       </div>
 
-      {/* 步骤列表 - 可滚动 */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {card.steps.map((step, stepIndex) => {
-          const isStepCompleted = completedSteps.includes(stepIndex);
-          return (
-            <div
-              key={stepIndex}
-              className={`p-2.5 rounded-md border ${
-                isStepCompleted ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
-              }`}
-            >
-              <div className="flex items-start gap-2">
-                <button
-                  onClick={() => handleStepToggle(stepIndex)}
-                  className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors mt-0.5 ${
-                    isStepCompleted
-                      ? 'bg-green-500 text-white'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+      {/* 核心内容区：如果是呼吸组件，优先渲染组件；否则渲染步骤列表 */}
+      <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
+        {card.widget === 'breathing' ? (
+          <BreathingExercise />
+        ) : (
+          <div className="space-y-2">
+            {card.steps.map((step, stepIndex) => {
+              const isStepCompleted = completedSteps.includes(stepIndex);
+              return (
+                <div
+                  key={stepIndex}
+                  className={`p-2.5 rounded-md border ${isStepCompleted ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
+                    }`}
                 >
-                  {isStepCompleted ? '✓' : stepIndex + 1}
-                </button>
-                <p className={`text-xs text-gray-700 flex-1 break-words leading-relaxed ${isStepCompleted ? 'line-through text-gray-400' : ''}`}>
-                  {step}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+                  <div className="flex items-start gap-2">
+                    <button
+                      onClick={() => handleStepToggle(stepIndex)}
+                      className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors mt-0.5 ${isStepCompleted
+                        ? 'bg-green-500 text-white'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                    >
+                      {isStepCompleted ? '✓' : stepIndex + 1}
+                    </button>
+                    <p className={`text-xs text-gray-700 flex-1 break-words leading-relaxed ${isStepCompleted ? 'line-through text-gray-400' : ''}`}>
+                      {step}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 底部按钮 - 固定在卡片内部底部 */}
-      <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center gap-2">
+      <div className="p-3 border-t border-gray-100 bg-white flex items-center gap-2">
         <button
           onClick={handlePause}
           className="flex-1 h-8 px-3 border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-100 transition-colors"
@@ -278,13 +283,12 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
         </button>
         <button
           onClick={handleToggleComplete}
-          className={`flex-1 h-8 px-3 text-xs font-medium rounded-md transition-colors ${
-            isCompleted
-              ? 'bg-gray-600 text-white hover:bg-gray-700'
-              : 'bg-green-600 text-white hover:bg-green-700'
-          }`}
+          className={`flex-1 h-8 px-3 text-xs font-medium rounded-md transition-colors ${isCompleted
+            ? 'bg-gray-600 text-white hover:bg-gray-700'
+            : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
         >
-          {isCompleted ? '撤销完成' : '标记完成'}
+          {isCompleted ? (card.widget ? '结束练习' : '撤销完成') : (card.widget ? '完成练习' : '标记完成')}
         </button>
       </div>
 
