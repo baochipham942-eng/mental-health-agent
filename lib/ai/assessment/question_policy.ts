@@ -39,18 +39,18 @@ const ASSESSMENT_TRIGGERS = {
     '压力', '焦虑', '烦', '崩溃', '难受', '压抑', '心慌', '恐慌', '抑郁', '低落', '委屈', '内耗', '情绪失控', '想哭',
     '失眠', '睡不着', '睡不好', '早醒', '噩梦', '脑子停不下来', '停不住', '停不了'
   ],
-  
+
   // B. 功能受损（impairment）
   impairment: [
     '影响睡眠', '影响工作', '影响效率', '影响注意力', '影响专注', '影响社交', '影响食欲',
     '没精神', '提不起劲', '拖延严重', '无法集中', '工作做不动'
   ],
-  
+
   // C. 求助意图（help-seeking）
   helpSeeking: [
     '怎么办', '帮帮我', '能不能帮我', '想改善', '如何缓解', '怎么调整', '我需要建议', '我需要方法', '我需要行动', '给我一个办法'
   ],
-  
+
   // D. 职场/关系高频压力源（stressor, 作为弱触发，需与A/B/C任一组合才触发）
   stressor: [
     '被领导骂', '被领导批评', '被领导pua', '被领导PUA', 'kpi', 'KPI', '绩效', '加班', '工作量太大', '项目压', '同事关系', '家庭矛盾', '伴侣吵架'
@@ -82,64 +82,64 @@ export function shouldEnterAssessment(
   emotion?: { label: string; score: number }
 ): boolean {
   const message = userText.toLowerCase().trim();
-  
+
   // E. 情绪强度：如果 emotion.score >= 7 且为负向情绪 → 直接触发 assessment
   if (emotion) {
     const negativeEmotions = ['焦虑', '抑郁', '愤怒', '悲伤', '恐惧'];
     const isNegativeEmotion = negativeEmotions.includes(emotion.label);
     const isHighIntensity = emotion.score >= 7;
-    
+
     if (isNegativeEmotion && isHighIntensity) {
       return true;
     }
   }
-  
+
   // A. 检查困扰词（distress）
-  const hasDistress = ASSESSMENT_TRIGGERS.distress.some(keyword => 
+  const hasDistress = ASSESSMENT_TRIGGERS.distress.some(keyword =>
     message.includes(keyword.toLowerCase())
   );
-  
+
   // B. 检查功能受损（impairment）
-  const hasImpairment = ASSESSMENT_TRIGGERS.impairment.some(keyword => 
+  const hasImpairment = ASSESSMENT_TRIGGERS.impairment.some(keyword =>
     message.includes(keyword.toLowerCase())
   );
-  
+
   // C. 检查求助意图（help-seeking）
-  const hasHelpSeeking = ASSESSMENT_TRIGGERS.helpSeeking.some(keyword => 
+  const hasHelpSeeking = ASSESSMENT_TRIGGERS.helpSeeking.some(keyword =>
     message.includes(keyword.toLowerCase())
   );
-  
+
   // D. 检查压力源（stressor，弱触发）
-  const hasStressor = ASSESSMENT_TRIGGERS.stressor.some(keyword => 
+  const hasStressor = ASSESSMENT_TRIGGERS.stressor.some(keyword =>
     message.includes(keyword.toLowerCase())
   );
-  
+
   // 如果命中 A/B/C 任一，直接触发 assessment
   if (hasDistress || hasImpairment || hasHelpSeeking) {
     return true;
   }
-  
+
   // 如果只命中 D (stressor)，需要与 A/B/C 组合才触发（这里已经检查过 A/B/C 都不命中，所以返回 false）
   // 但为了代码清晰，这里显式处理
   if (hasStressor && !hasDistress && !hasImpairment && !hasHelpSeeking) {
     return false;
   }
-  
+
   // 如果命中 D 且同时命中 A/B/C 任一（虽然上面已经返回 true，但为了逻辑完整保留）
   if (hasStressor && (hasDistress || hasImpairment || hasHelpSeeking)) {
     return true;
   }
-  
+
   // 检查是否只包含正向/中性词（guard）
-  const hasPositiveNeutral = POSITIVE_NEUTRAL_GUARDS.some(keyword => 
+  const hasPositiveNeutral = POSITIVE_NEUTRAL_GUARDS.some(keyword =>
     message.includes(keyword.toLowerCase())
   );
-  
+
   // 如果只命中正向/中性词且未命中任何触发器 → 强制 support（返回 false）
   if (hasPositiveNeutral && !hasDistress && !hasImpairment && !hasHelpSeeking && !hasStressor) {
     return false;
   }
-  
+
   // 默认：如果没有任何触发器，不进入 assessment（走 support）
   return false;
 }
@@ -152,16 +152,16 @@ function shouldDisableSocraticPolicy(context: QuestionContext): boolean {
   if (context.routeType === 'support' || context.routeType === 'crisis') {
     return true;
   }
-  
+
   // emotion >= 9 或 riskLevel >= urgent 时优先稳定化/安全问题
   if (context.emotion && context.emotion.score >= 9) {
     return true;
   }
-  
+
   if (context.riskLevel === 'frequent' || context.riskLevel === 'plan') {
     return true;
   }
-  
+
   return false;
 }
 
@@ -177,7 +177,7 @@ function checkUserMessageForInfo(userMessage: string): {
   hasRiskClue: boolean;     // 明显风险线索（但未达到 crisis 关键词门槛）
 } {
   const message = userMessage.toLowerCase();
-  
+
   // 检查触发器/情境
   const triggerKeywords = [
     '因为', '由于', '当', '在', '发生', '遇到', '面对',
@@ -185,14 +185,14 @@ function checkUserMessageForInfo(userMessage: string): {
     '会议', '争吵', '分手', '压力', '冲突'
   ];
   const hasTrigger = triggerKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查持续时间
   const durationKeywords = [
     '最近', '这几天', '两周', '几个月', '一直', '半年',
     '一年', '很久', '持续', '开始', '自从', '以来', '天', '周', '月'
   ];
   const hasDuration = durationKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查影响
   const impactKeywords = [
     '影响睡眠', '影响工作', '没精神', '注意力差', '社交减少',
@@ -201,14 +201,14 @@ function checkUserMessageForInfo(userMessage: string): {
     '分', '/10', '打分', '评分'
   ];
   const hasImpact = impactKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查安全（明确的自伤/自杀表达，达到 crisis 级别）
   const riskKeywords = [
     '想死', '不想活', '自杀', '结束生命', '割腕', '跳楼',
     '上吊', '服药', '吃药', '结束一切', '不想活了'
   ];
   const hasRisk = riskKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查明显风险线索（但未达到 crisis 关键词门槛）
   // 这些线索提示可能需要询问自伤想法，但本身不足以触发 crisis
   const riskClueKeywords = [
@@ -217,7 +217,7 @@ function checkUserMessageForInfo(userMessage: string): {
     '无法承受', '承受不了', '看不到希望', '没有希望'
   ];
   const hasRiskClue = riskClueKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查自动想法（负面认知）
   const automaticThoughtKeywords = [
     '觉得', '认为', '以为', '感觉', '担心', '害怕',
@@ -225,7 +225,7 @@ function checkUserMessageForInfo(userMessage: string): {
     '没用', '失败', '糟糕', '绝望', '无望'
   ];
   const hasAutomaticThought = automaticThoughtKeywords.some(keyword => message.includes(keyword));
-  
+
   return {
     hasTrigger,
     hasDuration,
@@ -242,39 +242,39 @@ function checkUserMessageForInfo(userMessage: string): {
  */
 export function parseRiskLevel(text: string): 'none' | 'passive' | 'active' | 'plan' | 'unknown' {
   const lowerText = text.toLowerCase().trim();
-  
+
   // 明确排除"没有伤害自己的想法"的情况
-  if (lowerText.includes('没有伤害自己的想法') || 
-      lowerText.includes('没有伤害自己') ||
-      lowerText.includes('没有自伤') ||
-      lowerText.includes('没有自杀') ||
-      lowerText === '没有' ||
-      lowerText === '没有哦' ||
-      lowerText === '没有啊') {
+  if (lowerText.includes('没有伤害自己的想法') ||
+    lowerText.includes('没有伤害自己') ||
+    lowerText.includes('没有自伤') ||
+    lowerText.includes('没有自杀') ||
+    lowerText === '没有' ||
+    lowerText === '没有哦' ||
+    lowerText === '没有啊') {
     return 'none';
   }
-  
+
   // 匹配风险问题选项
   if (lowerText.includes('已经计划') || lowerText.includes('计划好了')) {
     return 'plan';
   }
-  
+
   if (lowerText.includes('经常出现') || lowerText.includes('经常')) {
     return 'active';
   }
-  
+
   if (lowerText.includes('偶尔闪过') || lowerText.includes('偶尔')) {
     return 'passive';
   }
-  
+
   // 明确自杀表达
-  if (lowerText.includes('想死') || 
-      lowerText.includes('自杀') || 
-      lowerText.includes('结束生命') ||
-      lowerText.includes('不想活了')) {
+  if (lowerText.includes('想死') ||
+    lowerText.includes('自杀') ||
+    lowerText.includes('结束生命') ||
+    lowerText.includes('不想活了')) {
     return 'plan';
   }
-  
+
   return 'unknown';
 }
 
@@ -284,7 +284,7 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'active' | 'p
  */
 export function parseImpactScore(text: string): number | undefined {
   const lowerText = text.toLowerCase().trim();
-  
+
   // 匹配 0-10 的整数
   // 支持格式：0, 1, 2, ..., 10
   // 支持格式：0分, 1分, ..., 10分
@@ -297,7 +297,7 @@ export function parseImpactScore(text: string): number | undefined {
     /大概.*?(\d+)/,  // 大概X
     /我觉得.*?(\d+)/,  // 我觉得X
   ];
-  
+
   for (const pattern of patterns) {
     const match = lowerText.match(pattern);
     if (match && match[1]) {
@@ -307,7 +307,7 @@ export function parseImpactScore(text: string): number | undefined {
       }
     }
   }
-  
+
   return undefined;
 }
 
@@ -324,7 +324,7 @@ export function updateFollowupSlotState(
   if (!currentState) {
     const riskLevel = parseRiskLevel(userMessage);
     const impactScore = parseImpactScore(userMessage);
-    
+
     // 判断当前回答属于哪个槽位
     let currentSlot: 'risk' | 'impact' | undefined;
     if (lastFollowupSlot === 'risk' || (riskLevel !== 'unknown' && !currentSlot)) {
@@ -336,7 +336,7 @@ export function updateFollowupSlotState(
     } else if (riskLevel !== 'unknown') {
       currentSlot = 'risk';
     }
-    
+
     return {
       riskLevel,
       impactScore,
@@ -348,15 +348,15 @@ export function updateFollowupSlotState(
       lastFollowupSlot: currentSlot,
     };
   }
-  
+
   // 更新现有状态
   const riskLevel = parseRiskLevel(userMessage);
   const impactScore = parseImpactScore(userMessage);
-  
+
   // 关键：当用户回复 "0" 时，不允许把 riskLevel 复位回 unknown
   // 只能更新 impactScore
   const finalRiskLevel = riskLevel !== 'unknown' ? riskLevel : currentState.riskLevel;
-  
+
   // 判断当前回答属于哪个槽位（优先依据 lastFollowupSlot）
   let currentSlot: 'risk' | 'impact' | undefined;
   if (lastFollowupSlot === 'risk' && riskLevel !== 'unknown') {
@@ -368,7 +368,7 @@ export function updateFollowupSlotState(
   } else if (riskLevel !== 'unknown') {
     currentSlot = 'risk';
   }
-  
+
   // 更新 asked 状态（只标记当前回答的槽位）
   const asked = { ...currentState.asked };
   if (currentSlot === 'risk') {
@@ -376,7 +376,7 @@ export function updateFollowupSlotState(
   } else if (currentSlot === 'impact') {
     asked.impact = true;
   }
-  
+
   return {
     riskLevel: finalRiskLevel,
     impactScore: impactScore !== undefined ? impactScore : currentState.impactScore,
@@ -401,39 +401,39 @@ function shouldAskRiskQuestion(context: QuestionContext, hasRiskClue: boolean): 
   if (context.existingIntake?.riskLevel && context.existingIntake.riskLevel !== 'unknown') {
     return false;
   }
-  
+
   // 如果 followupSlot 中已经问过 risk，不再询问
   if (context.followupSlot?.asked?.risk) {
     return false;
   }
-  
+
   const message = context.userMessage.toLowerCase();
-  
+
   // 明确排除普通压力场景关键词（符合用户要求：单纯"压力大/被骂/想辞职/担心裁员" 绝不触发）
   const stressOnlyKeywords = [
-    '压力大', '被老板骂', '被领导骂', '被骂', '担心被裁', '担心裁员', 
+    '压力大', '被老板骂', '被领导骂', '被骂', '担心被裁', '担心裁员',
     '想辞职', '想离职', '睡不好', '睡不着', '脑子停不下来', '停不下来',
     '工作压力', '加班', '绩效', 'kpi', '被批评', '被否定'
   ];
   const isStressOnly = stressOnlyKeywords.some(keyword => message.includes(keyword));
-  
+
   // 如果只包含压力关键词，绝不触发自伤问句（符合用户要求）
   if (isStressOnly) {
     return false;
   }
-  
+
   // 双门槛触发条件1：必须命中明确风险提示词（符合用户要求）
   const explicitRiskKeywords = [
-    '不想活了', '想死', '轻生', '自残', '结束生命', '活不下去', 
+    '不想活了', '想死', '轻生', '自残', '结束生命', '活不下去',
     '计划', '方法', '自杀', '割腕', '跳楼', '吞药', '已经想好怎么做',
     '不想活', '想消失', '想离开', '不想继续'
   ];
   const hasExplicitRisk = explicitRiskKeywords.some(keyword => message.includes(keyword));
-  
+
   if (!hasExplicitRisk) {
     return false; // 没有明确风险提示词，不触发
   }
-  
+
   // 双门槛触发条件2：且（情绪强度高 >=8 或 已经出现绝望/无助等高危情绪标签）
   const highRiskEmotionKeywords = [
     '绝望', '无望', '无助', '没有意义', '看不到希望', '没有希望',
@@ -441,17 +441,17 @@ function shouldAskRiskQuestion(context: QuestionContext, hasRiskClue: boolean): 
     '无法承受', '承受不了'
   ];
   const hasHighRiskEmotion = highRiskEmotionKeywords.some(keyword => message.includes(keyword));
-  
+
   // 检查情绪强度
-  const hasHighIntensityEmotion = context.emotion && 
+  const hasHighIntensityEmotion = context.emotion &&
     (['焦虑', '抑郁', '愤怒', '悲伤', '恐惧'].includes(context.emotion.label)) &&
     context.emotion.score >= 8;
-  
+
   // 只有同时满足：明确风险提示词 + （高危情绪标签 或 高情绪强度），才触发自伤追问
   if (hasExplicitRisk && (hasHighRiskEmotion || hasHighIntensityEmotion)) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -479,42 +479,42 @@ function isPositiveEmotionInput(userMessage: string): boolean {
  */
 export function detectStressSlot(text: string): { isStress: boolean; reason?: string } {
   const message = text.toLowerCase().trim();
-  
+
   // 否定/正向保护（命中则直接 false）
   // 修复：扩展正向保护，包括"泡温泉"、"吃水果"等正向活动
   const positivePattern = /(开心|放松|满意|很棒|太好了|舒服|享受|愉快|满足|顺利|成功|泡温泉|温泉|吃水果|水果|好开心|很开心|很开心呀|好开心呀)/;
   if (positivePattern.test(message)) {
     return { isStress: false, reason: '正向保护' };
   }
-  
+
   // 压力信号正则（符合用户要求）
   const stressSignalPattern = /(压力|焦虑|紧张|崩溃|喘不过气|睡不着|失眠|脑子停不下来|停不下来|停不了)/;
-  
+
   // 工作语境正则（符合用户要求）
   const workplacePattern = /(工作|老板|领导|绩效|kpi|裁员|项目|加班|会议|汇报)/;
-  
+
   // 身体/睡眠受影响正则（符合用户要求）
   const bodySleepPattern = /(睡不着|失眠|心慌|胸闷|停不下来|停不了)/;
-  
+
   // 检查压力信号
   const hasStressSignal = stressSignalPattern.test(message);
-  
+
   // 检查工作语境
   const hasWorkplace = workplacePattern.test(message);
-  
+
   // 检查身体/睡眠受影响
   const hasBodySleep = bodySleepPattern.test(message);
-  
-  // 组合规则1：压力信号 + 工作语境
-  if (hasStressSignal && hasWorkplace) {
-    return { isStress: true, reason: '压力信号+工作语境' };
+
+  // 组合规则1：如果有任何明确的压力信号，直接判定为 stress（放宽条件，不再强制要求工作语境）
+  if (hasStressSignal) {
+    return { isStress: true, reason: '压力信号 (Explicit)' };
   }
-  
-  // 组合规则2：工作语境 + 身体/睡眠受影响
+
+  // 组合规则2：工作语境 + 身体/睡眠受影响（补充规则，针对没有直接说"压力"但描述了症状的情况）
   if (hasWorkplace && hasBodySleep) {
     return { isStress: true, reason: '工作语境+身体/睡眠受影响' };
   }
-  
+
   return { isStress: false, reason: '未命中压力信号' };
 }
 
@@ -533,13 +533,13 @@ function hasStressSignal(userMessage: string): boolean {
  */
 function hasPositiveOverride(userMessage: string): boolean {
   const message = userMessage.toLowerCase().trim();
-  
+
   // 正向关键词（扩展：包括"泡温泉"、"吃水果"等正向活动）
   const positiveKeywords = [
     '开心', '高兴', '满足', '放松', '舒服', '顺利', '太棒', '很棒', '喜欢',
     '泡温泉', '温泉', '吃水果', '水果', '好开心', '很开心', '很开心呀', '好开心呀'
   ];
-  
+
   // 负向/危机关键词（如果包含这些，不应走 support）
   const negativeKeywords = [
     '压力', '焦虑', '抑郁', '难受', '崩溃', '睡不着', '失眠', '烦',
@@ -547,10 +547,10 @@ function hasPositiveOverride(userMessage: string): boolean {
     '想消失', '活不下去', '想轻生', '困扰', '问题', '困难', '麻烦',
     '担心', '害怕', '恐惧', '紧张', '不安', '忧虑', '想辞职'
   ];
-  
+
   const hasPositive = positiveKeywords.some(keyword => message.includes(keyword));
   const hasNegative = negativeKeywords.some(keyword => message.includes(keyword));
-  
+
   // 正向保护：包含正向词且不含负向/危机词
   return hasPositive && !hasNegative;
 }
@@ -561,18 +561,18 @@ function hasPositiveOverride(userMessage: string): boolean {
  */
 function isCrisis(userMessage: string): boolean {
   const message = userMessage.toLowerCase().trim();
-  
+
   // 明确排除"想离职/想辞职"（绝对不能触发自伤检查）
   if (message.includes('想离职') || message.includes('想辞职')) {
     return false;
   }
-  
+
   // 只保留明确自伤/自杀语义的高置信词
   const crisisKeywords = [
-    '不想活', '想死', '自杀', '结束生命', '割腕', '跳楼', 
+    '不想活', '想死', '自杀', '结束生命', '割腕', '跳楼',
     '吃药', '已经想好怎么做', '遗书'
   ];
-  
+
   return crisisKeywords.some(keyword => message.includes(keyword));
 }
 
@@ -589,7 +589,7 @@ function hasAskedSocraticQuestions(existingIntake?: IntakeInfo): boolean {
   if (existingIntake?.mainIssue && existingIntake.mainIssue.trim().length > 0) {
     return true;
   }
-  
+
   // 首轮追问时，existingIntake 应该是 undefined，返回 false
   return false;
 }
@@ -639,7 +639,7 @@ const RE_PROFANITY = /(傻逼|他妈的|妈的|垃圾|废物)/;
  */
 function hasSituation(userMessage: string): boolean {
   const text = (userMessage || "").trim();
-  
+
   // 排除规则：如果"被"出现在"觉得"、"认为"等想法词之后，不算场景
   // 例如："我就觉得我完了会被开" → 不算场景，只算想法
   const thoughtBeforeBei = /(觉得|认为|以为|感觉|担心|害怕|是不是|会不会|完了|肯定要|要被|会被).*被/;
@@ -652,7 +652,7 @@ function hasSituation(userMessage: string): boolean {
     // 否则不算场景
     return false;
   }
-  
+
   // 排除规则2：如果"逼"出现在脏话中（如"傻逼"），不算场景
   // 检查是否包含脏话，如果包含，排除脏话中的"逼"字
   if (RE_PROFANITY.test(text)) {
@@ -668,7 +668,7 @@ function hasSituation(userMessage: string): boolean {
     // 否则不算场景（只有脏话中的"逼"字）
     return false;
   }
-  
+
   return (
     RE_TIME.test(text) ||
     RE_CONNECTOR.test(text) ||
@@ -688,7 +688,7 @@ function hasSituation(userMessage: string): boolean {
  */
 function hasThought(userMessage: string): boolean {
   const text = (userMessage || "").trim();
-  
+
   return RE_THOUGHT.test(text);
 }
 
@@ -701,13 +701,13 @@ function hasThought(userMessage: string): boolean {
  */
 function hasOnlyEmotion(userMessage: string): boolean {
   const text = (userMessage || "").trim();
-  
+
   const situation = hasSituation(text);
-  
+
   if (situation) {
     return false; // 如果有场景，不是"只有情绪"
   }
-  
+
   // 检查是否命中情绪/评价词或脏话
   return RE_EMOTION.test(text) || RE_PROFANITY.test(text);
 }
@@ -733,7 +733,7 @@ export function updatePressureSocraticState(
 ): PressureSocraticState {
   const slots = inferSocraticSlots(userMessage);
   const onlyEmotion = hasOnlyEmotion(userMessage);
-  
+
   // 如果当前状态不存在，创建新状态
   if (!currentState) {
     return {
@@ -742,7 +742,7 @@ export function updatePressureSocraticState(
       thoughtDone: slots.thought,
     };
   }
-  
+
   // 更新状态（只会从 false→true，不会回退）
   return {
     ...currentState,
@@ -767,38 +767,38 @@ export function buildIntakeQuestions(context: QuestionContext): string[] {
   if (shouldDisableSocraticPolicy(context)) {
     return [];
   }
-  
+
   // 特殊规则：对于明显正向情绪输入，不生成评估式问题
   // 这样会触发调用方使用原逻辑，而原逻辑会根据 routeType 走 support
   if (isPositiveEmotionInput(context.userMessage)) {
     return [];
   }
-  
+
   const info = checkUserMessageForInfo(context.userMessage);
   const questions: string[] = [];
-  
+
   // 判断是否已经问过苏格拉底首问
   const socraticAsked = hasAskedSocraticQuestions(context.existingIntake);
-  
+
   // 使用新的槽位判断逻辑
   const slots = inferSocraticSlots(context.userMessage);
-  
+
   // 获取压力苏格拉底状态（如果存在）
   const pressureSocratic = context.pressureSocratic;
-  
+
   // 修复D: 优先级调整：压力场景苏格拉底式澄清 > 风险问题（如果风险信号强）> 其他模板问题
   // 注意：影响评分（0-10 量表）和持续时间不在第一轮问，放到 gap_followup 阶段
   // 第一轮问题不应包含任何选项提示或示例，只问纯开放式问题
-  
+
   // 修复D: 压力场景优先于风险问题（除非风险信号很强）
   // 压力场景苏格拉底式澄清（stress_socratic_first 策略）
   // 触发条件：包含压力信号，且未命中 crisis/support，且是首轮追问（未问过场景/想法）
   // 修复：第一问必须是"具体表现/场景澄清"（苏格拉底式），不要第一步就抛量表
   if (hasStressSignal(context.userMessage)) {
     // 检查是否应该问苏格拉底问题
-    const shouldAskSocratic = !pressureSocratic?.asked && 
+    const shouldAskSocratic = !pressureSocratic?.asked &&
       (!pressureSocratic?.situationDone || !pressureSocratic?.thoughtDone);
-    
+
     if (shouldAskSocratic && !socraticAsked) {
       // 第一问：场景澄清（苏格拉底式，情境→想法方向）
       // 注意：问法要短，避免一口气三个长句；必要时拆成两句
@@ -826,7 +826,7 @@ export function buildIntakeQuestions(context: QuestionContext): string[] {
   else {
     questions.push('发生了什么让你有这种感受？或者最近最困扰你的是什么？');
   }
-  
+
   // 确保只返回 1 个问题（第一轮策略）
   return questions.slice(0, 1);
 }
@@ -849,8 +849,8 @@ function isWorkplaceStressScenario(userMessage: string): boolean {
  * 检查问题是否包含 0-10 量表
  */
 function hasScale0To10(question: string): boolean {
-  return /0-10|0\s*到\s*10|0\s*至\s*10|0\s*～\s*10|0\s*~\s*10/.test(question) && 
-         /影响|睡眠|工作|社交|打分|评分/.test(question);
+  return /0-10|0\s*到\s*10|0\s*至\s*10|0\s*～\s*10|0\s*~\s*10/.test(question) &&
+    /影响|睡眠|工作|社交|打分|评分/.test(question);
 }
 
 /**
@@ -862,13 +862,13 @@ function isRiskSignalStrong(context: QuestionContext, hasRiskClue: boolean): boo
   if (hasRiskClue) {
     return true;
   }
-  
+
   // 条件2：高负向情绪强度 + 文本包含风险提示（与 shouldAskRiskQuestion 保持一致）
   if (context.emotion) {
     const negativeEmotions = ['焦虑', '抑郁', '愤怒', '悲伤', '恐惧'];
     const isNegativeEmotion = negativeEmotions.includes(context.emotion.label);
     const isHighIntensity = context.emotion.score >= 7;
-    
+
     if (isNegativeEmotion && isHighIntensity) {
       const message = context.userMessage.toLowerCase();
       const weakRiskHints = [
@@ -878,13 +878,13 @@ function isRiskSignalStrong(context: QuestionContext, hasRiskClue: boolean): boo
         '想消失', '想离开', '不想继续', '没有意义'
       ];
       const textHasRiskHints = weakRiskHints.some(hint => message.includes(hint));
-      
+
       if (textHasRiskHints) {
         return true;
       }
     }
   }
-  
+
   return false;
 }
 
@@ -908,27 +908,32 @@ export function buildGapFollowupQuestion(
   context: QuestionContext,
   missingSlot: 'duration' | 'impact' | 'risk' | 'context'
 ): string[] | null {
+  console.log('[DEBUG Policy] buildGapFollowup called', {
+    missingSlot,
+    socratic: context.pressureSocratic,
+    msg: context.userMessage
+  });
   // 如果应该禁用，返回 null（让调用方使用原逻辑）
   if (shouldDisableSocraticPolicy(context)) {
     return null;
   }
-  
+
   // 获取 followup 槽位状态（如果存在）
   const followupSlot = context.followupSlot;
-  
+
   // 检查风险信号强度
   const info = checkUserMessageForInfo(context.userMessage);
   const riskSignalStrong = isRiskSignalStrong(context, info.hasRiskClue);
-  
+
   // 判断是否已经问过苏格拉底首问
   const socraticAsked = hasAskedSocraticQuestions(context.existingIntake);
-  
+
   // 判断是否为压力场景
   const isStressScenario = hasStressSignal(context.userMessage) || isWorkplaceStressScenario(context.userMessage);
-  
+
   // 获取压力苏格拉底状态（如果存在）
   const pressureSocratic = context.pressureSocratic;
-  
+
   // 修复：使用 followupSlot 状态来判断是否应该问风险/影响问题
   // 如果已经问过并得到答案，不再重复问
   if (followupSlot) {
@@ -943,7 +948,7 @@ export function buildGapFollowupQuestion(
         return null;
       }
     }
-    
+
     // 如果影响槽位已完成（impactScore 有值），且 missingSlot 是 'impact'，不应该再问
     if (missingSlot === 'impact' && followupSlot.impactScore !== undefined && followupSlot.asked.impact) {
       // 如果风险槽位未完成，转向问风险（但需要检查是否应该问）
@@ -956,21 +961,21 @@ export function buildGapFollowupQuestion(
       }
     }
   }
-  
+
   // 判断是否应该进行 slot-filling（如果已经问过苏格拉底首问，且是压力相关场景）
   // 注意：即使不是明确的压力场景，如果已经问过首问，也应该进行 slot-filling
   const shouldDoSlotFilling = socraticAsked && (isStressScenario || hasStressSignal(context.userMessage) || context.existingIntake?.context || context.existingIntake?.mainIssue);
-  
+
   // 修复：如果已经问过苏格拉底首问（socraticAsked 为 true），无论是否为压力场景，都应该进行 slot-filling
   // 这样可以处理"烦死了 傻逼"这种只有情绪词的情况
   const shouldEnterSlotFilling = socraticAsked || shouldDoSlotFilling;
-  
+
   // 修复D: 压力场景优先于风险问题，除非风险信号很强
   // 对于压力场景，即使 missingSlot 是 'risk'，也应该走苏格拉底式追问，除非风险信号很强
   // 注意：如果用户消息只是简单的情绪词（如"我很难受"），且没有 existingIntake，应该走非压力场景逻辑
-  const isSimpleEmotionOnly = !context.existingIntake && !socraticAsked && 
+  const isSimpleEmotionOnly = !context.existingIntake && !socraticAsked &&
     hasOnlyEmotion(context.userMessage) && !isWorkplaceStressScenario(context.userMessage);
-  
+
   if ((isStressScenario || shouldEnterSlotFilling) && !isSimpleEmotionOnly) {
     // 修复D: 只有在风险信号很强时，才优先问风险问题
     // 注意：对于普通压力场景（如"工作压力好大"、"被老板骂"），即使 missingSlot 是 'risk'，也不应该问风险问题
@@ -980,13 +985,13 @@ export function buildGapFollowupQuestion(
       // 只有在风险信号很强且不是普通压力场景时，才问风险问题
       return ['为了确认你的安全：最近有没有出现伤害自己的想法？（没有/偶尔闪过/经常出现/已经计划）'];
     }
-    
+
     // 修复：使用 pressureSocratic 状态来判断是否应该问苏格拉底问题
     // 如果 pressureSocratic.asked === false 且（!situationDone || !thoughtDone）→ 输出苏格拉底问题
     // 否则（已 asked 或 slots 都齐）→ 进入下一步量化
-    const shouldAskSocratic = !pressureSocratic?.asked && 
+    const shouldAskSocratic = !pressureSocratic?.asked &&
       (!pressureSocratic?.situationDone || !pressureSocratic?.thoughtDone);
-    
+
     // 如果已经问过苏格拉底首问，进行 slot-filling
     // 或者虽然不是压力场景，但已经问过首问，也应该进行 slot-filling
     if (shouldEnterSlotFilling) {
@@ -997,17 +1002,17 @@ export function buildGapFollowupQuestion(
         situation: pressureSocratic.situationDone,
         thought: pressureSocratic.thoughtDone,
       } : inferSocraticSlots(context.userMessage);
-      
+
       const questions: string[] = [];
-      
+
       // 防重复提问：检查是否与上一轮问题相同
       const lastQuestion = pressureSocratic?.lastQuestionText;
       const normalizeQuestion = (q: string) => q.replace(/[，,。；;：:！!？?\s\n\r]/g, '').toLowerCase();
-      
+
       // 修复：压力 case 的两步 followup 策略
       // Q1（苏格拉底：情境→自动想法）：如果缺少场景或想法，先问场景
       // Q2（影响/强度）：如果场景和想法都有了，再问影响/强度（0-10 或可选项）
-      
+
       // 优先检查 hasOnlyEmotion：如果只有情绪词，直接问场景（无论 missingSlot 是什么）
       if (hasOnlyEmotion(context.userMessage)) {
         const question = '最近一次压力最明显的具体场景是什么？当时发生了什么？';
@@ -1094,25 +1099,25 @@ export function buildGapFollowupQuestion(
             return null;
         }
       }
-      
+
       // Guard：如果问题列表为空，返回 null（避免输出空问题）
       if (questions.length === 0) {
         return null;
       }
-      
+
       return questions;
     } else if (shouldAskSocratic) {
       // 还没问过首问，且是压力场景，且应该问苏格拉底问题
       const questions: string[] = [];
-      
+
       // 防重复提问：检查是否与上一轮问题相同
       const lastQuestion = pressureSocratic?.lastQuestionText;
       const normalizeQuestion = (q: string) => q.replace(/[，,。；;：:！!？?\s\n\r]/g, '').toLowerCase();
-      
+
       // 修复：压力 case 的两步 followup 策略
       // Q1（苏格拉底：情境→自动想法）：合并问法（场景+想法）
       // Q2（影响/强度）：职场压力场景必须返回2问，第二问包含0-10量表
-      
+
       // 特殊处理：如果 hasOnlyEmotion=true，只问 situation（不合并问法）
       if (hasOnlyEmotion(context.userMessage)) {
         const question = '最近一次压力最明显的具体场景是什么？当时发生了什么？';
@@ -1127,7 +1132,8 @@ export function buildGapFollowupQuestion(
         // 检查是否与上一轮问题相同
         if (!lastQuestion || normalizeQuestion(question) !== normalizeQuestion(lastQuestion)) {
           questions.push(question);
-          
+
+          /* 修复：移除双重提问，保持单次单问原则
           // 修复：职场压力场景必须返回2问，第二问包含0-10量表
           // 如果 missingSlot 是 impact、context 或 risk，必须在首问后加上 0-10 量表（第二问）
           if (isWorkplaceStressScenario(context.userMessage)) {
@@ -1137,6 +1143,7 @@ export function buildGapFollowupQuestion(
             // 非职场压力场景，但如果 missingSlot 是 impact、context 或 risk，也可以加上 0-10 量表
             questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
           }
+          */
         } else {
           // 如果问题相同，但用户已经回答了（包含 situation 和 thought），则推进到下一个槽位
           const slots = inferSocraticSlots(context.userMessage);
@@ -1149,13 +1156,13 @@ export function buildGapFollowupQuestion(
           }
         }
       }
-      
+
       return questions;
     } else {
       // 已经问过或槽位都齐了，进入下一步量化
       // 修复：确保所有 gap_followup 问题都包含可选项或0-10打分
       const questions: string[] = [];
-      
+
       switch (missingSlot) {
         case 'duration':
           // 持续时间：提供选项
@@ -1172,16 +1179,16 @@ export function buildGapFollowupQuestion(
         default:
           return null;
       }
-      
+
       // Guard：如果问题列表为空，返回 null（避免输出空问题）
       if (questions.length === 0) {
         return null;
       }
-      
+
       return questions;
     }
   }
-  
+
   // 非压力场景：风险问题优先级最高，单独处理（不采用 2 问结构）
   // 修复：检查 followupSlot 状态，避免重复问已回答的槽位
   if (missingSlot === 'risk' && riskSignalStrong) {
@@ -1200,18 +1207,18 @@ export function buildGapFollowupQuestion(
     }
     return ['为了确认你的安全：最近有没有出现伤害自己的想法？（没有/偶尔闪过/经常出现/已经计划）'];
   }
-  
+
   // 其他场景：单问 + 选项/0-10 打分
   // 修复：确保所有 gap_followup 问题都包含可选项或0-10打分
   switch (missingSlot) {
     case 'context':
       // 触发情境：提供选项
       return ['通常在什么情境下这种感觉最明显？更接近：A) 工作/学习压力 B) 人际关系 C) 独处/睡前 D) 特定事件触发'];
-    
+
     case 'duration':
       // 持续时间：提供选项
       return ['这种状态大概持续了多久？更接近：A) 几天 B) 几周 C) 几个月 D) 不确定'];
-    
+
     case 'impact':
       // 影响：使用 0-10 打分
       // 修复：检查 followupSlot 状态，避免重复问已回答的槽位
@@ -1228,11 +1235,11 @@ export function buildGapFollowupQuestion(
         return null;
       }
       return ['它对你的睡眠/工作/社交影响有多大？请打分 0-10（0=几乎无影响，10=严重影响）'];
-    
+
     case 'risk':
       // 风险问题：提供选项
       return ['为了确认你的安全：最近有没有出现伤害自己的想法？（没有/偶尔闪过/经常出现/已经计划）'];
-    
+
     default:
       return null;
   }
