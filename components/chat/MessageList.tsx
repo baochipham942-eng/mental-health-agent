@@ -170,17 +170,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
             />
           );
         })}
-        {(isLoading || isSending) && (
-          <div className="flex items-start gap-2 mb-4">
-            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
-              <div className="flex gap-1.5">
-                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            </div>
-          </div>
-        )}
+
         <div ref={endRef} />
 
         {/* 回到底部按钮（修复B: 调整位置，避免被输入框遮挡） */}
