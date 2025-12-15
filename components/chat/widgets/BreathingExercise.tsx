@@ -65,7 +65,7 @@ export function BreathingExercise() {
     };
 
     // 动画变体
-    const circleVariants = {
+    const circleVariants: any = {
         ready: { scale: 1, opacity: 0.8 },
         inhale: { scale: 1.5, opacity: 1, transition: { duration: DURATION_INHALE / 1000, ease: "easeInOut" } },
         hold: { scale: 1.5, opacity: 1, transition: { duration: DURATION_HOLD / 1000, ease: "linear" } },
@@ -108,8 +108,8 @@ export function BreathingExercise() {
                 <button
                     onClick={isRunning ? handleStop : handleStart}
                     className={`px-6 py-2 rounded-full font-medium transition-colors ${isRunning
-                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
                         }`}
                 >
                     {isRunning ? '结束练习' : '开始呼吸'}
