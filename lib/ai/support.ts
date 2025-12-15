@@ -1,4 +1,4 @@
-import { chatCompletion, ChatMessage } from './deepseek';
+import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
 
 /**
  * 支持性倾听系统提示词
@@ -58,6 +58,34 @@ export async function generateSupportReply(
   ];
 
   return await chatCompletion(messages, {
+    temperature: 0.8,
+    max_tokens: 400,
+  });
+}
+
+/**
+ * 生成支持性倾听回复（流式）
+ */
+export async function streamSupportReply(
+  userMessage: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+) {
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: SUPPORT_PROMPT,
+    },
+    ...history.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    })),
+    {
+      role: 'user',
+      content: userMessage,
+    },
+  ];
+
+  return await streamChatCompletion(messages, {
     temperature: 0.8,
     max_tokens: 400,
   });

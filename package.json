@@ -14,14 +14,22 @@
     "test:contract": "ts-node --project tsconfig.scripts.json scripts/contract-smoke.ts",
     "test:contract:edge": "ts-node --project tsconfig.scripts.json scripts/contract-edge-smoke.ts",
     "test:strip": "ts-node --project tsconfig.scripts.json scripts/conclusion-strip-smoke.ts",
-    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run validate:skills && cross-env SKILL_MODE=steps_and_cards npm run test:contract && cross-env SKILL_MODE=steps_and_cards npm run test:contract:edge && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run smoke"
+    "test:question:policy": "ts-node --project tsconfig.scripts.json scripts/question-policy-smoke.ts",
+    "test:route:policy": "ts-node --project tsconfig.scripts.json scripts/route-policy-smoke.ts",
+    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run validate:skills && cross-env SKILL_MODE=steps_and_cards npm run test:question:policy && cross-env SKILL_MODE=steps_and_cards npm run test:route:policy && cross-env SKILL_MODE=steps_and_cards npm run test:contract && cross-env SKILL_MODE=steps_and_cards npm run test:contract:edge && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run smoke"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^0.0.54",
+    "ai": "^3.4.0",
     "clsx": "^2.1.0",
+    "langfuse": "^3.38.6",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "tailwind-merge": "^2.2.0"
+    "react-markdown": "^9.0.1",
+    "tailwind-merge": "^2.2.0",
+    "zod": "^3.22.4",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

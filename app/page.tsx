@@ -1,7 +1,13 @@
-import { ChatContainer } from '@/components/chat/ChatContainer';
+import dynamic from "next/dynamic";
 
-export default function Home() {
-  return <ChatContainer />;
+const ChatShell = dynamic(() => import("@/components/chat/ChatShell").then(mod => ({ default: mod.ChatShell })), { ssr: false });
+
+export default function Page() {
+  return (
+    <main className="min-h-dvh w-full bg-slate-50">
+      <ChatShell />
+    </main>
+  );
 }
 
 

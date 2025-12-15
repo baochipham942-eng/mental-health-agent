@@ -1,8 +1,23 @@
 import { EmotionAnalysis } from '@/types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
+import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '@/lib/observability/langfuse';
 
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+
+// Vercel AI SDK Integration
+import { createOpenAI } from '@ai-sdk/openai';
+import { streamText, generateText } from 'ai';
+
+// Create DeepSeek provider instance
+// Start with base URL but remove '/chat/completions' as the SDK appends it or uses standard endpoints
+// DeepSeek uses standard OpenAI compatible endpoints: https://api.deepseek.com/v1
+const deepseekBaseUrl = (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1').replace(/\/chat\/completions$/, '');
+
+export const deepseek = createOpenAI({
+  baseURL: deepseekBaseUrl,
+  apiKey: DEEPSEEK_API_KEY,
+});
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -61,12 +76,97 @@ export async function chatCompletion(
   }
 
   const data: ChatCompletionResponse = await response.json();
-  
+
   if (!data.choices || data.choices.length === 0) {
     throw new Error('No response from DeepSeek API');
   }
 
-  return data.choices[0].message.content;
+  const output = data.choices[0].message.content;
+
+  // LangFuse Tracing
+  // LangFuse Tracing
+  const trace = createTrace(
+    'chatCompletion',
+    {
+      model: 'deepseek-chat',
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.max_tokens ?? 2000,
+    },
+    messages // Input
+  );
+  if (trace) {
+    const generation = createGeneration(trace, 'DeepSeek Chat', messages, 'deepseek-chat');
+    endGeneration(generation, output, {
+      promptTokens: data.usage?.prompt_tokens,
+      completionTokens: data.usage?.completion_tokens,
+      totalTokens: data.usage?.total_tokens,
+    });
+
+    // Update trace with output
+    updateTrace(trace, { output: output });
+
+    await flushLangfuse();
+  }
+
+  return output;
+}
+
+/**
+ * Stream chat completion using Vercel AI SDK
+ */
+export async function streamChatCompletion(
+  messages: ChatMessage[],
+  options?: {
+    temperature?: number;
+    max_tokens?: number;
+  }
+) {
+  if (!DEEPSEEK_API_KEY) {
+    throw new Error('DEEPSEEK_API_KEY is not configured');
+  }
+
+  // Convert ChatMessage to CoreMessage format expected by AI SDK
+  // They are basically the same structure { role, content }
+  const coreMessages = messages.map(m => ({
+    role: m.role as 'system' | 'user' | 'assistant',
+    content: m.content
+  }));
+
+  const result = await streamText({
+    model: deepseek('deepseek-chat'),
+    messages: coreMessages,
+    temperature: options?.temperature ?? 0.7,
+    maxTokens: options?.max_tokens ?? 2000,
+    onFinish: async ({ text, usage, finishReason }) => {
+      // LangFuse Tracing (Async)
+      const trace = createTrace(
+        'streamChatCompletion',
+        {
+          model: 'deepseek-chat',
+          temperature: options?.temperature ?? 0.7,
+          max_tokens: options?.max_tokens ?? 2000,
+          finishReason,
+        },
+        messages // Input
+      );
+
+      if (trace) {
+        const generation = createGeneration(trace, 'DeepSeek Stream', messages, 'deepseek-chat');
+        endGeneration(generation, text, {
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
+        });
+
+        // Update trace with output
+        updateTrace(trace, { output: text });
+
+        await flushLangfuse();
+      }
+    },
+  });
+
+  return result;
 }
 
 /**
@@ -155,7 +255,7 @@ export async function analyzeEmotion(userMessage: string): Promise<EmotionAnalys
  */
 function matchEmotionByKeywords(text: string): EmotionAnalysis {
   const lowerText = text.toLowerCase();
-  
+
   const keywords: Record<string, string[]> = {
     '焦虑': ['焦虑', '担心', '紧张', '不安', '害怕', '恐慌'],
     '抑郁': ['抑郁', '沮丧', '低落', '无望', '绝望', '难过'],

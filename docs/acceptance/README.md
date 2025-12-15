@@ -2,6 +2,10 @@
 
 本目录包含项目的验收报告，用于记录重要功能集成的验收过程和结果。
 
+## 相关文档
+
+- 📄 [架构总览](../architecture/OVERVIEW.md) - 系统端到端架构单页总览
+
 ## 报告列表
 
 ### 2025-12-14: Contract Edge Smoke Tests + CI Integration

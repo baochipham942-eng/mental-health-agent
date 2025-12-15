@@ -2,6 +2,11 @@
 
 本文档说明如何在 Cursor 环境 / 本地对齐 smoke 配置与阈值，确保测试结果的可重复性。
 
+## 相关文档
+
+- 📄 [架构总览](../architecture/OVERVIEW.md) - **单页架构总览**，涵盖请求链路、Skill 系统、Contract/Gate、配置与 CI 可追溯性
+- 📄 [详细架构文档](../architecture/current-architecture.md) - 完整的产品架构说明，包含产品能力总览、核心模块架构、关键目录与文件职责等
+
 ## CI 默认模式
 
 `npm run ci:check` **默认固定**使用 `SKILL_MODE=steps_and_cards` 模式运行完整链路。
@@ -96,10 +101,11 @@ npm run ci:check
 1. `npm run verify:config` - 配置校验（默认 warn 模式）
 2. `npm run typecheck` - TypeScript 类型检查
 3. `npm run validate:skills` - Skill 定义验证
-4. `npm run test:contract` - Contract 回归用例
-5. `npm run test:contract:edge` - Contract 边界用例测试
-6. `npm run test:strip` - Conclusion 输出剥离回归用例
-7. `npm run smoke` - 冒烟测试
+4. `npm run test:question:policy` - Question Policy 回归用例
+5. `npm run test:contract` - Contract 回归用例
+6. `npm run test:contract:edge` - Contract 边界用例测试
+7. `npm run test:strip` - Conclusion 输出剥离回归用例
+8. `npm run smoke` - 冒烟测试
 
 任一步骤失败，整个流程会终止。
 
@@ -360,6 +366,55 @@ SKILL_MODE=steps_and_cards npm run smoke
 npm run ci:check
 ```
 
+## Question Policy 回归用例测试
+
+`test:question:policy` 专门覆盖苏格拉底式提问策略（Socratic Questioning Policy）的回归用例，确保提问优化策略正确工作。
+
+### 目的
+
+1. **验证禁用条件**：确保 support/crisis 路由和 emotion>=9/riskLevel>=urgent 场景不输出苏格拉底挑战
+   - support 路由：用户明确只想倾诉，不应进行认知挑战
+   - crisis 路由：危机场景优先稳定化/安全问题
+   - 高情绪强度（emotion>=9）：优先稳定化，不做认知挑战
+   - 高风险等级（riskLevel>=frequent/plan）：优先安全问题
+
+2. **验证提问质量**：
+   - intake 阶段：问题总数<=2，包含可选项或0-10打分的比例>=50%
+   - gap_followup 阶段：返回单问格式，优先使用选项或0-10打分
+
+3. **覆盖典型场景**：测试职场压力、家庭冲突、反复担心、失眠、拖延自责等常见场景
+
+### 本地运行
+
+```bash
+npm run test:question:policy
+```
+
+### CI 集成
+
+`test:question:policy` 已集成到 `ci:check` 流程中，在 `validate:skills` 之后、`test:contract` 之前执行。
+
+**失败意味着**：
+- Question Policy 的禁用条件可能被改坏（如 support/crisis 路由输出了苏格拉底挑战）
+- 提问质量不符合要求（如问题数量超限、缺少可选项/0-10打分）
+- 策略实现逻辑错误（如 intake/gap_followup 阶段问题格式不正确）
+
+### 测试覆盖
+
+测试脚本覆盖以下场景：
+
+1. **intake 阶段测试**（9个用例）：
+   - 职场压力、家庭冲突、反复担心、失眠、拖延自责场景
+   - support/crisis 路由禁用验证
+   - emotion>=9 禁用验证
+   - 可选项/0-10打分比例统计
+
+2. **gap_followup 阶段测试**（8个用例）：
+   - context/duration/impact/risk 缺失场景
+   - support/crisis 路由禁用验证
+   - riskLevel frequent/plan 禁用验证
+   - 单问格式和可选项/0-10打分验证
+
 ## Contract 边界用例测试
 
 `test:contract:edge` 专门覆盖 Contract 验证的边界场景，确保规则正确性：
@@ -410,6 +465,7 @@ npm run test:contract:edge
 - `npm run ci:check` - 完整 CI 检查（自动设置 `SKILL_MODE=steps_and_cards`，包含所有验证步骤）
 - `npm run typecheck` - TypeScript 类型检查
 - `npm run validate:skills` - Skill 定义验证
+- `npm run test:question:policy` - Question Policy 回归用例
 - `npm run test:contract` - Contract 回归用例
 - `npm run test:contract:edge` - Contract 边界用例测试
 - `npm run test:strip` - Conclusion 输出剥离回归用例

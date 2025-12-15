@@ -14,17 +14,106 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
 body {
   color: var(--foreground);
-  background: var(--background);
+  background: #f8fafc; /* slate-50 equivalent */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  position: relative;
+  overflow: hidden; /* 让滚动只发生在消息区容器，这是正确的 */
+}
+
+/* 确保主容器占满全屏 */
+#__next,
+main {
+  min-height: 100vh;
+  width: 100%;
+  height: 100%;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* 消息气泡优化（桌面端和移动端） */
+  .prose {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+  
+  .prose pre {
+    overflow-x: auto;
+    word-break: break-all;
+    max-width: 100%;
+  }
+  
+  .prose code {
+    word-break: break-all;
+    max-width: 100%;
+  }
+  
+  .prose ul,
+  .prose ol {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+  
+  /* 确保超长英文/URL 不撑爆 */
+  .prose p,
+  .prose a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  
+  /* blockquote 轻量样式 */
+  .prose blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+    background-color: #f9fafb;
+    border-radius: 0 0.375rem 0.375rem 0;
+  }
+  
+  .prose blockquote p {
+    margin: 0;
+  }
+  
+  /* 移动端消息气泡优化 */
+  @media (max-width: 640px) {
+    .prose {
+      font-size: 0.875rem;
+    }
+    
+    .prose pre {
+      font-size: 0.75rem;
+    }
+    
+    .prose code {
+      font-size: 0.75rem;
+    }
+    
+    .prose ul,
+    .prose ol {
+      padding-left: 1.25rem;
+    }
   }
 }
 
@@ -46,6 +135,25 @@ body {
   textarea:disabled::placeholder,
   input:disabled::placeholder {
     @apply text-gray-400;
+  }
+  
+  /* 确保输入框始终可交互 */
+  textarea,
+  input {
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+  
+  /* 确保按钮可点击 */
+  button:not(:disabled) {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+  
+  button:disabled {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
   }
 }
 

@@ -1,4 +1,4 @@
-import { chatCompletion, ChatMessage } from './deepseek';
+import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
 
 /**
  * 危机干预系统提示词
@@ -72,6 +72,61 @@ export async function generateCrisisReply(
   ];
 
   return await chatCompletion(messages, {
+    temperature: 0.7,
+    max_tokens: 600,
+  });
+}
+
+/**
+ * 危机干预后续对话提示词
+ */
+const CRISIS_FOLLOWUP_PROMPT = `你是一位专业的危机干预专家。用户之前表达了危机意图，你已经进行过初步干预。
+现在是后续对话，你的目标是：进一步稳定用户情绪，确认安全，并持续提供支持。
+
+你的职责：
+1. **确认执行**：如果之前给出了安全建议（如移开危险物），温和地确认用户是否已照做。
+2. **情感共情**：继续给予深度的理解和支持，接纳用户的痛苦。
+3. **强化安全**：再次强调生命的重要性，鼓励寻求专业帮助。
+
+回复要求：
+- 语气温暖、耐心、不评判。
+- 如果用户表示已安全或情绪好转，给予肯定和鼓励。
+- 如果用户依然情绪激动，继续安抚并提供热线资源。
+- **不要**机械地重复之前的标准化步骤，而是根据用户的具体回答进行自然对话。
+- 始终保留热线信息作为保底，但可以更自然地融入。
+- 只有当用户明确表示"我没事了"、"感觉好多了"且你判断风险已显著降低时，才可以转向更轻松的话题（但仍需保持关注）。
+
+请根据用户的最新回复生成适合的干预内容。`;
+
+/**
+ * 生成危机干预回复（流式）
+ * @param userMessage 用户消息
+ * @param history 对话历史
+ * @param isFollowup 是否为后续对话（默认为 false）
+ */
+export async function streamCrisisReply(
+  userMessage: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  isFollowup: boolean = false
+) {
+  const systemPrompt = isFollowup ? CRISIS_FOLLOWUP_PROMPT : CRISIS_PROMPT;
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: systemPrompt,
+    },
+    ...history.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    })),
+    {
+      role: 'user',
+      content: userMessage,
+    },
+  ];
+
+  return await streamChatCompletion(messages, {
     temperature: 0.7,
     max_tokens: 600,
   });

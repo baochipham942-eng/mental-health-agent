@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
@@ -7,6 +8,15 @@ import { cn } from '@/lib/utils/cn';
 
 export function ChatContainer() {
   const { messages, isLoading, error, sendMessage, clearHistory } = useChat();
+  const [draft, setDraft] = useState('');
+
+  const handleSend = async () => {
+    const content = draft.trim();
+    if (!content || isLoading) return;
+    
+    await sendMessage(content);
+    setDraft(''); // 发送成功后清空
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -37,7 +47,12 @@ export function ChatContainer() {
       <MessageList messages={messages} isLoading={isLoading} />
 
       {/* 输入框 */}
-      <ChatInput onSend={sendMessage} isLoading={isLoading} />
+      <ChatInput 
+        value={draft}
+        onChange={setDraft}
+        onSend={handleSend}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
