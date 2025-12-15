@@ -188,16 +188,28 @@ export async function sendChatMessage(
               console.error('Error parsing text chunk', e);
             }
           } else if (line.startsWith('d:')) {
-            // Data chunk: d:{...}
+            // Data chunk (Legacy): d:{...}
             try {
               const data = JSON.parse(line.substring(2));
-              // Deep merge or Object.assign?
-              // Vercel AI StreamData appends. We might get multiple data chunks.
-              // Our backend sends ONE data chunk usually, or appends.
-              // We should merge them.
               assembledData = { ...assembledData, ...data };
             } catch (e) {
-              console.error('Error parsing data chunk', e);
+              console.error('Error parsing data chunk (d:)', e);
+            }
+          } else if (line.startsWith('2:')) {
+            // Data chunk (New Protocol): 2:[...]
+            try {
+              const data = JSON.parse(line.substring(2));
+              // Vercel SDK sends an array of data items
+              if (Array.isArray(data)) {
+                // Merge all items in the array
+                data.forEach(item => {
+                  assembledData = { ...assembledData, ...item };
+                });
+              } else {
+                assembledData = { ...assembledData, ...data };
+              }
+            } catch (e) {
+              console.error('Error parsing data chunk (2:)', e);
             }
           }
         }
