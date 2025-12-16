@@ -938,7 +938,10 @@ export function buildGapFollowupQuestion(
   // 如果已经问过并得到答案，不再重复问
   if (followupSlot) {
     // 如果风险槽位已完成（riskLevel != unknown），且 missingSlot 是 'risk'，不应该再问
-    if (missingSlot === 'risk' && followupSlot.riskLevel !== 'unknown' && followupSlot.asked.risk) {
+    if (missingSlot === 'risk' && followupSlot.riskLevel !== 'unknown') {
+      // 修复：只要已有风险评分，就不再问，无论之前是否问过（处理用户主动回答的情况）
+      // ...
+
       // 如果影响槽位未完成，转向问影响
       if (followupSlot.impactScore === undefined && !followupSlot.asked.impact) {
         return ['这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）'];
@@ -950,7 +953,9 @@ export function buildGapFollowupQuestion(
     }
 
     // 如果影响槽位已完成（impactScore 有值），且 missingSlot 是 'impact'，不应该再问
-    if (missingSlot === 'impact' && followupSlot.impactScore !== undefined && followupSlot.asked.impact) {
+    if (missingSlot === 'impact' && followupSlot.impactScore !== undefined) {
+      // 修复：只要已有影响评分，就不再问，无论之前是否问过（处理用户主动回答 "0分" 等情况）
+
       // 如果风险槽位未完成，转向问风险（但需要检查是否应该问）
       if (followupSlot.riskLevel === 'unknown' && !followupSlot.asked.risk && riskSignalStrong) {
         return ['为了确认你的安全：最近有没有出现伤害自己的想法？（没有/偶尔闪过/经常出现/已经计划）'];
