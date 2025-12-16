@@ -30,7 +30,7 @@ const GAP_QUESTIONS = {
  */
 function parseDuration(text: string): string | undefined {
   const lowerText = text.toLowerCase();
-  
+
   // 匹配具体时间表达
   const durationPatterns = [
     /(\d+)\s*(天|日)/,
@@ -50,7 +50,7 @@ function parseDuration(text: string): string | undefined {
     /自从/,
     /以来/,
   ];
-  
+
   for (const pattern of durationPatterns) {
     if (pattern.test(lowerText)) {
       const match = lowerText.match(pattern);
@@ -59,7 +59,7 @@ function parseDuration(text: string): string | undefined {
       }
     }
   }
-  
+
   return undefined;
 }
 
@@ -68,15 +68,25 @@ function parseDuration(text: string): string | undefined {
  */
 function parseImpactScore(text: string): number | undefined {
   const lowerText = text.toLowerCase();
-  
-  // 匹配 "影响X/10" 或 "X/10"
+
+  // Bug Fix: 优先匹配纯数字（快捷回复按钮发送的是 "0" 而不是 "0/10"）
+  const bareNumberPattern = /^(\d{1,2})$/;
+  const bareMatch = lowerText.trim().match(bareNumberPattern);
+  if (bareMatch) {
+    const score = parseInt(bareMatch[1], 10);
+    if (score >= 0 && score <= 10) {
+      return score;
+    }
+  }
+
+  // 匹配 "影响X/10" 或 "X/10" 或 "X分"
   const impactPatterns = [
     /影响\s*(\d+)\s*\/\s*10/,
     /(\d+)\s*\/\s*10/,
     /影响\s*(\d+)\s*分/,
     /(\d+)\s*分/,
   ];
-  
+
   for (const pattern of impactPatterns) {
     const match = lowerText.match(pattern);
     if (match) {
@@ -86,7 +96,7 @@ function parseImpactScore(text: string): number | undefined {
       }
     }
   }
-  
+
   return undefined;
 }
 
@@ -95,15 +105,15 @@ function parseImpactScore(text: string): number | undefined {
  */
 export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 'plan' | 'unknown' {
   const lowerText = text.toLowerCase();
-  
+
   // 明确排除
-  if (lowerText.includes('没有伤害自己的想法') || 
-      lowerText.includes('没有伤害自己') ||
-      lowerText.includes('没有自伤') ||
-      lowerText.includes('没有自杀')) {
+  if (lowerText.includes('没有伤害自己的想法') ||
+    lowerText.includes('没有伤害自己') ||
+    lowerText.includes('没有自伤') ||
+    lowerText.includes('没有自杀')) {
     return 'none';
   }
-  
+
   // 仅在风险问题语境时，识别独立出现的否定回答
   // 这个检查需要在明确自杀表达之前，避免误判
   const riskQuestionKeywords = [
@@ -113,18 +123,18 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 
     '为了确认你的安全',
     '伤害自己',
   ];
-  
+
   const hasRiskQuestionContext = riskQuestionKeywords.some(keyword => lowerText.includes(keyword));
-  
+
   if (hasRiskQuestionContext) {
     // 简短的否定回答关键词
     const shortNegativeKeywords = ['没有', '无', '没', '不存在', '没有这种想法'];
-    
+
     // 检查文本结尾是否只包含简短的否定回答
     // 去除空白和标点
     const cleanedText = lowerText.replace(/[。，！？\s]/g, '').trim();
     const lastPart = cleanedText.slice(Math.max(0, cleanedText.length - 20));
-    
+
     // 检查最后部分是否只包含简短的否定关键词
     for (const negativeKeyword of shortNegativeKeywords) {
       // 如果最后部分以否定关键词结尾
@@ -134,20 +144,20 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 
           return 'none';
         }
       }
-      
+
       // 如果最后部分只包含否定关键词（可能前面有少量其他内容）
       if (lastPart === negativeKeyword) {
         return 'none';
       }
     }
-    
+
     // 检查长文本中独立出现的否定词（避免误判"没有睡好"等）
     // 使用正则表达式匹配独立的否定词，确保它们不是其他词的一部分
     // 匹配模式：否定词前后是标点、空白、句首或句尾，或者否定词后跟语气词
-    
+
     // 语气词
     const toneWords = '[啊呢吧呀哦嗯]';
-    
+
     // 匹配独立的"没有"（可后跟语气词，然后跟标点、空白或结尾）
     // 排除"没有睡好"、"没有动力"等：如果"没有"后直接跟常见动词/名词，则不匹配
     // 使用全局匹配找到所有可能的匹配
@@ -157,59 +167,59 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 
       const fullMatch = meiYouMatch[0];
       const matchIndex = meiYouMatch.index;
       const afterMatch = lowerText.slice(matchIndex + fullMatch.length);
-      
+
       // 检查是否是误判模式（如"没有睡好"、"没有动力"等）
       // 如果"没有"后直接跟了常见动词/名词，则不识别
       const falsePositivePattern = /^(睡|动力|精神|食欲|兴趣|希望|目标|计划|想法|办法|方法|时间|钱|工作|学习|食欲|胃口|心情|状态|感觉|力气|精力)/;
-      
+
       // 如果"没有"后跟了语气词或标点/空白/结尾，且不是误判模式，则识别为 'none'
       const hasToneWord = meiYouMatch[2] && meiYouMatch[2].length > 0;
       const hasPunctuation = meiYouMatch[3] && meiYouMatch[3].trim().length > 0;
       const isEnd = matchIndex + fullMatch.length >= lowerText.length;
-      
+
       if ((hasToneWord || hasPunctuation || isEnd) && !falsePositivePattern.test(afterMatch.trim())) {
         return 'none';
       }
     }
-    
+
     // 匹配独立的"无"（前后是标点、空白或句首/句尾，可后跟语气词）
     if (/(^|[，。！？\s])(无)([啊呢吧呀哦嗯]?)([，。！？\s]|$)/.test(lowerText)) {
       return 'none';
     }
-    
+
     // 匹配独立的"没"（前后是标点、空白或句首/句尾，必须后跟语气词）
     // 注意："没"单独出现时容易误判（如"没睡好"），所以只匹配后跟语气词的情况
     if (/(^|[，。！？\s])(没)([啊呢吧呀哦嗯])([，。！？\s]|$)/.test(lowerText)) {
       return 'none';
     }
-    
+
     // 匹配独立的"不存在"（前后是标点、空白或句首/句尾，可后跟语气词）
     if (/(^|[，。！？\s])(不存在)([啊呢吧呀哦嗯]?)([，。！？\s]|$)/.test(lowerText)) {
       return 'none';
     }
   }
-  
+
   // 匹配风险问题选项
   if (lowerText.includes('已经计划') || lowerText.includes('伤害自己的想法：已经计划')) {
     return 'plan';
   }
-  
+
   if (lowerText.includes('经常出现') || lowerText.includes('伤害自己的想法：经常出现')) {
     return 'frequent';
   }
-  
+
   if (lowerText.includes('偶尔闪过') || lowerText.includes('伤害自己的想法：偶尔闪过')) {
     return 'passive';
   }
-  
+
   // 明确自杀表达（需要在简短否定回答检查之后）
-  if (lowerText.includes('想死') || 
-      lowerText.includes('自杀') || 
-      lowerText.includes('结束生命') ||
-      lowerText.includes('不想活了')) {
+  if (lowerText.includes('想死') ||
+    lowerText.includes('自杀') ||
+    lowerText.includes('结束生命') ||
+    lowerText.includes('不想活了')) {
     return 'plan'; // 视为高风险
   }
-  
+
   // 即使没有风险问题关键词，也检查是否是纯否定回答（"没有/无/没/不存在"可带语气词）
   // 这种情况通常是对风险问题的简短回答
   // 支持文本以否定词结尾的情况（如"但是没有"、"但是没有啊"）
@@ -224,14 +234,14 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 
     /(但是|不过|只是|就是)(没)([啊呢吧呀哦嗯])$/,
     /(但是|不过|只是|就是)(不存在)([啊呢吧呀哦嗯]?)$/,
   ];
-  
+
   const trimmedText = lowerText.trim();
   for (const pattern of pureNegativePatterns) {
     if (pattern.test(trimmedText)) {
       return 'none';
     }
   }
-  
+
   return 'unknown';
 }
 
@@ -240,7 +250,7 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'frequent' | 
  */
 function parseContext(text: string): string | undefined {
   const lowerText = text.toLowerCase();
-  
+
   // 匹配触发词
   const contextPatterns = [
     /因为\s*([^，。！？]+)/,
@@ -250,7 +260,7 @@ function parseContext(text: string): string | undefined {
     /当\s*([^，。！？]+)\s*时/,
     /在\s*([^，。！？]+)\s*时/,
   ];
-  
+
   for (const pattern of contextPatterns) {
     const match = lowerText.match(pattern);
     if (match && match[1]) {
@@ -260,7 +270,7 @@ function parseContext(text: string): string | undefined {
       }
     }
   }
-  
+
   // 检查是否包含情境关键词
   const contextKeywords = ['上班', '工作', '睡前', '社交', '独处', '考试', '演讲', '会议', '争吵', '分手'];
   for (const keyword of contextKeywords) {
@@ -268,7 +278,7 @@ function parseContext(text: string): string | undefined {
       return keyword;
     }
   }
-  
+
   return undefined;
 }
 
@@ -286,7 +296,7 @@ function isGenericMessage(message: string): boolean {
     /我压力很大/,
     /我很难受/,
   ];
-  
+
   return genericPatterns.some(pattern => pattern.test(lowerMessage));
 }
 
@@ -298,10 +308,10 @@ function extractLastAnswer(followupAnswer: string): string {
   if (!followupAnswer || followupAnswer.trim().length === 0) {
     return '';
   }
-  
+
   // 先按句号、问号、感叹号、换行符分割
   const sentences = followupAnswer.split(/[。！？\n]/);
-  
+
   // 找到最后一个非空句子
   for (let i = sentences.length - 1; i >= 0; i--) {
     const sentence = sentences[i].trim();
@@ -312,31 +322,31 @@ function extractLastAnswer(followupAnswer: string): string {
       if (spaceParts.length > 1) {
         return spaceParts[spaceParts.length - 1];
       }
-      
+
       // 2. 如果按空格分割后只有一个部分，尝试按逗号分割
       const commaParts = sentence.split(/[，,]/);
       if (commaParts.length > 1) {
         return commaParts[commaParts.length - 1].trim();
       }
-      
+
       // 3. 如果都没有，返回整个句子
       return sentence;
     }
   }
-  
+
   // 如果没有找到句子分隔符，尝试按空格分割，取最后一部分
   const trimmed = followupAnswer.trim();
   const spaceParts = trimmed.split(/\s+/);
   if (spaceParts.length > 1) {
     return spaceParts[spaceParts.length - 1];
   }
-  
+
   // 如果按空格分割后只有一个部分，尝试按逗号分割
   const commaParts = trimmed.split(/[，,]/);
   if (commaParts.length > 1) {
     return commaParts[commaParts.length - 1].trim();
   }
-  
+
   // 如果只有一个部分，返回整个文本
   return trimmed;
 }
@@ -346,11 +356,11 @@ function extractLastAnswer(followupAnswer: string): string {
  */
 export function detectGap(initialMessage: string, followupAnswer: string): GapResult {
   const combinedText = `${initialMessage} ${followupAnswer}`;
-  
+
   // 提取 followupAnswer 的最后一句，用于识别风险等级
   // 因为 followupAnswer 可能包含多轮用户回答，且不包含 assistant 的风险提问文本
   const lastAnswer = extractLastAnswer(followupAnswer);
-  
+
   // 解析信息
   let intake: IntakeInfo = {
     duration: parseDuration(combinedText),
@@ -359,7 +369,7 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
     riskLevel: parseRiskLevel(lastAnswer),
     context: parseContext(combinedText),
   };
-  
+
   // 优先级判断：risk > impact > duration > context
   if (intake.riskLevel === 'unknown') {
     return {
@@ -369,7 +379,7 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
       intake,
     };
   }
-  
+
   if (intake.impactScore === undefined) {
     return {
       hasGap: true,
@@ -378,7 +388,7 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
       intake,
     };
   }
-  
+
   if (!intake.duration) {
     return {
       hasGap: true,
@@ -387,7 +397,7 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
       intake,
     };
   }
-  
+
   // context 只在初始消息很泛时才作为缺口
   if (!intake.context && isGenericMessage(initialMessage)) {
     return {
@@ -397,7 +407,7 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
       intake,
     };
   }
-  
+
   return {
     hasGap: false,
     intake,

@@ -626,13 +626,21 @@ export async function POST(request: NextRequest) {
         const currentPressureSocratic = meta?.pressureSocratic;
         const updatedPressureSocratic = updatePressureSocraticState(message, currentPressureSocratic);
 
+        // Phase 3 Critical Fix: 防御性检查 - 如果初始消息已包含场景，强制标记 situationDone
+        // 这解决了"被老板骗了"在初始消息提供场景，但后续回答不重复时，系统仍追问的问题
+        const initialHasSituation = updatePressureSocraticState(initialMessage).situationDone;
+        if (initialHasSituation && !updatedPressureSocratic.situationDone) {
+          console.log('[DEBUG] Initial message contained situation, forcing situationDone=true');
+          updatedPressureSocratic.situationDone = true;
+        }
+
         // Phase 1 Fix: 更新 existingIntake，合并用户回答中的槽位信息
         // 这确保了单一事实来源 (Single Source of Truth)
         const updatedIntake = {
           ...gapResult.intake,
           // 如果 Socratic 场景槽位已填，更新 context
           ...(updatedPressureSocratic.situationDone && !gapResult.intake.context && {
-            context: message,
+            context: initialHasSituation ? initialMessage : message,
           }),
           // 如果 Socratic 想法槽位已填，更新 mainIssue
           ...(updatedPressureSocratic.thoughtDone && !gapResult.intake.mainIssue && {
