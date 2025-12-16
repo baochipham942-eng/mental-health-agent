@@ -589,10 +589,19 @@ export async function POST(request: NextRequest) {
       // 否则继续走 assessment 流：先做 gap 检测（使用组合后的所有回答）
       const gapResult = detectGap(initialMessage, combinedFollowupAnswer);
 
+      // DEBUG: 详细追踪 gap 检测结果
+      console.log('[DEBUG gap_followup] ================');
+      console.log('[DEBUG gap_followup] initialMessage:', initialMessage);
+      console.log('[DEBUG gap_followup] message (current):', message);
+      console.log('[DEBUG gap_followup] combinedFollowupAnswer:', combinedFollowupAnswer);
+      console.log('[DEBUG gap_followup] gapResult:', JSON.stringify(gapResult, null, 2));
+
       // 更新 followup 槽位状态
       const currentFollowupSlot = meta?.followupSlot;
       const lastFollowupSlot = currentFollowupSlot?.lastFollowupSlot;
       const updatedFollowupSlot = updateFollowupSlotState(combinedFollowupAnswer, currentFollowupSlot, lastFollowupSlot);
+
+      console.log('[DEBUG gap_followup] updatedFollowupSlot:', JSON.stringify(updatedFollowupSlot, null, 2));
 
       // 修复D: 检查是否应该进入 conclusion
       // 条件1: followupSlot槽位都完成了 (riskLevel + impactScore)
@@ -600,6 +609,12 @@ export async function POST(request: NextRequest) {
       const hasPressureMinInfo = gapResult.intake?.context && gapResult.intake?.mainIssue;
       const hasImpactScore = updatedFollowupSlot.impactScore !== undefined;
       const shouldEnterConclusion = updatedFollowupSlot.done || (hasPressureMinInfo && hasImpactScore);
+
+      console.log('[DEBUG gap_followup] shouldEnterConclusion:', shouldEnterConclusion, {
+        hasPressureMinInfo,
+        hasImpactScore,
+        'updatedFollowupSlot.done': updatedFollowupSlot.done
+      });
 
       if (shouldEnterConclusion) {
         // 槽位收集完整，进入 conclusion
