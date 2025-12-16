@@ -622,20 +622,34 @@ export async function POST(request: NextRequest) {
 
       if (gapResult.hasGap) {
         // 有缺口：返回 gap_followup
-        // 更新压力槽位状态
+        // 更新压力槽位状态（Phase 1: 只基于当前消息，不使用累计文本）
         const currentPressureSocratic = meta?.pressureSocratic;
-        const updatedPressureSocratic = updatePressureSocraticState(combinedFollowupAnswer, currentPressureSocratic);
+        const updatedPressureSocratic = updatePressureSocraticState(message, currentPressureSocratic);
+
+        // Phase 1 Fix: 更新 existingIntake，合并用户回答中的槽位信息
+        // 这确保了单一事实来源 (Single Source of Truth)
+        const updatedIntake = {
+          ...gapResult.intake,
+          // 如果 Socratic 场景槽位已填，更新 context
+          ...(updatedPressureSocratic.situationDone && !gapResult.intake.context && {
+            context: message,
+          }),
+          // 如果 Socratic 想法槽位已填，更新 mainIssue
+          ...(updatedPressureSocratic.thoughtDone && !gapResult.intake.mainIssue && {
+            mainIssue: message,
+          }),
+        };
 
         // 优先使用苏格拉底式提问策略
         const policyQuestions = buildGapFollowupQuestion({
-          userMessage: combinedFollowupAnswer,
+          userMessage: message,  // Phase 1 Fix: 传入单次消息，不使用累计文本
           routeType: 'assessment',
           emotion: followupEmotion ? {
             label: followupEmotion.label,
             score: followupEmotion.score,
           } : undefined,
-          riskLevel: gapResult.intake.riskLevel,
-          existingIntake: gapResult.intake,
+          riskLevel: updatedIntake.riskLevel,
+          existingIntake: updatedIntake,  // Phase 1 Fix: 使用更新后的 intake
           pressureSocratic: updatedPressureSocratic,
           followupSlot: updatedFollowupSlot,  // 传入更新后的槽位状态
         }, gapResult.gapKey);
