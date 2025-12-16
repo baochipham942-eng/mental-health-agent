@@ -14,8 +14,8 @@ import { ChatRequest, ChatResponse, RouteType, AssessmentStage, ChatState, Press
 /**
  * 评估问题题库
  */
-const Q_DURATION = '这种状态大概持续了多久？（几天/几周/几个月/不确定）';
-const Q_IMPACT = '它对你的睡眠/工作/社交影响有多大？请打分 0-10（0=几乎无影响，10=严重影响）';
+const Q_DURATION = '这种状态大概持续了多久了？';
+const Q_IMPACT = '这件事对你的睡眠、工作或生活影响大吗？如果不介意的话，可以用 0-10 分打个分（0=无影响，10=严重影响）';
 const Q_RISK = '为了确认你的安全：最近有没有出现伤害自己的想法？（没有/偶尔闪过/经常出现/已经计划）';
 
 /**
@@ -258,8 +258,8 @@ function generateAdaptiveAssessmentQuestions(userMessage: string, emotion?: { la
     questions.push(Q_DURATION);
   }
 
-  // 确保最多 2 个问题
-  return questions.slice(0, 2);
+  // 确保最多 1 个问题（响应用户要求：一个一个问）
+  return questions.slice(0, 1);
 }
 
 /**
@@ -682,8 +682,8 @@ export async function POST(request: NextRequest) {
           ? (Array.isArray(policyQuestions) ? policyQuestions : [policyQuestions])
           : [gapResult.question];
 
-        // Guard：确保最多 2 个问题，且过滤掉空问题
-        const finalQuestions = questions.filter(q => q && q.trim().length > 0).slice(0, 2);
+        // Guard：确保最多 1 个问题（响应用户要求：一个一个问），且过滤掉空问题
+        const finalQuestions = questions.filter(q => q && q.trim().length > 0).slice(0, 1);
 
         // 修复：如果问题列表为空，直接进入 conclusion（不应该发生，但作为兜底）
         if (finalQuestions.length === 0) {
