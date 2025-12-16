@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { extractSummary, extractRiskTriage, extractNextStepsLines } from '@/lib/api/chat';
 import { ActionCard } from '@/types/chat';
@@ -39,30 +39,30 @@ export function ConclusionSections({
   // 从 summary 中提取关键信息作为摘要
   const extractSummaryBrief = (text: string): string => {
     if (!text) return '';
-    
+
     // 尝试提取关键信息：持续时间、影响分数、自伤念头等
     const durationMatch = text.match(/(\d+[个]?[月周天])/);
     const impactMatch = text.match(/(影响|强度|评分)[：:：]?\s*(\d+)\s*[\/分]/);
     const riskMatch = text.match(/(无|没有|未发现).*?(自伤|自杀|伤害)/);
-    
+
     const parts: string[] = [];
     if (durationMatch) parts.push(`持续 ${durationMatch[1]}`);
     if (impactMatch) parts.push(`影响 ${impactMatch[2]}/10`);
     if (riskMatch) parts.push('无自伤念头');
-    
+
     // 如果没有提取到关键信息，取前30字作为摘要
     if (parts.length === 0) {
       const cleaned = text.replace(/\n/g, ' ').trim();
       return cleaned.length > 30 ? cleaned.substring(0, 30) + '...' : cleaned;
     }
-    
+
     return parts.join(' · ');
   };
 
   // 从 riskTriage 中提取第一句话作为摘要
   const extractRiskTriageBrief = (text: string): string => {
     if (!text) return '';
-    
+
     // 取第一句话（到句号、问号、感叹号或换行）
     const firstSentence = text.split(/[。！？\n]/)[0].trim();
     return firstSentence.length > 50 ? firstSentence.substring(0, 50) + '...' : firstSentence;
@@ -89,7 +89,7 @@ export function ConclusionSections({
   // 提取简短引导语：去除已提取的结构化内容后的剩余文本
   const getBriefIntro = () => {
     if (!hasActionCards) return null;
-    
+
     // 移除已提取的结构化内容
     let briefText = reply;
     if (summary) briefText = briefText.replace(summary, '').trim();
@@ -99,7 +99,7 @@ export function ConclusionSections({
         briefText = briefText.replace(line, '').trim();
       });
     }
-    
+
     // 移除常见的结构化标记
     briefText = briefText
       .replace(/【初筛总结】/g, '')
@@ -109,12 +109,12 @@ export function ConclusionSections({
       .replace(/\*\*风险与分流\*\*/g, '')
       .replace(/\*\*下一步清单\*\*/g, '')
       .trim();
-    
+
     // 如果剩余文本很短（少于50字），作为引导语显示
     if (briefText && briefText.length < 50 && briefText.length > 0) {
       return briefText;
     }
-    
+
     // 否则返回默认简短引导语
     return hasActionCards ? '以下是一些适合你的行动建议：' : null;
   };
@@ -130,22 +130,24 @@ export function ConclusionSections({
 
       {/* 行动建议容器 - 紧凑工具卡样式 */}
       {shouldShowActions && (nextStepsLines.length > 0 || hasActionCards) && (
-        <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm w-full min-w-0 max-w-5xl mx-auto">
-          <h2 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-1.5">
-            <span className="text-base">🎯</span>
-            行动建议
-          </h2>
-          <div className="space-y-2.5 w-full min-w-0">
-            {/* 下一步行动清单 */}
-            {nextStepsLines.length > 0 && (
-              <NextStepsChecklist items={nextStepsLines} messageId={messageId} />
-            )}
-            {/* 行动卡片 */}
-            {hasActionCards && (
-              <ActionCardGrid cards={actionCards} />
-            )}
+        <ActionCardContainer hasActionCards={hasActionCards}>
+          <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm w-full min-w-0 max-w-5xl mx-auto">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-1.5">
+              <span className="text-base">🎯</span>
+              行动建议
+            </h2>
+            <div className="space-y-2.5 w-full min-w-0">
+              {/* 下一步行动清单 */}
+              {nextStepsLines.length > 0 && (
+                <NextStepsChecklist items={nextStepsLines} messageId={messageId} />
+              )}
+              {/* 行动卡片 */}
+              {hasActionCards && (
+                <ActionCardGrid cards={actionCards} />
+              )}
+            </div>
           </div>
-        </div>
+        </ActionCardContainer>
       )}
 
       {/* 初筛总结 - 紧凑摘要 + 可展开 */}
@@ -175,11 +177,10 @@ export function ConclusionSections({
       {/* 风险与分流 - 紧凑摘要 + 可展开 */}
       {riskTriage && (
         <div
-          className={`p-2.5 rounded-lg border ${
-            routeType === 'crisis'
-              ? 'bg-red-50 border-red-300'
-              : 'bg-yellow-50 border-yellow-200'
-          }`}
+          className={`p-2.5 rounded-lg border ${routeType === 'crisis'
+            ? 'bg-red-50 border-red-300'
+            : 'bg-yellow-50 border-yellow-200'
+            }`}
         >
           {routeType === 'crisis' && !isRiskTriageExpanded && (
             <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded">
@@ -221,6 +222,32 @@ export function ConclusionSections({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ActionCardContainer({ children, hasActionCards }: { children: React.ReactNode; hasActionCards?: boolean }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  // 当组件挂载或 hasActionCards 变为 true 时，触发动画
+  if (typeof window !== 'undefined') {
+    // useLayoutEffect or useEffect
+  }
+  // We can just use useEffect inside the component
+  useEffect(() => {
+    // 稍微延迟以确保 DOM 渲染
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 300); // 300ms 延迟，让用户先看到文字，再看到卡片浮现
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      className={`transition-all duration-1000 ease-out transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        }`}
+    >
+      {children}
     </div>
   );
 }

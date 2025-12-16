@@ -20,13 +20,13 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
 
     // 重置高度以获取正确的 scrollHeight
     textarea.style.height = 'auto';
-    
+
     // 计算行高（约等于 line-height，假设为 1.5，font-size 为 16px，padding 为 8px*2 = 16px）
     const lineHeight = 24; // 约 1.5 * 16px
     const padding = 16; // py-2 = 8px top + 8px bottom
     const minHeight = lineHeight + padding; // 1行高度
     const maxHeight = lineHeight * 6 + padding; // 6行高度
-    
+
     const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${newHeight}px`;
   };
@@ -51,7 +51,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
   const valueStr = typeof value === 'string' ? value : '';
   const trimmedValue = valueStr.trim();
   const canSend = trimmedValue.length > 0; // 移除!isLoading限制，允许队列化发送
-  
+
   // 添加全局错误处理，捕获浏览器扩展的错误
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
@@ -61,7 +61,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
         return false;
       }
     };
-    
+
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       // 如果是浏览器扩展的错误，静默处理
       if (event.reason && typeof event.reason === 'string' && event.reason.includes('control')) {
@@ -69,10 +69,10 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
         return false;
       }
     };
-    
+
     window.addEventListener('error', handleError, true);
     window.addEventListener('unhandledrejection', handleUnhandledRejection, true);
-    
+
     return () => {
       window.removeEventListener('error', handleError, true);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
@@ -85,11 +85,11 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     if (!canSend) {
       return;
     }
-    
+
     try {
       onSend();
       // 重置高度
@@ -100,17 +100,17 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
       console.error('Submit error:', error);
     }
   };
-  
+
   // 添加点击事件处理（使用捕获阶段，优先于扩展脚本）
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     // 立即阻止事件传播，防止浏览器扩展干扰
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!canSend) {
       return;
     }
-    
+
     // 使用 requestAnimationFrame 确保在下一帧执行，避免扩展干扰
     requestAnimationFrame(() => {
       try {
@@ -120,16 +120,16 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
       }
     });
   };
-  
+
   // 添加触摸事件支持（移动端）
   const handleTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!canSend) {
       return;
     }
-    
+
     requestAnimationFrame(() => {
       try {
         handleSubmit(e as any);
@@ -153,7 +153,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
       console.warn('KeyDown error (likely from browser extension):', error);
     }
   };
-  
+
   // 处理焦点事件，捕获可能的扩展错误
   const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     try {
@@ -163,7 +163,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
       console.warn('Focus error (likely from browser extension):', error);
     }
   };
-  
+
   const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     try {
       // 正常处理失焦
@@ -218,8 +218,8 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
           data-testid="send-button"
           className={cn(
             'px-6 py-2 rounded-lg font-medium transition-colors',
-            canSend 
-              ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer active:bg-blue-700' 
+            canSend
+              ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer active:bg-blue-700'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed',
             'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
             'min-w-[80px] flex items-center justify-center',
@@ -236,7 +236,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
           {isLoading ? (
             <span className="flex items-center gap-2">
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>排队中</span>
+              <span>等待中</span>
             </span>
           ) : (
             '发送'

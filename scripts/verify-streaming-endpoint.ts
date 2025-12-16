@@ -6,7 +6,7 @@ async function verifyStreaming() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            message: '我最近感觉很累，不想工作',
+            message: '压力好大',
             history: []
         })
     });

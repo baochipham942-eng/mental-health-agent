@@ -617,7 +617,7 @@ const RE_EVENT = /(被.*?(骂|批评|否定|催|开|辞|pua|PUA)|让|叫|说|骂
 
 // 认知/想法：内心语言 + 假设/后果
 // 扩展：包含"担心/害怕 + 被/会"的组合（如"担心被开"、"害怕被骂"）
-const RE_THOUGHT = /(我觉得|我想|我担心|我怕|我在想|我怀疑|我认为|会不会|是不是|要是.*就|万一|如果.*(就|那)|可能|一定|肯定|完了|糟了|担心.*被|害怕.*被|担心.*会|害怕.*会|最怕|最担心|最担心的是|最怕的是)/;
+const RE_THOUGHT = /(我?觉得|我?想|我?担心|我?怕|我在想|我?怀疑|我?认为|我?感觉|会不会|是不是|要是.*就|万一|如果.*(就|那)|可能|一定|肯定|完了|糟了|担心.*被|害怕.*被|担心.*会|害怕.*会|最怕|最担心|最担心的是|最怕的是)/;
 
 // 情绪/评价（少量）：不列"开心/水果"这类，主要用于 hasOnlyEmotion
 const RE_EMOTION = /(难受|焦虑|烦|崩溃|委屈|低落|生气|气死|压力大|烦死|受不了|麻了|抑郁|恐慌|想哭|累死)/;
@@ -1015,7 +1015,7 @@ export function buildGapFollowupQuestion(
 
       // 优先检查 hasOnlyEmotion：如果只有情绪词，直接问场景（无论 missingSlot 是什么）
       if (hasOnlyEmotion(context.userMessage)) {
-        const question = '最近一次压力最明显的具体场景是什么？当时发生了什么？';
+        const question = '能跟我多说说具体的情况吗？最近一次让你感到这种压力是在什么时候，当时发生了什么？';
         // 检查是否与上一轮问题相同
         if (!lastQuestion || normalizeQuestion(question) !== normalizeQuestion(lastQuestion)) {
           questions.push(question);
@@ -1037,7 +1037,7 @@ export function buildGapFollowupQuestion(
       }
       // situation=false thought=true → 只问 situation（第一问）
       else if (!slots.situation && slots.thought) {
-        const question = '最近一次压力最明显的具体场景是什么？当时发生了什么？';
+        const question = '能跟我多说说具体的情况吗？最近一次让你感到这种压力是在什么时候，当时发生了什么？';
         // 检查是否与上一轮问题相同
         if (!lastQuestion || normalizeQuestion(question) !== normalizeQuestion(lastQuestion)) {
           questions.push(question);
@@ -1084,16 +1084,16 @@ export function buildGapFollowupQuestion(
       else {
         switch (missingSlot) {
           case 'duration':
-            // 持续时间：提供选项
-            questions.push('这种状态大概持续了多久？更接近：A) 几天 B) 几周 C) 几个月 D) 不确定');
+            // 持续时间：自然询问（移除僵硬的选项）
+            questions.push('这种状态大概持续了多久了？是最近几天才开始，还是有一段时间了？');
             break;
           case 'impact':
             // 影响：使用 0-10 打分
             questions.push('它对你的睡眠/工作/社交影响有多大？请打分 0-10（0=几乎无影响，10=严重影响）');
             break;
           case 'context':
-            // 触发情境：提供选项
-            questions.push('通常在什么情境下这种感觉最明显？更接近：A) 工作/学习压力 B) 人际关系 C) 独处/睡前 D) 特定事件触发');
+            // 触发情境：自然询问（移除僵硬的选项，转为苏格拉底式引导）
+            questions.push('能跟我多说说具体的情况吗？最近一次让你感到这种压力是在什么时候，当时发生了什么？');
             break;
           default:
             return null;
