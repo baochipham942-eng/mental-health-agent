@@ -380,15 +380,9 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
     context: parseContext(combinedText),
   };
 
-  // 优先级判断：risk > impact > duration > context
-  if (intake.riskLevel === 'unknown') {
-    return {
-      hasGap: true,
-      gapKey: 'risk',
-      question: GAP_QUESTIONS.risk,
-      intake,
-    };
-  }
+  // Phase 2 Critical Fix: 优先级调整 - risk 降到最低优先级
+  // 原因：风险评估应由 conclusion 阶段的 LLM 自然处理，而非在 gap_followup 强制插入
+  // 新优先级：impact > duration > context > risk
 
   if (intake.impactScore === undefined) {
     return {
@@ -418,9 +412,19 @@ export function detectGap(initialMessage: string, followupAnswer: string): GapRe
     };
   }
 
+  // Phase 2 Fix: risk 检查移到最后（通常不会触发，因为 conclusion 会提前进入）
+  // 只有在用户明确表达高风险语义但未分类时，才作为兜底
+  if (intake.riskLevel === 'unknown') {
+    return {
+      hasGap: true,
+      gapKey: 'risk',
+      question: GAP_QUESTIONS.risk,
+      intake,
+    };
+  }
+
   return {
     hasGap: false,
     intake,
   };
 }
-
