@@ -285,17 +285,34 @@ export function parseRiskLevel(text: string): 'none' | 'passive' | 'active' | 'p
 export function parseImpactScore(text: string): number | undefined {
   const lowerText = text.toLowerCase().trim();
 
-  // 匹配 0-10 的整数
-  // 支持格式：0, 1, 2, ..., 10
-  // 支持格式：0分, 1分, ..., 10分
-  // 支持格式：我觉得7分, 大概是5分
+  // Bug Fix Priority 1: 优先匹配纯数字（快捷回复按钮发送的是 "0" 而不是 "0/10"）
+  const bareNumberPattern = /^(\d{1,2})$/;
+  const bareMatch = lowerText.match(bareNumberPattern);
+  if (bareMatch) {
+    const score = parseInt(bareMatch[1], 10);
+    if (score >= 0 && score <= 10) {
+      return score;
+    }
+  }
+
+  // Bug Fix Priority 2: 检查最后一个词是否为裸数字（处理累计文本如 "压力大 能力不行 8"）
+  const tokens = lowerText.split(/\s+/);
+  const lastToken = tokens[tokens.length - 1];
+  if (lastToken && bareNumberPattern.test(lastToken)) {
+    const score = parseInt(lastToken, 10);
+    if (score >= 0 && score <= 10) {
+      return score;
+    }
+  }
+
+  // 匹配 0-10 的整数（各种格式）
   const patterns = [
-    /^(\d+)$/,  // 纯数字
-    /(\d+)\s*分/,  // 数字+分
-    /(\d+)\s*\/\s*10/,  // 数字/10
-    /影响.*?(\d+)/,  // 影响X
-    /大概.*?(\d+)/,  // 大概X
-    /我觉得.*?(\d+)/,  // 我觉得X
+    /影响\s*(\d+)\s*\/\s*10/,
+    /(\d+)\s*\/\s*10/,
+    /影响\s*(\d+)\s*分/,
+    /(\d+)\s*分/,
+    /大概.*?(\d+)/,
+    /我觉得.*?(\d+)/,
   ];
 
   for (const pattern of patterns) {
@@ -1058,30 +1075,65 @@ export function buildGapFollowupQuestion(
       else if (slots.situation && slots.thought) {
         // 两个都有 → 进入后续量化问题（根据 missingSlot）
         // 修复：优先问影响/强度（0-10），不要重复问场景/想法
+
+        // ★★★ ROOT CAUSE FIX: 检查 existingIntake 是否已有值，避免重复问 ★★★
+        const hasImpactInIntake = context.existingIntake?.impactScore !== undefined;
+        const hasRiskInIntake = context.existingIntake?.riskLevel && context.existingIntake.riskLevel !== 'unknown';
+
+        // 如果 impact 已填，且 missingSlot 不是 impact，跳过 impact 问题
+        if (hasImpactInIntake && missingSlot !== 'impact') {
+          // Impact 已填，检查是否需要进入 conclusion
+          if (hasRiskInIntake || !shouldAskRiskQuestion(context, info.hasRiskClue)) {
+            // 所有槽位都填了，返回 null 进入 conclusion
+            return null;
+          }
+          // 只剩 risk，但风险信号弱，也进入 conclusion（让 LLM 自然处理）
+          return null;
+        }
+
         switch (missingSlot) {
           case 'duration':
             // 如果用户已经回答了"持续多久/强度多少"，不要重复问同类问题
             // 检查用户消息中是否包含持续时间信息
             const hasDurationInfo = /(最近|这几天|两周|几个月|一直|半年|一年|很久|持续|开始|自从|以来|天|周|月)/.test(context.userMessage);
             if (hasDurationInfo) {
-              // 已经有持续时间信息，转向问影响/强度
-              questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+              // 已经有持续时间信息，转向问影响/强度（如果未填）
+              if (!hasImpactInIntake) {
+                questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+              }
             } else {
               questions.push('这种状态大概持续了多久？');
             }
             break;
           case 'impact':
             // 第二问：影响/强度（0-10 或可选项）
-            questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+            if (!hasImpactInIntake) {
+              questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+            }
             break;
           case 'context':
             // 如果已经有场景，不应该再问 context
-            // 但可以问影响（0-10量表）
+            // 但可以问影响（0-10量表）—— 如果未填
+            if (!hasImpactInIntake) {
+              questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+            }
+            break;
+          case 'risk':
+            // ★★★ ROOT CAUSE FIX: 处理 risk case ★★★
+            // 如果是 risk，且 impact 已填，直接进入 conclusion（让 LLM 自然处理安全问题）
+            if (hasImpactInIntake) {
+              return null; // 进入 conclusion
+            }
+            // 如果 impact 未填，先问 impact
             questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
             break;
           default:
-            // 默认问影响/强度
-            questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+            // 默认：如果 impact 未填，问影响；否则返回 null
+            if (!hasImpactInIntake) {
+              questions.push('这件事对你最近的睡眠/工作效率影响大吗？0-10 打个分（0=几乎无影响，10=非常严重）');
+            } else {
+              return null;
+            }
         }
       }
       // 两个都没有 → 根据 missingSlot 处理

@@ -605,10 +605,13 @@ export async function POST(request: NextRequest) {
 
       // 修复D: 检查是否应该进入 conclusion
       // 条件1: followupSlot槽位都完成了 (riskLevel + impactScore)
-      // 条件2: 压力场景收集到最小闭环信息 (场景+想法+影响分数)
-      const hasPressureMinInfo = gapResult.intake?.context && gapResult.intake?.mainIssue;
-      const hasImpactScore = updatedFollowupSlot.impactScore !== undefined;
-      const shouldEnterConclusion = updatedFollowupSlot.done || (hasPressureMinInfo && hasImpactScore);
+      // 条件2: 压力场景收集到影响分数就可以进入（风险问题由 conclusion LLM 自然处理）
+      // 条件3: pressureSocratic 场景已收集 situation + thought
+      const currentPressureSocratic = meta?.pressureSocratic;
+      const hasPressureMinInfo = currentPressureSocratic?.situationDone && currentPressureSocratic?.thoughtDone;
+      const hasImpactScore = updatedFollowupSlot.impactScore !== undefined || gapResult.intake?.impactScore !== undefined;
+      // ★★★ ROOT CAUSE FIX: 只要有 impactScore，就进入 conclusion（跳过 risk 问题，让 LLM 自然处理）★★★
+      const shouldEnterConclusion = updatedFollowupSlot.done || hasImpactScore;
 
       console.log('[DEBUG gap_followup] shouldEnterConclusion:', shouldEnterConclusion, {
         hasPressureMinInfo,
