@@ -215,16 +215,10 @@ export function MessageBubble({
                 {/* intake 阶段：轻量样式，使用 blockquote */}
                 {isIntake && assistantQuestions && assistantQuestions.length > 0 ? (
                   <>
-                    {/* intake 阶段：普通气泡样式，不突出 */}
-                    <div className="border-l-2 border-gray-200 pl-3 py-2 my-2">
-                      <p className="text-sm text-gray-700 mb-2">
-                        {message.content || '为了更好地了解你的情况，请回答以下问题：'}
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
-                        {assistantQuestions.map((q, idx) => (
-                          <li key={idx}>{q}</li>
-                        ))}
-                      </ol>
+                    {/* intake 阶段：普通气泡样式，不突出 - 移除numbered list，保持一致性 */}
+                    <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                      {message.content && <p className="mb-2">{message.content}</p>}
+                      <ReactMarkdown>{assistantQuestions.join('\n\n')}</ReactMarkdown>
                     </div>
                     {/* intake 阶段已渲染问题，不再渲染 message.content（已去重） */}
                   </>

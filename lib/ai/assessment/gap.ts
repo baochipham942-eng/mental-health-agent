@@ -69,11 +69,21 @@ function parseDuration(text: string): string | undefined {
 function parseImpactScore(text: string): number | undefined {
   const lowerText = text.toLowerCase();
 
-  // Bug Fix: 优先匹配纯数字（快捷回复按钮发送的是 "0" 而不是 "0/10"）
+  // Bug Fix Priority 1: 优先匹配纯数字（快捷回复按钮发送的是 "0" 而不是 "0/10"）
   const bareNumberPattern = /^(\d{1,2})$/;
   const bareMatch = lowerText.trim().match(bareNumberPattern);
   if (bareMatch) {
     const score = parseInt(bareMatch[1], 10);
+    if (score >= 0 && score <= 10) {
+      return score;
+    }
+  }
+
+  // Bug Fix Priority 2: 检查最后一个词是否为裸数字（处理累计文本如 "压力大 能力不行 8"）
+  const tokens = lowerText.trim().split(/\s+/);
+  const lastToken = tokens[tokens.length - 1];
+  if (lastToken && bareNumberPattern.test(lastToken)) {
+    const score = parseInt(lastToken, 10);
     if (score >= 0 && score <= 10) {
       return score;
     }
