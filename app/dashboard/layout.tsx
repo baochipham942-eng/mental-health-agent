@@ -3,6 +3,8 @@ import { auth, signOut } from '@/auth';
 import Link from 'next/link';
 import { getSessionHistory } from '@/lib/actions/chat';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
     children,
 }: {
