@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useChatStore } from '@/store/chatStore';
 import { sendChatMessage } from '@/lib/api/chat';
 import { Message } from '@/types/chat';
+import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { DebugDrawer } from './DebugDrawer';
@@ -46,6 +47,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
     setMessages, // Need to expose setMessages in store or use clear+add
   } = useChatStore();
 
+  const router = useRouter();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   // Hydrate Store on Mount / Session Change
@@ -112,17 +114,19 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
     }
   }, [isLoading, isSending, setLoading]);
 
-  const handleClearConversation = useCallback(() => {
-    if (window.confirm('确定要开始新会话吗？当前对话记录将被清空。')) {
+  const handleEndSession = useCallback(() => {
+    if (window.confirm('确定要结束当前咨询吗？结束将返回列表页。')) {
+      // 1. Clear local store
       resetConversation();
-      // 清空本地 draft
       setDraft('');
-      // 重置所有可能卡住的状态
       setIsSending(false);
       setLoading(false);
       setError(null);
+
+      // 2. Redirect to dashboard list
+      router.push('/dashboard');
     }
-  }, [resetConversation, setLoading, setError]);
+  }, [resetConversation, setLoading, setError, router]);
 
   // 构建 messageExtras Map，用于传递额外的 props 给 MessageBubble
   const messageExtras = useMemo(() => {
@@ -182,6 +186,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       if (!content || content.length === 0) {
         return; // 没有内容，直接返回
       }
+
+      const isFirstMessage = messages.length === 0;
+
       // 修复C: 如果正在发送，将消息加入队列而不是直接返回
       if (isLoading || isSending) {
         // 如果传入的是快捷回复文本，直接加入队列
@@ -207,8 +214,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
 
       // 乐观更新：立即添加用户消息到消息流
       addMessage(userMessage);
-      // 立即清空输入框（如果是从快捷回复传入的，不需要清空draft）
-      if (text === undefined) {
+      // 立即清空输入框 (修复 input 不清空的问题)
+      if (text === undefined || text === draft) {
         setDraft('');
       }
       // 设置发送中状态
@@ -235,7 +242,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       } else {
         // 非 awaiting_followup 阶段：清空累计，设置新的 initialMessage
         clearFollowupAnswer();
-        const isFirstMessage = messages.length === 0;
         currentInitialMessage = isFirstMessage ? content.trim() : initialMessage;
         messageToSend = content.trim();
       }
@@ -416,6 +422,11 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
           setValidationError(responseData.validationError);
         }
 
+        // 如果是第一条消息，刷新路由以更新 Sidebar 标题
+        if (isFirstMessage) {
+          router.refresh();
+        }
+
         // 成功后输入框已清空（乐观更新时已清空），这里不需要再次清空
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : '发送消息失败';
@@ -532,11 +543,11 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
           <div className="flex items-center gap-3">
             {messages.length > 0 && (
               <button
-                onClick={handleClearConversation}
+                onClick={handleEndSession}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors border border-gray-300"
-                title="开始新会话"
+                title="结束当前咨询"
               >
-                新会话
+                结束咨询
               </button>
             )}
             <button

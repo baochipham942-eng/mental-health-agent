@@ -1,7 +1,7 @@
 
 import { auth, signOut } from '@/auth';
 import Link from 'next/link';
-import { getSessionHistory } from '@/lib/actions/chat';
+import { getSessionHistory, createNewSession } from '@/lib/actions/chat';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,30 +22,25 @@ export default async function DashboardLayout({
                         </div>
                     </div>
 
-                    <div className="flex grow flex-col justify-between space-y-2">
-                        <div className="space-y-2 mt-4">
-                            <form
-                                action={async () => {
-                                    'use server';
-                                    const { createNewSession } = await import('@/lib/actions/chat');
-                                    await createNewSession();
-                                }}
-                            >
-                                <button className="flex w-full h-[48px] grow items-center justify-center gap-2 rounded-md bg-slate-100 p-3 text-sm font-medium hover:bg-sky-100 hover:text-indigo-600 md:flex-none md:justify-start md:p-2 md:px-3">
-                                    ➕ 新建咨询
+                    <div className="flex grow flex-col min-h-0 space-y-2 overflow-hidden">
+                        <div className="flex flex-col min-h-0 mt-4 grow">
+                            <form action={createNewSession}>
+                                <button className="flex w-full h-[48px] items-center justify-center gap-2 rounded-md bg-slate-100 p-3 text-sm font-medium hover:bg-sky-100 hover:text-indigo-600 md:flex-none md:justify-start md:p-2 md:px-3 flex-shrink-0">
+                                    ➕ 新咨询
                                 </button>
                             </form>
 
-                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-6 mb-2 px-2">
+                            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-6 mb-2 px-2 flex-shrink-0">
                                 历史记录
                             </div>
 
-                            <SidebarList />
+                            <div className="flex-1 overflow-y-auto min-h-0">
+                                <SidebarList />
+                            </div>
                         </div>
 
-                        <div className="hidden h-auto w-full grow rounded-md bg-slate-50 md:block"></div>
-
                         <form
+                            className="flex-shrink-0 mt-auto pt-2"
                             action={async () => {
                                 'use server';
                                 await signOut();
@@ -79,7 +74,7 @@ async function SidebarList() {
             {sessions.map((session: { id: string; title: string | null; createdAt: Date }) => (
                 <li key={session.id}>
                     <Link
-                        href={`/ dashboard / ${session.id} `}
+                        href={`/dashboard/${session.id}`}
                         className="flex h-[48px] grow items-center justify-start gap-2 rounded-md p-3 text-sm font-medium hover:bg-sky-50 hover:text-indigo-600 md:flex-none md:justify-start md:p-2 md:px-3 truncate"
                     >
                         💬 {session.title || '未命名对话'}

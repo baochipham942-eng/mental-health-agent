@@ -28,14 +28,17 @@ export default async function ChatPage({ params }: ChatPageProps) {
         return <div>Unauthorized</div>;
     }
 
-    // Transform Prisma messages to UI messages if needed, or pass raw and let ChatShell handle
-    // For now, we pass the conversation object which contains messages.
+    // Transform Prisma messages to UI messages to fix "Invalid Date" issue
+    const uiMessages = conversation.messages.map(msg => ({
+        ...msg,
+        timestamp: msg.createdAt.toISOString(),
+    }));
 
     return (
         <div className="h-full flex flex-col">
             <ChatShell
                 sessionId={conversation.id}
-                initialMessages={conversation.messages as any}
+                initialMessages={uiMessages as any}
                 isReadOnly={conversation.status === 'COMPLETED'}
             />
         </div>
