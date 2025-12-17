@@ -102,14 +102,24 @@ const CRISIS_FOLLOWUP_PROMPT = `你是一位专业的危机干预专家。用户
  * 生成危机干预回复（流式）
  * @param userMessage 用户消息
  * @param history 对话历史
- * @param isFollowup 是否为后续对话（默认为 false）
+ * @param isFollowupOrHotlines 布尔值表示后续对话，字符串表示热线上下文
  */
 export async function streamCrisisReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  isFollowup: boolean = false
+  isFollowupOrHotlines: boolean | string = false,
+  options?: { onFinish?: (text: string) => Promise<void> }
 ) {
-  const systemPrompt = isFollowup ? CRISIS_FOLLOWUP_PROMPT : CRISIS_PROMPT;
+  // 兼容两种调用方式：布尔值（旧）或字符串（新-热线上下文）
+  const isFollowup = typeof isFollowupOrHotlines === 'boolean' ? isFollowupOrHotlines : false;
+  const hotlinesContext = typeof isFollowupOrHotlines === 'string' ? isFollowupOrHotlines : '';
+
+  let systemPrompt = isFollowup ? CRISIS_FOLLOWUP_PROMPT : CRISIS_PROMPT;
+
+  // 如果有热线上下文，注入到提示词中
+  if (hotlinesContext) {
+    systemPrompt = `${systemPrompt}\n\n## 可用热线资源（请在回复中自然引用）\n${hotlinesContext}`;
+  }
 
   const messages: ChatMessage[] = [
     {
@@ -129,5 +139,7 @@ export async function streamCrisisReply(
   return await streamChatCompletion(messages, {
     temperature: 0.7,
     max_tokens: 600,
+    onFinish: options?.onFinish,
   });
 }
+

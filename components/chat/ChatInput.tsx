@@ -6,11 +6,13 @@ import { cn } from '@/lib/utils/cn';
 interface ChatInputProps {
   value: string;
   onChange: (value: string) => void;
-  onSend: () => void;
+  onSend: (value: string) => void;
   isLoading?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
 }
 
-export function ChatInput({ value = '', onChange, onSend, isLoading = false }: ChatInputProps) {
+export function ChatInput({ value = '', onChange, onSend, isLoading = false, disabled = false, placeholder = "输入你的问题或感受..." }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自适应高度：1-6行，超出内部滚动
@@ -91,7 +93,7 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
     }
 
     try {
-      onSend();
+      onSend(value); // Pass value explicitly
       // 重置高度
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -182,10 +184,10 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false }: C
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholder="输入你的问题或感受..."
+          placeholder={placeholder}
           // 修复C: 发送中不锁定输入框，允许继续输入
-          disabled={false}
-          readOnly={false}
+          disabled={disabled}
+          readOnly={disabled}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"

@@ -5,7 +5,7 @@ const ChatShell = dynamic(() => import("@/components/chat/ChatShell").then(mod =
 export default function Page() {
   return (
     <main className="min-h-dvh w-full bg-slate-50">
-      <ChatShell />
+      <ChatShell sessionId="default-session" initialMessages={[]} />
     </main>
   );
 }

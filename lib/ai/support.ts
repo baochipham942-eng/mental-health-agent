@@ -68,7 +68,8 @@ export async function generateSupportReply(
  */
 export async function streamSupportReply(
   userMessage: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  options?: { onFinish?: (text: string) => Promise<void> }
 ) {
   const messages: ChatMessage[] = [
     {
@@ -88,6 +89,7 @@ export async function streamSupportReply(
   return await streamChatCompletion(messages, {
     temperature: 0.8,
     max_tokens: 400,
+    onFinish: options?.onFinish,
   });
 }
 

@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { ActionCard } from '@/types/chat';
 import { useChatStore } from '@/store/chatStore';
 import { BreathingExercise } from './widgets/BreathingExercise';
+import { MoodTracker } from './widgets/MoodTracker';
+import { PreExerciseModal } from './modals/PreExerciseModal';
+import { PostExerciseModal } from './modals/PostExerciseModal';
+import { logExercise } from '@/lib/actions/exercise';
 
 interface ActionCardItemProps {
   card: ActionCard;
@@ -23,7 +27,7 @@ function getCardId(card: ActionCard): string {
 
 export function ActionCardItem({ card, index }: ActionCardItemProps) {
   const cardId = getCardId(card);
-  const { skillProgress, updateSkillProgress, getSkillProgress } = useChatStore();
+  const { getSkillProgress, updateSkillProgress } = useChatStore();
 
   const progress = getSkillProgress(cardId);
   const [isDetailView, setIsDetailView] = useState(false); // Detail 视图（步骤态）
@@ -31,6 +35,7 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
   const [showPostTest, setShowPostTest] = useState(false);
   const [preTestScore, setPreTestScore] = useState<number | null>(null);
   const [postTestScore, setPostTestScore] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   const effort = effortLabels[card.effort] || effortLabels.medium;
   const stepsCount = card.steps?.length || 0;
@@ -56,6 +61,7 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
     } else {
       // 进行中或已完成：进入 Detail 视图
       setIsDetailView(true);
+      if (!startTime) setStartTime(Date.now());
     }
   };
 
@@ -63,13 +69,22 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
     setPreTestScore(score);
     localStorage.setItem(`skill-pretest-${cardId}`, score.toString());
     setShowPreTest(false);
+
+    setStartTime(Date.now());
     updateSkillProgress(cardId, { status: 'in_progress', completedSteps: [] });
     setIsDetailView(true); // 进入 Detail 视图
   };
 
+  const handlePreTestClose = () => {
+    setShowPreTest(false);
+    setStartTime(Date.now());
+    updateSkillProgress(cardId, { status: 'in_progress', completedSteps: [] });
+    setIsDetailView(true);
+  }
+
   const handleStepToggle = (stepIndex: number) => {
     const newCompletedSteps = completedSteps.includes(stepIndex)
-      ? completedSteps.filter(i => i !== stepIndex)
+      ? completedSteps.filter((i: number) => i !== stepIndex)
       : [...completedSteps, stepIndex];
 
     const allStepsCompleted = newCompletedSteps.length === stepsCount;
@@ -85,11 +100,30 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
     }
   };
 
-  const handlePostTestSubmit = (score: number) => {
+  const handlePostTestSubmit = async (score: number, feedback: string) => {
     setPostTestScore(score);
     localStorage.setItem(`skill-posttest-${cardId}`, score.toString());
     setShowPostTest(false);
+
+    // Logging
+    const duration = startTime ? Math.round((Date.now() - startTime) / 1000) : 60;
+    try {
+      await logExercise({
+        cardId: card.title,
+        title: card.title,
+        durationSeconds: duration,
+        preMoodScore: preTestScore || 5, // Default if skipped
+        postMoodScore: score,
+        feedback: feedback
+      });
+    } catch (e) {
+      console.error("Logging failed", e);
+    }
   };
+
+  const handlePostTestClose = () => {
+    setShowPostTest(false);
+  }
 
   // Detail 视图：标记完成（toggle）
   const handleToggleComplete = () => {
@@ -117,10 +151,10 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
       // 如果还没做后测，显示后测
       if (!postTestScore) {
         setShowPostTest(true);
+      } else {
+        // 已做过，直接退出
+        setIsDetailView(false);
       }
-
-      // 标记完成后退出 Detail 视图，回到列表
-      setIsDetailView(false);
     }
   };
 
@@ -134,6 +168,7 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
     updateSkillProgress(cardId, { status: 'not_started', completedSteps: [] });
     setPreTestScore(null);
     setPostTestScore(null);
+    setStartTime(null);
     localStorage.removeItem(`skill-pretest-${cardId}`);
     localStorage.removeItem(`skill-posttest-${cardId}`);
     setIsDetailView(false);
@@ -146,60 +181,6 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
 
   // 估算时间（简单估算：每步约30秒-1分钟）
   const estimatedMinutes = Math.max(1, Math.ceil(stepsCount * 0.5));
-
-  // 前测弹窗组件（提取出来，在所有视图都能显示）
-  const PreTestModal = showPreTest && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">开始前的小测试</h3>
-        <p className="text-sm text-gray-600 mb-4">现在你的紧张/压力强度是多少？请选择 0-10（0=几乎没有，10=非常严重）</p>
-        <div className="grid grid-cols-6 gap-2 mb-4">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(score => (
-            <button
-              key={score}
-              onClick={() => handlePreTestSubmit(score)}
-              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors"
-            >
-              {score}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setShowPreTest(false)}
-          className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-        >
-          跳过
-        </button>
-      </div>
-    </div>
-  );
-
-  // 后测弹窗组件（提取出来，在所有视图都能显示）
-  const PostTestModal = showPostTest && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">练习完成！</h3>
-        <p className="text-sm text-gray-600 mb-4">现在你的紧张/压力强度是多少？请选择 0-10（0=几乎没有，10=非常严重）</p>
-        <div className="grid grid-cols-6 gap-2 mb-4">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(score => (
-            <button
-              key={score}
-              onClick={() => handlePostTestSubmit(score)}
-              className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors"
-            >
-              {score}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setShowPostTest(false)}
-          className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-        >
-          跳过
-        </button>
-      </div>
-    </div>
-  );
 
   // List 视图
   if (!isDetailView) {
@@ -273,9 +254,17 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
             )}
           </div>
         </div>
-        {/* ★★★ FIX: 弹窗移到外层，确保在 List 视图也能显示 ★★★ */}
-        {PreTestModal}
-        {PostTestModal}
+
+        <PreExerciseModal
+          isOpen={showPreTest}
+          onClose={handlePreTestClose}
+          onSubmit={handlePreTestSubmit}
+        />
+        <PostExerciseModal
+          isOpen={showPostTest}
+          onClose={handlePostTestClose}
+          onSubmit={handlePostTestSubmit}
+        />
       </>
     );
   }
@@ -290,18 +279,25 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
             <h4 className="text-sm font-semibold text-gray-900 line-clamp-1">{card.title}</h4>
             <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{card.when}</p>
           </div>
-          <button
-            onClick={handlePause}
-            className="ml-2 text-xs text-gray-500 hover:text-gray-700 font-medium flex-shrink-0"
-          >
-            ← 返回
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">
+              进行中...
+            </div>
+            <button
+              onClick={handlePause}
+              className="ml-2 text-xs text-gray-500 hover:text-gray-700 font-medium flex-shrink-0"
+            >
+              ← 返回
+            </button>
+          </div>
         </div>
 
         {/* 核心内容区：如果是呼吸组件，优先渲染组件；否则渲染步骤列表 */}
         <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
           {card.widget === 'breathing' ? (
             <BreathingExercise />
+          ) : card.widget === 'mood_tracker' ? (
+            <MoodTracker />
           ) : (
             <div className="space-y-2">
               {card.steps.map((step, stepIndex) => {
@@ -352,9 +348,17 @@ export function ActionCardItem({ card, index }: ActionCardItemProps) {
           </button>
         </div>
       </div>
-      {/* ★★★ FIX: 弹窗移到外层，确保在 Detail 视图也能显示 ★★★ */}
-      {PreTestModal}
-      {PostTestModal}
+
+      <PreExerciseModal
+        isOpen={showPreTest}
+        onClose={handlePreTestClose}
+        onSubmit={handlePreTestSubmit}
+      />
+      <PostExerciseModal
+        isOpen={showPostTest}
+        onClose={handlePostTestClose}
+        onSubmit={handlePostTestSubmit}
+      />
     </>
   );
 }

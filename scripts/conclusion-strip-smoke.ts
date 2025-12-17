@@ -3,10 +3,8 @@
  * 验证 steps_and_cards 模式下，LLM 输出的 nextSteps 和 actionCards 能被正确剥离
  */
 
-import { generateAssessmentConclusion } from '../lib/ai/assessment/conclusion';
-import { renderSkills } from '../lib/skills/render';
-import { extractSkillContext } from '../lib/skills/context';
-import { selectSkills } from '../lib/skills/select';
+import { generateAssessmentConclusion, removeActionCardsFromReply } from '../lib/ai/assessment/conclusion';
+
 
 /**
  * 模拟 LLM 输出（极端场景）
@@ -116,33 +114,15 @@ function testStripLogic() {
 
     // 模拟剥离逻辑（从 conclusion.ts 中提取）
     let textPart = scenario.fullReply.trim();
-    
-    // 收口动作1：确保 LLM 不生成【下一步清单】和 actionCards
-    // 如果 LLM 仍然生成了【下一步清单】，移除它
-    const nextStepsMatch = textPart.match(/【下一步清单】[\s\S]*?(?=【|$)/);
-    if (nextStepsMatch) {
-      textPart = textPart.replace(/【下一步清单】[\s\S]*?(?=【|$)/g, '').trim();
-      console.log('✅ 已移除 LLM 生成的【下一步清单】');
-    } else {
-      console.log('ℹ️  LLM 未生成【下一步清单】');
-    }
-    
-    // 如果 LLM 仍然生成了 actionCards JSON，移除它
-    const actionCardsJsonMatch = textPart.match(/```json\s*[\s\S]*?```/);
-    const actionCardsObjectMatch = textPart.match(/\{\s*"actionCards"\s*:[\s\S]*\}/);
-    if (actionCardsJsonMatch || actionCardsObjectMatch) {
-      textPart = textPart.replace(/```json\s*[\s\S]*?```/g, '');
-      textPart = textPart.replace(/\{\s*"actionCards"\s*:[\s\S]*\}/g, '');
-      textPart = textPart.trim();
-      console.log('✅ 已移除 LLM 生成的 actionCards JSON');
-    } else {
-      console.log('ℹ️  LLM 未生成 actionCards JSON');
-    }
+
+    // 调用实际的剥离逻辑
+    textPart = removeActionCardsFromReply(scenario.fullReply);
+    console.log('✅ 已执行 removeActionCardsFromReply');
 
     // 检查是否还有残留的【下一步清单】或 actionCards
     const hasNextSteps = /【下一步清单】/.test(textPart);
     const hasActionCards = /"actionCards"/.test(textPart) || /```json/.test(textPart);
-    
+
     if (hasNextSteps || hasActionCards) {
       console.log('❌ 剥离失败：仍有残留内容');
       if (hasNextSteps) {
@@ -154,11 +134,11 @@ function testStripLogic() {
       failCount++;
     } else {
       console.log('✅ 剥离成功：已移除所有【下一步清单】和 actionCards');
-      
+
       // 检查是否保留了【初筛总结】和【风险与分流】
       const hasSummary = /【初筛总结】/.test(textPart);
       const hasRisk = /【风险与分流】/.test(textPart);
-      
+
       if (hasSummary && hasRisk) {
         console.log('✅ 保留了【初筛总结】和【风险与分流】');
         passCount++;

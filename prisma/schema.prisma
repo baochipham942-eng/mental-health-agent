@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+// 1. User
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  passwordHash  String
+  nickname      String?
+  createdAt     DateTime  @default(now())
+  
+  conversations Conversation[]
+  reports       AssessmentReport[]
+  exerciseLogs  ExerciseLog[]
+}
+
+// 2. Conversation
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?
+  status    String   @default("ACTIVE") // 'ACTIVE' | 'COMPLETED'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id])
+  messages  Message[]
+}
+
+// 3. Message
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String       // 'user' | 'assistant' | 'system'
+  content        String
+  meta           Json?
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+// 4. AssessmentReport
+model AssessmentReport {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String
+  
+  summary        String
+  riskLevel      String
+  mainIssue      String?
+  
+  createdAt      DateTime @default(now())
+  
+  user           User     @relation(fields: [userId], references: [id])
+  actionPlans    ActionPlan[]
+}
+
+// 5. ActionPlan (Tool/Card)
+model ActionPlan {
+  id        String   @id @default(cuid())
+  reportId  String
+  
+  title     String
+  type      String
+  content   Json     // { steps: [], when, effort }
+  
+  isCompleted Boolean  @default(false)
+  
+  report    AssessmentReport @relation(fields: [reportId], references: [id])
+  logs      ExerciseLog[]
+}
+
+// 6. ExerciseLog (Telemetry)
+model ExerciseLog {
+  id           String   @id @default(cuid())
+  userId       String
+  actionPlanId String?
+  
+  type         String
+  duration     Int      // seconds
+  
+  preMood      Int?
+  postMood     Int?
+  feedback     String?
+  
+  completedAt  DateTime @default(now())
+  
+  user         User        @relation(fields: [userId], references: [id])
+  actionPlan   ActionPlan? @relation(fields: [actionPlanId], references: [id])
+}

@@ -1,0 +1,36 @@
+{
+    "version": "1.0.0",
+    "lastUpdated": "2024-12-17",
+    "resources": [
+        {
+            "id": "edu-anxiety-101",
+            "file": "anxiety.md",
+            "title": "理解焦虑：它并不是你的敌人",
+            "category": "焦虑"
+        },
+        {
+            "id": "edu-stress-101",
+            "file": "stress.md",
+            "title": "压力管理：从理解到行动",
+            "category": "压力"
+        },
+        {
+            "id": "edu-sleep-101",
+            "file": "sleep.md",
+            "title": "睡眠与心理健康：一个经常被忽视的联系",
+            "category": "睡眠"
+        },
+        {
+            "id": "edu-depression-101",
+            "file": "depression.md",
+            "title": "理解抑郁：走出阴霾的第一步",
+            "category": "抑郁"
+        },
+        {
+            "id": "edu-relationship-101",
+            "file": "relationship.md",
+            "title": "人际关系困扰：理解冲突与建立联结",
+            "category": "人际关系"
+        }
+    ]
+}

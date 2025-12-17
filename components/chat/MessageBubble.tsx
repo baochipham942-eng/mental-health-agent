@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils/cn';
 import { ConclusionSections } from './ConclusionSections';
 import { QuickReplies, detectQuickReplyMode } from './QuickReplies';
 import { useChatStore } from '@/store/chatStore';
+import { ResourceCard } from './ResourceCard';
 
 /**
  * 去除重复的 followup 问题文本
@@ -301,6 +302,20 @@ export function MessageBubble({
                     )}
                   </>
                 )}
+              </div>
+            )}
+
+            {/* RAG 资源卡片 */}
+            {message.resources && message.resources.length > 0 && (
+              <div className="mt-4 w-full border-t border-gray-100 pt-3">
+                <h4 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider flex items-center gap-1">
+                  <span>📚</span> 推荐资源
+                </h4>
+                <div className="space-y-2">
+                  {message.resources.map(resource => (
+                    <ResourceCard key={resource.id} resource={resource} />
+                  ))}
+                </div>
               </div>
             )}
           </>

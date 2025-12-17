@@ -56,6 +56,7 @@ interface ChatStore {
   resetConversation: () => void;
   updateSkillProgress: (cardId: string, progress: SkillProgress) => void;
   getSkillProgress: (cardId: string) => SkillProgress | undefined;
+  setMessages: (messages: Message[]) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -138,6 +139,9 @@ export const useChatStore = create<ChatStore>()(
 
       setLastRequestPayload: (payload: any | null) =>
         set({ lastRequestPayload: payload }),
+
+      setMessages: (messages: Message[]) =>
+        set({ messages }),
 
       updateSkillProgress: (cardId: string, progress: SkillProgress) =>
         set((state: ChatStore) => ({

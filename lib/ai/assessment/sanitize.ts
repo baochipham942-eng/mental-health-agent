@@ -1,4 +1,4 @@
-import { ActionCard } from '@/types/chat';
+import { ActionCard } from '../../../types/chat';
 
 /**
  * 计算字符串中的汉字数量（只计算汉字，不包括标点、数字、英文）
@@ -16,14 +16,14 @@ export function countChineseChars(text: string): number {
 export function hasMetricToken(step: string): boolean {
   // 时长：分钟/小时/天/周/秒 等时间单位
   const hasDuration = /\d+\s*(分钟|小时|天|周|秒|周内|天内|分钟内)/.test(step);
-  
+
   // 次数：次/遍/回/组/轮/条/个/× 等（轮/组/遍/回 必须被视为有效指标）
   const hasCount = /\d+\s*(次|遍|回|组|轮|条|个|×)/.test(step) || /×\s*\d+\s*次/.test(step);
-  
+
   // 触发器：如果/当/一旦/当...时/如果...就/焦虑≥7分/评分≤4分 等
   const hasTrigger = /(如果|当|一旦|当.*时|如果.*就|焦虑|评分|情绪).*?(≥|<=|≤|>|<|\d+分)/.test(step) ||
-                    /(如果|当|一旦).*?(出现|加剧|升到|达到|超过)/.test(step);
-  
+    /(如果|当|一旦).*?(出现|加剧|升到|达到|超过)/.test(step);
+
   return hasDuration || hasCount || hasTrigger;
 }
 
@@ -106,14 +106,14 @@ const VIOLATION_MAPPINGS: Record<string, string> = {
  */
 function compressStep(step: string): string {
   let compressed = step.trim();
-  
+
   // 删除常见虚词（具体/简短/当下/一下/一下子/慢慢/认真等）
   compressed = compressed
     .replace(/具体|简短|当下|一下|一下子|慢慢|认真|仔细|好好|轻轻|静静/g, '')
     .replace(/立刻|马上|尽量|并且|然后|直到|接着|随后/g, '')
     .replace(/\s+/g, '')
     .replace(/[，,。；;：:]/g, '');
-  
+
   return compressed.trim();
 }
 
@@ -123,14 +123,14 @@ function compressStep(step: string): string {
 function shortenStep(step: string): string {
   let shortened = step.trim();
   const originalLength = countChineseChars(shortened);
-  
+
   if (originalLength <= 16) {
     return shortened;
   }
-  
+
   // 策略1：压缩虚词
   shortened = compressStep(shortened);
-  
+
   // 策略2：用短格式替换长格式
   shortened = shortened
     .replace(/深呼吸(\d+)次，每次(\d+)秒/g, '吸气$2秒×$1次')
@@ -138,10 +138,10 @@ function shortenStep(step: string): string {
     .replace(/将注意力放在呼吸上/g, '数呼吸1分钟')
     .replace(/进行(\d+)分钟/g, '$1分钟')
     .replace(/持续(\d+)/g, '$1');
-  
+
   // 策略3：移除括号内容
   shortened = shortened.replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '');
-  
+
   // 策略4：如果仍超 16，保留动作核心 + 补一个极短的次数/时长
   const currentLength = countChineseChars(shortened);
   if (currentLength > 16) {
@@ -156,14 +156,14 @@ function shortenStep(step: string): string {
         shortened = actionMatch[0] + num + (core.includes('分') ? '分' : '次');
       }
     }
-    
+
     // 如果还是太长，直接截断到16字
     const chars = shortened.match(/[\u4e00-\u9fa5]/g) || [];
     if (chars.length > 16) {
       shortened = chars.slice(0, 16).join('');
     }
   }
-  
+
   return shortened;
 }
 
@@ -180,20 +180,20 @@ function shortenStep(step: string): string {
  */
 export function normalizeStepMetrics(step: string): string {
   let normalized = step.trim();
-  
+
   // 如果为空，直接返回
   if (!normalized) {
     return normalized;
   }
-  
+
   // 0. 归一化 "N次N分钟" 或 "N次N秒" 为仅保留时长部分（如 记录1次1分钟×1次 → 记录1分钟×1次）
   // 匹配模式：(\d+)次(\d+分钟|\d+秒)，替换为仅保留时长部分
   normalized = normalized.replace(/(\d+)次(\d+分钟|\d+秒)/g, '$2');
-  
+
   // 1. 去重连续重复的 "×N次" 模式
   // 匹配 "×数字次" 的连续重复，例如 "×1次×1次" → "×1次"
   normalized = normalized.replace(/(×\s*\d+\s*次)\1+/g, '$1');
-  
+
   // 2. 提取所有 "×N次" 模式
   const timesPattern = /×\s*\d+\s*次/g;
   const timesMatches: Array<{ match: string; index: number }> = [];
@@ -201,7 +201,7 @@ export function normalizeStepMetrics(step: string): string {
   while ((match = timesPattern.exec(normalized)) !== null) {
     timesMatches.push({ match: match[0], index: match.index });
   }
-  
+
   // 如果没有 "×N次"，直接返回
   if (timesMatches.length === 0) {
     // 检查长度，如果超长，先压缩
@@ -211,21 +211,21 @@ export function normalizeStepMetrics(step: string): string {
     }
     return normalized.trim();
   }
-  
+
   // 3. 如果有多个 "×N次"，只保留最后一个，并移到句末
   if (timesMatches.length > 1) {
     // 找到最后一个 "×N次" 的位置
     const lastMatch = timesMatches[timesMatches.length - 1];
     const lastIndex = lastMatch.index;
     const lastLength = lastMatch.match.length;
-    
+
     // 移除所有 "×N次"（包括最后一个）
     let withoutTimes = normalized;
     for (let i = timesMatches.length - 1; i >= 0; i--) {
       const m = timesMatches[i];
       withoutTimes = withoutTimes.substring(0, m.index) + withoutTimes.substring(m.index + m.match.length);
     }
-    
+
     // 将最后一个 "×N次" 添加到句末
     normalized = withoutTimes.trim() + lastMatch.match;
   } else {
@@ -238,10 +238,10 @@ export function normalizeStepMetrics(step: string): string {
       normalized = beforeMatch + afterMatch + singleMatch.match;
     }
   }
-  
+
   // 4. 清理多余空格
   normalized = normalized.replace(/\s+/g, '');
-  
+
   // 5. 检查长度，如果超长，先压缩再规范化
   const currentLength = countChineseChars(normalized);
   if (currentLength > 16) {
@@ -250,7 +250,7 @@ export function normalizeStepMetrics(step: string): string {
     // 但这里不再递归调用，避免无限循环
     // 如果压缩后仍超长，会在后续流程中被 shortenStep 处理
   }
-  
+
   return normalized.trim();
 }
 
@@ -262,15 +262,15 @@ export function normalizeStepMetrics(step: string): string {
 function hasExplicitMetric(step: string): boolean {
   // 时长：分钟/小时/天/周/秒 等时间单位
   const hasDuration = /\d+\s*(分钟|小时|天|周|秒|周内|天内|分钟内)/.test(step);
-  
+
   // 明确的次数指标：×N次 / N次 / N遍 / N回 / N组 / N轮（轮/组/遍/回 必须被视为有效指标）
-  const hasExplicitCount = /×\s*\d+\s*次/.test(step) || 
-                          /\d+\s*(次|遍|回|组|轮)(?!\s*(条|个|项))/.test(step);
-  
+  const hasExplicitCount = /×\s*\d+\s*次/.test(step) ||
+    /\d+\s*(次|遍|回|组|轮)(?!\s*(条|个|项))/.test(step);
+
   // 触发器：如果/当/一旦/当...时/如果...就/焦虑≥7分/评分≤4分 等
   const hasTrigger = /(如果|当|一旦|当.*时|如果.*就|焦虑|评分|情绪).*?(≥|<=|≤|>|<|\d+分)/.test(step) ||
-                    /(如果|当|一旦).*?(出现|加剧|升到|达到|超过)/.test(step);
-  
+    /(如果|当|一旦).*?(出现|加剧|升到|达到|超过)/.test(step);
+
   return hasDuration || hasExplicitCount || hasTrigger;
 }
 
@@ -286,7 +286,7 @@ export function ensureStepHasMetric(step: string, when?: string): string {
   if (hasExplicitMetric(step)) {
     return step;
   }
-  
+
   // 如果只包含量词（条/个/项），按当前门禁口径它已经是次数指标
   // 不要强行追加 "×1次"（否则容易出现"条 + ×1次"的冗余表达）
   // 但需要确保量词确实存在
@@ -295,16 +295,16 @@ export function ensureStepHasMetric(step: string, when?: string): string {
     // 只包含量词，不包含明确指标，按门禁口径已经满足要求，直接返回
     return step;
   }
-  
+
   // 先尝试压缩虚词，为补齐腾出空间
   let compressed = compressStep(step);
   const compressedLength = countChineseChars(compressed);
   const originalLength = countChineseChars(step);
-  
+
   // 优先使用压缩后的版本（如果压缩后更短）
   const workingStep = compressedLength < originalLength ? compressed : step;
   const workingLength = Math.min(compressedLength, originalLength);
-  
+
   // 补齐策略：优先使用最短格式
   // 1. 如果 ≤12 字，优先补 "×1次"（最短，3个字符：×1次）
   if (workingLength <= 12) {
@@ -315,7 +315,7 @@ export function ensureStepHasMetric(step: string, when?: string): string {
     // 否则补"1次"
     return workingStep + '1次';
   }
-  
+
   // 2. 如果 ≤14 字，补 "1分钟" 或 "×1次"
   if (workingLength <= 14) {
     // 对于"写下/记录/标记"类动作，优先补"×1次"
@@ -325,13 +325,13 @@ export function ensureStepHasMetric(step: string, when?: string): string {
     // 其他情况补"1分钟"
     return workingStep + '1分钟';
   }
-  
+
   // 3. 如果 15-18 字，先压缩再补齐
   if (workingLength >= 15 && workingLength <= 18) {
     // 使用压缩后的版本
     const finalCompressed = compressStep(step);
     const finalLength = countChineseChars(finalCompressed);
-    
+
     if (finalLength <= 12) {
       if (finalCompressed.match(/\d+\s*(条|个)/)) {
         return finalCompressed + '×1次';
@@ -345,12 +345,12 @@ export function ensureStepHasMetric(step: string, when?: string): string {
       return finalCompressed + '1分钟';
     }
   }
-  
+
   // 4. 如果还是太长，尝试提取核心动作后补齐
   // 提取数字（如果有）
   const numMatch = workingStep.match(/(\d+)/);
   const num = numMatch ? numMatch[1] : '1';
-  
+
   // 提取动作词
   const actionMatch = workingStep.match(/(写下|记录|标记|列出|整理|写|做|走|听|看|数|放|调|关|离|吸|呼|停|去)/);
   if (actionMatch) {
@@ -361,7 +361,7 @@ export function ensureStepHasMetric(step: string, when?: string): string {
       return shortVersion;
     }
   }
-  
+
   // 最后兜底：如果还是无法补齐，返回原样（会在后续流程中被截断）
   return step;
 }
@@ -395,7 +395,7 @@ function fixAbstractStep(step: string): string {
       }
     }
   }
-  
+
   // 检查是否包含抽象关键词但缺少时长/次数/触发器
   const abstractKeywords = [
     '保持', '持续进行', '直到', '维持', '继续',
@@ -404,14 +404,14 @@ function fixAbstractStep(step: string): string {
     '想一想', '调整心态', '把注意力放在',
     '进行', '放松', '平复', '稳定', '缓解',
   ];
-  
+
   const isAbstract = abstractKeywords.some(keyword => step.includes(keyword));
-  
+
   if (isAbstract && !hasMetricToken(step)) {
     // 尝试自动补充
     return ensureStepHasMetric(step);
   }
-  
+
   return step;
 }
 
@@ -424,21 +424,21 @@ export function sanitizeActionCards(actionCards: ActionCard[]): ActionCard[] {
   if (!actionCards || actionCards.length === 0) {
     return actionCards;
   }
-  
+
   return actionCards.map(card => {
     if (!card.steps || !Array.isArray(card.steps)) {
       return card;
     }
-    
+
     const sanitizedSteps = card.steps.map(step => {
       let sanitized = step.trim();
-      
+
       // 步骤1：处理抽象句和违规短句（使用映射表）
       sanitized = fixAbstractStep(sanitized);
-      
+
       // 步骤2：确保有时长/次数/触发器（使用 ensureStepHasMetric）
       sanitized = ensureStepHasMetric(sanitized, card.when);
-      
+
       // 步骤3：缩短超长步骤（如果补齐后超长，先压缩再补齐）
       const currentLength = countChineseChars(sanitized);
       if (currentLength > 16) {
@@ -451,7 +451,7 @@ export function sanitizeActionCards(actionCards: ActionCard[]): ActionCard[] {
         // 如果还是超长，缩短
         sanitized = shortenStep(sanitized);
       }
-      
+
       // 步骤4：最终长度检查（如果还是超，强制截断）
       const finalLength = countChineseChars(sanitized);
       if (finalLength > 16) {
@@ -462,13 +462,13 @@ export function sanitizeActionCards(actionCards: ActionCard[]): ActionCard[] {
           sanitized = ensureStepHasMetric(sanitized, card.when);
         }
       }
-      
+
       // 步骤5：规范化指标，去除重复和错位（在流水线末尾统一调用）
       sanitized = normalizeStepMetrics(sanitized);
-      
+
       return sanitized;
     });
-    
+
     return {
       ...card,
       steps: sanitizedSteps,

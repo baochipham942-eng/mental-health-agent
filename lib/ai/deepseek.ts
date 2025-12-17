@@ -1,6 +1,6 @@
-import { EmotionAnalysis } from '@/types/emotion';
+import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
-import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '@/lib/observability/langfuse';
+import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '../observability/langfuse';
 
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -119,6 +119,7 @@ export async function streamChatCompletion(
   options?: {
     temperature?: number;
     max_tokens?: number;
+    onFinish?: (text: string) => Promise<void>;
   }
 ) {
   if (!DEEPSEEK_API_KEY) {
@@ -138,6 +139,11 @@ export async function streamChatCompletion(
     temperature: options?.temperature ?? 0.7,
     maxTokens: options?.max_tokens ?? 2000,
     onFinish: async ({ text, usage, finishReason }) => {
+      // Call external onFinish if provided
+      if (options?.onFinish) {
+        await options.onFinish(text);
+      }
+
       // LangFuse Tracing (Async)
       const trace = createTrace(
         'streamChatCompletion',

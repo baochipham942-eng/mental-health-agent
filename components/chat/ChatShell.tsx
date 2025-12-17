@@ -12,7 +12,13 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-export function ChatShell() {
+interface ChatShellProps {
+  sessionId: string;
+  initialMessages: Message[];
+  isReadOnly?: boolean;
+}
+
+export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: ChatShellProps) {
   const {
     messages,
     currentState,
@@ -27,7 +33,7 @@ export function ChatShell() {
     addMessage,
     updateMessage, // New interface
     setLoading,
-    setError,
+    setError, // ...
     updateState,
     clearMessages,
     appendFollowupAnswer,
@@ -37,14 +43,18 @@ export function ChatShell() {
     setLastRequestPayload,
     lastRequestPayload,
     resetConversation,
+    setMessages, // Need to expose setMessages in store or use clear+add
   } = useChatStore();
 
-  // 保存 followupSlot 状态（用于下次请求传递）
-  const [followupSlotState, setFollowupSlotState] = React.useState<any>(undefined);
-  // 修复：保存 pressureSocratic 状态（用于下次请求传递，防止重复提问）
-  const [pressureSocraticState, setPressureSocraticState] = React.useState<any>(undefined);
-
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+
+  // Hydrate Store on Mount / Session Change
+  useEffect(() => {
+    if (initialMessages) {
+      // Force replace messages with server data
+      setMessages(initialMessages);
+    }
+  }, [sessionId, initialMessages, setMessages]);
   const [isSending, setIsSending] = useState(false);
   const [draft, setDraft] = useState('');
   const scrollContainerRef = useRef<HTMLElement>(null);
@@ -159,6 +169,15 @@ export function ChatShell() {
     async (text?: string) => {
       // 修复A: 支持从快捷回复传入文本
       const content = (text !== undefined ? text : draft).trim();
+
+      console.log('[ChatShell] handleSend called', {
+        textArg: text,
+        draftValue: draft,
+        finalContent: content,
+        sessionId,
+        isSendingState: isSending
+      });
+
       // 严格检查：禁止发送空字符串
       if (!content || content.length === 0) {
         return; // 没有内容，直接返回
@@ -233,10 +252,7 @@ export function ChatShell() {
           assessmentStage,
           meta: {
             ...(currentInitialMessage && { initialMessage: currentInitialMessage }),
-            // 传递 followupSlot 状态（如果存在）
-            ...(followupSlotState && { followupSlot: followupSlotState }),
-            // 修复：传递 pressureSocratic 状态（如果存在）
-            ...(pressureSocraticState && { pressureSocratic: pressureSocraticState }),
+
           },
         };
 
@@ -253,43 +269,6 @@ export function ChatShell() {
         };
         addMessage(placeholderMessage);
 
-        const { response, error: apiError } = await sendChatMessage(
-          messageToSend,
-          requestPayload.history,
-          currentState,
-          assessmentStage,
-          currentInitialMessage,
-          requestPayload.meta,
-          // onTextChunk callback
-          (textChunk) => {
-            // We need to append text to the current message content
-            // Assuming textChunk is the specific new token(s)
-            // But wait, the sendChatMessage accumulater logic I wrote accumulates locally
-            // and onTextChunk is called with the *chunk*.
-            // So we need to accumulate state here or just append.
-            // Since onTextChunk is called for each parsed chunk, we append.
-
-            // However, we rely on React state/store update.
-            // Calling updateMessage repeatedly might be expensive if too frequent?
-            // Zustand is fast enough usually.
-
-            // Note: We need access to the CURRENT content of this message to append.
-            // But updateMessage uses functional update or we can read from store?
-            // Store update is: messages.map(...).
-            // Better: updateMessage(id, { content: prevContent + chunk })?
-            // No, updateMessage as defined: { ...msg, ...updates }
-            // So we need to pass the *new complete content* OR logic to append.
-            // My defined updateMessage takes `Partial<Message>`.
-            // So I need to know the full content.
-
-            // Let's modify onTextChunk usage.
-            // I'll keep a local accumulator in this scope.
-          }
-        );
-
-        // Wait, I can't interact with the stream inside `sendChatMessage` easily if I await it?
-        // `sendChatMessage` provided `onTextChunk`.
-
         let localAccumulatedContent = '';
 
         const { response: finalResponse, error: finalApiError } = await sendChatMessage(
@@ -302,7 +281,8 @@ export function ChatShell() {
           (chunk) => {
             localAccumulatedContent += chunk;
             updateMessage(assistantMsgId, { content: localAccumulatedContent });
-          }
+          },
+          sessionId
         );
 
         if (finalApiError) {
@@ -412,20 +392,12 @@ export function ChatShell() {
         });
 
         // 保存 followupSlot 状态（如果存在），用于下次请求传递
-        if (responseData.meta?.followupSlot) {
-          setFollowupSlotState(responseData.meta.followupSlot);
-        } else if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
-          // 如果进入 conclusion 或 normal 状态，清空 followupSlot
-          setFollowupSlotState(undefined);
-        }
+
+
 
         // 修复：保存 pressureSocratic 状态（如果存在），用于下次请求传递
-        if (responseData.meta?.pressureSocratic) {
-          setPressureSocraticState(responseData.meta.pressureSocratic);
-        } else if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
-          // 如果进入 conclusion 或 normal 状态，清空 pressureSocratic
-          setPressureSocraticState(undefined);
-        }
+
+
 
         // 如果状态切回 normal 或进入 conclusion，清空 followupAnswerDraft
         if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
@@ -516,12 +488,47 @@ export function ChatShell() {
     ]
   );
 
+  // 45分钟倒计时逻辑 (2700秒)
+  const SESSION_DURATION = 2700;
+  const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
+  const isSessionEnded = timeLeft <= 0;
+
+  useEffect(() => {
+    // 如果已经结束，不执行
+    if (timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  // 格式化时间 MM:SS
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
       {/* 顶部栏 - 固定高度 */}
       <header className="w-full border-b bg-white shadow-sm z-20 shrink-0">
         <div className="w-full px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800">心理疗愈助手</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold text-gray-800">心理疗愈助手</h1>
+            <div className={`px-3 py-1 rounded-full text-sm font-mono font-medium ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'
+              }`}>
+              ⏳ {formatTime(timeLeft)}
+            </div>
+          </div>
           <div className="flex items-center gap-3">
             {messages.length > 0 && (
               <button
@@ -542,7 +549,7 @@ export function ChatShell() {
         </div>
       </header>
 
-      {/* 消息列表 - flex-1 滚动容器（修复B: 确保这是唯一的滚动容器） */}
+      {/* 消息列表 - flex-1 滚动容器 */}
       <section
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0"
@@ -556,19 +563,25 @@ export function ChatShell() {
           onSendMessage={(text: string) => handleSend(text)}
           scrollContainerRef={scrollContainerRef}
         />
+        {isSessionEnded && (
+          <div className="p-4 bg-yellow-50 text-center text-sm text-yellow-800 border-t border-yellow-100 mb-4 mx-4 rounded-lg">
+            本次咨询时长已达 45 分钟，会话已结束。请开启新的会话。
+          </div>
+        )}
       </section>
 
-      {/* 输入框 - shrink-0 固定在底部（修复B: 不参与滚动） */}
+      {/* 输入框 - shrink-0 固定在底部 */}
       <footer className="w-full border-t bg-white z-30 shrink-0 pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto w-full max-w-full px-4 py-3">
           <ChatInput
             value={draft}
             onChange={(newValue) => {
-              // 确保状态更新
               setDraft(newValue);
             }}
             onSend={handleSend}
             isLoading={isLoading || isSending}
+            disabled={isReadOnly || isSessionEnded}
+            placeholder={isSessionEnded ? "本次会话已结束" : undefined}
           />
         </div>
       </footer>

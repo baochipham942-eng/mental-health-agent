@@ -119,6 +119,7 @@ export async function sendChatMessage(
   initialMessage?: string,
   meta?: any,  // 新增：传递 meta（包括 followupSlot）
   onTextChunk?: (chunk: string) => void, // Callback for streaming text
+  sessionId?: string, // Add sessionId
 ): Promise<{ response: ValidatedChatResponse; error: ChatApiError | null }> {
   try {
     const request: ChatRequest = {
@@ -129,6 +130,7 @@ export async function sendChatMessage(
       meta: meta || (initialMessage ? {
         initialMessage,
       } : undefined),
+      sessionId, // Pass sessionId
     };
 
     const res = await fetch('/api/chat', {

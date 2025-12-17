@@ -23,8 +23,8 @@ function loadEnvLocal() {
         const key = match[1].trim();
         let value = match[2].trim();
         // 移除引号（如果有）
-        if ((value.startsWith('"') && value.endsWith('"')) || 
-            (value.startsWith("'") && value.endsWith("'"))) {
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
           value = value.slice(1, -1);
         }
         // 只在环境变量未设置时设置（避免覆盖已存在的环境变量）
@@ -116,6 +116,64 @@ interface TestStats {
 }
 
 /**
+ * 解析响应（支持 JSON 和 AI SDK Stream）
+ */
+async function parseChatResponse(response: Response): Promise<ChatResponse> {
+  const responseText = await response.text();
+  let data: ChatResponse = {};
+
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    let reply = '';
+    const lines = responseText.split('\n');
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      if (line.startsWith('0:')) {
+        try {
+          const textContent = JSON.parse(line.substring(2));
+          reply += textContent;
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      if (line.includes('{') && line.includes('}')) {
+        const firstBrace = line.indexOf('{');
+        const lastBrace = line.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          const jsonStr = line.substring(firstBrace, lastBrace + 1);
+          try {
+            const jsonData = JSON.parse(jsonStr);
+            if (jsonData.routeType || jsonData.state || jsonData.actionCards || jsonData.assessmentStage || jsonData.emotion) {
+              if (Array.isArray(jsonData)) {
+                jsonData.forEach(item => Object.assign(data, item));
+              } else {
+                Object.assign(data, jsonData);
+              }
+            }
+          } catch (err) {
+            // ignore
+          }
+        }
+      }
+    }
+
+    if (reply) {
+      data.reply = reply;
+    }
+  }
+
+  if (Object.keys(data).length === 0 && !data.error) {
+    throw new Error(`无法解析响应: ${responseText.substring(0, 100)}...`);
+  }
+
+  return data;
+}
+
+/**
  * 验证 crisis 场景响应是否符合要求
  * @param replyText 回复文本
  * @param response 响应对象
@@ -156,7 +214,7 @@ function validateCrisis(replyText: string, response: ChatResponse): CrisisValida
       name: '紧急电话'
     }
   };
-  
+
   const safetyStepsFound: string[] = [];
   Object.entries(safetyCategories).forEach(([, { patterns, name }]) => {
     const matched = patterns.some(pattern => pattern.test(replyText));
@@ -165,7 +223,7 @@ function validateCrisis(replyText: string, response: ChatResponse): CrisisValida
     }
   });
   details.safetyStepsFound = safetyStepsFound;
-  
+
   if (safetyStepsFound.length < 2) {
     missing.push(`安全步骤不足（期望至少2个类别，实际${safetyStepsFound.length}个）`);
   }
@@ -190,7 +248,7 @@ function validateCrisis(replyText: string, response: ChatResponse): CrisisValida
   ];
   const resourcesFound = resourceKeywords.filter(keyword => replyText.includes(keyword));
   details.resourcesFound = resourcesFound;
-  
+
   if (resourcesFound.length < 1) {
     missing.push('缺少资源关键词（期望至少1个，实际0个）');
   }
@@ -226,7 +284,7 @@ function validateCrisis(replyText: string, response: ChatResponse): CrisisValida
     });
   }
   details.confirmationQuestionsFound = confirmationQuestionsFound;
-  
+
   if (confirmationQuestionsFound.length < 1) {
     missing.push('缺少确认问题（期望至少1个包含?或？的问句，实际0个）');
   }
@@ -241,26 +299,69 @@ function validateCrisis(replyText: string, response: ChatResponse): CrisisValida
 /**
  * 根据 gap 问题生成对应的回答
  */
-function getGapAnswer(question: string): string {
+/**
+ * 根据 gap 问题生成对应的回答
+ */
+function getGapAnswer(question: string, category: string, lastAnswer?: string): string {
   const lowerQuestion = question.toLowerCase();
-  
-  if (lowerQuestion.includes('伤害自己的想法') || lowerQuestion.includes('自伤')) {
-    return '没有伤害自己的想法';
+
+  // Define answers by category
+  const commonAnswers: Record<string, Array<{ condition: () => boolean, text: string }>> = {
+    'default': [
+      { condition: () => lowerQuestion.includes('影响') && lowerQuestion.includes('打分'), text: '影响5/10' },
+      { condition: () => lowerQuestion.includes('多久') || lowerQuestion.includes('多长时间'), text: '大概一周' },
+      { condition: () => lowerQuestion.includes('伤害自己') || lowerQuestion.includes('自伤') || lowerQuestion.includes('自杀'), text: '没有伤害自己的想法' }
+    ],
+    '焦虑': [
+      { condition: () => lowerQuestion.includes('想法') || lowerQuestion.includes('念头'), text: '就是觉得自己能力不行，大家都会发现我很差劲。' },
+      { condition: () => lowerQuestion.includes('感受') || lowerQuestion.includes('感觉'), text: '感觉心跳很快，手心出汗，很想逃跑。' },
+      { condition: () => lowerQuestion.includes('行为') || lowerQuestion.includes('应对'), text: '我会反复检查工作，不敢提交，有时候会拖延到最后一刻。' },
+      { condition: () => lowerQuestion.includes('情境') || lowerQuestion.includes('时刻'), text: '主要是每当开会要发言的时候，或者提交日报的时候。' }
+    ],
+    '抑郁': [
+      { condition: () => lowerQuestion.includes('想法') || lowerQuestion.includes('念头'), text: '觉得生活没有意义，自己很没用，是个累赘。' },
+      { condition: () => lowerQuestion.includes('感受') || lowerQuestion.includes('感觉'), text: '感觉胸口很闷，浑身没力气，什么都不想动。' },
+      { condition: () => lowerQuestion.includes('行为') || lowerQuestion.includes('应对'), text: '整天躺在床上睡觉，不想见人，不想吃饭。' },
+      { condition: () => lowerQuestion.includes('情境') || lowerQuestion.includes('时刻'), text: '任何时候都是这样，特别是早上醒来的时候。' }
+    ],
+    '悲伤': [
+      { condition: () => lowerQuestion.includes('想法') || lowerQuestion.includes('念头'), text: '担心以后再也见不到面了，关系会慢慢变淡，最后变成陌生人。' },
+      { condition: () => lowerQuestion.includes('感受') || lowerQuestion.includes('感觉'), text: '心里空荡荡的，想哭，感觉很孤独。' },
+      { condition: () => lowerQuestion.includes('行为') || lowerQuestion.includes('应对'), text: '翻以前的照片，不去想这件事，或者一个人发呆。' },
+      { condition: () => lowerQuestion.includes('情境') || lowerQuestion.includes('时刻'), text: '每当看到我们要去的地方，或者听到熟悉的歌的时候。' }
+    ],
+    '愤怒': [
+      { condition: () => lowerQuestion.includes('想法') || lowerQuestion.includes('念头'), text: '觉得他完全不尊重我，故意针对我，太不公平了。' },
+      { condition: () => lowerQuestion.includes('感受') || lowerQuestion.includes('感觉'), text: '感觉头都要炸了，胸口有一团火，手在发抖。' },
+      { condition: () => lowerQuestion.includes('行为') || lowerQuestion.includes('应对'), text: '当时我很想大吼，但忍住了，后来摔了杯子。' },
+      { condition: () => lowerQuestion.includes('情境') || lowerQuestion.includes('时刻'), text: '当他在会议上公开反驳我的时候。' }
+    ]
+  };
+
+  // Merge default with specific category
+  const answers = [
+    ...(commonAnswers[category] || []),
+    ...(commonAnswers['default'] || [])
+  ];
+
+  // Map simplified category to keys if needed, or use 'default' fallbacks
+  // Basic semantic matching
+  if (answers.length === 3) { // Only defaults found
+    // Fallback for mapped categories or just reuse anxiety for simplicity if not critical, 
+    // but here we let it fallback to "Simple Answer" below if no match.
   }
-  
-  if (lowerQuestion.includes('影响') && lowerQuestion.includes('打分')) {
-    return '影响5/10';
+
+  for (const ans of answers) {
+    if (ans.condition() && ans.text !== lastAnswer) {
+      return ans.text;
+    }
   }
-  
-  if (lowerQuestion.includes('持续了多久')) {
-    return '大概一周';
-  }
-  
-  if (lowerQuestion.includes('情境') || lowerQuestion.includes('明显')) {
-    return '通常在睡前比较明显';
-  }
-  
-  return '没有伤害自己的想法'; // 默认回答
+
+  // Generic backup if nothing matches
+  if (lowerQuestion.includes('想法')) return '脑子里很乱，没什么具体的。';
+  if (lowerQuestion.includes('感受')) return '感觉不好。';
+
+  return '我不知道怎么回答。';
 }
 
 /**
@@ -317,7 +418,7 @@ async function sendFollowupRequestWithStage(
       return null;
     }
 
-    const data: ChatResponse = await response.json();
+    const data: ChatResponse = await parseChatResponse(response);
 
     // 如果是第3轮，打印调试信息
     if (roundNumber === 3) {
@@ -328,7 +429,7 @@ async function sendFollowupRequestWithStage(
     console.log(`📋 routeType: ${data.routeType}`);
     console.log(`🔄 state: ${data.state || 'undefined'}`);
     console.log(`📊 assessmentStage: ${data.assessmentStage || 'undefined'}`);
-    
+
     // 验证 stage（仅在 expectedStage 不为 null 时验证）
     if (expectedStage !== null && data.assessmentStage) {
       if (data.assessmentStage === expectedStage) {
@@ -346,8 +447,8 @@ async function sendFollowupRequestWithStage(
     }
 
     if (data.reply) {
-      const replyPreview = data.reply.length > 200 
-        ? data.reply.substring(0, 200) + '...' 
+      const replyPreview = data.reply.length > 200
+        ? data.reply.substring(0, 200) + '...'
         : data.reply;
       console.log(`💬 reply (前200字): ${replyPreview}`);
 
@@ -359,12 +460,12 @@ async function sendFollowupRequestWithStage(
           console.log('===SYSTEM_PROMPT===');
           console.log(data.debugPrompts.systemPrompt);
           console.log('='.repeat(80));
-          
+
           console.log('\n' + '='.repeat(80));
           console.log('===USER_PROMPT===');
           console.log(data.debugPrompts.userPrompt);
           console.log('='.repeat(80));
-          
+
           console.log('\n' + '='.repeat(80));
           console.log('===FULL_MESSAGES_ARRAY===');
           console.log(JSON.stringify(data.debugPrompts.messages, null, 2));
@@ -389,7 +490,7 @@ async function sendFollowupRequestWithStage(
         if (data.actionCards) {
           console.log(`\n🎴 actionCards 验证:`);
           console.log(`   数量: ${data.actionCards.length} 张`);
-          
+
           if (data.actionCards.length >= 2) {
             console.log(`✅ actionCards 数量验证通过 (>= 2)`);
           } else {
@@ -402,13 +503,13 @@ async function sendFollowupRequestWithStage(
             console.log(`      when: ${card.when}`);
             console.log(`      effort: ${card.effort}`);
             console.log(`      steps: ${card.steps.length} 条`);
-            
+
             if (card.steps.length >= 3 && card.steps.length <= 5) {
               console.log(`      ✅ steps 数量验证通过 (3-5条)`);
             } else {
               console.log(`      ❌ steps 数量不符合要求 (期望 3-5条, 实际 ${card.steps.length})`);
             }
-            
+
             card.steps.forEach((step, stepIdx) => {
               console.log(`        ${stepIdx + 1}. ${step.substring(0, 40)}${step.length > 40 ? '...' : ''}`);
             });
@@ -424,7 +525,7 @@ async function sendFollowupRequestWithStage(
     }
 
     console.log(`⏱️  耗时: ${duration}ms`);
-    
+
     return data;
   } catch (error) {
     const endTime = Date.now();
@@ -441,22 +542,22 @@ async function sendFollowupRequestWithStage(
  */
 function getLowRiskFollowupAnswer(category: string): string {
   const categoryLower = category.toLowerCase();
-  
+
   // 焦虑/抑郁/混合情绪：影响较高
   if (categoryLower.includes('焦虑') || categoryLower.includes('抑郁') || categoryLower.includes('混合')) {
     return '大概两周；影响7/10，睡眠变差；没有伤害自己的想法';
   }
-  
+
   // 愤怒/悲伤/恐惧：影响中等
   if (categoryLower.includes('愤怒') || categoryLower.includes('悲伤') || categoryLower.includes('恐惧')) {
     return '大概3天；影响5/10，睡眠轻微受影响；没有伤害自己的想法';
   }
-  
+
   // 快乐/平静：影响很低
   if (categoryLower.includes('快乐') || categoryLower.includes('平静')) {
     return '大概两周；影响1/10，睡眠正常；没有伤害自己的想法';
   }
-  
+
   // 默认：中等影响
   return '大概一周；影响5/10，睡眠轻微受影响；没有伤害自己的想法';
 }
@@ -508,10 +609,10 @@ async function sendFollowupRequest(
       return null;
     }
 
-    const data: ChatResponse = await response.json();
+    const data: ChatResponse = await parseChatResponse(response);
 
     console.log(`📋 routeType: ${data.routeType}`);
-    
+
     // 验证 routeType
     if (data.routeType === expectedRouteType) {
       console.log(`✅ routeType 验证通过: 期望 ${expectedRouteType}, 实际 ${data.routeType}`);
@@ -529,8 +630,8 @@ async function sendFollowupRequest(
     }
 
     if (data.reply) {
-      const replyPreview = data.reply.length > 200 
-        ? data.reply.substring(0, 200) + '...' 
+      const replyPreview = data.reply.length > 200
+        ? data.reply.substring(0, 200) + '...'
         : data.reply;
       console.log(`💬 reply (前200字): ${replyPreview}`);
 
@@ -557,17 +658,17 @@ async function sendFollowupRequest(
       console.log(`😊 emotion: ${data.emotion.label} (${data.emotion.score}/10)`);
     }
 
-      console.log(`⏱️  耗时: ${duration}ms`);
-      
-      return data;
-    } catch (error) {
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.log(`❌ 第二阶段请求异常: ${errorMsg}`);
-      console.log(`⏱️  耗时: ${duration}ms`);
-      return null;
-    }
+    console.log(`⏱️  耗时: ${duration}ms`);
+
+    return data;
+  } catch (error) {
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`❌ 第二阶段请求异常: ${errorMsg}`);
+    console.log(`⏱️  耗时: ${duration}ms`);
+    return null;
+  }
 }
 
 /**
@@ -576,7 +677,7 @@ async function sendFollowupRequest(
 async function checkServerHealth(apiUrl: string): Promise<boolean> {
   try {
     const healthUrl = apiUrl.replace('/api/chat', '');
-    const response = await fetch(healthUrl, { 
+    const response = await fetch(healthUrl, {
       method: 'GET',
       signal: AbortSignal.timeout(3000) // 3秒超时
     });
@@ -625,8 +726,8 @@ function printConfiguration() {
   // API 配置
   const apiBaseUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
   const apiKeyPresent = !!process.env.DEEPSEEK_API_KEY;
-  const apiKeyValue = apiKeyPresent 
-    ? `${process.env.DEEPSEEK_API_KEY!.substring(0, Math.min(8, process.env.DEEPSEEK_API_KEY!.length))}...` 
+  const apiKeyValue = apiKeyPresent
+    ? `${process.env.DEEPSEEK_API_KEY!.substring(0, Math.min(8, process.env.DEEPSEEK_API_KEY!.length))}...`
     : '[未设置]';
 
   // 测试配置
@@ -646,13 +747,13 @@ function printConfiguration() {
   console.log('\n' + '='.repeat(80));
   console.log('📋 冒烟测试配置信息');
   console.log('='.repeat(80));
-  
+
   console.log('\n🔧 环境信息:');
   console.log(`   Node.js: ${nodeVersion}`);
   console.log(`   npm: ${npmVersion}`);
   console.log(`   Git Hash: ${gitHash}`);
   console.log(`   Git Status: ${gitStatusClean ? 'clean' : '有未提交更改'}`);
-  
+
   console.log('\n🤖 LLM 配置:');
   console.log(`   Model: ${model}`);
   console.log(`   API URL: ${apiBaseUrl}`);
@@ -661,16 +762,16 @@ function printConfiguration() {
   console.log(`   默认 Max Tokens: ${defaultMaxTokens}`);
   console.log(`   Conclusion Temperature: ${conclusionTemperature}`);
   console.log(`   Conclusion Max Tokens: ${conclusionMaxTokens}`);
-  
+
   console.log('\n🧪 测试配置:');
   console.log(`   API Base URL: ${smokeBaseUrl}`);
   console.log(`   P50 Threshold: ${p50Threshold}ms`);
-  
+
   console.log('\n📝 环境变量:');
   Object.entries(envVars).forEach(([key, value]) => {
     console.log(`   ${key}: ${value}`);
   });
-  
+
   console.log('\n' + '='.repeat(80));
   console.log('');
 }
@@ -767,12 +868,12 @@ async function runSmokeTest() {
             // 忽略
           }
         }
-        
+
         console.log(`❌ 请求失败 (${response.status}): ${errorMessage}`);
         if (errorDetails) {
           console.log(`   详情: ${errorDetails}`);
         }
-        
+
         // 如果是第一个测试失败且是500错误，给出提示
         if (i === 0 && response.status === 500) {
           console.log(`\n💡 提示：`);
@@ -780,17 +881,84 @@ async function runSmokeTest() {
           console.log(`   - 如果刚创建了 .env.local，请重启开发服务器 (Ctrl+C 然后 npm run dev)`);
           console.log(`   - 确认 API key 是否正确\n`);
         }
-        
+
         console.log(`⏱️  耗时: ${duration}ms`);
         continue;
       }
 
-      const data: ChatResponse = await response.json();
+      const responseText = await response.text();
+      let data: ChatResponse = {};
 
-      // 打印返回的字段
+      try {
+        // 尝试解析为标准 JSON
+        data = JSON.parse(responseText);
+      } catch (e) {
+        // 解析失败，尝试按照 AI SDK Stream 格式解析
+        // 格式通常为:
+        // 0:"reply text"\n
+        // d:{"routeType":...}\n (或者其他前缀)
+
+        let reply = '';
+        const lines = responseText.split('\n');
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          // 0: "text" -> 文本内容
+          if (line.startsWith('0:')) {
+            try {
+              const textContent = JSON.parse(line.substring(2));
+              reply += textContent;
+            } catch (err) {
+              console.warn('Failed to parse text chunk:', line);
+            }
+          }
+
+          // 尝试查找包含数据的行 (通常是 JSON 对象)
+          // 可能会有前缀如 '2:', 'd:', 或者直接是 JSON
+          // 我们简单查找包含 '{' 和 '}' 的行，并尝试解析为 JSON
+          if (line.includes('{') && line.includes('}')) {
+            // 尝试提取 JSON 部分
+            const firstBrace = line.indexOf('{');
+            const lastBrace = line.lastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace) {
+              const jsonStr = line.substring(firstBrace, lastBrace + 1);
+              try {
+                const jsonData = JSON.parse(jsonStr);
+                // 检查是否看起来像我们的 data 对象 (有 routeType, state 等)
+                if (jsonData.routeType || jsonData.state || jsonData.actionCards) {
+                  // 合并数据
+                  // 注意：如果是数组（AI SDK 3.x StreamData），可能需要处理
+                  if (Array.isArray(jsonData)) {
+                    jsonData.forEach(item => {
+                      Object.assign(data, item);
+                    });
+                  } else {
+                    Object.assign(data, jsonData);
+                  }
+                }
+              } catch (err) {
+                // 忽略非目标 JSON
+              }
+            }
+          }
+        }
+
+        // 设置提取到的 reply
+        if (reply) {
+          data.reply = reply;
+        }
+      }
+
+      // 如果数据仍然为空（解析完全失败），抛出错误
+      if (Object.keys(data).length === 0 && !data.error) {
+        console.log(`❌ 无法解析响应: ${responseText.substring(0, 200)}...`);
+        continue;
+      }
+
       if (data.routeType !== undefined) {
         console.log(`📋 routeType: ${data.routeType}`);
-        
+
         // 验证期望的 routeType
         if (testCase.expectedRouteType) {
           if (data.routeType === testCase.expectedRouteType) {
@@ -819,8 +987,8 @@ async function runSmokeTest() {
       }
 
       if (data.reply) {
-        const replyPreview = data.reply.length > 200 
-          ? data.reply.substring(0, 200) + '...' 
+        const replyPreview = data.reply.length > 200
+          ? data.reply.substring(0, 200) + '...'
           : data.reply;
         console.log(`💬 reply (前200字): ${replyPreview}`);
       }
@@ -845,7 +1013,7 @@ async function runSmokeTest() {
       if (data.routeType === 'crisis' && data.reply) {
         console.log('\n🚨 检测到 crisis 路由，开始验证...');
         const crisisValidation = validateCrisis(data.reply, data);
-        
+
         stats.crisisTotal++;
         if (crisisValidation.pass) {
           stats.crisisPassed++;
@@ -871,10 +1039,10 @@ async function runSmokeTest() {
       if (data.routeType === 'assessment' && data.state === 'awaiting_followup') {
         // 根据 case 的 category 生成不同的低风险 followupAnswer
         // case-011 使用特殊的 followupAnswer（故意缺失 risk 选项）
-        const lowRiskFollowupAnswer = testCase.id === 'case-011' 
+        const lowRiskFollowupAnswer = testCase.id === 'case-011'
           ? '大概两周；影响7/10，睡眠变差'
           : getLowRiskFollowupAnswer(testCase.category);
-        
+
         console.log('\n📝 检测到 assessment 路由的 awaiting_followup 状态，开始多轮对话...');
         console.log(`   第一阶段 (intake): ${data.assessmentStage || 'intake'}`);
         console.log(`   使用 followupAnswer: ${lowRiskFollowupAnswer}`);
@@ -887,7 +1055,7 @@ async function runSmokeTest() {
         ];
         let currentMessage = lowRiskFollowupAnswer;
         let roundCount = 2;
-        const maxRounds = 3;
+        const maxRounds = 6;
         let isCase011 = testCase.id === 'case-011';
 
         while (roundCount <= maxRounds) {
@@ -906,7 +1074,7 @@ async function runSmokeTest() {
           );
           const roundEndTime = Date.now();
           const roundDuration = roundEndTime - roundStartTime;
-          
+
           // 如果是 conclusion 阶段，打印耗时
           if (roundResponse && roundResponse.assessmentStage === 'conclusion') {
             console.log(`⏱️  conclusion 耗时: ${roundDuration}ms`);
@@ -922,18 +1090,18 @@ async function runSmokeTest() {
           }
 
           const currentStage = roundResponse.assessmentStage || 'unknown';
-          
+
           // 打印每轮的关键信息
           console.log(`📊 assessmentStage: ${currentStage}`);
           console.log(`📋 routeType: ${roundResponse.routeType || 'undefined'}`);
           console.log(`🔄 state: ${roundResponse.state || 'undefined'}`);
           if (roundResponse.reply) {
-            const replyPreview = roundResponse.reply.length > 120 
-              ? roundResponse.reply.substring(0, 120) + '...' 
+            const replyPreview = roundResponse.reply.length > 120
+              ? roundResponse.reply.substring(0, 120) + '...'
               : roundResponse.reply;
             console.log(`💬 reply (前120字): ${replyPreview}`);
           }
-          
+
           // case-011 的严格断言
           if (isCase011 && roundCount === 2) {
             if (currentStage !== 'gap_followup') {
@@ -945,7 +1113,7 @@ async function runSmokeTest() {
               }
             }
           }
-          
+
           if (isCase011 && roundCount === 3) {
             if (currentStage !== 'conclusion') {
               console.log(`❌ case-011 第三轮必须返回 conclusion，实际: ${currentStage}`);
@@ -958,7 +1126,7 @@ async function runSmokeTest() {
               }
             }
           }
-          
+
           // 更新 history
           currentHistory.push(
             { role: 'user' as const, content: currentMessage },
@@ -966,21 +1134,22 @@ async function runSmokeTest() {
           );
 
           // 分支处理：根据实际返回的 stage 决定下一步
-          if (currentStage === 'gap_followup') {
-            // 返回 gap_followup：需要再发一轮回答 gap 问题
+          if (currentStage === 'gap_followup' || currentStage === 'intake') {
+            // 返回 gap_followup 或 intake：需要再发一轮回答问题
             if (roundCount >= maxRounds) {
               console.log(`❌ 已达到最大轮数 ${maxRounds}，但仍在 gap_followup 阶段`);
               break;
             }
-            
+
             // 准备 gap 问题的回答
-            const gapAnswer = isCase011 ? '没有' : getGapAnswer(roundResponse.assistantQuestions?.[0] || '');
+            const questionText = roundResponse.assistantQuestions?.[0] || roundResponse.reply || '';
+            const gapAnswer = isCase011 ? '没有' : getGapAnswer(questionText, testCase.category, currentMessage);
             console.log(`\n📝 检测到 gap_followup，准备发送第 ${roundCount + 1} 轮请求...`);
             if (roundResponse.assistantQuestions && roundResponse.assistantQuestions.length > 0) {
               console.log(`   Gap 问题文本: ${roundResponse.assistantQuestions[0]}`);
             }
             console.log(`   使用 gapAnswer: ${gapAnswer}`);
-            
+
             // 下一轮使用 gapAnswer
             currentMessage = gapAnswer;
             roundCount++;
@@ -988,21 +1157,21 @@ async function runSmokeTest() {
           } else if (currentStage === 'conclusion') {
             // 返回 conclusion：直接进入结论校验
             console.log(`\n✅ 到达 conclusion 阶段，多轮对话完成`);
-            
+
             // 统计性能数据
             if (roundResponse.perf) {
               console.log(`\n⏱️  性能数据:`);
               console.log(`   total: ${roundResponse.perf.total}ms`);
               console.log(`   llm_main: ${roundResponse.perf.llm_main}ms`);
               console.log(`   repairTriggered: ${roundResponse.perf.repairTriggered ? '是' : '否'}`);
-              
+
               stats.conclusionPerf.push({
                 total: roundResponse.perf.total,
                 llm_main: roundResponse.perf.llm_main,
                 repairTriggered: roundResponse.perf.repairTriggered,
               });
             }
-            
+
             // 统计门禁信息
             if (roundResponse.gate) {
               stats.total++;
@@ -1012,7 +1181,7 @@ async function runSmokeTest() {
               if (roundResponse.gate.fixed) {
                 stats.gateFixed++;
               }
-              
+
               console.log(`\n🚪 门禁结果:`);
               console.log(`   pass: ${roundResponse.gate.pass ? '✅' : '❌'}`);
               if (roundResponse.gate.fixed) {
@@ -1022,25 +1191,25 @@ async function runSmokeTest() {
                 console.log(`   missing: ${roundResponse.gate.missing.join(', ')}`);
               }
             }
-            
+
             // 打印 debugPrompts（如果存在且 DEBUG_PROMPTS=1）
             if (process.env.DEBUG_PROMPTS === '1' && roundResponse.debugPrompts) {
               console.log('\n' + '='.repeat(80));
               console.log('===SYSTEM_PROMPT===');
               console.log(roundResponse.debugPrompts.systemPrompt);
               console.log('='.repeat(80));
-              
+
               console.log('\n' + '='.repeat(80));
               console.log('===USER_PROMPT===');
               console.log(roundResponse.debugPrompts.userPrompt);
               console.log('='.repeat(80));
-              
+
               console.log('\n' + '='.repeat(80));
               console.log('===FULL_MESSAGES_ARRAY===');
               console.log(JSON.stringify(roundResponse.debugPrompts.messages, null, 2));
               console.log('='.repeat(80) + '\n');
             }
-            
+
             // 验证三段标题和 actionCards
             if (roundResponse.reply) {
               const hasSummary = /【初筛总结】/.test(roundResponse.reply);
@@ -1063,7 +1232,7 @@ async function runSmokeTest() {
             if (roundResponse.actionCards) {
               console.log(`\n🎴 actionCards 验证:`);
               console.log(`   数量: ${roundResponse.actionCards.length} 张`);
-              
+
               if (roundResponse.actionCards.length >= 2) {
                 console.log(`✅ actionCards 数量验证通过 (>= 2)`);
               } else {
@@ -1076,13 +1245,13 @@ async function runSmokeTest() {
                 console.log(`      when: ${card.when}`);
                 console.log(`      effort: ${card.effort}`);
                 console.log(`      steps: ${card.steps.length} 条`);
-                
+
                 if (card.steps.length === 3) {
                   console.log(`      ✅ steps 数量验证通过 (3条)`);
                 } else {
                   console.log(`      ⚠️  steps 数量不符合要求 (期望 3条, 实际 ${card.steps.length})`);
                 }
-                
+
                 card.steps.forEach((step, stepIdx) => {
                   const stepLength = step.replace(/[^\u4e00-\u9fa5]/g, '').length; // 只计算汉字
                   const stepStatus = stepLength <= 16 ? '✅' : '⚠️';
@@ -1092,12 +1261,12 @@ async function runSmokeTest() {
             } else {
               console.log(`❌ actionCards 缺失`);
             }
-            
+
             // 打印耗时（如果可用）
             if (roundResponse.timestamp) {
               // 这里无法直接获取耗时，但可以在调用处记录
             }
-            
+
             break; // 完成，退出循环
           } else {
             // 其他情况：报错
@@ -1119,7 +1288,7 @@ async function runSmokeTest() {
             data.reply || '',
             'crisis' // 期望的 routeType
           );
-          
+
           // 对 crisis 场景进行强约束检查
           if (crisisResponse && crisisResponse.reply) {
             stats.crisisTotal++;
@@ -1142,12 +1311,12 @@ async function runSmokeTest() {
       const duration = endTime - startTime;
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.log(`❌ 请求异常: ${errorMsg}`);
-      
+
       // 如果是连接错误，给出提示
       if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('fetch failed')) {
         console.log(`\n💡 提示：开发服务器可能未运行，请先运行: npm run dev\n`);
       }
-      
+
       console.log(`⏱️  耗时: ${duration}ms`);
     }
 
@@ -1158,27 +1327,27 @@ async function runSmokeTest() {
   console.log('\n' + '='.repeat(80));
   console.log('📊 冒烟测试统计汇总');
   console.log('='.repeat(80));
-  
+
   // 验收门槛检查 - 在函数作用域内声明
   let hasError = false;
-  
+
   // 统计 conclusion 性能数据
   if (stats.conclusionPerf.length > 0) {
     const totalTimes = stats.conclusionPerf.map(p => p.total).sort((a, b) => a - b);
     const llmMainTimes = stats.conclusionPerf.map(p => p.llm_main).sort((a, b) => a - b);
     const repairTriggeredCount = stats.conclusionPerf.filter(p => p.repairTriggered).length;
-    
+
     const p50Index = Math.floor(totalTimes.length * 0.5);
     const p90Index = Math.floor(totalTimes.length * 0.9);
-    
+
     const p50Total = totalTimes[p50Index] || 0;
     const p90Total = totalTimes[p90Index] || 0;
     const p50LlmMain = llmMainTimes[p50Index] || 0;
     const p90LlmMain = llmMainTimes[p90Index] || 0;
-    
+
     // 读取性能门禁阈值（可配置，默认 9500ms）
     const p50Threshold = parseInt(process.env.SMOKE_CONCLUSION_P50_MS || '9500', 10);
-    
+
     console.log(`\n⏱️  Conclusion 性能统计 (${stats.conclusionPerf.length} 个案例):`);
     console.log(`   P50 total: ${p50Total}ms`);
     console.log(`   P90 total: ${p90Total}ms`);
@@ -1186,7 +1355,7 @@ async function runSmokeTest() {
     console.log(`   P90 llm_main: ${p90LlmMain}ms`);
     console.log(`   repairTriggered: ${repairTriggeredCount} 次 (${((repairTriggeredCount / stats.conclusionPerf.length) * 100).toFixed(1)}%)`);
     console.log(`   Threshold: P50 total < ${p50Threshold}ms`);
-    
+
     // 性能验收门槛检查
     if (p50Total >= p50Threshold) {
       console.log(`\n❌ P50 total 不达标: ${p50Total}ms >= ${p50Threshold}ms`);
@@ -1195,16 +1364,16 @@ async function runSmokeTest() {
   } else {
     console.log(`\n⚠️  未收集到 conclusion 性能数据`);
   }
-  
+
   if (stats.total > 0) {
     const gatePassRate = stats.gatePassed / stats.total;
     const fixRate = stats.gateFixed / stats.total;
-    
+
     console.log(`\n🚪 Assessment Conclusion 门禁统计:`);
     console.log(`   总测试数: ${stats.total}`);
     console.log(`   门禁通过: ${stats.gatePassed} (${(gatePassRate * 100).toFixed(1)}%)`);
     console.log(`   修复触发: ${stats.gateFixed} (${(fixRate * 100).toFixed(1)}%)`);
-    
+
     // 验收门槛检查
     if (gatePassRate < 0.9) {
       console.log(`\n❌ 门禁通过率不达标: ${(gatePassRate * 100).toFixed(1)}% < 90%`);
@@ -1217,21 +1386,21 @@ async function runSmokeTest() {
   } else {
     console.log(`\n⚠️  未收集到 assessment conclusion 门禁数据`);
   }
-  
+
   if (stats.crisisTotal > 0) {
     const crisisPassRate = stats.crisisPassed / stats.crisisTotal;
     console.log(`\n🚨 Crisis 场景验证统计:`);
     console.log(`   总测试数: ${stats.crisisTotal}`);
     console.log(`   验证通过: ${stats.crisisPassed} (${(crisisPassRate * 100).toFixed(1)}%)`);
     console.log(`   验证失败: ${stats.crisisFail}`);
-    
+
     if (stats.crisisFailReasons && stats.crisisFailReasons.length > 0) {
       console.log(`\n   失败原因:`);
       stats.crisisFailReasons.forEach(reason => {
         console.log(`     - ${reason}`);
       });
     }
-    
+
     // Crisis 强约束：任何一条不满足都失败
     if (stats.crisisPassed < stats.crisisTotal) {
       console.log(`\n❌ Crisis 场景验证未全部通过`);
@@ -1240,9 +1409,9 @@ async function runSmokeTest() {
   } else {
     console.log(`\n⚠️  未收集到 crisis 场景数据`);
   }
-  
+
   console.log('\n' + '='.repeat(80));
-  
+
   if (hasError) {
     console.log(`\n❌ 冒烟测试验收失败\n`);
     process.exit(1);

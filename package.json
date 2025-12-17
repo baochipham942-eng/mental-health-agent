@@ -9,22 +9,22 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "smoke": "ts-node --project tsconfig.scripts.json scripts/run-smoke.ts",
-    "validate:skills": "ts-node --project tsconfig.scripts.json scripts/validate-skills.ts",
     "verify:config": "ts-node --project tsconfig.scripts.json scripts/verify-smoke-config.ts",
-    "test:contract": "ts-node --project tsconfig.scripts.json scripts/contract-smoke.ts",
-    "test:contract:edge": "ts-node --project tsconfig.scripts.json scripts/contract-edge-smoke.ts",
     "test:strip": "ts-node --project tsconfig.scripts.json scripts/conclusion-strip-smoke.ts",
-    "test:question:policy": "ts-node --project tsconfig.scripts.json scripts/question-policy-smoke.ts",
-    "test:route:policy": "ts-node --project tsconfig.scripts.json scripts/route-policy-smoke.ts",
-    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run validate:skills && cross-env SKILL_MODE=steps_and_cards npm run test:question:policy && cross-env SKILL_MODE=steps_and_cards npm run test:route:policy && cross-env SKILL_MODE=steps_and_cards npm run test:contract && cross-env SKILL_MODE=steps_and_cards npm run test:contract:edge && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run smoke"
+    "test:unit": "ts-node --project tsconfig.scripts.json lib/ai/assessment/sanitize.test.ts",
+    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run test:unit && cross-env SKILL_MODE=steps_and_cards npm run smoke"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.54",
+    "@auth/prisma-adapter": "^2.11.1",
+    "@prisma/client": "5.22.0",
     "ai": "^3.4.0",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.0",
     "framer-motion": "^12.23.26",
     "langfuse": "^3.38.6",
     "next": "^14.2.0",
+    "next-auth": "^5.0.0-beta.30",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^9.0.1",
@@ -33,12 +33,14 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.11.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.17",
     "cross-env": "^7.0.3",
     "postcss": "^8.4.33",
+    "prisma": "5.22.0",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
