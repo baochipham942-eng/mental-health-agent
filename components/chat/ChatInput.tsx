@@ -196,12 +196,11 @@ export function ChatInput({ value = '', onChange, onSend, isLoading = false, dis
           data-form-type="other"
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-lg border border-gray-300 px-4 py-2',
+            'flex-1 resize-none rounded-lg border border-transparent px-4 py-2',
             'text-gray-900 placeholder:text-gray-500',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-            'overflow-y-auto transition-colors duration-200',
+            'bg-slate-50 shadow-inner focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-200',
+            'overflow-y-auto transition-all duration-200',
             'leading-6', // line-height: 1.5 (24px for 16px base)
-            'bg-white'
             // 修复C: 移除disabled样式，允许发送中继续输入
           )}
           style={{

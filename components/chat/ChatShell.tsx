@@ -531,7 +531,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
   return (
     <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
       {/* 顶部栏 - 固定高度 */}
-      <header className="w-full border-b bg-white shadow-sm z-20 shrink-0">
+      <header className="w-full bg-white shadow-sm z-20 shrink-0">
         <div className="w-full px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-gray-800">咨询中</h1>
@@ -598,7 +598,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       </section>
 
       {/* 输入框 - shrink-0 固定在底部 */}
-      <footer className="w-full border-t bg-white z-30 shrink-0 pb-[env(safe-area-inset-bottom)]">
+      <footer className="w-full bg-white z-30 shrink-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
         <div className="mx-auto w-full max-w-full px-4 py-3">
           <ChatInput
             value={draft}

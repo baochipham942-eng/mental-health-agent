@@ -141,7 +141,7 @@ export function MessageBubble({
     if (isLoading) {
       return (
         <div className="flex flex-col gap-2 mb-4 items-start">
-          <div className="rounded-lg px-4 py-3 shadow-sm bg-white border border-gray-200">
+          <div className="rounded-lg px-4 py-3 shadow-sm bg-white">
             <div className="flex items-center gap-3">
               <div className="flex space-x-1 items-center">
                 <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
@@ -158,7 +158,7 @@ export function MessageBubble({
     console.warn('[MessageBubble] 检测到空 assistant 消息，已拦截:', message.id);
     return (
       <div className="flex flex-col gap-2 mb-4 items-start">
-        <div className="rounded-lg px-4 py-3 shadow-sm bg-yellow-50 border border-yellow-300 max-w-[85%] sm:max-w-[80%]">
+        <div className="rounded-lg px-4 py-3 shadow-sm bg-yellow-50 max-w-[85%] sm:max-w-[80%]">
           <p className="text-sm text-yellow-800 italic">
             [空回复已被拦截 - Debug 面板可见详细信息]
           </p>
@@ -208,8 +208,8 @@ export function MessageBubble({
           isUser
             ? 'bg-blue-600 text-white max-w-[80%] sm:max-w-[80%]'
             : isSkillMessage
-              ? 'bg-white text-gray-900 border border-gray-200 w-full max-w-6xl mx-auto'
-              : 'bg-white text-gray-900 border border-gray-200 max-w-[85%] sm:max-w-[80%]'
+              ? 'bg-white text-gray-900 shadow-sm w-full max-w-6xl mx-auto'
+              : 'bg-white text-gray-900 shadow-sm max-w-[85%] sm:max-w-[80%]'
         )}
       >
         {isUser ? (
