@@ -33,10 +33,16 @@ export default async function DashboardLayout({
         <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
             <div className="w-full flex-none md:w-64 bg-white border-r border-slate-200">
                 <div className="flex h-full flex-col px-3 py-4 md:px-2">
-                    <div className="mb-2 flex h-20 items-end justify-start rounded-md bg-indigo-600 p-4 md:h-20">
-                        <div className="w-32 text-white md:w-40 font-bold text-xl">
-                            心理树洞
+                    {/* Sidebar Header - Clean Design */}
+                    <div className="mb-4 px-2">
+                        <div className="flex items-center gap-2 py-3">
+                            <span className="text-2xl">🌳</span>
+                            <div>
+                                <h1 className="font-bold text-lg text-gray-800">心理树洞</h1>
+                                <p className="text-xs text-gray-500">倾诉你的心声</p>
+                            </div>
                         </div>
+                        <div className="border-b border-slate-200"></div>
                     </div>
 
                     <div className="flex grow flex-col min-h-0 space-y-2 overflow-hidden">

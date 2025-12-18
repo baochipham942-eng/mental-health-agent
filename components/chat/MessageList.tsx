@@ -140,7 +140,24 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 仅在挂载时执行一次
 
+  // Time-based greeting helper
+  const getTimeGreeting = (): { greeting: string; emoji: string } => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) {
+      return { greeting: '早上好，新的一天开始了', emoji: '☀️' };
+    } else if (hour >= 11 && hour < 14) {
+      return { greeting: '中午好，记得休息一下', emoji: '🌤️' };
+    } else if (hour >= 14 && hour < 18) {
+      return { greeting: '下午好，今天过得怎么样', emoji: '🌈' };
+    } else if (hour >= 18 && hour < 22) {
+      return { greeting: '晚上好，有什么想聊的吗', emoji: '🌙' };
+    } else {
+      return { greeting: '夜深了，感谢你愿意倾诉', emoji: '🌌' };
+    }
+  };
+
   if (messages.length === 0) {
+    const { greeting, emoji } = getTimeGreeting();
     const examplePrompts = [
       '最近感觉压力有点大...',
       '晚上总是睡不好觉',
@@ -152,8 +169,8 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
         <div className="text-center max-w-md">
           {/* Welcome */}
           <div className="text-5xl mb-4">🌳</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            欢迎来到心理树洞
+          <h2 className="text-xl font-semibold text-gray-800 mb-1">
+            {greeting} {emoji}
           </h2>
           <p className="text-sm text-gray-600 mb-6">
             这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。

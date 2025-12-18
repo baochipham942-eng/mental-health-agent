@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '@/types/chat';
 import { formatTime } from '@/lib/utils/format';
@@ -116,17 +117,38 @@ export function MessageBubble({
   const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0);
   const hasTextContent = message.content && message.content.trim() !== '';
 
+  // Comfort messages for loading state
+  const comfortMessages = [
+    '正在认真思考你说的话...',
+    '每一种情绪都值得被看见',
+    '慢慢来，我在这里陪着你',
+  ];
+  const [comfortIndex, setComfortIndex] = useState(0);
+
+  // Rotate comfort messages when loading
+  useEffect(() => {
+    if (isLoading) {
+      const interval = setInterval(() => {
+        setComfortIndex(prev => (prev + 1) % comfortMessages.length);
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [isLoading, comfortMessages.length]);
+
   // 保护：如果 assistant 消息内容为空，且没有特殊内容
   if (!isUser && !hasTextContent && !hasSpecialContent) {
-    // 如果正在加载中，显示 Loading 动画
+    // 如果正在加载中，显示 Loading 动画 + 安抚文案
     if (isLoading) {
       return (
         <div className="flex flex-col gap-2 mb-4 items-start">
           <div className="rounded-lg px-4 py-3 shadow-sm bg-white border border-gray-200">
-            <div className="flex space-x-1 items-center h-4">
-              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+            <div className="flex items-center gap-3">
+              <div className="flex space-x-1 items-center">
+                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+              </div>
+              <span className="text-sm text-gray-500 italic">{comfortMessages[comfortIndex]}</span>
             </div>
           </div>
         </div>
