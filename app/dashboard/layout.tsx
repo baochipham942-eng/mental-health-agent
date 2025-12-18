@@ -37,8 +37,7 @@ export default async function DashboardLayout({
                     <div className="mb-4 px-2">
                         <div className="flex items-center gap-2 py-3">
                             <span
-                                className="text-2xl animate-pulse"
-                                style={{ animation: 'float 3s ease-in-out infinite' }}
+                                className="text-2xl transition-transform duration-300 hover:rotate-12 cursor-pointer"
                             >🌳</span>
                             <div>
                                 <h1 className="font-bold text-lg text-gray-800">心理树洞</h1>
@@ -82,7 +81,7 @@ export default async function DashboardLayout({
                     </div>
                 </div>
             </div>
-            <div className="flex-grow p-6 md:overflow-y-auto md:p-12">{children}</div>
+            <div className="flex-grow md:overflow-hidden">{children}</div>
         </div>
     );
 }
