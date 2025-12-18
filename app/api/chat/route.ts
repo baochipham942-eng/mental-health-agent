@@ -180,7 +180,11 @@ export async function POST(request: NextRequest) {
           console.log('[AutoTitle] Updating to:', newTitle);
           await prisma.conversation.update({
             where: { id: sessionId },
-            data: { title: newTitle }
+            data: {
+              title: newTitle,
+              // Update createdAt to now (first message time) for better sidebar display
+              createdAt: new Date(),
+            }
           });
         } else {
           console.log('[AutoTitle] Update skipped.');

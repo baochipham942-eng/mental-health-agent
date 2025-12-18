@@ -36,7 +36,10 @@ export default async function DashboardLayout({
                     {/* Sidebar Header - Clean Design */}
                     <div className="mb-4 px-2">
                         <div className="flex items-center gap-2 py-3">
-                            <span className="text-2xl">🌳</span>
+                            <span
+                                className="text-2xl animate-pulse"
+                                style={{ animation: 'float 3s ease-in-out infinite' }}
+                            >🌳</span>
                             <div>
                                 <h1 className="font-bold text-lg text-gray-800">心理树洞</h1>
                                 <p className="text-xs text-gray-500">倾诉你的心声</p>

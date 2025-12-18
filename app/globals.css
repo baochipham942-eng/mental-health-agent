@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tree float animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

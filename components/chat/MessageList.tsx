@@ -164,16 +164,26 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
       '想和你聊聊最近的心情',
     ];
 
+    // Check if returning user (has localStorage history)
+    const isReturningUser = typeof window !== 'undefined' && localStorage.getItem('hasVisited') === 'true';
+
+    // Mark as visited for next time
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hasVisited', 'true');
+    }
+
     return (
       <div className="h-full w-full flex items-center justify-center p-6">
         <div className="text-center max-w-md">
-          {/* Welcome */}
-          <div className="text-5xl mb-4">🌳</div>
+          {/* Greeting - different for returning users */}
           <h2 className="text-xl font-semibold text-gray-800 mb-1">
-            {greeting} {emoji}
+            {isReturningUser ? '欢迎回来 👋' : greeting} {!isReturningUser && emoji}
           </h2>
           <p className="text-sm text-gray-600 mb-6">
-            这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。
+            {isReturningUser
+              ? '很高兴再次见到你，有什么想聊的吗？'
+              : '这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。'
+            }
           </p>
 
           {/* Guidance Cards */}

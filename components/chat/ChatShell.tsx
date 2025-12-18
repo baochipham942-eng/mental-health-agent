@@ -534,7 +534,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       <header className="w-full border-b bg-white shadow-sm z-20 shrink-0">
         <div className="w-full px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold text-gray-800">心理树洞</h1>
+            <h1 className="text-xl font-semibold text-gray-800">咨询中</h1>
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'
               }`}>
               <span className="text-xs opacity-70">剩余</span>
@@ -576,8 +576,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
           scrollContainerRef={scrollContainerRef}
         />
         {isSessionEnded && (
-          <div className="p-4 bg-yellow-50 text-center text-sm text-yellow-800 border-t border-yellow-100 mb-4 mx-4 rounded-lg">
-            本次咨询时长已达 45 分钟，会话已结束。请开启新的会话。
+          <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+            <div className="text-center">
+              <div className="text-3xl mb-3">🌿</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
+              <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
+              <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700 mb-4">
+                <p className="font-medium mb-1">小结：</p>
+                <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
+                <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
+              </div>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                开始新的咨询
+              </button>
+            </div>
           </div>
         )}
       </section>
