@@ -31,7 +31,7 @@ export default async function DashboardLayout({
 
     return (
         <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
-            <div className="w-full flex-none md:w-64 bg-white shadow-[1px_0_3px_rgba(0,0,0,0.05)] z-10">
+            <div className="w-full flex-none md:w-64 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 relative">
                 <div className="flex h-full flex-col px-3 py-4 md:px-2">
                     {/* Sidebar Header - Clean Design */}
                     <div className="mb-4 px-2">
