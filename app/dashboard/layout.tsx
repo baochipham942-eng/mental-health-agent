@@ -47,7 +47,7 @@ export default async function DashboardLayout({
                             }}
                         >
                             <button className="flex h-[48px] w-full grow items-center justify-center gap-2 rounded-md bg-slate-50 p-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 md:flex-none md:justify-start md:p-2 md:px-3">
-                                🚪 退出登录 ({session?.user?.name || (session?.user as any)?.username})
+                                🚪 退出登录
                             </button>
                         </form>
                     </div>
@@ -79,7 +79,7 @@ async function SidebarList() {
                     >
                         💬 {session.title || '未命名对话'}
                         <span className="ml-auto text-xs text-slate-400">
-                            {new Date(session.createdAt).toLocaleDateString()}
+                            {new Date(session.createdAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                         </span>
                     </Link>
                 </li>

@@ -32,13 +32,19 @@ export async function getSessionHistory() {
         where: {
             userId: session.user.id,
         },
+        include: {
+            _count: {
+                select: { messages: true }
+            }
+        },
         orderBy: {
             createdAt: 'desc',
         },
         take: 20, // Limit to 20 for sidebar
     });
 
-    return conversations;
+    // Filter out empty conversations (no messages)
+    return conversations.filter(c => c._count.messages > 0);
 }
 
 export async function getSessionById(sessionId: string) {
