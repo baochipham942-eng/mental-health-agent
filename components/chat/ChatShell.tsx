@@ -534,10 +534,11 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       <header className="w-full border-b bg-white shadow-sm z-20 shrink-0">
         <div className="w-full px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold text-gray-800">心理疗愈助手</h1>
-            <div className={`px-3 py-1 rounded-full text-sm font-mono font-medium ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'
+            <h1 className="text-xl font-semibold text-gray-800">心理树洞</h1>
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'
               }`}>
-              ⏳ {formatTime(timeLeft)}
+              <span className="text-xs opacity-70">剩余</span>
+              <span className="font-mono">{formatTime(timeLeft)}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">

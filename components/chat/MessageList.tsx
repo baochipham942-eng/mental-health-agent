@@ -141,11 +141,44 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   }, []); // 仅在挂载时执行一次
 
   if (messages.length === 0) {
+    const examplePrompts = [
+      '最近感觉压力有点大...',
+      '晚上总是睡不好觉',
+      '想和你聊聊最近的心情',
+    ];
+
     return (
-      <div className="h-full w-full flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg mb-2 font-semibold text-gray-700">👋 你好，我是你的心理疗愈助手</p>
-          <p className="text-sm text-gray-600">可以随时和我聊聊你的感受和困扰</p>
+      <div className="h-full w-full flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          {/* Welcome */}
+          <div className="text-5xl mb-4">🌳</div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            欢迎来到心理树洞
+          </h2>
+          <p className="text-sm text-gray-600 mb-6">
+            这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。
+          </p>
+
+          {/* Guidance Cards */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 text-left">
+            <p className="text-xs font-medium text-indigo-600 mb-2">💡 不知道说什么？试试这些：</p>
+            <div className="space-y-2">
+              {examplePrompts.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onSendMessage?.(prompt)}
+                  className="w-full text-left px-3 py-2 bg-white rounded-lg text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
+                >
+                  &quot;{prompt}&quot;
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Privacy note */}
+          <p className="text-xs text-gray-400">
+            🔒 你的对话将被安全保存，仅你自己可见
+          </p>
         </div>
       </div>
     );

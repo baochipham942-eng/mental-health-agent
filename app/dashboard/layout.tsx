@@ -5,6 +5,23 @@ import { getSessionHistory, createNewSession } from '@/lib/actions/chat';
 
 export const dynamic = 'force-dynamic';
 
+// Helper function to format date as relative time
+function formatRelativeDate(date: Date): string {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const inputDate = new Date(date);
+    const inputDateOnly = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate());
+
+    if (inputDateOnly.getTime() === today.getTime()) {
+        return '今天';
+    } else if (inputDateOnly.getTime() === yesterday.getTime()) {
+        return '昨天';
+    } else {
+        return `${inputDate.getMonth() + 1}月${inputDate.getDate()}日`;
+    }
+}
+
 export default async function DashboardLayout({
     children,
 }: {
@@ -34,10 +51,13 @@ export default async function DashboardLayout({
                                 历史记录
                             </div>
 
-                            <div className="flex-1 overflow-y-auto min-h-0">
+                            <div className="flex-1 overflow-y-auto min-h-0 pr-1">
                                 <SidebarList />
                             </div>
                         </div>
+
+                        {/* Separator */}
+                        <div className="border-t border-slate-200 my-2"></div>
 
                         <form
                             className="flex-shrink-0 mt-auto pt-2"
@@ -63,8 +83,10 @@ async function SidebarList() {
 
     if (sessions.length === 0) {
         return (
-            <div className="px-2 text-sm text-slate-500 italic text-center py-4">
-                暂无历史会话
+            <div className="px-3 py-6 text-center">
+                <div className="text-2xl mb-2">💭</div>
+                <p className="text-sm text-slate-500">还没有对话记录</p>
+                <p className="text-xs text-slate-400 mt-1">点击上方“新咨询”开始</p>
             </div>
         );
     }
@@ -75,11 +97,11 @@ async function SidebarList() {
                 <li key={session.id}>
                     <Link
                         href={`/dashboard/${session.id}`}
-                        className="flex h-[48px] grow items-center justify-start gap-2 rounded-md p-3 text-sm font-medium hover:bg-sky-50 hover:text-indigo-600 md:flex-none md:justify-start md:p-2 md:px-3 truncate"
+                        className="flex items-center gap-2 rounded-md p-2.5 text-sm font-medium hover:bg-sky-50 hover:text-indigo-600 transition-colors group"
                     >
-                        💬 {session.title || '未命名对话'}
-                        <span className="ml-auto text-xs text-slate-400">
-                            {new Date(session.createdAt).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+                        <span className="flex-1 truncate">💬 {session.title || '未命名对话'}</span>
+                        <span className="text-xs text-slate-400 group-hover:text-indigo-400 flex-shrink-0">
+                            {formatRelativeDate(session.createdAt)}
                         </span>
                     </Link>
                 </li>
