@@ -15,12 +15,26 @@ model User {
   passwordHash  String
   nickname      String?
   avatar        String?
+  phone         String?   @unique // 新增：手机号（可选，兼容老账号）
+  quickLoginToken String? // 新增：快捷登录令牌
   createdAt     DateTime  @default(now())
   
   conversations Conversation[]
   reports       AssessmentReport[]
   exerciseLogs  ExerciseLog[]
   memories      UserMemory[]
+}
+
+// 1.1 InvitationCode
+model InvitationCode {
+  id        String   @id @default(cuid())
+  code      String   @unique // 6位数字字母组合
+  type      String   @default("REGISTRATION") // 用途
+  maxUsages Int      @default(1)
+  usedCount Int      @default(0)
+  expiresAt DateTime 
+  channel   String?  // 渠道标识
+  createdAt DateTime @default(now())
 }
 
 // 2. Conversation

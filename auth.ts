@@ -21,13 +21,32 @@ export const { auth, signIn, signOut } = NextAuth({
     providers: [
         Credentials({
             async authorize(credentials) {
+                // Scenario 1: Quick Login (One-click)
+                if (credentials.quickLoginToken) {
+                    const token = credentials.quickLoginToken as string;
+                    const user = await prisma.user.findFirst({ where: { quickLoginToken: token } });
+                    if (user) return user;
+                    return null;
+                }
+
+                // Scenario 2: Standard Login (Username/Phone + Password)
                 const parsedCredentials = z
                     .object({ username: z.string(), password: z.string().min(6) })
                     .safeParse(credentials);
 
                 if (parsedCredentials.success) {
                     const { username, password } = parsedCredentials.data;
-                    const user = await getUser(username);
+
+                    // Support login by username OR phone
+                    const user = await prisma.user.findFirst({
+                        where: {
+                            OR: [
+                                { username: username },
+                                { phone: username }
+                            ]
+                        }
+                    });
+
                     if (!user) return null;
 
                     const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
