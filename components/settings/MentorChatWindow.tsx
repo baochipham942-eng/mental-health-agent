@@ -49,9 +49,26 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     };
     const themeClass = colorMap[mentor.themeColor] || 'bg-gray-50';
 
+    const handleClose = () => {
+        // Trigger background extraction
+        if (messages.length >= 2) {
+            fetch('/api/memory/lab-extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages,
+                    contextType: 'mentor',
+                    contextId: mentor.id
+                }),
+                // keepalive: true // Optional for component unmount, critical for page unload
+            }).catch(e => console.error('Background extraction failed:', e));
+        }
+        onClose();
+    };
+
     return (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-[800px] border border-gray-200">
+            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh] max-h-[800px] border border-gray-200">
 
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex items-center justify-between ${themeClass} sticky top-0 z-10`}>
@@ -63,7 +80,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                         </div>
                     </div>
                     <Button
-                        onClick={onClose}
+                        onClick={handleClose}
                         type="text"
                         icon={<IconClose />}
                         className="text-gray-500 hover:bg-black/5 hover:text-gray-900"
