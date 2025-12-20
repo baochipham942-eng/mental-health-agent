@@ -4,6 +4,7 @@ import { getSessionHistory, createNewSession, hideSession } from '@/lib/actions/
 import { authenticate, ensureUserProfile } from '@/lib/actions/auth';
 import { UserMenuWrapper } from '@/components/layout/UserMenuWrapper';
 import { SidebarListClient } from '@/components/layout/SidebarListClient';
+import { SidebarMobileWrapper } from '@/components/layout/SidebarMobileWrapper';
 import { SidebarHeaderClient } from '@/components/layout/SidebarHeaderClient';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,8 @@ export default async function DashboardLayout({
 
     return (
         <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
-            <div className="w-full flex-none md:w-64 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.03)] z-10 relative">
+            {/* 侧边栏 (响应式：Mobile Drawer / Desktop Sidebar) */}
+            <SidebarMobileWrapper>
                 <div className="flex h-full flex-col px-3 py-4 md:px-3">
                     <SidebarHeaderClient createNewSessionAction={createNewSession} />
 
@@ -83,8 +85,12 @@ export default async function DashboardLayout({
                         </div>
                     </div>
                 </div>
+            </SidebarMobileWrapper>
+
+            {/* 主内容区域 */}
+            <div className="flex-grow md:overflow-hidden flex flex-col min-h-0">
+                {children}
             </div>
-            <div className="flex-grow md:overflow-hidden">{children}</div>
         </div>
     );
 }

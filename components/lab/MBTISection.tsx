@@ -89,7 +89,7 @@ export function MBTISection() {
             </div>
 
             {/* Grid Area */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {MBTI_PERSONAS.map((persona) => {
                     const isAnalyst = ['INTJ', 'INTP', 'ENTJ', 'ENTP'].includes(persona.type);
                     const isDiplomat = ['INFJ', 'INFP', 'ENFJ', 'ENFP'].includes(persona.type);
