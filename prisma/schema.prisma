@@ -14,11 +14,13 @@ model User {
   username      String    @unique
   passwordHash  String
   nickname      String?
+  avatar        String?
   createdAt     DateTime  @default(now())
   
   conversations Conversation[]
   reports       AssessmentReport[]
   exerciseLogs  ExerciseLog[]
+  memories      UserMemory[]
 }
 
 // 2. Conversation
@@ -27,6 +29,7 @@ model Conversation {
   userId    String
   title     String?
   status    String   @default("ACTIVE") // 'ACTIVE' | 'COMPLETED'
+  isHidden  Boolean  @default(false)    // 软删除：从用户列表隐藏
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -44,6 +47,23 @@ model Message {
   createdAt      DateTime     @default(now())
 
   conversation   Conversation @relation(fields: [conversationId], references: [id])
+  feedback       MessageFeedback?
+}
+
+// 3.1 MessageFeedback - 用户对消息的反馈
+model MessageFeedback {
+  id          String   @id @default(cuid())
+  messageId   String   @unique
+  userId      String
+  rating      Int      // -1 (点踩) | 1 (点赞)
+  reason      String?  // 点踩原因：'unhelpful' | 'incorrect' | 'unsafe' | 'other'
+  comment     String?  // 可选的详细说明
+  createdAt   DateTime @default(now())
+
+  message     Message  @relation(fields: [messageId], references: [id])
+
+  @@index([userId])
+  @@index([rating])
 }
 
 // 4. AssessmentReport
@@ -94,4 +114,35 @@ model ExerciseLog {
   
   user         User        @relation(fields: [userId], references: [id])
   actionPlan   ActionPlan? @relation(fields: [actionPlanId], references: [id])
+}
+
+// 7. UserMemory - 跨会话持久化的关键信息（记忆系统）
+model UserMemory {
+  id             String   @id @default(cuid())
+  userId         String
+  topic          String   // 记忆类型：emotional_pattern, coping_preference, personal_context, therapy_progress, trigger_warning
+  content        String   // 记忆内容
+  entities       Json?    // 提取的实体
+  relationships  Json?    // 提取的关系
+  confidence     Float    @default(0.8) // 置信度 0-1
+  sourceConvId   String?  // 来源会话ID
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  accessedAt     DateTime @default(now()) // 最后访问时间，用于遗忘机制
+  
+  user           User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId, topic])
+  @@index([userId, updatedAt])
+}
+
+// 8. MemoryExtractionLog - 记忆提取日志（用于追踪和调试）
+model MemoryExtractionLog {
+  id             String   @id @default(cuid())
+  conversationId String
+  extractedCount Int
+  status         String   // 'success' | 'failed' | 'skipped'
+  error          String?
+  createdAt      DateTime @default(now())
 }

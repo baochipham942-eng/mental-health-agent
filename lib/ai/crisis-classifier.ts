@@ -3,7 +3,8 @@
  * 使用 LLM 进行语义级别的危机意图检测
  */
 
-import { chatCompletion } from './deepseek';
+import { chatCompletion, chatStructuredCompletion } from './deepseek';
+import { CrisisClassificationSchema } from './schemas';
 
 /**
  * 危机分类结果
@@ -18,9 +19,8 @@ export interface CrisisClassificationResult {
  * 使用 LLM 判断用户消息是否包含危机意图
  * 
  * 设计原则：
- * 1. Prompt 极简，减少 token 消耗
- * 2. 只输出结构化结果，不生成多余文本
- * 3. 宁可误报（false positive）也不漏报
+ * 1. 使用 Structured Output (JSON Mode) 确保可靠性
+ * 2. 宁可误报也不能漏判
  * 
  * @param userMessage 用户消息
  * @returns 分类结果
@@ -35,38 +35,23 @@ export async function classifyCrisisIntent(
     const userPrompt = `用户消息：${userMessage}`;
 
     try {
-        const response = await chatCompletion(
+        const result = await chatStructuredCompletion(
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ],
+            CrisisClassificationSchema,
             {
                 temperature: 0,
-                max_tokens: 50, // 极小 token 限制，只需要 JSON
+                max_tokens: 50,
             }
         );
 
-        // 解析 JSON 响应
-        const jsonMatch = response.match(/\{[\s\S]*?\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                return {
-                    isCrisis: parsed.crisis === true,
-                    confidence: parsed.confidence || 'medium',
-                    reason: parsed.reason,
-                };
-            } catch (e) {
-                console.error('[CrisisClassifier] Failed to parse JSON:', response);
-            }
-        }
-
-        // 如果无法解析，检查是否包含 true
-        if (response.toLowerCase().includes('true') || response.includes('crisis')) {
-            return { isCrisis: true, confidence: 'low' };
-        }
-
-        return { isCrisis: false, confidence: 'low' };
+        return {
+            isCrisis: result.crisis,
+            confidence: result.confidence,
+            reason: result.reason,
+        };
     } catch (error) {
         console.error('[CrisisClassifier] LLM call failed:', error);
         // LLM 调用失败时，保守起见返回 false（依赖关键词匹配兜底）

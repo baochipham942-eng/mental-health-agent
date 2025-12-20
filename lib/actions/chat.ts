@@ -24,6 +24,27 @@ export async function createNewSession() {
     redirect(`/dashboard/${conversation.id}`);
 }
 
+/**
+ * 创建新会话并返回 ID（用于懒创建模式）
+ * 不进行重定向，由前端处理 URL 更新
+ */
+export async function createNewSessionAndReturnId(): Promise<string> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('Unauthorized');
+    }
+
+    const conversation = await prisma.conversation.create({
+        data: {
+            userId: session.user.id,
+            title: '新对话',
+        },
+    });
+
+    revalidatePath('/dashboard');
+    return conversation.id;
+}
+
 export async function getSessionHistory() {
     const session = await auth();
     if (!session?.user?.id) return [];
@@ -31,6 +52,7 @@ export async function getSessionHistory() {
     const conversations = await prisma.conversation.findMany({
         where: {
             userId: session.user.id,
+            isHidden: false, // 排除隐藏的会话
         },
         include: {
             _count: {
@@ -45,6 +67,29 @@ export async function getSessionHistory() {
 
     // Filter out empty conversations (no messages)
     return conversations.filter(c => c._count.messages > 0);
+}
+
+/**
+ * 隐藏会话（软删除）
+ * 仅从用户列表移除，不删除数据
+ */
+export async function hideSession(sessionId: string): Promise<void> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('Unauthorized');
+    }
+
+    await prisma.conversation.updateMany({
+        where: {
+            id: sessionId,
+            userId: session.user.id, // 确保只能隐藏自己的会话
+        },
+        data: {
+            isHidden: true,
+        },
+    });
+
+    revalidatePath('/dashboard');
 }
 
 export async function getSessionById(sessionId: string) {

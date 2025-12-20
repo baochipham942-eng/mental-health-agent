@@ -1,9 +1,10 @@
-import { chatCompletion, ChatMessage } from '../deepseek';
+import { chatCompletion, chatStructuredCompletion, ChatMessage } from '../deepseek';
 import { ASSESSMENT_CONCLUSION_PROMPT } from '../prompts';
 import { ActionCard } from '../../../types/chat';
 import { gateAssessment, gateActionCardsSteps, GateResult } from './gates';
 import { sanitizeActionCards } from './sanitize';
 import { getResourceService, RetrievalContext, AnyResource } from '../../rag';
+import { AssessmentConclusionSchema } from '../schemas';
 
 export interface AssessmentConclusionResult {
   reply: string;
@@ -33,42 +34,6 @@ function sanitizeText(text: string): string {
   sanitized = sanitized.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g, '[EMAIL_REDACTED]');
   sanitized = sanitized.replace(/1[3-9]\d[\s\-]?\d{4}[\s\-]?\d{4}/g, '[PHONE_REDACTED]');
   return sanitized;
-}
-
-/**
- * 从回复文本中提取 actionCards JSON
- */
-function extractActionCards(reply: string): ActionCard[] {
-  try {
-    const jsonMatch = reply.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[1]);
-      if (parsed.actionCards && Array.isArray(parsed.actionCards)) return parsed.actionCards;
-    }
-    const jsonObjectMatch = reply.match(/\{\s*"actionCards"\s*:[\s\S]*\}/);
-    if (jsonObjectMatch) {
-      const parsed = JSON.parse(jsonObjectMatch[0]);
-      if (parsed.actionCards && Array.isArray(parsed.actionCards)) return parsed.actionCards;
-    }
-  } catch (e) {
-    console.error('Failed to parse actionCards from reply:', e);
-  }
-  return [];
-}
-
-/**
- * 从回复文本中移除 actionCards JSON，只保留文本部分
- */
-export function removeActionCardsFromReply(reply: string): string {
-  let cleaned = reply;
-  // Remove 'Next Steps' section
-  cleaned = cleaned.replace(/【下一步清单】[\s\S]*?(?=【|$)/g, '');
-
-  // Remove actionCards JSON blocks
-  cleaned = cleaned.replace(/```json\s*[\s\S]*?\s*```/gi, '');
-  cleaned = cleaned.replace(/\{\s*"actionCards"\s*:[\s\S]*?\}/g, '');
-  cleaned = cleaned.replace(/\{\s*"actionCards"\s*:[\s\S]*$/g, '');
-  return cleaned.trim();
 }
 
 /**
@@ -102,8 +67,7 @@ function deduplicateFollowupAnswer(followupAnswer: string, initialMessage: strin
 }
 
 /**
- * 生成心理评估初筛结论 (MVP Simplified Version)
- * 移除 Skill Engine 和 Repair Loop，采用 Prompt 驱动 + 尽力清洗策略
+ * 生成心理评估初筛结论 (Modernized Structured Version)
  */
 export async function generateAssessmentConclusion(
   initialMessage: string,
@@ -126,7 +90,7 @@ export async function generateAssessmentConclusion(
     if (ragResult.resources.length > 0) {
       ragContext = ragResult.formattedContext;
       retrievedResources = ragResult.resources.map(r => r.resource);
-      console.log(`[RAG] Retrieved ${ragResult.resources.length} resources in ${ragResult.retrievalTime}ms`);
+      console.log(`[RAG] Retrieved ${ragResult.resources.length} resources`);
     }
   } catch (ragError) {
     console.error('[RAG] Failed to retrieve resources:', ragError);
@@ -143,41 +107,42 @@ export async function generateAssessmentConclusion(
     { role: 'user', content: `初始主诉：${initialMessage}\n\n对评估问题的回答：${cleanedFollowupAnswer}` },
   ];
 
-  // 3. 调用 LLM (单次生成)
-  const fullReply = await chatCompletion(messages, {
+  // 3. 调用 LLM (结构化生成)
+  const result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
     temperature: 0.3,
-    max_tokens: 1000,
+    max_tokens: 1200,
   });
 
-  // 4. 解析结果
-  const reply = removeActionCardsFromReply(fullReply);
-  let actionCards = extractActionCards(fullReply);
+  // 4. 组装回复（保持向后兼容 UI）
+  const reply = `【初筛总结】
+${result.summary}
 
-  // 5. 基础清洗 (Sanitize) - 只做低成本的格式修正
+【风险与分流】
+${result.riskAndTriage}
+
+【下一步清单】
+${result.nextStepList.map(step => `• ${step}`).join('\n')}`;
+
+  let actionCards = result.actionCards as ActionCard[];
+
+  // 5. 基础清洗 (Sanitize) 
   actionCards = sanitizeActionCards(actionCards);
 
-  // 6. 被动监控 (Monitor only) - 不触发 Repair
+  // 6. 质量监控 (仅记录日志)
   let gateResult = null;
   if (process.env.GATE_FIX !== '0') {
     const textGate = gateAssessment(reply);
     const cardsGate = gateActionCardsSteps(actionCards);
-
-    // 仅记录日志
-    if (!textGate.pass || !cardsGate.pass) {
-      console.warn('[Gate Monitor] Conclusion quality check failed (Repair disabled in MVP Simplification):');
-      if (!textGate.pass) console.warn('  Text missing:', textGate.missing);
-      if (!cardsGate.pass) {
-        cardsGate.details?.invalidSteps?.forEach((inv: any) =>
-          console.warn(`  Card invalid: Card ${inv.cardIndex} Step ${inv.stepIndex} - ${inv.reason}`)
-        );
-      }
-    }
 
     gateResult = {
       pass: textGate.pass && cardsGate.pass,
       fixed: false,
       missing: [...(textGate.missing || []), ...(cardsGate.missing || [])]
     };
+
+    if (!gateResult.pass) {
+      console.warn('[Gate Monitor] Quality issues detected in structured output:', gateResult.missing);
+    }
   }
 
   // Debug Info

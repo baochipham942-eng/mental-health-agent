@@ -8,13 +8,15 @@ import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { DebugDrawer } from './DebugDrawer';
+import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
+import { IconStop, IconInfoCircle } from '@arco-design/web-react/icon';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 interface ChatShellProps {
-  sessionId: string;
+  sessionId?: string;  // Optional - undefined for new chat
   initialMessages: Message[];
   isReadOnly?: boolean;
 }
@@ -50,18 +52,28 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
   const router = useRouter();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
+  // Internal session ID state - allows lazy creation
+  const [internalSessionId, setInternalSessionId] = useState<string | undefined>(sessionId);
+
+  // Sync with prop changes (for when navigating to existing session)
+  useEffect(() => {
+    setInternalSessionId(sessionId);
+  }, [sessionId]);
+
   // Hydrate Store on Mount / Session Change
   useEffect(() => {
     if (initialMessages) {
       // Force replace messages with server data
       setMessages(initialMessages);
     }
-  }, [sessionId, initialMessages, setMessages]);
+  }, [internalSessionId, initialMessages, setMessages]);
   const [isSending, setIsSending] = useState(false);
   const [draft, setDraft] = useState('');
   const scrollContainerRef = useRef<HTMLElement>(null);
   // 修复C: 发送队列
   const sendQueueRef = useRef<string[]>([]);
+  // 修复D: 防止并发创建会话
+  const isCreatingSessionRef = useRef(false);
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
   useEffect(() => {
@@ -139,6 +151,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
         actionCards?: string;
         nextStepsLines?: string;
       };
+      toolCalls?: any[];
     }>();
     messages.forEach((msg: Message) => {
       if (msg.role === 'assistant') {
@@ -152,6 +165,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
             actionCards: msgData.actionCards,
             assistantQuestions: msgData.assistantQuestions,
             validationError: msgData.validationError,
+            toolCalls: msgData.toolCalls || (msg as any).toolCalls,
           });
         }
       }
@@ -178,13 +192,40 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
         textArg: text,
         draftValue: draft,
         finalContent: content,
-        sessionId,
+        sessionId: internalSessionId,
         isSendingState: isSending
       });
 
       // 严格检查：禁止发送空字符串
       if (!content || content.length === 0) {
         return; // 没有内容，直接返回
+      }
+
+      // Lazy session creation: 如果没有 sessionId，先创建会话
+      let currentSessionId = internalSessionId;
+      if (!currentSessionId) {
+        // 防止并发创建会话
+        if (isCreatingSessionRef.current) {
+          console.log('[ChatShell] Session creation already in progress, queueing message');
+          sendQueueRef.current.push(content);
+          return;
+        }
+        isCreatingSessionRef.current = true;
+        try {
+          const { createNewSessionAndReturnId } = await import('@/lib/actions/chat');
+          currentSessionId = await createNewSessionAndReturnId();
+          setInternalSessionId(currentSessionId);
+          // Update URL without full page reload
+          window.history.replaceState(null, '', `/dashboard/${currentSessionId}`);
+          console.log('[ChatShell] Created new session:', currentSessionId);
+        } catch (err) {
+          console.error('[ChatShell] Failed to create session:', err);
+          setError('创建会话失败，请刷新页面重试');
+          isCreatingSessionRef.current = false;
+          return;
+        } finally {
+          isCreatingSessionRef.current = false;
+        }
       }
 
       const isFirstMessage = messages.length === 0;
@@ -288,7 +329,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
             localAccumulatedContent += chunk;
             updateMessage(assistantMsgId, { content: localAccumulatedContent });
           },
-          sessionId
+          currentSessionId
         );
 
         if (finalApiError) {
@@ -385,6 +426,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
             actionCards: responseData.actionCards,
             assistantQuestions: responseData.assistantQuestions,
             validationError: responseData.validationError,
+            toolCalls: responseData.toolCalls,
           }
         } as any);
 
@@ -531,32 +573,40 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
   return (
     <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
       {/* 顶部栏 - 固定高度 */}
-      <header className="w-full bg-white shadow-sm z-20 shrink-0">
+      <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
         <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold text-gray-800">咨询中</h1>
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'
-              }`}>
-              <span className="text-xs opacity-70">剩余</span>
-              <span className="font-mono">{formatTime(timeLeft)}</span>
-            </div>
-          </div>
           <div className="flex items-center gap-3">
-            {messages.length > 0 && (
-              <button
-                onClick={handleEndSession}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors border border-gray-300"
-                title="结束当前咨询"
+            <div className="flex items-center gap-2" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
+              <span className="text-xl">{isReadOnly ? '📋' : '💬'}</span>
+              <h1 className="text-lg font-semibold text-gray-800">
+                {isReadOnly ? '历史会话' : '咨询中'}
+              </h1>
+            </div>
+            {/* 仅活跃会话显示倒计时 */}
+            {!isReadOnly && !isSessionEnded && (
+              <Tag
+                color={timeLeft < 300 ? 'red' : 'arcoblue'}
+                size="small"
+                className="font-mono"
               >
-                结束咨询
-              </button>
+                ⏱️ 剩余 {formatTime(timeLeft)}
+              </Tag>
             )}
-            <button
-              onClick={() => setDisclaimerOpen(true)}
-              className="text-sm text-gray-600 hover:text-gray-800 underline"
-            >
-              免责声明
-            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {isReadOnly ? (
+              <Tag color="gray" size="small">咨询已结束</Tag>
+            ) : (
+              messages.length > 0 && (
+                <Button
+                  size="small"
+                  icon={<IconStop />}
+                  onClick={handleEndSession}
+                >
+                  结束咨询
+                </Button>
+              )
+            )}
           </div>
         </div>
       </header>
@@ -564,7 +614,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       {/* 消息列表 - flex-1 滚动容器 */}
       <section
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0"
+        className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <MessageList
@@ -586,19 +636,19 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
                 <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
                 <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
               </div>
-              <button
+              <Button
+                type="primary"
                 onClick={() => router.push('/dashboard')}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
               >
                 开始新的咨询
-              </button>
+              </Button>
             </div>
           </div>
         )}
       </section>
 
       {/* 输入框 - shrink-0 固定在底部 */}
-      <footer className="w-full bg-white z-30 shrink-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
+      <footer className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100">
         <div className="mx-auto w-full max-w-4xl px-4 py-3">
           <ChatInput
             value={draft}
@@ -629,31 +679,30 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       />
 
       {/* 免责声明弹窗 */}
-      {disclaimerOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">免责声明</h2>
-            <div className="text-sm text-gray-700 space-y-2 mb-4">
-              <p>
-                本产品仅供学习和研究使用，不能替代专业心理咨询服务。
-              </p>
-              <p>
-                如遇严重心理危机，请立即寻求专业帮助：
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>全国24小时心理危机干预热线：400-161-9995</li>
-                <li>如遇紧急情况，请立即拨打 110 或前往就近医院急诊科</li>
-              </ul>
-            </div>
-            <button
-              onClick={() => setDisclaimerOpen(false)}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              我知道了
-            </button>
-          </div>
+      <Modal
+        visible={disclaimerOpen}
+        onCancel={() => setDisclaimerOpen(false)}
+        title="免责声明"
+        footer={
+          <Button type="primary" long onClick={() => setDisclaimerOpen(false)}>
+            我知道了
+          </Button>
+        }
+        style={{ maxWidth: 420 }}
+      >
+        <div className="text-sm text-gray-700 space-y-3">
+          <p>
+            本产品仅供学习和研究使用，不能替代专业心理咨询服务。
+          </p>
+          <p>
+            如遇严重心理危机，请立即寻求专业帮助：
+          </p>
+          <ul className="list-disc list-inside space-y-1 ml-2 text-gray-600">
+            <li>全国24小时心理危机干预热线：<strong className="text-gray-800">400-161-9995</strong></li>
+            <li>如遇紧急情况，请立即拨打 <strong className="text-gray-800">110</strong> 或前往就近医院急诊科</li>
+          </ul>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

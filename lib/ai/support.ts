@@ -1,36 +1,31 @@
 import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
+import { UI_TOOLS } from './tools';
+import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 
 /**
- * 支持性倾听系统提示词
+ * 支持性倾听系统提示词 - 渐进披露优化版
  */
-const SUPPORT_PROMPT = `你是一位专业的倾听者，正在为需要倾诉的用户提供支持。
+const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
 
-你的工作原则：
-1. **只倾听，不给建议**：用户明确表示只需要倾诉，不需要建议或分析
-2. **共情理解**：充分理解并共情用户的感受，让他们感到被理解
-3. **澄清确认**：通过提问来澄清和确认你理解的内容，帮助用户更好地表达
-4. **无条件接纳**：接纳用户的所有感受和想法，不做评判
+**当前模式**：支持性对话（非评估阶段）
 
-你的回复应该：
-- **倾听**：复述或总结用户表达的内容，让他们感到被听到
-- **共情**：表达对用户感受的理解和共情
-- **澄清**：通过温和的提问来澄清细节，例如：
-  * "听起来你感到...是这样吗？"
-  * "你刚才提到...能再多说一些吗？"
-  * "我理解你...还有其他的感受吗？"
-- **避免**：
-  * ❌ 不要提供解决方案或建议
-  * ❌ 不要进行分析或诊断
-  * ❌ 不要说"你应该..."
-  * ❌ 不要给出行动建议
+**回复结构（必须遵循）**：
+1. **第 1-2 句**：准确映射用户的情绪，使用具体的情感词汇
+   - ✅ "听起来你感到很疲惫/委屈/焦虑..."
+   - ❌ 避免空洞的"我理解你"
+2. **第 3-4 句**：如果需要，用温和的方式延续话题
+   - 将提问包裹在关心中："我有些好奇..."、"方便的话..."
+3. **篇幅**：控制在 3-5 句话，保持对话节奏
 
-回复要求：
-- 语气要温暖、接纳、理解
-- 使用第二人称"你"，拉近距离
-- 简洁明了，每次回复控制在150-200字
-- 重点在于让用户感到被理解和被接纳
+**严禁行为**：
+- ❌ 不要在支持模式下进行结构化 SCEB 评估
+- ❌ 不要在用户分享日常生活、正面或中性事件时突然询问安全问题
+- ❌ 不要一次性列出多个问题（审讯感）
+- ❌ 不要急于给出建议，先倾听
 
-请生成回复。`;
+**允许行为**：
+- ✅ 如果用户主动表达需要帮助，可以温和地建议深入探讨
+- ✅ 如果用户表现出明确的痛苦信号，可以表达更多关心`;
 
 /**
  * 生成支持性倾听回复
@@ -57,10 +52,13 @@ export async function generateSupportReply(
     },
   ];
 
-  return await chatCompletion(messages, {
+  const result = await chatCompletion(messages, {
     temperature: 0.8,
     max_tokens: 400,
+    tools: UI_TOOLS,
   });
+
+  return result.reply;
 }
 
 /**
@@ -90,6 +88,6 @@ export async function streamSupportReply(
     temperature: 0.8,
     max_tokens: 400,
     onFinish: options?.onFinish,
+    tools: UI_TOOLS,
   });
 }
-

@@ -9,6 +9,11 @@ import { continueAssessment } from '@/lib/ai/assessment';
 import { generateAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
+import { memoryManager } from '@/lib/memory';
+import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { logInfo, logWarn, logError } from '@/lib/observability/logger';
+import { coordinateAgents, OrchestrationResult } from '@/lib/ai/agents/orchestrator';
+import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -57,11 +62,17 @@ interface IntentClassification {
  */
 function classifyIntent(
   userMessage: string,
+  orchestration: OrchestrationResult,
   emotion?: { label: string; score: number }
 ): IntentClassification {
   const message = userMessage.toLowerCase().trim();
 
-  // 1. Crisis Check
+  // 1. Crisis Check (Multi-Agent Result)
+  if (orchestration.safety.label === 'crisis') {
+    return { isCrisis: true, isSupportPositive: false, isSupportUserWantsVenting: false, shouldAssessment: false };
+  }
+
+  // Layer 2: Keyword Backup Check
   const quickCheck = quickCrisisKeywordCheck(message);
   if (quickCheck) {
     return { isCrisis: true, isSupportPositive: false, isSupportUserWantsVenting: false, shouldAssessment: false };
@@ -100,8 +111,12 @@ function classifyIntent(
   };
 }
 
-function determineRouteType(userMessage: string, emotion?: { label: string; score: number }): RouteType {
-  const intent = classifyIntent(userMessage, emotion);
+function determineRouteType(
+  userMessage: string,
+  orchestration: OrchestrationResult,
+  emotion?: { label: string; score: number }
+): RouteType {
+  const intent = classifyIntent(userMessage, orchestration, emotion);
   if (intent.isCrisis) return 'crisis';
   if (intent.isSupportPositive || intent.isSupportUserWantsVenting) return 'support';
   if (intent.shouldAssessment) return 'assessment';
@@ -111,6 +126,9 @@ function determineRouteType(userMessage: string, emotion?: { label: string; scor
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  let finalSessionId: string | undefined;
+  let finalUserId: string | undefined;
+
   try {
     const body: ChatRequest = await request.json();
     const { message, history = [], state, meta } = body;
@@ -120,16 +138,33 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0. Persistence Setup
+    // 0.1 Input Guardrail - 输入安全检测
+    // =================================================================================
+    const inputGuard = guardInput(message);
+    if (!inputGuard.safe) {
+      logWarn('input-guard-blocked', { reason: inputGuard.reason });
+      const data = new StreamData();
+      data.append({
+        timestamp: new Date().toISOString(),
+        routeType: 'support',
+        guardBlocked: inputGuard.reason || 'unknown'
+      } as Record<string, string>);
+      return createFixedStreamResponse(getBlockedResponse(inputGuard.reason), data);
+    }
+
+    // =================================================================================
+    // 0.2 Persistence Setup
     // =================================================================================
     const session = await auth();
-    const sessionId = body.sessionId;
-    const userId = session?.user?.id;
+    finalSessionId = body.sessionId;
+    finalUserId = session?.user?.id;
+    const sessionId = finalSessionId;
+    const userId = finalUserId;
 
-    console.log('[API/Chat] Request:', {
+    logInfo('chat-request', {
       hasSession: !!session,
       userId,
-      sessionIdFromBody: body.sessionId,
+      sessionId: body.sessionId,
       messageLen: message.length
     });
 
@@ -195,10 +230,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // =================================================================================
+    // 0.5 Memory Retrieval - 获取用户记忆并注入上下文
+    // =================================================================================
+    let memoryContext = '';
+    if (userId) {
+      try {
+        const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
+        if (contextString) {
+          memoryContext = contextString;
+          console.log('[Memory] Retrieved context for user:', userId, 'length:', contextString.length);
+        }
+      } catch (e) {
+        console.error('[Memory] Failed to retrieve memories:', e);
+        // 继续执行，不影响主流程
+      }
+    }
+
     const data = new StreamData();
-    const emotion = await analyzeEmotion(message);
+    const emotionPromise = analyzeEmotion(message);
+    const orchestrationPromise = coordinateAgents(message, history.map(m => ({ role: m.role as any, content: m.content })));
+
+    // Run parallel
+    const [emotion, orchestration] = await Promise.all([emotionPromise, orchestrationPromise]);
+
     const emotionObj = emotion ? { label: emotion.label, score: emotion.score } : null;
-    let routeType = determineRouteType(message, emotionObj ? emotionObj : undefined);
+    let routeType = determineRouteType(message, orchestration, emotionObj ? emotionObj : undefined);
+
+    // =================================================================================
+    // 0.6 Dialogue State Tracking - 对话状态追踪
+    // =================================================================================
+    const conversationTurn = calculateTurn(history);
+    const riskSignals = analyzeRiskSignals(message);
+    const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
+    const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
+
+    logInfo('dialogue-state', {
+      turn: conversationTurn,
+      phase: dialoguePhase,
+      riskLevel: riskSignals.level,
+      triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
+      shouldTriggerSafety: safetyCheck.shouldTrigger,
+    });
+
+    // Append orchestration and dialogue metadata to stream
+    data.append({
+      timestamp: new Date().toISOString(),
+      safety: orchestration.safety,
+      dialogue: {
+        turn: conversationTurn,
+        phase: dialoguePhase,
+        riskLevel: riskSignals.level,
+      },
+    } as any);
 
     // Fix: If we are in evaluation flow (awaiting_followup), continue assessment unless it's a crisis
     if (state === 'awaiting_followup' && routeType !== 'crisis') {
@@ -252,18 +336,10 @@ export async function POST(request: NextRequest) {
       const { reply, isConclusion } = await continueAssessment(message, history);
 
       if (isConclusion) {
-        // LLM decided intake is done. Transition to Conclusion.
-        // We aggregate the full context from history + current message for the Conclusion Generator
-        // But `generateAssessmentConclusion` expects `initialMessage` + `followupAnswer`.
-        // We will pass:
-        // initialMessage = (try to find first user msg in history, or use context)
-        // followAnswer = everything else
-
-        // Simplified: Just join all user messages as context.
+        // LLM decided intake is done (via tool calling). Transition to Conclusion.
         const allUserMessages = history.filter(m => m.role === 'user').map(m => m.content);
         allUserMessages.push(message);
-        const fullContext = allUserMessages.join('\n\n');
-        // We treat first msg as initial, rest as followups.
+
         const initialMsg = allUserMessages[0] || message;
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
@@ -275,24 +351,22 @@ export async function POST(request: NextRequest) {
         data.append({
           timestamp: new Date().toISOString(),
           routeType: 'assessment',
-          state: 'normal', // Reset state
+          state: 'normal',
           assessmentStage: 'conclusion',
           actionCards: conclusionResult.actionCards,
-          // Forward resources from conclusion
-          resources: conclusionResult.resources, // Important for UI!
+          resources: conclusionResult.resources,
           ...(conclusionResult.gate && { gate: conclusionResult.gate }),
         } as any);
 
         return createFixedStreamResponse(conclusionResult.reply, data);
       } else {
         // Continuing intake
-        // Save reply
         await saveAssistantMessage(reply);
 
         data.append({
           timestamp: new Date().toISOString(),
           routeType: 'assessment',
-          state: 'awaiting_followup', // Keep user stuck in assessment loop
+          state: 'awaiting_followup',
           assessmentStage: 'intake',
         });
 
@@ -307,5 +381,22 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Chat API Error:', error);
     return NextResponse.json({ error: error.message || 'Error processing request' }, { status: 500 });
+  } finally {
+    // =================================================================================
+    // 异步触发记忆提取 - 不阻塞响应
+    // =================================================================================
+    // Session and userId are captured at the start of the try block
+    if (finalSessionId && finalUserId) {
+      const sessionId = finalSessionId;
+      // 使用 setImmediate 模拟或直接在 finally 中异步执行
+      Promise.resolve().then(async () => {
+        try {
+          await memoryManager.processConversation(sessionId);
+          console.log('[Memory] Async extraction completed for:', sessionId);
+        } catch (e) {
+          console.error('[Memory] Async extraction failed:', e);
+        }
+      });
+    }
   }
 }

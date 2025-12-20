@@ -213,6 +213,15 @@ export async function sendChatMessage(
             } catch (e) {
               console.error('Error parsing data chunk (2:)', e);
             }
+          } else if (line.startsWith('9:')) {
+            // Tool Call (New Protocol): 9:{...}
+            try {
+              const toolCall = JSON.parse(line.substring(2));
+              if (!assembledData.toolCalls) assembledData.toolCalls = [];
+              assembledData.toolCalls.push(toolCall);
+            } catch (e) {
+              console.error('Error parsing tool call chunk (9:)', e);
+            }
           }
         }
       }
@@ -222,6 +231,7 @@ export async function sendChatMessage(
     let data = {
       ...assembledData,
       reply: accumulatedReply,
+      toolCalls: assembledData.toolCalls || [],
     };
 
     // Dev 模式：支持 ?debugInvalid=1 开关模拟校验失败，?debugEmptyReply=1 模拟空回复

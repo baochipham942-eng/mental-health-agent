@@ -97,7 +97,8 @@ interface MessageBubbleProps {
     nextStepsLines?: string;
   };
   onSendMessage?: (text: string) => void;
-  isSending?: boolean;  // 新增：是否正在发送
+  isSending?: boolean;
+  toolCalls?: any[];
 }
 
 export function MessageBubble({
@@ -108,13 +109,14 @@ export function MessageBubble({
   assistantQuestions,
   validationError,
   onSendMessage,
-  isSending = false,  // 默认值
+  isSending = false,
+  toolCalls,
 }: MessageBubbleProps) {
   const { currentState, isLoading } = useChatStore();
   const isUser = message.role === 'user';
 
   // 判断是否有特殊内容（Skill 卡片或问题列表）
-  const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0);
+  const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0) || (toolCalls && toolCalls.length > 0);
   const hasTextContent = message.content && message.content.trim() !== '';
 
   // Comfort messages for loading state
@@ -216,7 +218,44 @@ export function MessageBubble({
           <p className="whitespace-pre-wrap break-words leading-relaxed text-sm sm:text-base">{message.content}</p>
         ) : (
           <>
-            {isConclusion && routeType === 'assessment' ? (
+            {/* Generative UI Tool Calling Logic */}
+            {toolCalls && toolCalls.length > 0 ? (
+              <div className="space-y-4">
+                {message.content && <ReactMarkdown className="prose prose-sm max-w-none">{message.content}</ReactMarkdown>}
+                {toolCalls.map((tc: any) => {
+                  try {
+                    const args = JSON.parse(tc.function.arguments);
+                    if (tc.function.name === 'show_quick_replies') {
+                      return (
+                        <div key={tc.id} className="mt-2">
+                          <p className="text-xs text-gray-500 mb-2 italic">请点击下方选项进行回复：</p>
+                          <QuickReplies
+                            mode={args.mode}
+                            options={args.options}
+                            onPick={handleQuickReply}
+                            disabled={isSending}
+                          />
+                        </div>
+                      );
+                    }
+                    if (tc.function.name === 'render_assessment_report') {
+                      return (
+                        <ConclusionSections
+                          key={tc.id}
+                          reply={args.summary} // Use summary as main text
+                          actionCards={args.actionCards}
+                          routeType="assessment"
+                          messageId={message.id}
+                        />
+                      );
+                    }
+                  } catch (e) {
+                    console.error('Failed to parse tool call arguments', tc, e);
+                  }
+                  return null;
+                })}
+              </div>
+            ) : isConclusion && routeType === 'assessment' ? (
               <ConclusionSections
                 reply={message.content}
                 actionCards={actionCards}

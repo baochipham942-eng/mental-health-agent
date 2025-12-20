@@ -156,6 +156,17 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     }
   };
 
+  // Hydration fix for returning user greeting
+  const [isReturningUser, setIsReturningUser] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasVisited = localStorage.getItem('hasVisited') === 'true';
+      setIsReturningUser(hasVisited);
+      localStorage.setItem('hasVisited', 'true');
+    }
+  }, []);
+
   if (messages.length === 0) {
     const { greeting, emoji } = getTimeGreeting();
     const examplePrompts = [
@@ -163,14 +174,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
       '晚上总是睡不好觉',
       '想和你聊聊最近的心情',
     ];
-
-    // Check if returning user (has localStorage history)
-    const isReturningUser = typeof window !== 'undefined' && localStorage.getItem('hasVisited') === 'true';
-
-    // Mark as visited for next time
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hasVisited', 'true');
-    }
 
     return (
       <div className="h-full w-full flex items-center justify-center p-6">
@@ -204,7 +207,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
           {/* Privacy note */}
           <p className="text-xs text-gray-400">
-            🔒 你的对话将被安全保存，仅你自己可见
+            🔒 你的对话将被安全保存
           </p>
         </div>
       </div>

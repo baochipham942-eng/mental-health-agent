@@ -31,6 +31,66 @@
             "file": "relationship.md",
             "title": "人际关系困扰：理解冲突与建立联结",
             "category": "人际关系"
+        },
+        {
+            "id": "edu-pregnancy-101",
+            "file": "pregnancy.md",
+            "title": "孕期心理调适：拥抱变化，呵护身心",
+            "category": "孕期"
+        },
+        {
+            "id": "edu-ppd-101",
+            "file": "postpartum_depression.md",
+            "title": "走出产后抑郁：你不是一个人在战斗",
+            "category": "产后抑郁"
+        },
+        {
+            "id": "edu-newmom-101",
+            "file": "new_mother.md",
+            "title": "新手妈妈适应指南：在混乱中重建秩序",
+            "category": "宝妈"
+        },
+        {
+            "id": "edu-workplace-101",
+            "file": "workplace_burnout.md",
+            "title": "职场生存指南：拒绝内耗，找回掌控感",
+            "category": "职场"
+        },
+        {
+            "id": "edu-self-compassion-101",
+            "file": "self_compassion.md",
+            "title": "自我关怀：像对待朋友一样对待自己",
+            "category": "自我成长"
+        },
+        {
+            "id": "edu-social-101",
+            "file": "social_anxiety.md",
+            "title": "社交自信：打破'聚光灯效应'的魔咒",
+            "category": "社交"
+        },
+        {
+            "id": "edu-grief-101",
+            "file": "grief_loss.md",
+            "title": "与哀伤共处：这是爱的代价",
+            "category": "哀伤与丧失"
+        },
+        {
+            "id": "edu-academic-101",
+            "file": "academic_pressure.md",
+            "title": "学业压力应对：别让分数定义你",
+            "category": "校园"
+        },
+        {
+            "id": "edu-bullying-101",
+            "file": "school_bullying.md",
+            "title": "面对校园霸凌：错的从来不是你",
+            "category": "校园"
+        },
+        {
+            "id": "edu-overseas-101",
+            "file": "overseas_student.md",
+            "title": "海外学子心理护照：跨越文化的孤独",
+            "category": "留学"
         }
     ]
 }

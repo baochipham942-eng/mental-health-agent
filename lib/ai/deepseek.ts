@@ -1,3 +1,4 @@
+import { ActionCardSchema, AssessmentConclusionSchema, CrisisClassificationSchema, EmotionAnalysisSchema } from './schemas';
 import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
 import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '../observability/langfuse';
@@ -24,12 +25,22 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface ChatCompletionResponse {
   id: string;
   choices: Array<{
     message: {
       role: string;
-      content: string;
+      content: string | null;
+      tool_calls?: ToolCall[];
     };
     finish_reason: string;
   }>;
@@ -49,8 +60,11 @@ export async function chatCompletion(
     temperature?: number;
     max_tokens?: number;
     stream?: boolean;
+    responseFormat?: 'json_object' | 'text';
+    tools?: any[];
+    toolChoice?: any;
   }
-): Promise<string> {
+): Promise<{ reply: string; toolCalls?: ToolCall[] }> {
   if (!DEEPSEEK_API_KEY) {
     throw new Error('DEEPSEEK_API_KEY is not configured');
   }
@@ -67,6 +81,9 @@ export async function chatCompletion(
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 2000,
       stream: options?.stream ?? false,
+      response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+      tools: options?.tools,
+      tool_choice: options?.toolChoice,
     }),
   });
 
@@ -81,9 +98,10 @@ export async function chatCompletion(
     throw new Error('No response from DeepSeek API');
   }
 
-  const output = data.choices[0].message.content;
+  const choice = data.choices[0];
+  const output = choice.message.content || '';
+  const toolCalls = choice.message.tool_calls;
 
-  // LangFuse Tracing
   // LangFuse Tracing
   const trace = createTrace(
     'chatCompletion',
@@ -91,6 +109,8 @@ export async function chatCompletion(
       model: 'deepseek-chat',
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 2000,
+      responseFormat: options?.responseFormat,
+      toolsCount: options?.tools?.length,
     },
     messages // Input
   );
@@ -103,12 +123,37 @@ export async function chatCompletion(
     });
 
     // Update trace with output
-    updateTrace(trace, { output: output });
+    updateTrace(trace, { output: output, metadata: { toolCalls } });
 
     await flushLangfuse();
   }
 
-  return output;
+  return { reply: output, toolCalls };
+}
+
+/**
+ * 通用结构化输出调用
+ */
+export async function chatStructuredCompletion<T>(
+  messages: ChatMessage[],
+  schema: { parse: (val: any) => T },
+  options?: {
+    temperature?: number;
+    max_tokens?: number;
+  }
+): Promise<T> {
+  const response = await chatCompletion(messages, {
+    ...options,
+    responseFormat: 'json_object',
+  });
+
+  try {
+    const json = JSON.parse(response.reply);
+    return schema.parse(json);
+  } catch (e) {
+    console.error('[DeepSeek] Structured parse failed:', e, 'Response:', response);
+    throw new Error('Failed to parse structured output from AI');
+  }
 }
 
 /**
@@ -120,6 +165,8 @@ export async function streamChatCompletion(
     temperature?: number;
     max_tokens?: number;
     onFinish?: (text: string) => Promise<void>;
+    tools?: any;
+    toolChoice?: any;
   }
 ) {
   if (!DEEPSEEK_API_KEY) {
@@ -138,7 +185,9 @@ export async function streamChatCompletion(
     messages: coreMessages,
     temperature: options?.temperature ?? 0.7,
     maxTokens: options?.max_tokens ?? 2000,
-    onFinish: async ({ text, usage, finishReason }) => {
+    // Note: tools removed from streaming - use non-streaming chatCompletion for tool calls
+    // Vercel AI SDK requires Zod-based tool definitions via tool() helper
+    onFinish: async ({ text, usage, finishReason, toolCalls }) => {
       // Call external onFinish if provided
       if (options?.onFinish) {
         await options.onFinish(text);
@@ -152,6 +201,7 @@ export async function streamChatCompletion(
           temperature: options?.temperature ?? 0.7,
           max_tokens: options?.max_tokens ?? 2000,
           finishReason,
+          toolCalls,
         },
         messages // Input
       );
@@ -197,10 +247,12 @@ export async function generateCounselingReply(
     },
   ];
 
-  return await chatCompletion(messages, {
+  const result = await chatCompletion(messages, {
     temperature: 0.8,
     max_tokens: 500,
   });
+
+  return result.reply;
 }
 
 /**
@@ -228,30 +280,13 @@ export async function analyzeEmotion(userMessage: string): Promise<EmotionAnalys
       },
     ];
 
-    const response = await chatCompletion(messages, {
+    return await chatStructuredCompletion(messages, EmotionAnalysisSchema, {
       temperature: 0.3,
       max_tokens: 200,
     });
-
-    // 尝试解析JSON响应
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          label: parsed.label || '平静',
-          score: Math.min(10, Math.max(0, parsed.score || 5)),
-          confidence: 0.8,
-        };
-      }
-    } catch (e) {
-      // JSON解析失败，使用关键词匹配
-    }
-
-    // 关键词匹配作为后备方案
-    return matchEmotionByKeywords(userMessage);
   } catch (error) {
     console.error('Emotion analysis error:', error);
+    // 关键词匹配作为后备方案
     return matchEmotionByKeywords(userMessage);
   }
 }

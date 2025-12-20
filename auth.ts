@@ -40,17 +40,37 @@ export const { auth, signIn, signOut } = NextAuth({
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
+            // Initial sign in
             if (user) {
                 token.id = user.id;
-                token.name = (user as any).username; // Map username to name
+                token.name = (user as any).username;
+                token.nickname = (user as any).nickname;
+                token.avatar = (user as any).avatar;
             }
+
+            // Periodically refresh data from DB to ensure personality is synced
+            // or if we have a trigger (though trigger is client-side)
+            // Force refresh for 'demo' user for this task session
+            if (token.id && (!token.nickname || token.name === 'demo')) {
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: token.id as string },
+                    select: { nickname: true, avatar: true }
+                });
+                if (dbUser) {
+                    token.nickname = dbUser.nickname;
+                    token.avatar = dbUser.avatar;
+                }
+            }
+
             return token;
         },
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
                 session.user.name = token.name as string;
+                (session.user as any).nickname = token.nickname;
+                (session.user as any).avatar = token.avatar;
             }
             return session;
         }

@@ -7,6 +7,16 @@ export interface Message {
   timestamp: string;
   emotion?: Emotion;
   resources?: AnyResource[]; // RAG 推荐资源
+  toolCalls?: ToolCall[];
+}
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface Emotion {
@@ -52,6 +62,7 @@ export interface ChatResponse {
   assistantQuestions?: string[];
   actionCards?: ActionCard[];
   resources?: AnyResource[];
+  toolCalls?: ToolCall[];
   gate?: {
     pass: boolean;
     fixed?: boolean;
