@@ -43,7 +43,7 @@ export function UserMenu({ userName, nickname, avatar, onSignOut }: UserMenuProp
             <Menu.Item key="lab">
                 <div className="flex items-center gap-2 py-1">
                     <IconExperiment className="text-cyan-600" />
-                    <span>智慧殿堂</span>
+                    <span>实验室</span>
                 </div>
             </Menu.Item>
             <Divider style={{ margin: '4px 0' }} />

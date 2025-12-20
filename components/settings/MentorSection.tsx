@@ -14,7 +14,7 @@ export function MentorSection() {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        🏛️ 智慧殿堂 <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold border border-indigo-200">LAB</span>
+                        🏛️ 智慧殿堂
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
                         与心理学历史上的伟人进行**跨时空对话**。

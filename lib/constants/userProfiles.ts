@@ -34,7 +34,7 @@ export const USER_PROFILES: UserProfile[] = [
         id: 'loyal',
         trait: '忠诚',
         nickname: '长青之锚',
-        avatar: '/avatars/loyal-v2.svg', // 使用高精度的 SVG 锚点图标提升清晰度
+        avatar: '/avatars/loyal.png',
     },
     {
         id: 'humorous',

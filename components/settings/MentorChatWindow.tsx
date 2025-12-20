@@ -50,7 +50,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const themeClass = colorMap[mentor.themeColor] || 'bg-gray-50';
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
             <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-[800px] border border-gray-200">
 
                 {/* Header */}
