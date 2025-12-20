@@ -1,4 +1,5 @@
 import { MentorSection } from '@/components/settings/MentorSection';
+import { MBTISection } from '@/components/lab/MBTISection';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,10 +11,17 @@ export default function LabPage() {
                 <p className="text-gray-500 mt-2">探索实验性功能与前沿交互体验</p>
             </div>
 
-            <div className="space-y-12">
+            <div className="space-y-16">
                 {/* Hall of Wisdom Feature */}
                 <section>
                     <MentorSection />
+                </section>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Hall of Mirrors Feature */}
+                <section>
+                    <MBTISection />
                 </section>
             </div>
         </div>
