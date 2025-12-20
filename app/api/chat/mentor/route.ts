@@ -19,9 +19,13 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { message, history = [], mentorId } = body;
+        const { messages, mentorId } = body;
 
-        if (!message || message.trim().length === 0) {
+        // Vercel AI SDK sends 'messages' array. Get the last message as current input.
+        const lastMessage = messages?.[messages.length - 1];
+        const messageContent = lastMessage?.content;
+
+        if (!messageContent || messageContent.trim().length === 0) {
             return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
         }
 
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1. Input Guard (Safety First)
-        const inputGuard = guardInput(message);
+        const inputGuard = guardInput(messageContent);
         if (!inputGuard.safe) {
             const data = new StreamData();
             return new NextResponse(getBlockedResponse(inputGuard.reason), { status: 200 });
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
         // 2. Memory Context Retrieval (Read-Only)
         let memoryContext = '';
         try {
-            const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
+            const { contextString } = await memoryManager.getMemoriesForContext(userId, messageContent);
             if (contextString) {
                 memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${contextString}`;
             }
@@ -59,17 +63,16 @@ ${memoryContext}
 - 你的回答应该引发思考，而不是仅仅给予安慰。
 - 如果用户表达了自杀或极端危机倾向，请立即暂时脱离角色，以严肃、关切的口吻建议寻求专业医生帮助，并提供危机干预热线。`;
 
-        const messages: ChatMessage[] = [
+        const coreMessages: ChatMessage[] = [
             { role: 'system', content: systemPrompt },
-            ...history.map((m: any) => ({
-                role: m.role,
+            ...messages.map((m: any) => ({
+                role: m.role as 'user' | 'assistant' | 'system',
                 content: m.content
-            })),
-            { role: 'user', content: message }
+            }))
         ];
 
         // 4. Stream Response (No saving to DB)
-        const result = await streamChatCompletion(messages, {
+        const result = await streamChatCompletion(coreMessages, {
             temperature: 0.9, // Higher temperature for more creative/personable responses
             max_tokens: 800,
         });
