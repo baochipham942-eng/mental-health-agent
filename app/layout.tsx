@@ -9,6 +9,11 @@ import { NextAuthSessionProvider } from '@/components/providers/NextAuthSessionP
 export const metadata: Metadata = {
   title: '心理树洞 - AI心理咨询',
   description: '基于认知行为疗法的AI心理咨询助手，帮助你识别情绪、调整认知、改善心理健康',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/favicon.ico',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({
