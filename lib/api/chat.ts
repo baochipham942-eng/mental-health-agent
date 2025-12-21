@@ -5,8 +5,9 @@ import { z } from 'zod';
 const ActionCardSchema = z.object({
   title: z.string(),
   steps: z.array(z.string()),
-  when: z.string(),
-  effort: z.enum(['low', 'medium', 'high']),
+  when: z.string().optional(),
+  effort: z.enum(['low', 'medium', 'high']).optional(),
+  widget: z.string().optional(),
 });
 
 const ChatResponseSchema = z.object({
