@@ -169,7 +169,7 @@ export async function streamChatCompletion(
   options?: {
     temperature?: number;
     max_tokens?: number;
-    onFinish?: (text: string) => Promise<void>;
+    onFinish?: (text: string, toolCalls?: any[]) => Promise<void>;
     enableTools?: boolean; // 是否启用工具（默认 false，因为大多数场景不需要）
     traceMetadata?: Record<string, any>;
   }
@@ -193,9 +193,18 @@ export async function streamChatCompletion(
     tools: options?.enableTools ? SDK_TOOLS : undefined, // Use unified SDK_TOOLS format when enabled
 
     onFinish: async ({ text, usage, finishReason, toolCalls }) => {
-      // Call external onFinish if provided
+      // Call external onFinish with text and toolCalls
       if (options?.onFinish) {
-        await options.onFinish(text);
+        // Convert tool calls to a more usable format for API response
+        const formattedToolCalls = toolCalls?.map((tc: any) => ({
+          id: tc.toolCallId,
+          type: 'function' as const,
+          function: {
+            name: tc.toolName,
+            arguments: tc.args
+          }
+        }));
+        await options.onFinish(text, formattedToolCalls);
       }
 
       // LangFuse Tracing (Async)

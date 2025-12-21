@@ -80,12 +80,31 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   useEffect(() => {
     const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
 
+    // 0. 从历史会话切换到新会话：sessionId 变成 undefined，但 internalSessionId 还有值
+    if (!sessionId && internalSessionId && prevSessionIdRef.current) {
+      console.log('[ChatShell] Switching from session to new chat', { old: internalSessionId });
+      setMessages([]);
+      setInternalSessionId(undefined);
+      sessionIdRef.current = undefined;
+      prevSessionIdRef.current = undefined;
+      setError(null);
+      setLoading(false);
+      setIsSending(false);
+      updateState({
+        currentState: undefined,
+        routeType: undefined,
+        assessmentStage: undefined,
+      });
+      return;
+    }
+
     // 1. 会话切换：完全重置，使用服务端数据
     if (isSessionSwitch) {
       console.log('[ChatShell] Session switch detected', { old: internalSessionId, new: sessionId });
       setMessages(initialMessages || []);
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
+      prevSessionIdRef.current = sessionId;
       setError(null);
       setLoading(false);
       setIsSending(false);

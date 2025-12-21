@@ -72,7 +72,7 @@ export async function generateSupportReply(
 export async function streamSupportReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  options?: { onFinish?: (text: string) => Promise<void>; traceMetadata?: Record<string, any> }
+  options?: { onFinish?: (text: string, toolCalls?: any[]) => Promise<void>; traceMetadata?: Record<string, any> }
 ) {
   const messages: ChatMessage[] = [
     {

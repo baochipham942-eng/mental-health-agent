@@ -311,10 +311,10 @@ export async function POST(request: NextRequest) {
         // De-escalate
         data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
-        const onFinishWithMeta = async (text: string) => {
-          await saveAssistantMessage(text);
+        const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
+          await saveAssistantMessage(text, { toolCalls });
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
-          data.append({ reply: text } as any);
+          data.append({ reply: text, toolCalls } as any);
           data.close();
         };
 
@@ -324,9 +324,9 @@ export async function POST(request: NextRequest) {
 
       data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
 
-      const onCrisisFinish = async (text: string) => {
-        await saveAssistantMessage(text);
-        data.append({ reply: text } as any);
+      const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
+        await saveAssistantMessage(text, { toolCalls });
+        data.append({ reply: text, toolCalls } as any);
         data.close();
       }
 
@@ -386,9 +386,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Wrap saveAssistantMessage to include actionCards in metadata
-      const onFinishWithMeta = async (text: string) => {
-        await saveAssistantMessage(text, actionCards ? { routeType: 'support', actionCards } : undefined);
-        data.append({ reply: text } as any);
+      const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
+        await saveAssistantMessage(text, actionCards ? { routeType: 'support', actionCards, toolCalls } : { toolCalls });
+        data.append({ reply: text, toolCalls } as any);
         data.close();
       };
 
@@ -471,9 +471,9 @@ export async function POST(request: NextRequest) {
             },
           } as any);
 
-          const onFinishWithMeta = async (text: string) => {
-            await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true });
-            data.append({ reply: text } as any);
+          const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
+            await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true, toolCalls });
+            data.append({ reply: text, toolCalls } as any);
             data.close();
           };
 

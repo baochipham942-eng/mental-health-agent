@@ -69,7 +69,7 @@ export async function streamCrisisReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
   isFollowupOrHotlines: boolean | string = false,
-  options?: { onFinish?: (text: string) => Promise<void>; traceMetadata?: Record<string, any> }
+  options?: { onFinish?: (text: string, toolCalls?: any[]) => Promise<void>; traceMetadata?: Record<string, any> }
 ) {
   const isFollowup = typeof isFollowupOrHotlines === 'boolean' ? isFollowupOrHotlines : false;
   const hotlinesContext = typeof isFollowupOrHotlines === 'string' ? isFollowupOrHotlines : '';
