@@ -10,9 +10,10 @@ export const CBT_PROTOCOL_PROMPT = `遵循 CBT 原则：
 
 // 3. Generative UI Rules
 export const INTERACTIVE_RULES_PROMPT = `**结构化交互规范**：
-- 必须通过调用 \`show_quick_replies(mode, options)\` 提供交互按钮。
+- 可通过调用 \`show_quick_replies(mode, options)\` 提供交互按钮。
 - 常用于：自伤风险确认 (riskChoice)、0-10量表评分 (scale0to10)、自定义多选 (optionChoice)。
-- 不要仅在文本中列出（选项 A/B/C），必须调用工具。`;
+- **重要**：如果用户已经回复了选项内容（如"没有"、"经常"、"偶尔"、数字等），说明他们已经做出选择，此时不要再调用 show_quick_replies。
+- 只在首次需要用户选择时调用工具，不要在后续对话中重复调用。`;
 
 // 4. Safety Guardrails
 export const SAFETY_PROMPT = `**安全准则**：
