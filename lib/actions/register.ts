@@ -19,7 +19,7 @@ export async function registerUser(prevState: string | undefined, formData: Form
     // 1. Parse Input
     const phone = formData.get('phone') as string;
     const password = formData.get('password') as string;
-    const inviteCode = (formData.get('inviteCode') as string)?.toUpperCase();
+    const inviteCode = (formData.get('inviteCode') as string)?.trim();
 
     const validatedFields = RegisterSchema.safeParse({ phone, password, inviteCode });
 
@@ -45,8 +45,14 @@ export async function registerUser(prevState: string | undefined, formData: Form
         // 3. Verify Invitation Code
         // Transaction to ensure atomicity of checking and incrementing usage
         const result = await prisma.$transaction(async (tx) => {
-            const invite = await tx.invitationCode.findUnique({
-                where: { code: inviteCode }
+            // Find invitation code (case-insensitive)
+            const invite = await tx.invitationCode.findFirst({
+                where: {
+                    code: {
+                        equals: inviteCode,
+                        mode: 'insensitive'
+                    }
+                }
             });
 
             if (!invite) {

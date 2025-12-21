@@ -12,6 +12,7 @@ interface ConclusionSectionsProps {
   actionCards?: ActionCard[];
   routeType: 'crisis' | 'assessment' | 'support';
   messageId: string;
+  sessionId: string;
   validationError?: {
     actionCards?: string;
     nextStepsLines?: string;
@@ -23,6 +24,7 @@ export function ConclusionSections({
   actionCards,
   routeType,
   messageId,
+  sessionId,
   validationError,
 }: ConclusionSectionsProps) {
   // 如果校验失败，不显示结构化区块
@@ -143,7 +145,7 @@ export function ConclusionSections({
               )}
               {/* 行动卡片 */}
               {hasActionCards && (
-                <ActionCardGrid cards={actionCards} />
+                <ActionCardGrid cards={actionCards} messageId={messageId} sessionId={sessionId} />
               )}
             </div>
           </div>

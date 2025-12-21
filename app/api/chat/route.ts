@@ -14,6 +14,7 @@ import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { coordinateAgents, OrchestrationResult } from '@/lib/ai/agents/orchestrator';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
+import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -232,19 +233,36 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0.5 Memory Retrieval - 获取用户记忆并注入上下文
+    // 0.5 Memory Retrieval & Summarization - 获取用户记忆并根据历史冗余生成摘要
     // =================================================================================
     let memoryContext = '';
+    let processedHistory = history;
+
     if (userId) {
       try {
+        // 1. 获取长期记忆
         const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
         if (contextString) {
           memoryContext = contextString;
           console.log('[Memory] Retrieved context for user:', userId, 'length:', contextString.length);
         }
+
+        // 2. 检查是否需要生成对话摘要 (Short-term context compression)
+        if (sessionId && shouldSummarize(history.length)) {
+          console.log('[Summarizer] History length exceeds threshold, generating summary...');
+          const summary = await generateSummary(history);
+          if (summary) {
+            // 存储摘要到记忆系统
+            await updateConversationSummary(sessionId, summary);
+            // 将摘要注入到当前上下文
+            memoryContext += `\n\n### 对话背景摘要\n${summary}\n`;
+            // 裁剪历史记录，只保留最近的 8 条，避免上下文过长
+            processedHistory = history.slice(-8);
+            console.log('[Summarizer] Summary generated and history trimmed.');
+          }
+        }
       } catch (e) {
-        console.error('[Memory] Failed to retrieve memories:', e);
-        // 继续执行，不影响主流程
+        console.error('[Memory/Summarizer] Failed:', e);
       }
     }
 
@@ -392,7 +410,7 @@ export async function POST(request: NextRequest) {
         data.close();
       };
 
-      const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+      const result = await streamSupportReply(message, processedHistory, { onFinish: onFinishWithMeta, traceMetadata, memoryContext });
       // data.close() moved to onFinish
       return result.toDataStreamResponse({ data });
     }
@@ -449,7 +467,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Call Assessment Loop with State Classifier
-      const { reply, isConclusion, toolCalls, stateClassification } = await continueAssessment(message, history, { traceMetadata });
+      const { reply, isConclusion, toolCalls, stateClassification } = await continueAssessment(message, processedHistory, { traceMetadata, memoryContext });
 
       // =================================================================================
       // 🔄 Dynamic Mode Switch: If State Classifier recommends support, switch modes
@@ -477,7 +495,7 @@ export async function POST(request: NextRequest) {
             data.close();
           };
 
-          const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+          const result = await streamSupportReply(message, processedHistory, { onFinish: onFinishWithMeta, traceMetadata, memoryContext });
           return result.toDataStreamResponse({ data });
         } catch (modeSwitchError) {
           console.error('[API] Mode switch to support failed, continuing with assessment reply:', modeSwitchError);
@@ -493,7 +511,17 @@ export async function POST(request: NextRequest) {
         const initialMsg = allUserMessages[0] || message;
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
-        const conclusionResult = await generateAssessmentConclusion(initialMsg, followupStr, history, { traceMetadata });
+        let conclusionResult;
+        try {
+          conclusionResult = await generateAssessmentConclusion(initialMsg, followupStr, history, { traceMetadata });
+        } catch (error) {
+          console.error('[API] generateAssessmentConclusion failed:', error);
+          conclusionResult = {
+            reply: "抱歉，生成评估结论时遇到一点小问题，请尝试刷新页面或重新发送消息。",
+            actionCards: [],
+            resources: []
+          };
+        }
 
         // Save Conclusion Reply with metadata
         await saveAssistantMessage(conclusionResult.reply, {

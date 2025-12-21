@@ -20,6 +20,12 @@ export const SAFETY_PROMPT = `**安全准则**：
 - 严禁医学诊断或推荐具体药物。
 - 检测到剧烈情绪波动或潜在人身安全意图时，优先启动风险评估。`;
 
+// 5. RAG Formatting (Branding & Citations)
+export const RAG_FORMATTING_PROMPT = `**知识库引用规范**：
+- 如果提供了"可用参考资源"，在回复引用内容前必须加入 \`【心理百科】\` 或 \`【知识卡片】\`。
+- 引导话术需专业且体现溯源感，例如使用："基于我们的专业建议..."、"在心理百科记录中..."。
+- 在消息末尾（所有工具调用之后），必须独立一行添加：\`*来源：心灵树洞专业知识库 | 认知行为疗法（CBT）实践指南*\``;
+
 // 旧版兼容，但内部由片段组成
 export const SYSTEM_PROMPT = `${IDENTITY_PROMPT}
 
@@ -27,7 +33,9 @@ ${CBT_PROTOCOL_PROMPT}
 
 ${INTERACTIVE_RULES_PROMPT}
 
-${SAFETY_PROMPT}`;
+${SAFETY_PROMPT}
+
+${RAG_FORMATTING_PROMPT}`;
 
 // CBT专用提示词
 export const CBT_PROMPT = `基于认知行为疗法（CBT）的原则，帮助来访者：
@@ -71,44 +79,59 @@ export const EMOTION_ANALYSIS_PROMPT = `分析用户输入的情绪状态，识�
   "score": 0-10的数值
 }`;
 
-// 心理评估初筛结论提示词
-export const ASSESSMENT_CONCLUSION_PROMPT = `你是心理评估师。根据初始主诉和回答生成结构化的初筛结论 JSON。
+// 心理评估初筛结论提示词 - 与 schemas.ts 中的 AssessmentConclusionSchema 同步
+export const ASSESSMENT_CONCLUSION_PROMPT = `你是心理评估师。根据初始主诉和回答生成结构化的初筛结论。
 
-**JSON 字段要求：**
+**输出格式**：必须返回纯 JSON，格式如下：
 
-1. **summary** (string): 
-   - 主诉+持续时间+影响程度：X/10+自伤念头
+\`\`\`json
+{
+  "reasoning": "string (必填) - 你的分析推理过程，先思考再输出结论",
+  "summary": "string (必填) - 主诉+持续时间+影响程度：X/10+自伤念头",
+  "riskAndTriage": "string (必填) - 三选一：crisis/urgent/self-care + 理由",
+  "nextStepList": ["string", "string"] (必填, 2-3条) - 每条必须包含：触发器 + 时长/次数 + 完成标准",
+  "actionCards": [
+    {
+      "title": "string (必填, ≤20字)",
+      "steps": ["string (必填, ≤16字)", "string", "string"] (必填, 2-4条),
+      "when": "string (必填, ≤30字) - 何时执行，如'每晚睡前'",
+      "effort": "low" | "medium" | "high" (必填),
+      "widget": "mood_tracker" | "breathing" (可选)
+    }
+  ] (必填, 恰好2张卡片)
+}
+\`\`\`
+
+**字段详细说明**：
+
+1. **reasoning** (必填字符串): 
+   - 先分析用户情况，识别关键信息，再得出结论
+   - 这会帮助你生成更准确的其他字段
+
+2. **summary** (必填字符串): 
+   - 格式：主诉+持续时间+影响程度：X/10+自伤念头
    - 示例：你提到焦虑持续2周，影响程度：7/10，无自伤念头。
 
-2. **riskAndTriage** (string):
-   - 三选一结论：危机（crisis）/建议尽快专业评估（urgent）/可先自助观察（self-care）
-   - 规则：1-3分→self-care；4-6分→默认self-care（≥2周/功能受损/有自伤念头→urgent）；7-10分→urgent（有计划→crisis）；有计划→crisis
-   - 示例：建议尽快专业评估（urgent）。影响7分且持续2周，建议预约专业评估。
+3. **riskAndTriage** (必填字符串):
+   - 规则：1-3分→self-care；4-6分→默认self-care（≥2周/功能受损→urgent）；7-10分→urgent；有计划→crisis
+   - 示例：建议尽快专业评估（urgent）。影响7分且持续2周。
 
-3. **nextStepList** (string[]):
-   - 2-3条具体建议。
-   - **强制模板句式**：每条必须包含：触发器（如"当…时/每晚睡前/白天任意时段"）+ 时长或次数 + 完成标准（至少…次/至少…天/至少…晚）
+4. **nextStepList** (必填数组, 2-3条):
+   - 每条格式：触发器 + 时长/次数 + 完成标准
+   - 示例：["每晚睡前进行4-7-8呼吸法×3次，至少连续7晚", "白天感到焦虑时写下3条担心，至少尝试5天"]
 
-4. **actionCards** (Array):
-   - 遵循 Action Cards 结构。
+5. **actionCards** (必填数组, 恰好2张):
+   - 每张卡片必须包含 title, steps, when, effort
+   - steps 每条 ≤16汉字，使用"×N次"格式量化
+   - effort 必须是 "low", "medium", 或 "high" 之一
 
-**约束**：
-- 禁止诊断标签、药物、长篇共情。
-- 保持专业、温和、支持的语气。
+**资源利用规则**：
+- 如果上下文中有"### 推荐的应对策略"，优先转换为 actionCards
+- widget 规则：涉及"记录情绪/写日记"→mood_tracker，涉及"呼吸"→breathing
 
-**【资源利用规则（最高优先级）】**：
-- 如果上下文中提供了 "### 推荐的应对策略"，**必须**优先将它们转换为 Action Cards，而不是编造新的。
-- **转换规则**：
-  1. **Title**: 保持原标题（如"4-7-8呼吸法"）。
-  2. **Steps**: 将原步骤浓缩为短语（≤16汉字），并强制添加能够量化的标记（如 "×N次"、"N秒"）。
-- **Widget 使用规则**：
-  - 如果策略涉及"记录情绪"、"写日记"、"觉察当下感受"，请设置 "widget": "mood_tracker"。
-  - If strategy involves "breathing", set "widget": "breathing".
-- **Steps 强制短格式（必须用×压缩）**：
-  - ✅ "吸气4秒×5次"、"走动3分钟"、"写下3条担心×1次"
-  - ❌ 禁止抽象句或超16字。
+**约束**：禁止诊断标签、药物推荐。保持专业、温和语气。
 
-**只返回纯 JSON，不要任何其他文本内容。**`;
+**只返回纯 JSON，不要任何其他文本。**`;
 
 // 评估结论修复提示词
 export const ASSESSMENT_CONCLUSION_FIXER_PROMPT = `你是一位专业的心理评估师，正在修复一份不完整的评估结论。

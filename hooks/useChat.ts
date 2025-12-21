@@ -4,9 +4,11 @@ import { useChat as useAiChat } from 'ai/react';
 import { Message } from '@/types/chat';
 import { generateId } from '@/lib/utils/format';
 import { STORAGE_KEYS } from '@/lib/constants';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export function useChat() {
+  const [sessionId] = useState(() => generateId());
+
   // 使用 Vercel AI SDK 的 useChat
   // onFinish 回调用于持久化存储或后续处理
   const {
@@ -114,5 +116,6 @@ export function useChat() {
     error: error?.message || null,
     sendMessage,
     clearHistory,
+    sessionId,
   };
 }

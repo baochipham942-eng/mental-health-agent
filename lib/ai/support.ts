@@ -40,12 +40,27 @@ const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
  */
 export async function generateSupportReply(
   userMessage: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  memoryContext?: string
 ): Promise<string> {
+  // 1. RAG 检索
+  let ragContext = '';
+  try {
+    const { getResourceService } = await import('../rag');
+    const resourceService = getResourceService();
+    const ragResult = resourceService.retrieve({
+      routeType: 'support',
+      userMessage: userMessage,
+    }, 2);
+    ragContext = ragResult.formattedContext;
+  } catch (e) {
+    console.error('[Support RAG] Failed:', e);
+  }
+
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: SUPPORT_PROMPT,
+      content: `${SUPPORT_PROMPT}${memoryContext ? `\n\n${memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',
@@ -72,12 +87,30 @@ export async function generateSupportReply(
 export async function streamSupportReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  options?: { onFinish?: (text: string, toolCalls?: any[]) => Promise<void>; traceMetadata?: Record<string, any> }
+  options?: {
+    onFinish?: (text: string, toolCalls?: any[]) => Promise<void>;
+    traceMetadata?: Record<string, any>;
+    memoryContext?: string;
+  }
 ) {
+  // 1. RAG 检索
+  let ragContext = '';
+  try {
+    const { getResourceService } = await import('../rag');
+    const resourceService = getResourceService();
+    const ragResult = resourceService.retrieve({
+      routeType: 'support',
+      userMessage: userMessage,
+    }, 2);
+    ragContext = ragResult.formattedContext;
+  } catch (e) {
+    console.error('[Support RAG] Failed:', e);
+  }
+
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: SUPPORT_PROMPT,
+      content: `${SUPPORT_PROMPT}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',

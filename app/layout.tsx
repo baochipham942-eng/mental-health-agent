@@ -7,7 +7,7 @@ import { ArcoConfigProvider } from '@/components/providers/ArcoConfigProvider';
 import { NextAuthSessionProvider } from '@/components/providers/NextAuthSessionProvider';
 
 export const metadata: Metadata = {
-  title: '心理树洞 - AI心理咨询',
+  title: '心灵树洞 - AI心理咨询',
   description: '基于认知行为疗法的AI心理咨询助手，帮助你识别情绪、调整认知、改善心理健康',
   icons: {
     icon: '/icon.png',

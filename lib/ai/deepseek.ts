@@ -41,6 +41,7 @@ export interface ChatCompletionResponse {
     message: {
       role: string;
       content: string | null;
+      refusal?: string | null; // Add refusal field
       tool_calls?: ToolCall[];
     };
     finish_reason: string;
@@ -102,7 +103,13 @@ export async function chatCompletion(
 
   const choice = data.choices[0];
   const output = choice.message.content || '';
+  const refusal = choice.message.refusal;
   const toolCalls = choice.message.tool_calls;
+
+  if (refusal) {
+    console.error('[DeepSeek] Model refused to respond:', refusal);
+    throw new Error(`AI refused to respond: ${refusal}`);
+  }
 
   // LangFuse Tracing
   const trace = createTrace(
@@ -151,13 +158,42 @@ export async function chatStructuredCompletion<T>(
     responseFormat: 'json_object',
   });
 
+  let json;
   try {
-    const json = JSON.parse(response.reply);
-    return schema.parse(json);
+    // 尝试直接解析，预处理：移除可能存在的 Markdown 标记
+    const cleanedReply = response.reply.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    json = JSON.parse(cleanedReply);
   } catch (e) {
-    console.error('[DeepSeek] Structured parse failed:', e, 'Response:', response);
-    throw new Error('Failed to parse structured output from AI');
+    // 如果直接解析失败，尝试从响应中提取 JSON 代码块
+    console.warn('[DeepSeek] Direct JSON parse failed, trying to extract from markdown blocks', { reply: response.reply.substring(0, 100) + '...' });
+
+    // 1. 尝试匹配 ```json ... ```
+    // 2. 尝试匹配第一个 { ... }
+    const jsonMatch = response.reply.match(/```json\n?([\s\S]*?)\n?```/)
+      || response.reply.match(/{[\s\S]*}/);
+
+    if (jsonMatch) {
+      try {
+        const extracted = (jsonMatch[1] || jsonMatch[0]).trim();
+        json = JSON.parse(extracted);
+      } catch (innerError) {
+        console.error('[DeepSeek] Extraction parse failed:', innerError);
+      }
+    }
   }
+
+  if (json) {
+    try {
+      return schema.parse(json);
+    } catch (validationError) {
+      console.error('[DeepSeek] Schema validation failed:', validationError, 'JSON:', json);
+      // 如果校验失败，仍然抛出错误以便上层处理（如触发修复逻辑）
+      throw validationError;
+    }
+  }
+
+  console.error('[DeepSeek] All structured parse attempts failed. Response:', response);
+  throw new Error('Failed to parse structured output from AI');
 }
 
 /**

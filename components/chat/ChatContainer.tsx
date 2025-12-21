@@ -7,13 +7,13 @@ import { ChatInput } from './ChatInput';
 import { cn } from '@/lib/utils/cn';
 
 export function ChatContainer() {
-  const { messages, isLoading, error, sendMessage, clearHistory } = useChat();
+  const { messages, isLoading, error, sendMessage, clearHistory, sessionId } = useChat();
   const [draft, setDraft] = useState('');
 
   const handleSend = async () => {
     const content = draft.trim();
     if (!content || isLoading) return;
-    
+
     await sendMessage(content);
     setDraft(''); // 发送成功后清空
   };
@@ -44,10 +44,10 @@ export function ChatContainer() {
       )}
 
       {/* 消息列表 */}
-      <MessageList messages={messages} isLoading={isLoading} />
+      <MessageList messages={messages} isLoading={isLoading} sessionId={sessionId} />
 
       {/* 输入框 */}
-      <ChatInput 
+      <ChatInput
         value={draft}
         onChange={setDraft}
         onSend={handleSend}

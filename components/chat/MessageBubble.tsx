@@ -257,6 +257,7 @@ export function MessageBubble({
                           actionCards={args.actionCards}
                           routeType="assessment"
                           messageId={message.id}
+                          sessionId={sessionId}
                         />
                       );
                     }
@@ -272,6 +273,7 @@ export function MessageBubble({
                 actionCards={actionCards}
                 routeType={routeType}
                 messageId={message.id}
+                sessionId={sessionId}
                 validationError={validationError}
               />
             ) : isConclusion && routeType === 'crisis' ? (
@@ -281,6 +283,7 @@ export function MessageBubble({
                 actionCards={undefined}
                 routeType={routeType}
                 messageId={message.id}
+                sessionId={sessionId}
                 validationError={validationError}
               />
             ) : (

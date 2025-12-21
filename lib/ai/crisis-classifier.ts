@@ -17,45 +17,64 @@ export interface CrisisClassificationResult {
 
 /**
  * 使用 LLM 判断用户消息是否包含危机意图
- * 
- * 设计原则：
- * 1. 使用 Structured Output (JSON Mode) 确保可靠性
- * 2. 宁可误报也不能漏判
- * 
- * @param userMessage 用户消息
- * @returns 分类结果
  */
 export async function classifyCrisisIntent(
     userMessage: string
 ): Promise<CrisisClassificationResult> {
-    const systemPrompt = `你是危机意图检测器。判断用户消息是否包含自杀、自残、结束生命的意图。
-只输出JSON：{"crisis":true/false,"confidence":"high/medium/low"}
-宁可误报也不能漏判。`;
+    const systemPrompt = `你是危机意图检测器。专门负责识别用户消息中是否包含自杀、自残、严重自伤或结束生命的意念与计划。
+
+**输出格式**：必须返回纯 JSON，格式如下：
+{
+  "crisis": boolean (是否包含危机意图),
+  "confidence": "high" | "medium" | "low" (置信度),
+  "reason": "string" (简短的判定理由)
+}
+
+**判定原则**：
+1. 宁可误报也不能漏判。
+2. 只要有死亡意愿、自残冲动或具体的自杀计划描述，必须设 crisis 为 true。
+3. 即使语气委婉（如"想解脱"、"不想再醒来"），也应保持警惕。`;
 
     const userPrompt = `用户消息：${userMessage}`;
 
-    try {
-        const result = await chatStructuredCompletion(
+    const callAt = async (temp: number) => {
+        return await chatStructuredCompletion(
             [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ],
             CrisisClassificationSchema,
             {
-                temperature: 0,
-                max_tokens: 50,
+                temperature: temp,
+                max_tokens: 150,
             }
         );
+    };
 
+    try {
+        // 第一尝试，低温度确保一致性
+        const result = await callAt(0.3);
         return {
             isCrisis: result.crisis,
             confidence: result.confidence,
             reason: result.reason,
         };
     } catch (error) {
-        console.error('[CrisisClassifier] LLM call failed:', error);
-        // LLM 调用失败时，保守起见返回 false（依赖关键词匹配兜底）
-        return { isCrisis: false, confidence: 'low' };
+        console.warn('[CrisisClassifier] First attempt failed, retrying...', error);
+        try {
+            // 第二次尝试，稍高温度
+            const result = await callAt(0.5);
+            return {
+                isCrisis: result.crisis,
+                confidence: result.confidence,
+                reason: result.reason,
+            };
+        } catch (retryError) {
+            console.error('[CrisisClassifier] All attempts failed:', retryError);
+            // 兜底：如果解析一再失败，出于安全考虑，如果关键词命中则由 Layer 1 处理
+            // 这里的语义层返回 false，让外部组合逻辑生效
+            return { isCrisis: false, confidence: 'low' };
+        }
     }
 }
 

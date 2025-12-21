@@ -19,12 +19,13 @@ export const EmotionAnalysisSchema = z.object({
 export const ActionCardSchema = z.object({
     title: z.string().max(20),
     steps: z.array(z.string().max(50)),
-    when: z.string().max(30),
-    effort: z.enum(['low', 'medium', 'high']),
+    when: z.string().max(30).optional(), // 可选，支持 fallback
+    effort: z.enum(['low', 'medium', 'high']).optional(), // 可选，支持 fallback
     widget: z.enum(['mood_tracker', 'breathing']).optional()
 });
 
 export const AssessmentConclusionSchema = z.object({
+    reasoning: z.string().optional(), // CoT 推理过程（可选，不影响解析）
     summary: z.string(),
     riskAndTriage: z.string(),
     nextStepList: z.array(z.string()),

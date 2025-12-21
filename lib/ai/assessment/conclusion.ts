@@ -108,12 +108,37 @@ export async function generateAssessmentConclusion(
     { role: 'user', content: `初始主诉：${initialMessage}\n\n对评估问题的回答：${cleanedFollowupAnswer}` },
   ];
 
-  // 3. 调用 LLM (结构化生成)
-  const result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
-    temperature: 0.3,
-    max_tokens: 1200,
-    traceMetadata: options?.traceMetadata,
-  });
+  // 3. 调用 LLM (结构化生成) - 增加一次重试机会
+  let result;
+  try {
+    result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
+      temperature: 0.3,
+      max_tokens: 1200,
+      traceMetadata: options?.traceMetadata,
+    });
+  } catch (error) {
+    console.warn('[Conclusion] First attempt failed, retrying with slightly higher temperature...', error);
+    // 重试一次，温度略微升高（增加随机性）或使用固定配置
+    try {
+      result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
+        temperature: 0.5,
+        max_tokens: 1200,
+        traceMetadata: { ...options?.traceMetadata, isRetry: true },
+      });
+    } catch (retryError) {
+      console.error('[Conclusion] All attempts failed:', retryError);
+      // 后备：如果全部重试均失败，则构造一个基础的错误回复
+      return {
+        reply: "抱歉，由于系统暂时无法生成完整的评估结论，请稍后再试或联系我们的客服支持。",
+        actionCards: [],
+        gate: { pass: false, fixed: false, missing: ["系统解析失败"] }
+      };
+    }
+  }
+
+  if (!result) {
+    throw new Error('Unexpected state: conclusion result is null');
+  }
 
   // 4. 组装回复（保持向后兼容 UI）
   const reply = `【初筛总结】

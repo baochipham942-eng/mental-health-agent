@@ -1,4 +1,4 @@
-import { chatCompletion, ChatMessage } from './deepseek';
+import { chatCompletion, ChatMessage, ToolCall } from './deepseek';
 import { UI_TOOLS } from './tools';
 import { classifyDialogueState, StateClassification } from './agents/state-classifier';
 
@@ -55,8 +55,8 @@ ${overallProgress >= 70 ? '\n**提示**：评估进度已达70%以上，如信�
 export async function continueAssessment(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  options?: { traceMetadata?: Record<string, any> }
-): Promise<{ reply: string; isConclusion: boolean; toolCalls?: any[]; stateClassification?: StateClassification }> {
+  options?: { traceMetadata?: Record<string, any>; memoryContext?: string }
+): Promise<{ reply: string; isConclusion: boolean; toolCalls?: ToolCall[]; stateClassification?: StateClassification }> {
   // Step 1: 构建完整的消息历史（用于状态分类）
   const fullHistory: ChatMessage[] = history.map(msg => ({
     role: msg.role as 'user' | 'assistant',
@@ -85,9 +85,13 @@ export async function continueAssessment(
   }
 
   // Step 3: 构建带进度的 Prompt
-  const systemPrompt = classification
+  let systemPrompt = classification
     ? buildPromptWithProgress(classification)
     : ASSESSMENT_LOOP_PROMPT;
+
+  if (options?.memoryContext) {
+    systemPrompt = `${systemPrompt}\n\n${options.memoryContext}`;
+  }
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },

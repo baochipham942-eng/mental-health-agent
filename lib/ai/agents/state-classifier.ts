@@ -39,46 +39,28 @@ const STATE_CLASSIFIER_PROMPT = `你是一位对话状态分析专家。你的�
 - **Emotion（情绪）**：用户的情感状态、感受
 - **Behavior（行为）**：用户的反应、行为模式、应对方式
 
-**评估规则**：
-1. 每个要素完成度 0-100%：
-   - 0-30%：未提及或非常模糊
-   - 31-60%：有初步了解但缺乏细节
-   - 61-80%：有较清晰的理解
-   - 81-100%：非常清晰，有具体例子
-
-2. **结束评估条件**（shouldConclude = true）：
-   - 总体进度 >= 70%（即大多数要素已收集）
-   - 对话轮次 >= 7 轮
-   - 用户明确表示想要结束或获得总结
-   - 用户重复相同内容超过 3 次
-
-3. **模式判断**：
-   - assessment：用户需要评估和理解自己的问题
-   - support：用户更需要情感支持和倾听
-
-**输出格式**：
+**输出格式**：必须返回纯 JSON，格式如下：
 {
   "scebProgress": { "situation": 0-100, "cognition": 0-100, "emotion": 0-100, "behavior": 0-100 },
   "overallProgress": 0-100,
-  "shouldConclude": true/false,
+  "shouldConclude": boolean,
   "recommendedMode": "assessment" | "support",
-  "reasoning": "简短判断理由",
+  "reasoning": "简短分析理由",
   "missingElements": ["还需了解的要素列表"]
-}`;
+}
+
+**评估规则**：
+1. 总体进度 >= 70% 或对话轮次 >= 7 轮可考虑结束评估。
+2. 宁可误报完成度也不要无期限延长对话。`;
 
 /**
  * 运行状态分类器
- * @param history 完整对话历史
- * @param options 可选配置
  */
 export async function classifyDialogueState(
     history: ChatMessage[],
     options?: { traceMetadata?: Record<string, any> }
 ): Promise<StateClassification> {
-    // 计算对话轮次（user 消息数量）
     const turnCount = history.filter(m => m.role === 'user').length;
-
-    // 构建分析输入
     const historyText = history
         .filter(m => m.role !== 'system')
         .map(m => `[${m.role === 'user' ? '用户' : 'AI'}]: ${m.content}`)
@@ -88,50 +70,45 @@ export async function classifyDialogueState(
         { role: 'system', content: STATE_CLASSIFIER_PROMPT },
         {
             role: 'user',
-            content: `请分析以下对话（共 ${turnCount} 轮用户发言）：
-
-${historyText}
-
-请输出 JSON 格式的状态分析结果。`,
+            content: `分析以下对话（第 ${turnCount} 轮）：\n\n${historyText}`,
         },
     ];
 
-    try {
-        const result = await chatStructuredCompletion(messages, StateClassificationSchema, {
-            temperature: 0, // 追求一致性
-            traceMetadata: {
-                ...options?.traceMetadata,
-                agent: 'state-classifier',
-                turnCount,
-            },
+    const callAt = async (temp: number) => {
+        return await chatStructuredCompletion(messages, StateClassificationSchema, {
+            temperature: temp,
+            traceMetadata: { ...options?.traceMetadata, agent: 'state-classifier', turnCount },
         });
+    };
+
+    try {
+        let result = await callAt(0.3);
 
         // 硬上限保护：超过 10 轮强制结束
         if (turnCount >= 10 && !result.shouldConclude) {
-            return {
+            result = {
                 ...result,
                 shouldConclude: true,
-                reasoning: `${result.reasoning}（已达对话上限 ${turnCount} 轮，强制结束评估）`,
+                reasoning: `${result.reasoning}（强制终止：已达上限）`,
             };
         }
 
         return result;
     } catch (error) {
-        console.error('[StateClassifier] Analysis failed:', error);
-        // 降级：基于轮次的简单判断
-        const shouldConclude = turnCount >= 8;
-        return {
-            scebProgress: {
-                situation: turnCount >= 2 ? 50 : 20,
-                cognition: turnCount >= 4 ? 40 : 10,
-                emotion: turnCount >= 3 ? 60 : 30,
-                behavior: turnCount >= 5 ? 30 : 10,
-            },
-            overallProgress: Math.min(100, turnCount * 10),
-            shouldConclude,
-            recommendedMode: 'assessment',
-            reasoning: `分析失败，基于 ${turnCount} 轮的默认判断`,
-            missingElements: ['无法确定'],
-        };
+        console.warn('[StateClassifier] Attempt failed, retrying...', error);
+        try {
+            return await callAt(0.5);
+        } catch (retryError) {
+            console.error('[StateClassifier] All attempts failed:', retryError);
+            // 降级：手动判断
+            return {
+                scebProgress: { situation: 50, cognition: 50, emotion: 50, behavior: 50 },
+                overallProgress: 50,
+                shouldConclude: turnCount >= 8,
+                recommendedMode: 'assessment',
+                reasoning: `降级保护：解析失败，基于轮次 ${turnCount} 判断`,
+                missingElements: [],
+            };
+        }
     }
 }
