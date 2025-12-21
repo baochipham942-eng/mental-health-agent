@@ -17,7 +17,7 @@ const ChatResponseSchema = z.object({
   }).optional(),
   timestamp: z.string(),
   routeType: z.enum(['crisis', 'assessment', 'support']),
-  state: z.enum(['normal', 'awaiting_followup']).optional(),
+  state: z.enum(['normal', 'awaiting_followup', 'in_crisis']).optional(),
   assessmentStage: z.enum(['intake', 'gap_followup', 'conclusion']).optional(),
   assistantQuestions: z.array(z.string()).optional(),
   actionCards: z.array(ActionCardSchema).optional(),
