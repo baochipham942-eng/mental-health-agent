@@ -37,7 +37,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                 setIsHiding(true);
                 try {
                     await onHide(session.id);
-                    Message.success('已隐藏');
+                    Message.success('已删除');
                 } catch (err) {
                     Message.error('操作失败');
                 } finally {
