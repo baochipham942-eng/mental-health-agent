@@ -17,6 +17,7 @@ export default async function DashboardPage() {
     return (
         <div className="h-full flex flex-col">
             <ChatShell
+                key="new-session"
                 sessionId={undefined}
                 initialMessages={[]}
                 isReadOnly={false}

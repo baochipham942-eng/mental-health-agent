@@ -39,6 +39,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     return (
         <div className="h-full flex flex-col">
             <ChatShell
+                key={conversation.id}
                 sessionId={conversation.id}
                 initialMessages={uiMessages as any}
                 isReadOnly={conversation.status === 'COMPLETED'}
