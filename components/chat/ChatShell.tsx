@@ -67,6 +67,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   const [isSending, setIsSending] = useState(false);
   const [draft, setDraft] = useState('');
   const scrollContainerRef = useRef<HTMLElement>(null);
+  const hasInitializedRef = useRef(false);
 
   // Sync ref with prop/state
   useEffect(() => {
@@ -76,31 +77,17 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   }, [internalSessionId]);
 
   // Hydrate Store on Mount / Session Change
-  // 简化逻辑：消息不再persist，完全依赖props和实时添加
+  // 关键修复：组件首次挂载时总是用 props 初始化，不依赖 store 中的旧状态
   useEffect(() => {
-    const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
-
-    // 0. 从历史会话切换到新会话：sessionId 变成 undefined，但 internalSessionId 还有值
-    if (!sessionId && internalSessionId && prevSessionIdRef.current) {
-      console.log('[ChatShell] Switching from session to new chat', { old: internalSessionId });
-      setMessages([]);
-      setInternalSessionId(undefined);
-      sessionIdRef.current = undefined;
-      prevSessionIdRef.current = undefined;
-      setError(null);
-      setLoading(false);
-      setIsSending(false);
-      updateState({
-        currentState: undefined,
-        routeType: undefined,
-        assessmentStage: undefined,
+    // 首次挂载：强制用 props 初始化（不检查 messages.length）
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      console.log('[ChatShell] First mount, force init with props', {
+        sessionId,
+        msgCount: initialMessages?.length || 0
       });
-      return;
-    }
 
-    // 1. 会话切换：完全重置，使用服务端数据
-    if (isSessionSwitch) {
-      console.log('[ChatShell] Session switch detected', { old: internalSessionId, new: sessionId });
+      // 无条件用 props 数据初始化 store
       setMessages(initialMessages || []);
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
@@ -108,40 +95,37 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       setError(null);
       setLoading(false);
       setIsSending(false);
-      updateState({
-        currentState: undefined,
-        routeType: undefined,
-        assessmentStage: undefined,
-      });
-      return;
-    }
 
-    // 2. 新会话（无sessionId）：检测resetConversation触发的重置
-    if (!sessionId && internalSessionId && messages.length === 0) {
-      console.log('[ChatShell] New session detected, clearing internalSessionId');
-      setInternalSessionId(undefined);
-      sessionIdRef.current = undefined;
-      return;
-    }
-
-    // 3. 历史会话加载：首次挂载时用props初始化（仅当本地为空）
-    if (sessionId && initialMessages && initialMessages.length > 0 && messages.length === 0) {
-      console.log('[ChatShell] Initializing with server messages', { count: initialMessages.length });
-      setMessages(initialMessages);
-      setInternalSessionId(sessionId);
-      sessionIdRef.current = sessionId;
-
-      // 恢复最后一条消息的状态
-      const lastMsg = initialMessages[initialMessages.length - 1];
-      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.metadata) {
+      // 恢复或清空状态
+      if (initialMessages && initialMessages.length > 0) {
+        const lastMsg = initialMessages[initialMessages.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant' && lastMsg.metadata) {
+          updateState({
+            currentState: (lastMsg.metadata as any).state || undefined,
+            routeType: lastMsg.metadata.routeType,
+            assessmentStage: lastMsg.metadata.assessmentStage
+          });
+        }
+      } else {
         updateState({
-          currentState: (lastMsg.metadata as any).state || undefined,
-          routeType: lastMsg.metadata.routeType,
-          assessmentStage: lastMsg.metadata.assessmentStage
+          currentState: undefined,
+          routeType: undefined,
+          assessmentStage: undefined,
         });
       }
+      return;
     }
-  }, [internalSessionId, sessionId, initialMessages, setMessages, messages.length, updateState, setError, setLoading, setIsSending]);
+
+    // 后续更新：处理动态 session 切换（有 key prop 通常不会触发）
+    const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
+    if (isSessionSwitch) {
+      console.log('[ChatShell] Session switch', { old: internalSessionId, new: sessionId });
+      setMessages(initialMessages || []);
+      setInternalSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+      prevSessionIdRef.current = sessionId;
+    }
+  }, [sessionId, initialMessages, setMessages, updateState, setError, setLoading, setIsSending, internalSessionId]);
 
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
