@@ -457,27 +457,32 @@ export async function POST(request: NextRequest) {
       if (stateClassification?.recommendedMode === 'support' && !isConclusion) {
         console.log('[API] State Classifier recommends switching to support mode:', stateClassification.reasoning);
 
-        // Switch to support mode for better user experience
-        data.append({
-          timestamp: new Date().toISOString(),
-          routeType: 'support',
-          state: 'normal',
-          emotion: emotionObj,
-          modeSwitch: {
-            from: 'assessment',
-            to: 'support',
-            reason: stateClassification.reasoning,
-          },
-        } as any);
+        try {
+          // Switch to support mode for better user experience
+          data.append({
+            timestamp: new Date().toISOString(),
+            routeType: 'support',
+            state: 'normal',
+            emotion: emotionObj,
+            modeSwitch: {
+              from: 'assessment',
+              to: 'support',
+              reason: stateClassification.reasoning,
+            },
+          } as any);
 
-        const onFinishWithMeta = async (text: string) => {
-          await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true });
-          data.append({ reply: text } as any);
-          data.close();
-        };
+          const onFinishWithMeta = async (text: string) => {
+            await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true });
+            data.append({ reply: text } as any);
+            data.close();
+          };
 
-        const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
-        return result.toDataStreamResponse({ data });
+          const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+          return result.toDataStreamResponse({ data });
+        } catch (modeSwitchError) {
+          console.error('[API] Mode switch to support failed, continuing with assessment reply:', modeSwitchError);
+          // Fall through to use the assessment reply below
+        }
       }
 
       if (isConclusion) {
