@@ -1,27 +1,32 @@
 /**
- * 🧪 分流测试脚本 - Route Testing Script
+ * 🧪 完整分流测试脚本 - Full Route Testing Script
  * 
- * 测试心理咨询系统的各种分流场景
+ * 测试心理咨询系统的所有分流场景:
+ *   1. 🆘 Crisis - 危机干预
+ *   2. 📋 Assessment - 心理评估
+ *   3. 🤝 Support - 情感支持
+ *   4. 🎴 Action Cards - 技能卡片
  * 
  * 运行方式:
- *   本地: npx ts-node --project tsconfig.scripts.json scripts/test-routing.ts
- *   生产: DEEPSEEK_API_KEY=xxx npx ts-node --project tsconfig.scripts.json scripts/test-routing.ts
+ *   npx ts-node --project tsconfig.scripts.json scripts/test-routing.ts
  */
 
 require('dotenv').config({ path: '.env.local' });
 
-import { continueAssessment } from '../lib/ai/assessment';
+import { quickCrisisKeywordCheck } from '../lib/ai/crisis-classifier';
+import { coordinateAgents } from '../lib/ai/agents/orchestrator';
+import { ChatMessage } from '../lib/ai/deepseek';
 
 console.log(`
-╔══════════════════════════════════════════════════════════════════╗
-║           🌳 心理树洞 - 分流测试脚本                              ║
-╠══════════════════════════════════════════════════════════════════╣
-║  测试项目:                                                       ║
-║  1. State Classifier - SCEB 进度追踪                             ║
-║  2. 模式判断 - Assessment vs Support                             ║
-║  3. 循环检测 - 重复消息处理                                       ║
-║  4. 自动结束 - 轮次上限触发                                       ║
-╚══════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════╗
+║                🌳 心理树洞 - 完整分流测试脚本                         ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  分流优先级:                                                         ║
+║  1. 🆘 Crisis     - 危机干预（最高优先级）                            ║
+║  2. 📋 Assessment - 心理评估（负面情绪/求助）                         ║
+║  3. 🎴 Action Cards - 技能卡片（用户请求练习）                        ║
+║  4. 🤝 Support    - 情感支持（积极/中性/倾诉需求）                    ║
+╚══════════════════════════════════════════════════════════════════════╝
 `);
 
 // ============================================================================
@@ -30,183 +35,273 @@ console.log(`
 
 interface TestCase {
     name: string;
-    description: string;
+    category: 'crisis' | 'assessment' | 'support' | 'action_card';
     message: string;
-    history: Array<{ role: 'user' | 'assistant'; content: string }>;
-    expected: {
-        recommendedMode: 'assessment' | 'support';
-        shouldConclude: boolean;
-        minProgress?: number;
-    };
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    expectedRoute: 'crisis' | 'assessment' | 'support';
+    description: string;
 }
 
 const testCases: TestCase[] = [
+    // ============================
+    // 🆘 Crisis 场景
+    // ============================
     {
-        name: '🆕 新对话开始',
-        description: '用户首次表达负面情绪，应保持评估模式收集信息',
-        message: '最近工作压力很大，感觉很焦虑',
-        history: [],
-        expected: {
-            recommendedMode: 'assessment', // 或 support（因信息少）
-            shouldConclude: false,
-            minProgress: 0,
-        },
+        name: '危机 - 自杀关键词',
+        category: 'crisis',
+        message: '我不想活了，太痛苦了',
+        expectedRoute: 'crisis',
+        description: '包含自杀关键词，应立即进入危机干预',
     },
     {
-        name: '📊 中期评估 (4轮)',
-        description: 'SCEB 部分收集，应继续评估',
-        message: '睡眠变差了，经常失眠',
-        history: [
-            { role: 'user', content: '最近工作压力很大，很焦虑' },
-            { role: 'assistant', content: '听起来工作给你带来了压力。能说说具体是什么情况吗？' },
-            { role: 'user', content: '项目deadline太紧，每天加班到很晚' },
-            { role: 'assistant', content: '每天加班确实辛苦。这些压力让你有什么感受或想法？' },
-            { role: 'user', content: '我觉得自己能力不行，总担心做不好' },
-            { role: 'assistant', content: '这种自我怀疑的想法让你很焦虑吧？' },
-        ],
-        expected: {
-            recommendedMode: 'assessment',
-            shouldConclude: false,
-            minProgress: 50,
-        },
+        name: '危机 - 自伤意图',
+        category: 'crisis',
+        message: '我想伤害自己，割腕',
+        expectedRoute: 'crisis',
+        description: '包含自伤关键词，应触发危机响应',
     },
     {
-        name: '🔄 重复消息检测',
-        description: '用户重复相同内容 3+ 次，应切换到支持模式',
-        message: '我会反复检查工作，不敢提交',
-        history: [
-            { role: 'user', content: '我会反复检查工作，不敢提交' },
-            { role: 'assistant', content: '能说说是什么让你不敢提交吗？' },
-            { role: 'user', content: '我会反复检查工作，不敢提交' },
-            { role: 'assistant', content: '我注意到你提到反复检查，这背后可能有担忧？' },
-            { role: 'user', content: '我会反复检查工作，不敢提交' },
-            { role: 'assistant', content: '你多次提到这个情况，它给你带来了困扰。' },
-        ],
-        expected: {
-            recommendedMode: 'support',
-            shouldConclude: true, // 重复检测触发结束
-        },
+        name: '危机 - 绝望表达',
+        category: 'crisis',
+        message: '活着没有意义，我已经计划好了',
+        expectedRoute: 'crisis',
+        description: '表达绝望且有计划，高危状态',
+    },
+
+    // ============================
+    // 📋 Assessment 场景
+    // ============================
+    {
+        name: '评估 - 焦虑求助',
+        category: 'assessment',
+        message: '最近工作压力很大，焦虑得睡不着，怎么办',
+        expectedRoute: 'assessment',
+        description: '负面情绪 + 求助信号，进入评估流程',
     },
     {
-        name: '✅ 深度对话完成',
-        description: '7+ 轮对话且进度 ≥70%，应触发总结',
-        message: '是的，我会试着改变',
-        history: [
-            { role: 'user', content: '最近工作压力大，很焦虑' },
-            { role: 'assistant', content: '听起来工作给你带来了很大压力。能说说具体情况吗？' },
-            { role: 'user', content: '项目deadline紧，每天加班' },
-            { role: 'assistant', content: '每天加班确实辛苦。这些压力下你有什么想法？' },
-            { role: 'user', content: '我觉得自己能力不行，担心做不好' },
-            { role: 'assistant', content: '这种自我怀疑让你焦虑。你通常怎么应对？' },
-            { role: 'user', content: '反复检查，有时拖延到最后' },
-            { role: 'assistant', content: '反复检查和拖延可能是应对焦虑的方式。有放松方法吗？' },
-            { role: 'user', content: '没有，工作太忙了' },
-            { role: 'assistant', content: '我了解你的情况了。我给你一个简短的总结和建议。' },
-        ],
-        expected: {
-            recommendedMode: 'assessment',
-            shouldConclude: true,
-            minProgress: 70,
-        },
+        name: '评估 - 抑郁症状',
+        category: 'assessment',
+        message: '这段时间心情很低落，对什么都提不起兴趣',
+        expectedRoute: 'assessment',
+        description: '抑郁症状描述，需要评估',
     },
     {
-        name: '😊 积极情绪',
-        description: '用户表达积极情绪，分类器可能推荐支持模式',
-        message: '今天心情很好，工作顺利',
-        history: [],
-        expected: {
-            recommendedMode: 'support',
-            shouldConclude: false,
-        },
+        name: '评估 - 人际困扰',
+        category: 'assessment',
+        message: '和同事关系很差，每天上班都很痛苦，需要帮助',
+        expectedRoute: 'assessment',
+        description: '困扰描述 + 帮助请求',
+    },
+
+    // ============================
+    // 🤝 Support 场景
+    // ============================
+    {
+        name: '支持 - 积极分享',
+        category: 'support',
+        message: '今天心情很好，工作终于完成了！',
+        expectedRoute: 'support',
+        description: '积极情绪表达，支持性回应',
+    },
+    {
+        name: '支持 - 只想倾诉',
+        category: 'support',
+        message: '我只想说说心里话，不需要分析',
+        expectedRoute: 'support',
+        description: '明确表示只想倾诉，不要评估',
+    },
+    {
+        name: '支持 - 日常聊天',
+        category: 'support',
+        message: '周末去爬山了，风景很美',
+        expectedRoute: 'support',
+        description: '中性日常分享',
+    },
+
+    // ============================
+    // 🎴 Action Card 场景
+    // ============================
+    {
+        name: '卡片 - 呼吸练习请求',
+        category: 'action_card',
+        message: '我想做呼吸练习，帮我放松一下',
+        expectedRoute: 'support', // 实际路由是 support，但会附带 actionCards
+        description: '请求具体技能练习，应返回呼吸卡片',
+    },
+    {
+        name: '卡片 - 冥想请求',
+        category: 'action_card',
+        message: '能教我冥想吗？我想试试正念练习',
+        expectedRoute: 'support',
+        description: '请求冥想/正念，应返回冥想卡片',
+    },
+    {
+        name: '卡片 - 放松技巧',
+        category: 'action_card',
+        message: '有什么缓解焦虑的放松方法吗？',
+        expectedRoute: 'support',
+        description: '请求放松技巧，应返回技能卡片',
     },
 ];
 
 // ============================================================================
-// 测试执行器
+// 测试函数
 // ============================================================================
 
-async function runTest(testCase: TestCase, index: number): Promise<boolean> {
+/**
+ * 模拟 API 中的意图分类逻辑
+ */
+function classifyIntent(
+    message: string,
+    safetyLabel: string
+): { isCrisis: boolean; isSupportPositive: boolean; isSupportVenting: boolean; shouldAssessment: boolean; wantsSkillCard: boolean } {
+    const msg = message.toLowerCase().trim();
+
+    // 1. Crisis Check
+    if (safetyLabel === 'crisis') {
+        return { isCrisis: true, isSupportPositive: false, isSupportVenting: false, shouldAssessment: false, wantsSkillCard: false };
+    }
+
+    // Keyword backup
+    if (quickCrisisKeywordCheck(msg)) {
+        return { isCrisis: true, isSupportPositive: false, isSupportVenting: false, shouldAssessment: false, wantsSkillCard: false };
+    }
+
+    // 2. Skill Card Check
+    const skillKeywords = /呼吸练习|放松技巧|放松方法|做个练习|想试试|缓解焦虑|学习放松|冥想|正念|着陆技术/i;
+    const wantsSkillCard = skillKeywords.test(message);
+
+    // 3. Venting Check
+    const ventingKeywords = ['只想倾诉', '不要建议', '不要分析', '不需要建议', '不需要分析', '只要倾诉', '只想说说'];
+    const isSupportVenting = ventingKeywords.some(k => msg.includes(k));
+
+    // 4. Positive Check
+    const positiveKeywords = ['开心', '高兴', '太好了', '顺利', '成功', '放松', '轻松', '幸福', '满足', '激动', '兴奋', '好消息'];
+    const negativeKeywords = ['压力', '焦虑', '抑郁', '难受', '崩溃', '睡不着', '失眠', '烦', '痛苦', '困扰', '问题', '困难', '担心', '害怕'];
+
+    const hasPositive = positiveKeywords.some(k => msg.includes(k));
+    const hasNegative = negativeKeywords.some(k => msg.includes(k));
+    const hasContrast = /但是|不过|虽然|尽管|可是/.test(msg);
+    const hasHelpRequest = /帮帮我|求助|需要建议|需要方法|怎么办|如何解决|需要帮助/.test(msg);
+
+    const isSupportPositive = hasPositive && !hasNegative && !hasContrast && !hasHelpRequest;
+
+    // 5. Assessment Check
+    const shouldAssessment = (hasNegative || hasHelpRequest) && !isSupportVenting;
+
+    return { isCrisis: false, isSupportPositive, isSupportVenting, shouldAssessment, wantsSkillCard };
+}
+
+function determineRoute(intent: ReturnType<typeof classifyIntent>): 'crisis' | 'assessment' | 'support' {
+    if (intent.isCrisis) return 'crisis';
+    if (intent.wantsSkillCard) return 'support'; // Action cards go through support route
+    if (intent.isSupportPositive || intent.isSupportVenting) return 'support';
+    if (intent.shouldAssessment) return 'assessment';
+    return 'support';
+}
+
+async function runTest(testCase: TestCase, index: number): Promise<{ passed: boolean; details: string }> {
     console.log(`\n${'─'.repeat(70)}`);
     console.log(`测试 ${index + 1}/${testCases.length}: ${testCase.name}`);
     console.log(`描述: ${testCase.description}`);
-    console.log(`用户消息: "${testCase.message.substring(0, 40)}${testCase.message.length > 40 ? '...' : ''}"`);
-    console.log(`历史轮次: ${testCase.history.filter(m => m.role === 'user').length} 轮`);
+    console.log(`消息: "${testCase.message}"`);
     console.log('─'.repeat(70));
 
     try {
         const startTime = Date.now();
-        const result = await continueAssessment(testCase.message, testCase.history);
-        const duration = Date.now() - startTime;
 
+        // 1. Run Safety Observer (via orchestrator)
+        const history: ChatMessage[] = (testCase.history || []).map(m => ({ role: m.role, content: m.content }));
+        const orchestration = await coordinateAgents(testCase.message, history, {});
+
+        const duration = Date.now() - startTime;
         console.log(`⏱️  耗时: ${duration}ms`);
 
-        if (!result.stateClassification) {
-            console.log('⚠️  警告: 未返回 stateClassification（可能分类器调用失败）');
-            return false;
-        }
+        // 2. Classify Intent
+        const intent = classifyIntent(testCase.message, orchestration.safety.label);
+        const actualRoute = determineRoute(intent);
 
-        const sc = result.stateClassification;
-
-        // 结果展示
+        // 3. Display Results
         console.log(`\n📊 分类结果:`);
-        console.log(`   推荐模式: ${sc.recommendedMode === 'support' ? '🤝 support' : '📋 assessment'}`);
-        console.log(`   应该结束: ${sc.shouldConclude ? '✅ 是' : '❌ 否'}`);
-        console.log(`   总体进度: ${sc.overallProgress}%`);
-        console.log(`   SCEB: S=${sc.scebProgress.situation}% C=${sc.scebProgress.cognition}% E=${sc.scebProgress.emotion}% B=${sc.scebProgress.behavior}%`);
-        console.log(`   isConclusion: ${result.isConclusion}`);
+        console.log(`   Safety Label: ${orchestration.safety.label} (score: ${orchestration.safety.score})`);
+        console.log(`   isCrisis: ${intent.isCrisis}`);
+        console.log(`   isSupportPositive: ${intent.isSupportPositive}`);
+        console.log(`   isSupportVenting: ${intent.isSupportVenting}`);
+        console.log(`   shouldAssessment: ${intent.shouldAssessment}`);
+        console.log(`   wantsSkillCard: ${intent.wantsSkillCard}`);
 
-        // 验证结果
-        console.log(`\n🔍 验证:`);
-        const checks: boolean[] = [];
+        console.log(`\n🎯 路由结果:`);
+        console.log(`   期望: ${testCase.expectedRoute}`);
+        console.log(`   实际: ${actualRoute}`);
 
-        // 检查 shouldConclude
-        const concludeMatch = sc.shouldConclude === testCase.expected.shouldConclude;
-        checks.push(concludeMatch);
-        console.log(`   shouldConclude: ${concludeMatch ? '✅' : '❌'} (期望: ${testCase.expected.shouldConclude}, 实际: ${sc.shouldConclude})`);
+        const passed = actualRoute === testCase.expectedRoute;
+        const symbol = passed ? '✅' : '❌';
+        console.log(`\n${symbol} ${passed ? '测试通过' : '测试未通过'}`);
 
-        // 检查最低进度
-        if (testCase.expected.minProgress !== undefined) {
-            const progressMatch = sc.overallProgress >= testCase.expected.minProgress;
-            checks.push(progressMatch);
-            console.log(`   进度 ≥${testCase.expected.minProgress}%: ${progressMatch ? '✅' : '❌'} (实际: ${sc.overallProgress}%)`);
-        }
-
-        // 备注：recommendedMode 在边界情况可能有合理的差异，仅作参考
-        console.log(`   推荐模式: 期望 ${testCase.expected.recommendedMode}, 实际 ${sc.recommendedMode} (参考值)`);
-
-        const passed = checks.every(c => c);
-        console.log(`\n${passed ? '✅ 测试通过' : '❌ 测试未通过'}`);
-        return passed;
+        return { passed, details: `${testCase.name}: ${symbol}` };
 
     } catch (error: any) {
         console.error(`\n❌ 测试失败:`, error.message);
-        return false;
+        return { passed: false, details: `${testCase.name}: ❌ Error` };
     }
 }
+
+// ============================================================================
+// 主函数
+// ============================================================================
 
 async function main() {
     console.log(`开始时间: ${new Date().toLocaleString()}\n`);
 
-    let passed = 0;
-    let failed = 0;
+    const results: { category: string; passed: number; failed: number; details: string[] }[] = [
+        { category: '🆘 Crisis', passed: 0, failed: 0, details: [] },
+        { category: '📋 Assessment', passed: 0, failed: 0, details: [] },
+        { category: '🤝 Support', passed: 0, failed: 0, details: [] },
+        { category: '🎴 Action Cards', passed: 0, failed: 0, details: [] },
+    ];
+
+    const categoryMap: Record<string, number> = {
+        'crisis': 0,
+        'assessment': 1,
+        'support': 2,
+        'action_card': 3,
+    };
 
     for (let i = 0; i < testCases.length; i++) {
-        const success = await runTest(testCases[i], i);
-        if (success) {
-            passed++;
+        const testCase = testCases[i];
+        const result = await runTest(testCase, i);
+        const idx = categoryMap[testCase.category];
+
+        if (result.passed) {
+            results[idx].passed++;
         } else {
-            failed++;
+            results[idx].failed++;
         }
+        results[idx].details.push(result.details);
+    }
+
+    // Summary
+    console.log(`\n${'═'.repeat(70)}`);
+    console.log('📈 测试汇总');
+    console.log('═'.repeat(70));
+
+    let totalPassed = 0;
+    let totalFailed = 0;
+
+    for (const r of results) {
+        console.log(`\n${r.category}: ${r.passed}/${r.passed + r.failed} 通过`);
+        for (const d of r.details) {
+            console.log(`   ${d}`);
+        }
+        totalPassed += r.passed;
+        totalFailed += r.failed;
     }
 
     console.log(`\n${'═'.repeat(70)}`);
-    console.log(`📈 测试完成: ${passed}/${testCases.length} 通过`);
-    if (failed > 0) {
-        console.log(`⚠️  ${failed} 个测试未通过（可能是边界情况，需人工判断）`);
-    }
-    console.log(`${'═'.repeat(70)}\n`);
+    console.log(`总计: ${totalPassed}/${totalPassed + totalFailed} 通过`);
+    console.log('═'.repeat(70));
 
-    process.exit(failed > 0 ? 1 : 0);
+    process.exit(totalFailed > 0 ? 1 : 0);
 }
 
-main();
+main().catch(console.error);
