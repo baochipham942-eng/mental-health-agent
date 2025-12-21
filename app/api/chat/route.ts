@@ -448,16 +448,37 @@ export async function POST(request: NextRequest) {
         return createFixedStreamResponse(skillReply, data);
       }
 
-      // Collect contexts for assessment loop
-      // If we are in 'awaiting_followup', we combine history context.
-      // But for Prompt-Driven Loop, we pass message + history to LLM, LLM decides.
+      // Call Assessment Loop with State Classifier
+      const { reply, isConclusion, toolCalls, stateClassification } = await continueAssessment(message, history, { traceMetadata });
 
-      // Determine if we are starting or continuing
-      // (Actually doesn't matter, Prompt handles both)
+      // =================================================================================
+      // 🔄 Dynamic Mode Switch: If State Classifier recommends support, switch modes
+      // =================================================================================
+      if (stateClassification?.recommendedMode === 'support' && !isConclusion) {
+        console.log('[API] State Classifier recommends switching to support mode:', stateClassification.reasoning);
 
-      // Call Assessment Loop
-      // Call Assessment Loop
-      const { reply, isConclusion, toolCalls } = await continueAssessment(message, history, { traceMetadata });
+        // Switch to support mode for better user experience
+        data.append({
+          timestamp: new Date().toISOString(),
+          routeType: 'support',
+          state: 'normal',
+          emotion: emotionObj,
+          modeSwitch: {
+            from: 'assessment',
+            to: 'support',
+            reason: stateClassification.reasoning,
+          },
+        } as any);
+
+        const onFinishWithMeta = async (text: string) => {
+          await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true });
+          data.append({ reply: text } as any);
+          data.close();
+        };
+
+        const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+        return result.toDataStreamResponse({ data });
+      }
 
       if (isConclusion) {
         // LLM decided intake is done (via tool calling). Transition to Conclusion.
@@ -504,7 +525,11 @@ export async function POST(request: NextRequest) {
 
         // Persist message
         await saveAssistantMessage(finalReply, {
-          toolCalls
+          toolCalls,
+          stateClassification: stateClassification ? {
+            scebProgress: stateClassification.scebProgress,
+            overallProgress: stateClassification.overallProgress,
+          } : undefined,
         });
 
         data.append({
@@ -514,6 +539,7 @@ export async function POST(request: NextRequest) {
           assessmentStage: 'intake',
           toolCalls: toolCalls, // Pass toolCalls to client
           reply: finalReply, // 补全 reply
+          ...(stateClassification && { scebProgress: stateClassification.scebProgress }),
         } as any);
 
         return createFixedStreamResponse(finalReply, data);

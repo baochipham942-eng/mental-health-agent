@@ -1,5 +1,6 @@
 import { chatCompletion, ChatMessage } from './deepseek';
 import { UI_TOOLS } from './tools';
+import { classifyDialogueState, StateClassification } from './agents/state-classifier';
 
 const FINISH_ASSESSMENT_TOOL = {
   type: 'function',
@@ -30,15 +31,66 @@ const ASSESSMENT_LOOP_PROMPT = `你是一位专业的心理咨询师。目前处
 - 当你对用户的基本情况（SCEB）有了清晰了解且确认用户处于安全状态时，请调用 \`finish_assessment\` 工具结束对话并生成总结。`;
 
 /**
+ * 生成带 SCEB 进度的 Prompt
+ */
+function buildPromptWithProgress(classification: StateClassification): string {
+  const { scebProgress, missingElements, overallProgress } = classification;
+
+  return `${ASSESSMENT_LOOP_PROMPT}
+
+**当前评估进度**（供你参考）：
+- 情境了解：${scebProgress.situation}%
+- 认知了解：${scebProgress.cognition}%
+- 情绪了解：${scebProgress.emotion}%
+- 行为了解：${scebProgress.behavior}%
+- 总体进度：${overallProgress}%
+
+${missingElements.length > 0 ? `**建议重点关注**：${missingElements.join('、')}` : ''}
+${overallProgress >= 70 ? '\n**提示**：评估进度已达70%以上，如信息足够可考虑调用 finish_assessment 结束评估。' : ''}`;
+}
+
+/**
  * 继续评估对话
  */
 export async function continueAssessment(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
   options?: { traceMetadata?: Record<string, any> }
-): Promise<{ reply: string; isConclusion: boolean; toolCalls?: any[] }> {
+): Promise<{ reply: string; isConclusion: boolean; toolCalls?: any[]; stateClassification?: StateClassification }> {
+  // Step 1: 构建完整的消息历史（用于状态分类）
+  const fullHistory: ChatMessage[] = history.map(msg => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
+  fullHistory.push({ role: 'user', content: userMessage });
+
+  // Step 2: 调用状态分类器
+  let classification: StateClassification | undefined;
+  try {
+    classification = await classifyDialogueState(fullHistory, {
+      traceMetadata: options?.traceMetadata,
+    });
+
+    // 如果分类器建议结束，直接返回
+    if (classification.shouldConclude) {
+      console.log('[Assessment] State classifier suggests conclusion:', classification.reasoning);
+      return {
+        reply: '', // 空回复，让调用方处理总结生成
+        isConclusion: true,
+        stateClassification: classification,
+      };
+    }
+  } catch (error) {
+    console.error('[Assessment] State classification failed, continuing with default prompt:', error);
+  }
+
+  // Step 3: 构建带进度的 Prompt
+  const systemPrompt = classification
+    ? buildPromptWithProgress(classification)
+    : ASSESSMENT_LOOP_PROMPT;
+
   const messages: ChatMessage[] = [
-    { role: 'system', content: ASSESSMENT_LOOP_PROMPT },
+    { role: 'system', content: systemPrompt },
     ...history.filter(m => (m.role as string) !== 'system').map(msg => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
@@ -46,6 +98,7 @@ export async function continueAssessment(
     { role: 'user', content: userMessage },
   ];
 
+  // Step 4: 调用 LLM 生成回复
   const result = await chatCompletion(messages, {
     temperature: 0.5,
     max_tokens: 400,
@@ -59,5 +112,7 @@ export async function continueAssessment(
     reply: result.reply,
     isConclusion,
     toolCalls: result.toolCalls,
+    stateClassification: classification,
   };
 }
+
