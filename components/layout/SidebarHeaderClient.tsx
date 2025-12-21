@@ -17,12 +17,17 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
     const handleNewChat = (e: React.FormEvent | React.MouseEvent) => {
         e.preventDefault();
 
-        // 总是先清空当前状态
+        // 1. 先清空 store 状态
         resetConversation();
 
-        // 使用 window.location 强制完全刷新页面
-        // 这样可以确保所有状态（包括 ChatShell 内部状态）完全重置
-        window.location.href = '/dashboard';
+        // 2. 根据当前路径决定导航方式
+        if (pathname === '/dashboard') {
+            // 已经在 dashboard，使用 replace 触发重新渲染
+            router.replace('/dashboard?t=' + Date.now());
+        } else {
+            // 从历史会话页面导航到 dashboard
+            router.push('/dashboard');
+        }
     };
 
     return (
