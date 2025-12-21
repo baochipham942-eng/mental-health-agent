@@ -1,8 +1,8 @@
-# 心理疗愈Agent项目总结
+# 心灵树洞项目总结
 
 ## 一、项目概述
 
-**项目名称**：心理疗愈助手（Mental Health Agent）  
+**项目名称**：心灵树洞（Mental Health Agent）  
 **项目类型**：基于认知行为疗法（CBT）的AI心理咨询聊天机器人  
 **技术栈**：Next.js 14 + TypeScript + Tailwind CSS + DeepSeek API  
 **部署平台**：Vercel  
