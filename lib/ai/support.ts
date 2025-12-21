@@ -1,5 +1,5 @@
 import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
-import { UI_TOOLS, SDK_TOOLS } from './tools';
+import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 
 /**
@@ -93,7 +93,7 @@ export async function streamSupportReply(
     temperature: 0.8,
     max_tokens: 400,
     onFinish: options?.onFinish,
-    tools: SDK_TOOLS,
+    // tools: SDK_TOOLS, // DISABLED: Causes _def error in production (Zod/AI SDK compatibility issue)
     traceMetadata: options?.traceMetadata,
   });
 }

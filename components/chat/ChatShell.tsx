@@ -321,6 +321,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       setIsSending(true);
       setLoading(true);
       setError(null);
+      setDraft(''); // 立即清空输入框，提升用户体验
       addMessage(userMessage);
 
       if (!currentSessionId) {
@@ -343,9 +344,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         }
       }
 
-      if (text === undefined || text === draft) {
-        setDraft('');
-      }
+      // Draft already cleared above when sending started
 
       let messageToSend: string;
       let currentInitialMessage: string | undefined;
