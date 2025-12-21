@@ -2,17 +2,27 @@
 
 import { useState } from 'react';
 
+import { Session } from 'next-auth';
+
 interface DebugDrawerProps {
   debugPrompts: any | null;
   validationError: any | null;
   emotions?: Array<{ messageId: string; emotion: { label: string; score: number } }>;
   lastRequestPayload?: any | null;
+  user?: Session['user'];
 }
 
-export function DebugDrawer({ debugPrompts, validationError, emotions, lastRequestPayload }: DebugDrawerProps) {
+export function DebugDrawer({ debugPrompts, validationError, emotions, lastRequestPayload, user }: DebugDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showValidationError, setShowValidationError] = useState(!!validationError);
   const [showRequestPayload, setShowRequestPayload] = useState(false);
+
+  // Permission Check: Only 'demo' or specific phone number can see debug info
+  const canSeeDebug = user?.name === 'demo' || user?.phone === '13361909397' || user?.username === 'demo';
+
+  if (!canSeeDebug) {
+    return null;
+  }
 
   if (!debugPrompts && !validationError && (!emotions || emotions.length === 0) && !lastRequestPayload) {
     return null;
@@ -91,7 +101,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
             {debugPrompts && (
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-800 mb-2">Debug Prompts：</h4>
-                
+
                 {debugPrompts.systemPrompt && (
                   <div>
                     <p className="text-xs font-semibold text-gray-700 mb-1">System Prompt:</p>

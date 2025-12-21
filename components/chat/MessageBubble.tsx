@@ -1,5 +1,6 @@
 'use client';
 
+
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '@/types/chat';
@@ -9,6 +10,7 @@ import { ConclusionSections } from './ConclusionSections';
 import { QuickReplies, detectQuickReplyMode } from './QuickReplies';
 import { useChatStore } from '@/store/chatStore';
 import { ResourceCard } from './ResourceCard';
+import { ActionCardGrid } from './ActionCardGrid';
 
 /**
  * 去除重复的 followup 问题文本
@@ -99,6 +101,7 @@ interface MessageBubbleProps {
   onSendMessage?: (text: string) => void;
   isSending?: boolean;
   toolCalls?: any[];
+  sessionId: string;
 }
 
 export function MessageBubble({
@@ -111,13 +114,17 @@ export function MessageBubble({
   onSendMessage,
   isSending = false,
   toolCalls,
+  sessionId,
 }: MessageBubbleProps) {
   const { currentState, isLoading } = useChatStore();
   const isUser = message.role === 'user';
 
+  // 检测是否是占位符消息（正在等待AI回复）
+  const isPlaceholderMessage = !isUser && message.content?.includes('让我整理一下思绪');
+
   // 判断是否有特殊内容（Skill 卡片或问题列表）
   const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0) || (toolCalls && toolCalls.length > 0);
-  const hasTextContent = message.content && message.content.trim() !== '';
+  const hasTextContent = message.content && message.content.trim() !== '' && !isPlaceholderMessage;
 
   // Comfort messages for loading state
   const comfortMessages = [
@@ -139,8 +146,8 @@ export function MessageBubble({
 
   // 保护：如果 assistant 消息内容为空，且没有特殊内容
   if (!isUser && !hasTextContent && !hasSpecialContent) {
-    // 如果正在加载中，显示 Loading 动画 + 安抚文案
-    if (isLoading) {
+    // 如果正在加载中、正在发送中、或是占位符消息，显示 Loading 动画 + 安抚文案
+    if (isLoading || isSending || isPlaceholderMessage) {
       return (
         <div className="flex flex-col gap-2 mb-4 items-start">
           <div className="rounded-lg px-4 py-3 shadow-sm bg-white">
@@ -157,17 +164,13 @@ export function MessageBubble({
       );
     }
 
-    console.warn('[MessageBubble] 检测到空 assistant 消息，已拦截:', message.id);
+    // DEBUG: 暂时允许渲染空消息，以便调试为何内容丢失
+    // return null;
     return (
-      <div className="flex flex-col gap-2 mb-4 items-start">
-        <div className="rounded-lg px-4 py-3 shadow-sm bg-yellow-50 max-w-[85%] sm:max-w-[80%]">
-          <p className="text-sm text-yellow-800 italic">
-            [空回复已被拦截 - Debug 面板可见详细信息]
-          </p>
+      <div className="flex flex-col gap-2 mb-4 items-start opacity-50">
+        <div className="rounded-lg px-4 py-3 shadow-sm bg-gray-50 border border-dashed border-gray-300">
+          <span className="text-xs text-gray-400">[Debug: Empty Assistant Message]</span>
         </div>
-        <span className="text-xs px-2 font-medium text-gray-600">
-          {formatTime(message.timestamp)}
-        </span>
       </div>
     );
   }
@@ -224,7 +227,15 @@ export function MessageBubble({
                 {message.content && <ReactMarkdown className="prose prose-sm max-w-none">{message.content}</ReactMarkdown>}
                 {toolCalls.map((tc: any) => {
                   try {
-                    const args = JSON.parse(tc.function.arguments);
+                    if (!tc?.function?.arguments) return null;
+
+                    let args;
+                    if (typeof tc.function.arguments === 'string') {
+                      args = JSON.parse(tc.function.arguments);
+                    } else {
+                      args = tc.function.arguments;
+                    }
+
                     if (tc.function.name === 'show_quick_replies') {
                       return (
                         <div key={tc.id} className="mt-2">
@@ -334,7 +345,14 @@ export function MessageBubble({
                 ) : (
                   <>
                     {/* 其他阶段：正常渲染 message.content */}
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <div style={{ color: '#111827' }}>
+                      <ReactMarkdown>{message.content || ''}</ReactMarkdown>
+                    </div>
+                    {/* Debug: 如果没内容，显示提示 */}
+                    {(!message.content && !isLoading) && (
+                      <div className="text-red-500 text-xs mt-1">Debug: Content is empty</div>
+                    )}
+
                     {/* 修复：在 gap_followup 阶段，如果 assistant 文本包含 0-10 量表，显示可点击选项 */}
                     {(isGapFollowup || (routeType === 'assessment' && assessmentStage === 'gap_followup')) &&
                       (quickReplyMode === 'scale0to10' || /0-10|0\s*到\s*10|0\s*至\s*10|打分|评分/.test(message.content)) && (
@@ -350,7 +368,6 @@ export function MessageBubble({
                           />
                         </>
                       )}
-                    {/* 其他快捷回复模式 */}
                     {quickReplyMode !== 'none' && quickReplyMode !== 'scale0to10' && (
                       <>
                         <QuickReplies
@@ -377,6 +394,17 @@ export function MessageBubble({
                     <ResourceCard key={resource.id} resource={resource} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 修复：全宽渲染 Action Cards (如：推荐呼吸法)，移出条件判断以防被覆盖 */}
+            {actionCards && actionCards.length > 0 && (
+              <div className="mt-4 w-full">
+                <ActionCardGrid
+                  cards={actionCards}
+                  messageId={message.id}
+                  sessionId={sessionId}
+                />
               </div>
             )}
           </>

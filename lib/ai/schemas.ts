@@ -13,7 +13,7 @@ export const EmotionLabelSchema = z.enum([
 export const EmotionAnalysisSchema = z.object({
     label: EmotionLabelSchema,
     score: z.number().min(0).max(10),
-    confidence: z.number().min(0).max(1)
+    confidence: z.number().min(0).max(1).optional()
 });
 
 export const ActionCardSchema = z.object({

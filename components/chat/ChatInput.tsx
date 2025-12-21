@@ -13,6 +13,7 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   showDisclaimer?: boolean; // 是否显示免责声明
+  autoFocus?: boolean; // 是否自动聚焦
 }
 
 export function ChatInput({
@@ -23,6 +24,7 @@ export function ChatInput({
   disabled = false,
   placeholder = "输入你的问题或感受...",
   showDisclaimer = true,
+  autoFocus = true,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,6 +46,17 @@ export function ChatInput({
   useEffect(() => {
     adjustHeight();
   }, [value]);
+
+  // 自动聚焦：组件挂载时自动聚焦输入框
+  useEffect(() => {
+    if (autoFocus && textareaRef.current && !disabled) {
+      // 使用 setTimeout 确保 DOM 完全渲染后再聚焦
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus, disabled]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     try {
@@ -91,6 +104,10 @@ export function ChatInput({
       onSend(value);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
+        // Keep focus on textarea after sending
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
       }
     } catch (error) {
       console.error('Send error:', error);
@@ -150,7 +167,7 @@ export function ChatInput({
           type="primary"
           size="large"
           shape="circle"
-          disabled={!canSend || disabled}
+          disabled={!canSend || disabled || isLoading}
           loading={isLoading}
           icon={<IconSend />}
           onClick={doSend}

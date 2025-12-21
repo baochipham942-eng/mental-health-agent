@@ -25,6 +25,29 @@ export async function createNewSession() {
 }
 
 /**
+ * 更新会话标题
+ */
+export async function updateSessionTitle(sessionId: string, title: string) {
+    const session = await auth();
+    if (!session?.user?.id) return;
+
+    // 截取前30个字符作为标题
+    const cleanTitle = title.trim().substring(0, 30);
+
+    await prisma.conversation.updateMany({
+        where: {
+            id: sessionId,
+            userId: session.user.id,
+        },
+        data: {
+            title: cleanTitle,
+        },
+    });
+
+    revalidatePath('/dashboard');
+}
+
+/**
  * 创建新会话并返回 ID（用于懒创建模式）
  * 不进行重定向，由前端处理 URL 更新
  */

@@ -37,6 +37,7 @@ const ChatResponseSchema = z.object({
     selectionReason: z.string().optional(),
     slotValues: z.record(z.any()).optional(),
   }).optional(),
+  toolCalls: z.array(z.any()).optional(), // Add toolCalls
   perf: z.object({
     total: z.number(),
     llm_main: z.number(),
@@ -111,16 +112,28 @@ export function extractRiskTriage(reply: string): string | null {
 /**
  * 发送聊天消息
  */
-export async function sendChatMessage(
-  message: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  state?: ChatState,
-  assessmentStage?: AssessmentStage,
-  initialMessage?: string,
-  meta?: any,  // 新增：传递 meta（包括 followupSlot）
-  onTextChunk?: (chunk: string) => void, // Callback for streaming text
-  sessionId?: string, // Add sessionId
-): Promise<{ response: ValidatedChatResponse; error: ChatApiError | null }> {
+export async function sendChatMessage(options: {
+  message: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  state?: ChatState;
+  assessmentStage?: AssessmentStage;
+  initialMessage?: string;
+  meta?: any;
+  onTextChunk?: (chunk: string) => void;
+  onDataChunk?: (data: any) => void;
+  sessionId?: string;
+}): Promise<{ response: ValidatedChatResponse; error: ChatApiError | null }> {
+  const {
+    message,
+    history = [],
+    state,
+    assessmentStage,
+    initialMessage,
+    meta,
+    onTextChunk,
+    onDataChunk,
+    sessionId,
+  } = options;
   try {
     const request: ChatRequest = {
       message,
@@ -202,14 +215,18 @@ export async function sendChatMessage(
             try {
               const data = JSON.parse(line.substring(2));
               // Vercel SDK sends an array of data items
-              if (Array.isArray(data)) {
-                // Merge all items in the array
-                data.forEach(item => {
-                  assembledData = { ...assembledData, ...item };
-                });
-              } else {
-                assembledData = { ...assembledData, ...data };
-              }
+              const items = Array.isArray(data) ? data : [data];
+              items.forEach(item => {
+                // Special handling for array fields - concatenate instead of overwrite
+                if (item.actionCards && assembledData.actionCards) {
+                  item.actionCards = [...assembledData.actionCards, ...item.actionCards];
+                }
+                assembledData = { ...assembledData, ...item };
+                // Callback for real-time updates
+                if (onDataChunk) {
+                  onDataChunk(assembledData);
+                }
+              });
             } catch (e) {
               console.error('Error parsing data chunk (2:)', e);
             }
@@ -230,9 +247,41 @@ export async function sendChatMessage(
     // Construct the final data object
     let data = {
       ...assembledData,
-      reply: accumulatedReply,
+      // FIX: Accumulated reply from stream should follow metadata reply if stream is empty/only tool calls
+      reply: (accumulatedReply && accumulatedReply.trim().length > 0) ? accumulatedReply : (assembledData.reply || ''),
       toolCalls: assembledData.toolCalls || [],
     };
+
+    // Client-Side Adapter: Convert tool calls to legacy fields (actionCards, assistantQuestions)
+    // Handle both old format (call.function.name) and new Vercel AI SDK format (call.toolName)
+    // NOTE: Only extract from tool calls if actionCards not already present from 2: protocol
+    if (data.toolCalls && data.toolCalls.length > 0 && !data.actionCards) {
+      data.toolCalls.forEach((call: any) => {
+        try {
+          // New Vercel AI SDK format: { toolCallId, toolName, args }
+          if (call.toolName === 'recommend_skill_card' && call.args) {
+            const args = call.args;
+            if (args.card) {
+              if (!data.actionCards) data.actionCards = [];
+              data.actionCards.push(args.card);
+            }
+          }
+          // Legacy format: { function: { name, arguments } }
+          else if (call.function && call.function.name === 'recommend_skill_card') {
+            const args = typeof call.function.arguments === 'string'
+              ? JSON.parse(call.function.arguments)
+              : call.function.arguments;
+
+            if (args.card) {
+              if (!data.actionCards) data.actionCards = [];
+              data.actionCards.push(args.card);
+            }
+          }
+        } catch (e) {
+          console.error('[API] Failed to parse tool call args', e);
+        }
+      });
+    }
 
     // Dev 模式：支持 ?debugInvalid=1 开关模拟校验失败，?debugEmptyReply=1 模拟空回复
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -259,16 +308,29 @@ export async function sendChatMessage(
     }
 
     // 兜底校验：检查 reply 是否存在且非空
+    // FIX: Allow empty reply if there's structured content (actionCards, assistantQuestions, toolCalls)
+    const hasStructuredContent = !!(
+      (data.actionCards && data.actionCards.length > 0) ||
+      (data.assistantQuestions && data.assistantQuestions.length > 0) ||
+      (data.toolCalls && data.toolCalls.length > 0)
+    );
+
     if (!data.reply || typeof data.reply !== 'string' || data.reply.trim() === '') {
-      const errorMsg = '服务器返回了空回复';
-      console.error('[API Error]', errorMsg, data);
-      return {
-        response: {} as ValidatedChatResponse,
-        error: {
-          error: errorMsg,
-          details: 'EMPTY_REPLY',
-        },
-      };
+      if (hasStructuredContent) {
+        // Empty reply but has structured content - use a default message
+        console.log('[API] Empty reply but has structured content, using default message');
+        data.reply = '请查看下方的建议：';
+      } else {
+        const errorMsg = '服务器返回了空回复';
+        console.error('[API Error]', errorMsg, data);
+        return {
+          response: {} as ValidatedChatResponse,
+          error: {
+            error: errorMsg,
+            details: 'EMPTY_REPLY',
+          },
+        };
+      }
     }
 
     // 使用 zod 校验响应

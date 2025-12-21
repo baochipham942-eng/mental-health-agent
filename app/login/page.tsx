@@ -125,7 +125,11 @@ export default function LoginPage() {
                         <div className="space-y-6 text-center animate-fade-in">
                             <div className="flex flex-col items-center">
                                 <Avatar size={80} className="mb-3 text-3xl shadow-md border-4 border-indigo-50">
-                                    {quickUser.avatar}
+                                    {quickUser.avatar && (quickUser.avatar.startsWith('/') || quickUser.avatar.startsWith('http')) ? (
+                                        <img src={quickUser.avatar} alt="Avatar" />
+                                    ) : (
+                                        quickUser.avatar
+                                    )}
                                 </Avatar>
                                 <h3 className="text-xl font-bold text-gray-800">{quickUser.nickname}</h3>
                                 <p className="text-gray-500 text-sm mt-1">{maskPhone(quickUser.phone)}</p>

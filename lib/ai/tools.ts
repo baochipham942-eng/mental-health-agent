@@ -1,6 +1,8 @@
 /**
  * UI 相关的工具定义
- */
+    */
+import { z } from 'zod';
+import { tool } from 'ai';
 
 export const UI_TOOLS = [
     {
@@ -56,7 +58,7 @@ export const UI_TOOLS = [
                                 steps: { type: 'array', items: { type: 'string' } },
                                 when: { type: 'string' },
                                 effort: { type: 'string', enum: ['low', 'medium', 'high'] },
-                                widget: { type: 'string', enum: ['mood_tracker', 'breathing'] }
+                                widget: { type: 'string', enum: ['mood_tracker', 'breathing', 'meditation'] }
                             },
                             required: ['title', 'steps', 'when', 'effort']
                         },
@@ -68,3 +70,25 @@ export const UI_TOOLS = [
         }
     }
 ];
+
+export const SDK_TOOLS = {
+    show_quick_replies: tool({
+        description: '在对话框中展示快捷回复按钮。用于需要用户进行明确选项选择的场景，如 0-10 量表评分、三选一风险确认等。',
+        parameters: z.object({
+            mode: z.enum(['riskChoice', 'scale0to10', 'optionChoice']).describe('快捷回复的模式'),
+            options: z.array(z.string()).optional().describe('自定义选项内容')
+        })
+    }),
+    recommend_skill_card: tool({
+        description: '向用户推荐心理调节技能卡片（Action Card）。当用户需要干预、放松、记录情绪或应对具体困难时调用。',
+        parameters: z.object({
+            card: z.object({
+                title: z.string().describe('卡片标题，如"4-7-8呼吸法"'),
+                steps: z.array(z.string()).describe('简练的步骤列表，每步不超过15字'),
+                when: z.string().describe('适用场景，如"焦虑时"'),
+                effort: z.enum(['low', 'medium', 'high']).describe('所需精力'),
+                widget: z.enum(['mood_tracker', 'breathing', 'meditation']).optional().describe('关联的交互组件')
+            })
+        })
+    })
+};

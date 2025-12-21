@@ -27,7 +27,18 @@ export function SidebarListClient({ sessions, hideSessionAction }: SidebarListCl
     }
 
     return (
-        <ul className="space-y-0.5">
+        <div
+            className="space-y-0.5"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+                width: '100%',
+                padding: 0,
+                margin: 0,
+                listStyle: 'none' // 防御性添加，防止外层有 ul 包裹
+            }}
+        >
             {sessions.map((session) => (
                 <SidebarItem
                     key={session.id}
@@ -36,6 +47,6 @@ export function SidebarListClient({ sessions, hideSessionAction }: SidebarListCl
                     onHide={hideSessionAction}
                 />
             ))}
-        </ul>
+        </div>
     );
 }

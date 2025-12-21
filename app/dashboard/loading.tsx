@@ -9,14 +9,14 @@ export default function Loading() {
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Title Skeleton */}
-                        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
                     </div>
                 </div>
             </header>
 
-            {/* 消息列表 Skeleton - 彻底移除格子，保持页面干净 */}
-            <section className="flex-1 w-full max-w-4xl mx-auto p-4 space-y-6 overflow-hidden opacity-0">
-                {/* 保持空白，等待客户端渲染 */}
+            {/* 消息列表区域 - 新会话加载时不显示任何骨架屏，避免闪烁 */}
+            <section className="flex-1 w-full flex items-center justify-center p-6 opacity-0">
+                {/* 保持空白，等待客户端渲染欢迎界面 */}
             </section>
 
             {/* 输入框 Skeleton */}

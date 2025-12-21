@@ -4,12 +4,12 @@ import { analyzeEmotion as deepseekAnalyzeEmotion } from './deepseek';
 /**
  * 分析用户输入的情绪
  */
-export async function analyzeEmotion(text: string): Promise<EmotionAnalysis | null> {
+export async function analyzeEmotion(text: string, traceMetadata?: Record<string, any>): Promise<EmotionAnalysis | null> {
   if (!text || text.trim().length === 0) {
     return null;
   }
 
-  return await deepseekAnalyzeEmotion(text);
+  return await deepseekAnalyzeEmotion(text, { traceMetadata });
 }
 
 

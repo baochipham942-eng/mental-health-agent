@@ -168,8 +168,8 @@ export async function POST(request: NextRequest) {
       messageLen: message.length
     });
 
-    // Define helper to save assistant message
-    const saveAssistantMessage = async (content: string) => {
+    // Define helper to save assistant message with optional metadata
+    const saveAssistantMessage = async (content: string, meta?: Record<string, any>) => {
       if (sessionId && userId) {
         try {
           await prisma.message.create({
@@ -177,6 +177,7 @@ export async function POST(request: NextRequest) {
               conversationId: sessionId,
               role: 'assistant',
               content: content,
+              meta: meta, // Persist actionCards, routeType, etc. (undefined if not provided)
             }
           });
         } catch (e) {
@@ -248,14 +249,25 @@ export async function POST(request: NextRequest) {
     }
 
     const data = new StreamData();
-    const emotionPromise = analyzeEmotion(message);
-    const orchestrationPromise = coordinateAgents(message, history.map(m => ({ role: m.role as any, content: m.content })));
+    const traceMetadata = { sessionId, userId };
+    const emotionPromise = analyzeEmotion(message, traceMetadata);
+    const orchestrationPromise = coordinateAgents(message, history.map(m => ({ role: m.role as any, content: m.content })), { traceMetadata });
 
     // Run parallel
     const [emotion, orchestration] = await Promise.all([emotionPromise, orchestrationPromise]);
 
     const emotionObj = emotion ? { label: emotion.label, score: emotion.score } : null;
     let routeType = determineRouteType(message, orchestration, emotionObj ? emotionObj : undefined);
+
+    // =================================================================================
+    // 0.5.5 Skill Card Override (Global Pre-check)
+    // =================================================================================
+    const skillKeywords = /呼吸练习|放松技巧|放松方法|做个练习|想试试|缓解焦虑|学习放松|冥想|正念|着陆技术/i;
+    const wantsSkillCard = skillKeywords.test(message);
+    if (wantsSkillCard) {
+      console.log('[API] Skill keyword detected, forcing support route with action card.');
+      routeType = 'support';
+    }
 
     // =================================================================================
     // 0.6 Dialogue State Tracking - 对话状态追踪
@@ -292,21 +304,33 @@ export async function POST(request: NextRequest) {
     // =================================================================================
     // 1. Crisis Handler (Highest Priority)
     // =================================================================================
+    console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
       const isExplicitSafety = /我没事了|感觉好多了|已经不处在危险中了|放心吧/.test(message);
       if (state === 'in_crisis' && isExplicitSafety) {
         // De-escalate
         data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
-        // Use onFinish to save
-        const result = await streamSupportReply(message, history, { onFinish: saveAssistantMessage });
-        data.close();
+        const onFinishWithMeta = async (text: string) => {
+          await saveAssistantMessage(text);
+          // CRITICAL FIX: Ensure full reply is in the data stream final packet
+          data.append({ reply: text } as any);
+          data.close();
+        };
+
+        const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
         return result.toDataStreamResponse({ data });
       }
 
       data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
-      const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: saveAssistantMessage }); // isFollowup = true if already in crisis
-      data.close();
+
+      const onCrisisFinish = async (text: string) => {
+        await saveAssistantMessage(text);
+        data.append({ reply: text } as any);
+        data.close();
+      }
+
+      const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
       return result.toDataStreamResponse({ data });
     }
 
@@ -314,10 +338,62 @@ export async function POST(request: NextRequest) {
     // 2. Support Handler (Positive / Venting / Neutral)
     // =================================================================================
     if (routeType === 'support') {
+      let actionCards: any[] | undefined;
+      if (wantsSkillCard) {
+        // 根据具体关键词选择合适的技能卡片
+        if (/冥想|正念/.test(message)) {
+          // 冥想相关关键词 -> 正念冥想卡片
+          actionCards = [
+            {
+              title: '正念冥想',
+              steps: [
+                '找一个安静舒适的地方坐下',
+                '轻轻闭上眼睛，放松身体',
+                '专注于呼吸的感觉',
+                '当注意力飘走时，温柔地拉回来',
+              ],
+              when: '想要放松心情或提高专注力时',
+              effort: 'medium',
+              widget: 'meditation',
+            },
+          ];
+        } else {
+          // 默认：呼吸练习卡片
+          actionCards = [
+            {
+              title: '4-7-8 呼吸法',
+              steps: [
+                '吸气 4 秒',
+                '屏息 7 秒',
+                '呼气 8 秒',
+                '重复 3-4 次',
+              ],
+              when: '感到焦虑或需要快速放松时',
+              effort: 'low',
+              widget: 'breathing',
+            },
+          ];
+        }
+      }
+
       // Force exit assessment if we were in it
-      data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: emotionObj });
-      const result = await streamSupportReply(message, history, { onFinish: saveAssistantMessage });
-      data.close();
+      data.append({
+        timestamp: new Date().toISOString(),
+        routeType: 'support',
+        state: 'normal',
+        emotion: emotionObj,
+        ...(actionCards && { actionCards }), // Inject skill cards
+      });
+
+      // Wrap saveAssistantMessage to include actionCards in metadata
+      const onFinishWithMeta = async (text: string) => {
+        await saveAssistantMessage(text, actionCards ? { routeType: 'support', actionCards } : undefined);
+        data.append({ reply: text } as any);
+        data.close();
+      };
+
+      const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+      // data.close() moved to onFinish
       return result.toDataStreamResponse({ data });
     }
 
@@ -325,6 +401,53 @@ export async function POST(request: NextRequest) {
     // 3. Assessment Handler (Intake Loop -> Conclusion)
     // =================================================================================
     if (routeType === 'assessment') {
+      // ⚡ Skill Card Shortcut: If user explicitly requests a skill, bypass assessment loop
+      const skillKeywords = /呼吸练习|放松技巧|放松方法|做个练习|想试试|缓解焦虑|学习放松|冥想|正念|着陆技术/i;
+      const wantsSkillCard = skillKeywords.test(message);
+      console.log('[API] Assessment route - skillKeywords test:', { message, wantsSkillCard });
+
+      if (wantsSkillCard) {
+        // 根据具体关键词选择合适的技能卡片
+        let skillCard;
+        let skillReply;
+
+        if (/冥想|正念/.test(message)) {
+          skillCard = {
+            title: '正念冥想',
+            steps: ['找一个安静舒适的地方坐下', '轻轻闭上眼睛，放松身体', '专注于呼吸的感觉', '当注意力飘走时，温柔地拉回来'],
+            when: '想要放松心情或提高专注力时',
+            effort: 'medium',
+            widget: 'meditation',
+          };
+          skillReply = '好的，我们来做一个简单的正念冥想练习，帮助你放松身心。请点击下方的卡片开始：';
+        } else {
+          skillCard = {
+            title: '4-7-8 呼吸法',
+            steps: ['吸气 4 秒', '屏息 7 秒', '呼气 8 秒', '重复 3-4 次'],
+            when: '感到焦虑或需要快速放松时',
+            effort: 'low',
+            widget: 'breathing',
+          };
+          skillReply = '好的，我们来做一个简单的呼吸练习来帮助你放松。请点击下方的卡片开始：';
+        }
+
+        // Save with metadata so actionCards persist across page refresh
+        await saveAssistantMessage(skillReply, {
+          routeType: 'support',
+          state: 'normal',
+          actionCards: [skillCard],
+        });
+
+        data.append({
+          timestamp: new Date().toISOString(),
+          routeType: 'support', // Switch to support mode
+          state: 'normal',
+          actionCards: [skillCard],
+        });
+
+        return createFixedStreamResponse(skillReply, data);
+      }
+
       // Collect contexts for assessment loop
       // If we are in 'awaiting_followup', we combine history context.
       // But for Prompt-Driven Loop, we pass message + history to LLM, LLM decides.
@@ -333,7 +456,8 @@ export async function POST(request: NextRequest) {
       // (Actually doesn't matter, Prompt handles both)
 
       // Call Assessment Loop
-      const { reply, isConclusion } = await continueAssessment(message, history);
+      // Call Assessment Loop
+      const { reply, isConclusion, toolCalls } = await continueAssessment(message, history, { traceMetadata });
 
       if (isConclusion) {
         // LLM decided intake is done (via tool calling). Transition to Conclusion.
@@ -343,10 +467,16 @@ export async function POST(request: NextRequest) {
         const initialMsg = allUserMessages[0] || message;
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
-        const conclusionResult = await generateAssessmentConclusion(initialMsg, followupStr, history);
+        const conclusionResult = await generateAssessmentConclusion(initialMsg, followupStr, history, { traceMetadata });
 
-        // Save Conclusion Reply
-        await saveAssistantMessage(conclusionResult.reply);
+        // Save Conclusion Reply with metadata
+        await saveAssistantMessage(conclusionResult.reply, {
+          routeType: 'assessment',
+          state: 'normal',
+          assessmentStage: 'conclusion',
+          actionCards: conclusionResult.actionCards,
+          resources: conclusionResult.resources,
+        });
 
         data.append({
           timestamp: new Date().toISOString(),
@@ -355,22 +485,38 @@ export async function POST(request: NextRequest) {
           assessmentStage: 'conclusion',
           actionCards: conclusionResult.actionCards,
           resources: conclusionResult.resources,
+          reply: conclusionResult.reply, // 补全 reply
           ...(conclusionResult.gate && { gate: conclusionResult.gate }),
         } as any);
 
         return createFixedStreamResponse(conclusionResult.reply, data);
       } else {
         // Continuing intake
-        await saveAssistantMessage(reply);
+        // If reply is empty but we have toolCalls, use a placeholder logic or pass toolCalls to client
+        let finalReply = reply;
+        if (!finalReply && toolCalls && toolCalls.length > 0) {
+          // If explicit tool call (e.g. show_quick_replies), we might want to suppress "empty reply" error
+          // by ensuring metadata has toolCalls.
+          // Client checks for structured content.
+          // We can also set a default text if needed, but client should handle "Text + Tool" or "Just Tool"
+          console.log('[API] Assessment loop generated toolCalls without text:', toolCalls.map(tc => tc.function.name));
+        }
+
+        // Persist message
+        await saveAssistantMessage(finalReply, {
+          toolCalls
+        });
 
         data.append({
           timestamp: new Date().toISOString(),
           routeType: 'assessment',
           state: 'awaiting_followup',
           assessmentStage: 'intake',
-        });
+          toolCalls: toolCalls, // Pass toolCalls to client
+          reply: finalReply, // 补全 reply
+        } as any);
 
-        return createFixedStreamResponse(reply, data);
+        return createFixedStreamResponse(finalReply, data);
       }
     }
 

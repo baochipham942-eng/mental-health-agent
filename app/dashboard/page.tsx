@@ -20,6 +20,7 @@ export default async function DashboardPage() {
                 sessionId={undefined}
                 initialMessages={[]}
                 isReadOnly={false}
+                user={session.user}
             />
         </div>
     );

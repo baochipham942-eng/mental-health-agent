@@ -16,7 +16,7 @@ async function getUser(username: string): Promise<User | null> {
     }
 }
 
-export const { auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
     providers: [
         Credentials({
@@ -63,22 +63,28 @@ export const { auth, signIn, signOut } = NextAuth({
             // Initial sign in
             if (user) {
                 token.id = user.id;
-                token.name = (user as any).username;
-                token.nickname = (user as any).nickname;
-                token.avatar = (user as any).avatar;
+                token.name = user.username;
+                token.username = user.username;
+                token.nickname = user.nickname;
+                token.avatar = user.avatar;
+                token.phone = user.phone;
+                token.quickLoginToken = user.quickLoginToken;
             }
 
             // Periodically refresh data from DB to ensure personality is synced
             // or if we have a trigger (though trigger is client-side)
             // Force refresh for 'demo' user for this task session
-            if (token.id && (!token.nickname || token.name === 'demo')) {
+            // Also refresh if we are missing key fields like phone or quickLoginToken (e.g. after schema update)
+            if (token.id && (!token.nickname || token.name === 'demo' || !token.phone || !token.quickLoginToken)) {
                 const dbUser = await prisma.user.findUnique({
                     where: { id: token.id as string },
-                    select: { nickname: true, avatar: true }
+                    select: { nickname: true, avatar: true, phone: true, quickLoginToken: true }
                 });
                 if (dbUser) {
                     token.nickname = dbUser.nickname;
                     token.avatar = dbUser.avatar;
+                    token.phone = dbUser.phone;
+                    token.quickLoginToken = dbUser.quickLoginToken;
                 }
             }
 
@@ -88,8 +94,11 @@ export const { auth, signIn, signOut } = NextAuth({
             if (token && session.user) {
                 session.user.id = token.id as string;
                 session.user.name = token.name as string;
-                (session.user as any).nickname = token.nickname;
-                (session.user as any).avatar = token.avatar;
+                session.user.username = token.username;
+                session.user.nickname = token.nickname;
+                session.user.avatar = token.avatar;
+                session.user.phone = token.phone;
+                session.user.quickLoginToken = token.quickLoginToken;
             }
             return session;
         }

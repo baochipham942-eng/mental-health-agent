@@ -5,13 +5,14 @@ import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/db/prisma';
 import { getRandomProfile, getProfileById } from '@/lib/constants/userProfiles';
 import { revalidatePath } from 'next/cache';
+import crypto from 'crypto';
 
 export async function authenticate(
     prevState: string | undefined,
     formData: FormData,
 ) {
     try {
-        await signIn('credentials', formData);
+        await signIn('credentials', formData, { redirectTo: '/dashboard' });
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
@@ -36,7 +37,7 @@ export async function ensureUserProfile() {
 
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, username: true, nickname: true, avatar: true }
+        select: { id: true, username: true, nickname: true, avatar: true, quickLoginToken: true }
     });
 
     if (!user) return null;
@@ -44,7 +45,13 @@ export async function ensureUserProfile() {
     let needsUpdate = false;
     let updateData: any = {};
 
-    // 特殊处理：demo 账号强制更新为“忠诚”系列
+    // Generate quickLoginToken if missing
+    if (!user.quickLoginToken) {
+        updateData.quickLoginToken = crypto.randomBytes(32).toString('hex');
+        needsUpdate = true;
+    }
+
+    // Special handling: 'demo' user forced to 'loyal' profile
     if (user.username === 'demo') {
         const loyalProfile = getProfileById('loyal');
         if (loyalProfile && (user.nickname !== loyalProfile.nickname || user.avatar !== loyalProfile.avatar)) {
@@ -53,7 +60,7 @@ export async function ensureUserProfile() {
             needsUpdate = true;
         }
     }
-    // 常规处理：如果没有昵称或头像，随机分配
+    // General handling: assign random profile if missing nickname or avatar
     else if (!user.nickname || !user.avatar) {
         const randomProfile = getRandomProfile();
         updateData.nickname = randomProfile.nickname;

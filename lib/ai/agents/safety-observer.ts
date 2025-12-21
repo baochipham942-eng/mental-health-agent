@@ -36,7 +36,8 @@ const SAFETY_OBSERVER_PROMPT = `你是一位专业的心理安全观察员。你
  */
 export async function runSafetyObserver(
     userMessage: string,
-    history: ChatMessage[] = []
+    history: ChatMessage[] = [],
+    options?: { traceMetadata?: Record<string, any> }
 ): Promise<SafetyAssessment> {
     const messages: ChatMessage[] = [
         { role: 'system', content: SAFETY_OBSERVER_PROMPT },
@@ -47,6 +48,7 @@ export async function runSafetyObserver(
     try {
         const result = await chatStructuredCompletion(messages, SafetyAssessmentSchema, {
             temperature: 0, // 追求一致性
+            traceMetadata: options?.traceMetadata,
         });
         return result;
     } catch (error) {

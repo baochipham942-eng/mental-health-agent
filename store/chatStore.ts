@@ -173,35 +173,47 @@ export const useChatStore = create<ChatStore>()(
           lastRequestPayload: null,
           // 注意：skillProgress 不重置，保持持久化
         });
-
-        // 清理 zustand persist 存储
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('chat-storage');
-
-          // 清理 NextStepsChecklist 的 localStorage keys
-          // 查找所有 nextStepsCompleted_ 和 nextStepsPinned_ 开头的 key
-          const keysToRemove: string[] = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.startsWith('nextStepsCompleted_') || key.startsWith('nextStepsPinned_'))) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-        }
+        // 注意：不再清理 localStorage，因为 messages 不再持久化
       },
     }),
     {
       name: 'chat-storage',
       storage: createJSONStorage(() => localStorage),
+      // 仅持久化技能进度，不持久化消息（消息从服务端加载，避免会话污染）
       partialize: (state: ChatStore) => ({
-        messages: state.messages,
-        initialMessage: state.initialMessage,
-        currentState: state.currentState,
-        routeType: state.routeType,
-        assessmentStage: state.assessmentStage,
-        skillProgress: state.skillProgress, // 持久化技能进度
+        skillProgress: state.skillProgress,
       }),
     }
   )
 );
+
+// 简单的水合状态检测 hook
+export const useHasHydrated = () => {
+  const [hasHydrated, setHasHydrated] = React.useState(false);
+
+  React.useEffect(() => {
+    // 检查是否已经水合
+    const checkHydration = () => {
+      // persist.hasHydrated 是一个函数
+      if (useChatStore.persist.hasHydrated()) {
+        setHasHydrated(true);
+      }
+    };
+
+    checkHydration();
+
+    // 监听水合完成事件
+    const unsubFinishHydration = useChatStore.persist.onFinishHydration(() => {
+      setHasHydrated(true);
+    });
+
+    return () => {
+      unsubFinishHydration();
+    };
+  }, []);
+
+  return hasHydrated;
+};
+
+// 需要导入 React
+import * as React from 'react';

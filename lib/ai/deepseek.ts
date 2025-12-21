@@ -63,6 +63,7 @@ export async function chatCompletion(
     responseFormat?: 'json_object' | 'text';
     tools?: any[];
     toolChoice?: any;
+    traceMetadata?: Record<string, any>;
   }
 ): Promise<{ reply: string; toolCalls?: ToolCall[] }> {
   if (!DEEPSEEK_API_KEY) {
@@ -111,6 +112,7 @@ export async function chatCompletion(
       max_tokens: options?.max_tokens ?? 2000,
       responseFormat: options?.responseFormat,
       toolsCount: options?.tools?.length,
+      ...options?.traceMetadata,
     },
     messages // Input
   );
@@ -140,6 +142,7 @@ export async function chatStructuredCompletion<T>(
   options?: {
     temperature?: number;
     max_tokens?: number;
+    traceMetadata?: Record<string, any>;
   }
 ): Promise<T> {
   const response = await chatCompletion(messages, {
@@ -167,6 +170,7 @@ export async function streamChatCompletion(
     onFinish?: (text: string) => Promise<void>;
     tools?: any;
     toolChoice?: any;
+    traceMetadata?: Record<string, any>;
   }
 ) {
   if (!DEEPSEEK_API_KEY) {
@@ -185,8 +189,8 @@ export async function streamChatCompletion(
     messages: coreMessages,
     temperature: options?.temperature ?? 0.7,
     maxTokens: options?.max_tokens ?? 2000,
-    // Note: tools removed from streaming - use non-streaming chatCompletion for tool calls
-    // Vercel AI SDK requires Zod-based tool definitions via tool() helper
+    tools: options?.tools, // Enable tools for streaming
+
     onFinish: async ({ text, usage, finishReason, toolCalls }) => {
       // Call external onFinish if provided
       if (options?.onFinish) {
@@ -202,6 +206,7 @@ export async function streamChatCompletion(
           max_tokens: options?.max_tokens ?? 2000,
           finishReason,
           toolCalls,
+          ...options?.traceMetadata,
         },
         messages // Input
       );
@@ -258,7 +263,7 @@ export async function generateCounselingReply(
 /**
  * 分析用户情绪
  */
-export async function analyzeEmotion(userMessage: string): Promise<EmotionAnalysis | null> {
+export async function analyzeEmotion(userMessage: string, options?: { traceMetadata?: Record<string, any> }): Promise<EmotionAnalysis | null> {
   if (!DEEPSEEK_API_KEY) {
     // 如果API未配置，返回默认情绪
     return {
@@ -283,6 +288,7 @@ export async function analyzeEmotion(userMessage: string): Promise<EmotionAnalys
     return await chatStructuredCompletion(messages, EmotionAnalysisSchema, {
       temperature: 0.3,
       max_tokens: 200,
+      traceMetadata: options?.traceMetadata,
     });
   } catch (error) {
     console.error('Emotion analysis error:', error);

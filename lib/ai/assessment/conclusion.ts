@@ -72,7 +72,8 @@ function deduplicateFollowupAnswer(followupAnswer: string, initialMessage: strin
 export async function generateAssessmentConclusion(
   initialMessage: string,
   followupAnswer: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  options?: { traceMetadata?: Record<string, any> }
 ): Promise<AssessmentConclusionResult> {
   const cleanedFollowupAnswer = deduplicateFollowupAnswer(followupAnswer, initialMessage);
   const shouldIncludeHistory = process.env.CONCLUSION_INCLUDE_HISTORY === '1';
@@ -111,6 +112,7 @@ export async function generateAssessmentConclusion(
   const result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
     temperature: 0.3,
     max_tokens: 1200,
+    traceMetadata: options?.traceMetadata,
   });
 
   // 4. 组装回复（保持向后兼容 UI）

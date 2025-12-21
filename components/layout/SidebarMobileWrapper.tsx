@@ -11,23 +11,16 @@ interface SidebarMobileWrapperProps {
 
 export function SidebarMobileWrapper({ children }: SidebarMobileWrapperProps) {
     const [visible, setVisible] = useState(false);
-    const pathname = usePathname();
-
-    // Close drawer on route change
-    React.useEffect(() => {
-        setVisible(false);
-    }, [pathname]);
-
     return (
         <>
             <MobileHeader onMenuClick={() => setVisible(true)} />
 
-            {/* Desktop: Always visible sidebar */}
+            {/* Desktop Sidebar: Always in DOM, hidden on mobile via CSS */}
             <div className="hidden md:block w-64 flex-none bg-white shadow-[4px_0_24px_rgba(0,0,0,0.03)] z-10 relative h-full">
                 {children}
             </div>
 
-            {/* Mobile: Drawer */}
+            {/* Mobile Drawer */}
             <Drawer
                 visible={visible}
                 onCancel={() => setVisible(false)}
@@ -36,6 +29,7 @@ export function SidebarMobileWrapper({ children }: SidebarMobileWrapperProps) {
                 footer={null}
                 closable={false}
                 maskClosable={true}
+                unmountOnExit={true}
                 className="block md:hidden [&_.arco-drawer-body]:p-0"
                 style={{ padding: 0 }}
             >

@@ -34,8 +34,9 @@ const ASSESSMENT_LOOP_PROMPT = `你是一位专业的心理咨询师。目前处
  */
 export async function continueAssessment(
   userMessage: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
-): Promise<{ reply: string; isConclusion: boolean }> {
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  options?: { traceMetadata?: Record<string, any> }
+): Promise<{ reply: string; isConclusion: boolean; toolCalls?: any[] }> {
   const messages: ChatMessage[] = [
     { role: 'system', content: ASSESSMENT_LOOP_PROMPT },
     ...history.filter(m => (m.role as string) !== 'system').map(msg => ({
@@ -49,6 +50,7 @@ export async function continueAssessment(
     temperature: 0.5,
     max_tokens: 400,
     tools: [FINISH_ASSESSMENT_TOOL, ...UI_TOOLS],
+    traceMetadata: options?.traceMetadata,
   });
 
   const isConclusion = result.toolCalls?.some(tc => tc.function.name === 'finish_assessment') || false;
@@ -56,5 +58,6 @@ export async function continueAssessment(
   return {
     reply: result.reply,
     isConclusion,
+    toolCalls: result.toolCalls,
   };
 }

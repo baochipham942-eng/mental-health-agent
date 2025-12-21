@@ -15,13 +15,16 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+import { Session } from 'next-auth';
+
 interface ChatShellProps {
   sessionId?: string;  // Optional - undefined for new chat
   initialMessages: Message[];
   isReadOnly?: boolean;
+  user?: Session['user']; // Pass entire user object for permission checks
 }
 
-export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: ChatShellProps) {
+export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user }: ChatShellProps) {
   const {
     messages,
     currentState,
@@ -52,28 +55,75 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
   const router = useRouter();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
+
+
   // Internal session ID state - allows lazy creation
   const [internalSessionId, setInternalSessionId] = useState<string | undefined>(sessionId);
 
-  // Sync with prop changes (for when navigating to existing session)
-  useEffect(() => {
-    setInternalSessionId(sessionId);
-  }, [sessionId]);
+  // 追踪前一个 sessionId，用于检测导航行为
+  const prevSessionIdRef = useRef<string | undefined>(sessionId);
+  const sessionIdRef = useRef<string | undefined>(sessionId);
 
-  // Hydrate Store on Mount / Session Change
-  useEffect(() => {
-    if (initialMessages) {
-      // Force replace messages with server data
-      setMessages(initialMessages);
-    }
-  }, [internalSessionId, initialMessages, setMessages]);
   const [isSending, setIsSending] = useState(false);
   const [draft, setDraft] = useState('');
   const scrollContainerRef = useRef<HTMLElement>(null);
-  // 修复C: 发送队列
-  const sendQueueRef = useRef<string[]>([]);
-  // 修复D: 防止并发创建会话
-  const isCreatingSessionRef = useRef(false);
+
+  // Sync ref with prop/state
+  useEffect(() => {
+    if (internalSessionId) {
+      sessionIdRef.current = internalSessionId;
+    }
+  }, [internalSessionId]);
+
+  // Hydrate Store on Mount / Session Change
+  // 简化逻辑：消息不再persist，完全依赖props和实时添加
+  useEffect(() => {
+    const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
+
+    // 1. 会话切换：完全重置，使用服务端数据
+    if (isSessionSwitch) {
+      console.log('[ChatShell] Session switch detected', { old: internalSessionId, new: sessionId });
+      setMessages(initialMessages || []);
+      setInternalSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+      setError(null);
+      setLoading(false);
+      setIsSending(false);
+      updateState({
+        currentState: undefined,
+        routeType: undefined,
+        assessmentStage: undefined,
+      });
+      return;
+    }
+
+    // 2. 新会话（无sessionId）：检测resetConversation触发的重置
+    if (!sessionId && internalSessionId && messages.length === 0) {
+      console.log('[ChatShell] New session detected, clearing internalSessionId');
+      setInternalSessionId(undefined);
+      sessionIdRef.current = undefined;
+      return;
+    }
+
+    // 3. 历史会话加载：首次挂载时用props初始化（仅当本地为空）
+    if (sessionId && initialMessages && initialMessages.length > 0 && messages.length === 0) {
+      console.log('[ChatShell] Initializing with server messages', { count: initialMessages.length });
+      setMessages(initialMessages);
+      setInternalSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+
+      // 恢复最后一条消息的状态
+      const lastMsg = initialMessages[initialMessages.length - 1];
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.metadata) {
+        updateState({
+          currentState: (lastMsg.metadata as any).state || undefined,
+          routeType: lastMsg.metadata.routeType,
+          assessmentStage: lastMsg.metadata.assessmentStage
+        });
+      }
+    }
+  }, [internalSessionId, sessionId, initialMessages, setMessages, messages.length, updateState, setError, setLoading, setIsSending]);
+
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
   useEffect(() => {
@@ -115,32 +165,54 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
   }, []); // 只在挂载时执行一次
 
   // 监听isLoading和isSending，如果异常卡住则自动恢复
+  // 监听isLoading和isSending，如果异常卡住则自动恢复
   useEffect(() => {
-    // 如果isLoading为true但isSending为false超过3秒，说明可能卡住了
+    // 如果isLoading为true但isSending为false超过30秒，说明可能卡住了 (修正：从3秒延长到30秒)
     if (isLoading && !isSending) {
       const timer = setTimeout(() => {
         console.warn('检测到isLoading异常卡住，正在自动恢复...');
         setLoading(false);
-      }, 3000);
+      }, 30000);
       return () => clearTimeout(timer);
     }
   }, [isLoading, isSending, setLoading]);
 
   const handleEndSession = useCallback(() => {
-    if (window.confirm('确定要结束当前咨询吗？结束将返回列表页。')) {
-      // 1. Clear local store
-      resetConversation();
-      setDraft('');
-      setIsSending(false);
-      setLoading(false);
-      setError(null);
+    Modal.confirm({
+      title: <div style={{ textAlign: 'center', width: '100%' }}>确定要结束当前咨询吗？</div>,
+      content: <div style={{ textAlign: 'center', color: '#4b5563' }}>结束后将返回列表页，当前对话记录会被保存。</div>,
+      okText: '确定结束',
+      cancelText: '继续咨询',
+      icon: null, // 不显示图标
+      style: { width: 400 },
+      onOk: () => {
+        // 1. Clear local store
+        resetConversation();
+        setDraft('');
+        setIsSending(false);
+        setLoading(false);
+        setError(null);
 
-      // 2. Redirect to dashboard list
-      router.push('/dashboard');
-    }
+        // 2. Reset session ID state and ref
+        setInternalSessionId(undefined);
+        sessionIdRef.current = undefined;
+
+        // 3. Redirect to dashboard list
+        router.push('/dashboard');
+      },
+    });
   }, [resetConversation, setLoading, setError, router]);
 
   // 构建 messageExtras Map，用于传递额外的 props 给 MessageBubble
+  // Use a stable key that changes when any message metadata changes
+  const messagesMetadataKey = useMemo(() => {
+    return JSON.stringify(messages.map(m => ({
+      id: m.id,
+      hasMetadata: !!(m as any).metadata,
+      actionCardsCount: (m as any).metadata?.actionCards?.length || 0,
+    })));
+  }, [messages]);
+
   const messageExtras = useMemo(() => {
     const extras = new Map<string, {
       routeType?: 'crisis' | 'assessment' | 'support';
@@ -155,8 +227,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
     }>();
     messages.forEach((msg: Message) => {
       if (msg.role === 'assistant') {
-        // 找到对应的消息的额外信息（这里简化处理，实际应该从消息中提取）
-        // 为了简化，我们可以在消息中添加 metadata
         const msgData = (msg as any).metadata;
         if (msgData) {
           extras.set(msg.id, {
@@ -171,7 +241,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       }
     });
     return extras;
-  }, [messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, messagesMetadataKey]);
 
   // 收集所有 assistant 消息的情绪信息（用于 Debug 面板）
   const emotions = useMemo(() => {
@@ -183,363 +254,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       }));
   }, [messages]);
 
-  const handleSend = useCallback(
-    async (text?: string) => {
-      // 修复A: 支持从快捷回复传入文本
-      const content = (text !== undefined ? text : draft).trim();
-
-      console.log('[ChatShell] handleSend called', {
-        textArg: text,
-        draftValue: draft,
-        finalContent: content,
-        sessionId: internalSessionId,
-        isSendingState: isSending
-      });
-
-      // 严格检查：禁止发送空字符串
-      if (!content || content.length === 0) {
-        return; // 没有内容，直接返回
-      }
-
-      // Lazy session creation: 如果没有 sessionId，先创建会话
-      let currentSessionId = internalSessionId;
-      if (!currentSessionId) {
-        // 防止并发创建会话
-        if (isCreatingSessionRef.current) {
-          console.log('[ChatShell] Session creation already in progress, queueing message');
-          sendQueueRef.current.push(content);
-          return;
-        }
-        isCreatingSessionRef.current = true;
-        try {
-          const { createNewSessionAndReturnId } = await import('@/lib/actions/chat');
-          currentSessionId = await createNewSessionAndReturnId();
-          setInternalSessionId(currentSessionId);
-          // Update URL without full page reload
-          window.history.replaceState(null, '', `/dashboard/${currentSessionId}`);
-          console.log('[ChatShell] Created new session:', currentSessionId);
-        } catch (err) {
-          console.error('[ChatShell] Failed to create session:', err);
-          setError('创建会话失败，请刷新页面重试');
-          isCreatingSessionRef.current = false;
-          return;
-        } finally {
-          isCreatingSessionRef.current = false;
-        }
-      }
-
-      const isFirstMessage = messages.length === 0;
-
-      // 修复C: 如果正在发送，将消息加入队列而不是直接返回
-      if (isLoading || isSending) {
-        // 如果传入的是快捷回复文本，直接加入队列
-        if (text !== undefined) {
-          sendQueueRef.current.push(text);
-          return;
-        }
-        // 如果是普通输入，也加入队列
-        sendQueueRef.current.push(draft.trim());
-        setDraft(''); // 清空输入框，允许继续输入
-        return;
-      }
-
-      // 保存原始内容用于失败恢复
-      const originalContent = content;
-
-      const userMessage: Message = {
-        id: generateId(),
-        role: 'user',
-        content: content.trim(),
-        timestamp: new Date().toISOString(),
-      };
-
-      // 乐观更新：立即添加用户消息到消息流
-      addMessage(userMessage);
-      // 立即清空输入框 (修复 input 不清空的问题)
-      if (text === undefined || text === draft) {
-        setDraft('');
-      }
-      // 设置发送中状态
-      setIsSending(true);
-      setLoading(true);
-      setError(null);
-
-      // 处理 followupAnswer 累计逻辑
-      let messageToSend: string;
-      let currentInitialMessage: string | undefined;
-
-      if (currentState === 'awaiting_followup') {
-        // 在 awaiting_followup 阶段：累计用户输入
-        // 先计算累计值（基于当前的 followupAnswerDraft）
-        const updatedDraft = followupAnswerDraft
-          ? `${followupAnswerDraft}\n${content.trim()}`
-          : content.trim();
-        // 更新 store（用于下次累计）
-        // 注意：这里需要同步更新，但由于 zustand 的 set 是同步的，我们可以直接使用计算后的值
-        appendFollowupAnswer(content.trim());
-        // 使用累计后的值发送请求
-        messageToSend = updatedDraft;
-        currentInitialMessage = initialMessage;
-      } else {
-        // 非 awaiting_followup 阶段：清空累计，设置新的 initialMessage
-        clearFollowupAnswer();
-        currentInitialMessage = isFirstMessage ? content.trim() : initialMessage;
-        messageToSend = content.trim();
-      }
-
-      try {
-        // 构建请求 payload（用于 DebugDrawer 展示）
-        const requestPayload: any = {
-          message: messageToSend,
-          history: messages.map((msg: Message) => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-          state: currentState,
-          assessmentStage,
-          meta: {
-            ...(currentInitialMessage && { initialMessage: currentInitialMessage }),
-
-          },
-        };
-
-        // 保存到 store（用于 DebugDrawer 展示）
-        setLastRequestPayload(requestPayload);
-
-        // Create assistant message placeholder upfront
-        const assistantMsgId = generateId();
-        const placeholderMessage: Message = {
-          id: assistantMsgId,
-          role: 'assistant',
-          content: '', // Start empty
-          timestamp: new Date().toISOString(),
-        };
-        addMessage(placeholderMessage);
-
-        let localAccumulatedContent = '';
-
-        const { response: finalResponse, error: finalApiError } = await sendChatMessage(
-          messageToSend,
-          requestPayload.history,
-          currentState,
-          assessmentStage,
-          currentInitialMessage,
-          requestPayload.meta,
-          (chunk) => {
-            localAccumulatedContent += chunk;
-            updateMessage(assistantMsgId, { content: localAccumulatedContent });
-          },
-          currentSessionId
-        );
-
-        if (finalApiError) {
-          // 请求失败：恢复输入内容并插入系统提示
-          // AND remove or update the placeholder message to be error?
-          // Let's update the placeholder to be the error message.
-
-          setDraft(originalContent);
-
-          updateMessage(assistantMsgId, {
-            content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
-            // Add metadata
-            // ... cast to any for metadata
-          });
-
-          // ... existing error handling logic ...
-          // But wait, existing logic ADDS a new error message.
-          // I should probably remove the placeholder or reuse it.
-          // Let's reuse it.
-
-          // We need to attach metadata.
-          // Since `updateMessage` takes Partial<Message>, and metadata is not on Message type (it's hidden/any),
-          // we might need to cast or access it.
-
-          // Actually `Message` interface doesn't have metadata. `messageExtras` map handles it in UI.
-          // But `messageExtras` is built from `messages`.
-          // Wait, `ChatShell` derives `messageExtras` from `messages` loop: `const msgData = (msg as any).metadata;`
-          // So `Message` objects in store CAN have metadata property (as any).
-
-          updateMessage(assistantMsgId, {
-            content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
-            metadata: {
-              error: true,
-              errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
-              originalError: finalApiError.error,
-              isSystemError: true,
-            }
-          } as any);
-
-          // ... set store errors ...
-          setError(finalApiError.error);
-          setValidationError({
-            emptyReply: `请求错误: ${finalApiError.error}`,
-            errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
-          });
-          return;
-        }
-
-        const responseData = finalResponse; // successful response
-
-        // 再次检查 reply 是否为空（防御性编程）
-        // 同时检查：如果 reply 为空且没有结构化内容（actionCards、assistantQuestions），则不添加消息
-        const isEmptyReply = !responseData.reply || responseData.reply.trim() === '';
-        const hasStructuredContent = (responseData.actionCards && responseData.actionCards.length > 0) ||
-          (responseData.assistantQuestions && responseData.assistantQuestions.length > 0);
-
-        if (isEmptyReply && !hasStructuredContent) {
-          // 空回复且无结构化内容
-          setDraft(originalContent);
-
-          updateMessage(assistantMsgId, {
-            content: '发送失败：服务器返回了空回复。你的消息已恢复到输入框，可以点击重试。',
-            metadata: {
-              error: true,
-              errorCode: 'EMPTY_REPLY_NO_STRUCTURE',
-              isSystemError: true,
-            }
-          } as any);
-
-          console.warn('[ChatShell] 检测到空 assistant 消息（无结构化内容），已拦截');
-          setError('服务器返回了空回复');
-          setValidationError({
-            emptyReply: '解析后 reply 为空且无结构化内容',
-            errorCode: 'EMPTY_REPLY_NO_STRUCTURE',
-          });
-          return;
-        }
-
-        // 如果 reply 为空但有结构化内容，使用默认文本
-        if (isEmptyReply && hasStructuredContent) {
-          responseData.reply = '我想了解一些信息：';
-          // Update placeholder with this text
-          updateMessage(assistantMsgId, { content: responseData.reply });
-        }
-
-        // Final update for the assistant message (attach emotion, actionCards, etc.)
-        updateMessage(assistantMsgId, {
-          content: responseData.reply, // Ensure content is final
-          timestamp: responseData.timestamp,
-          emotion: responseData.emotion,
-          metadata: {
-            routeType: responseData.routeType,
-            assessmentStage: responseData.assessmentStage,
-            actionCards: responseData.actionCards,
-            assistantQuestions: responseData.assistantQuestions,
-            validationError: responseData.validationError,
-            toolCalls: responseData.toolCalls,
-          }
-        } as any);
-
-
-        // 更新状态（包括 followupSlot，如果存在）
-        updateState({
-          currentState: responseData.state,
-          routeType: responseData.routeType,
-          assessmentStage: responseData.assessmentStage,
-          initialMessage: currentInitialMessage,
-        });
-
-        // 保存 followupSlot 状态（如果存在），用于下次请求传递
-
-
-
-        // 修复：保存 pressureSocratic 状态（如果存在），用于下次请求传递
-
-
-
-        // 如果状态切回 normal 或进入 conclusion，清空 followupAnswerDraft
-        if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
-          clearFollowupAnswer();
-        }
-        // 如果从 normal 切换到 awaiting_followup，确保 followupAnswerDraft 为空（首次进入）
-        else if (responseData.state === 'awaiting_followup' && currentState !== 'awaiting_followup') {
-          clearFollowupAnswer();
-        }
-
-        // 设置 debug 信息
-        if (responseData.debugPrompts) {
-          setDebugPrompts(responseData.debugPrompts);
-        }
-        if (responseData.validationError) {
-          setValidationError(responseData.validationError);
-        }
-
-        // 如果是第一条消息，刷新路由以更新 Sidebar 标题
-        if (isFirstMessage) {
-          router.refresh();
-        }
-
-        // 成功后输入框已清空（乐观更新时已清空），这里不需要再次清空
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : '发送消息失败';
-        setError(errorMessage);
-        console.error('Send message error:', err);
-
-        // 请求失败：恢复输入内容（仅当不是从快捷回复传入时）
-        if (text === undefined) {
-          setDraft(originalContent);
-        }
-
-        // 添加系统错误提示消息
-        const errorSystemMessage: Message = {
-          id: generateId(),
-          role: 'assistant',
-          content: `发送失败：${errorMessage}。你的消息已恢复到输入框，可以点击重试。`,
-          timestamp: new Date().toISOString(),
-        };
-
-        (errorSystemMessage as any).metadata = {
-          error: true,
-          errorCode: 'NETWORK_ERROR',
-          originalError: errorMessage,
-          isSystemError: true,
-        };
-
-        addMessage(errorSystemMessage);
-        setValidationError({
-          networkError: `网络错误: ${errorMessage}`,
-          errorCode: 'NETWORK_ERROR',
-        });
-      } finally {
-        // 确保状态总是被重置，无论成功还是失败
-        setIsSending(false);
-        setLoading(false);
-
-        // 修复C: 处理发送队列（使用setTimeout避免在回调中直接递归）
-        if (sendQueueRef.current.length > 0) {
-          const nextMessage = sendQueueRef.current.shift();
-          if (nextMessage) {
-            // 使用setTimeout确保状态已更新，避免在回调中直接递归
-            setTimeout(() => {
-              // 直接调用handleSend，此时isLoading和isSending已经是false
-              handleSend(nextMessage);
-            }, 100);
-          }
-        }
-      }
-    },
-    [
-      draft,
-      messages,
-      isLoading,
-      isSending,
-      currentState,
-      assessmentStage,
-      initialMessage,
-      followupAnswerDraft,
-      addMessage,
-      setLoading,
-      setError,
-      updateState,
-      appendFollowupAnswer,
-      clearFollowupAnswer,
-      setDebugPrompts,
-      setValidationError,
-      setLastRequestPayload,
-      setDraft,
-      sendQueueRef,
-    ]
-  );
 
   // 45分钟倒计时逻辑 (2700秒)
   const SESSION_DURATION = 2700;
@@ -570,20 +284,277 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const content = (text !== undefined ? text : draft).trim();
+
+      console.log('[ChatShell] handleSend called', {
+        textArg: text,
+        draftValue: draft,
+        finalContent: content,
+        sessionId: internalSessionId,
+        isSendingState: isSending,
+        isLoadingState: isLoading
+      });
+
+      if (isReadOnly || isSessionEnded) return;
+      if (!content || content.length === 0) return;
+      if (isLoading || isSending) return;
+
+      const originalContent = content;
+      let currentSessionId = internalSessionId || sessionIdRef.current;
+      const isFirstMessage = messages.length === 0;
+
+      const messageHistory = messages.map((msg: Message) => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      }));
+
+      const userMessage: Message = {
+        id: generateId(),
+        role: 'user',
+        content: content.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      // 先设置发送状态，再添加消息，避免一帧的竞争条件导致UI闪烁
+      setIsSending(true);
+      setLoading(true);
+      setError(null);
+      addMessage(userMessage);
+
+      if (!currentSessionId) {
+        try {
+          const { createNewSessionAndReturnId, updateSessionTitle } = await import('@/lib/actions/chat');
+          currentSessionId = await createNewSessionAndReturnId();
+
+          updateSessionTitle(currentSessionId, content)
+            .catch(console.error);
+
+          sessionIdRef.current = currentSessionId;
+          setInternalSessionId(currentSessionId);
+          window.history.replaceState(null, '', `/dashboard/${currentSessionId}`);
+        } catch (err) {
+          console.error('[ChatShell] Session creation error:', err);
+          setIsSending(false);
+          setLoading(false);
+          setError('创建会话失败，请刷新页面重试');
+          return;
+        }
+      }
+
+      if (text === undefined || text === draft) {
+        setDraft('');
+      }
+
+      let messageToSend: string;
+      let currentInitialMessage: string | undefined;
+
+      if (currentState === 'awaiting_followup') {
+        const updatedDraft = followupAnswerDraft
+          ? `${followupAnswerDraft}\n${content.trim()}`
+          : content.trim();
+        appendFollowupAnswer(content.trim());
+        messageToSend = updatedDraft;
+        currentInitialMessage = initialMessage;
+      } else {
+        clearFollowupAnswer();
+        currentInitialMessage = isFirstMessage ? content.trim() : initialMessage;
+        messageToSend = content.trim();
+      }
+
+      try {
+        const requestPayload: any = {
+          message: messageToSend,
+          history: messageHistory,
+          state: currentState,
+          assessmentStage,
+          meta: {
+            ...(currentInitialMessage && { initialMessage: currentInitialMessage }),
+          },
+        };
+
+        setLastRequestPayload(requestPayload);
+
+        const assistantMsgId = generateId();
+        const placeholderMessage: Message = {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: '好的，我在听。让我整理一下思绪，马上回复你...',
+          timestamp: new Date().toISOString(),
+        };
+        addMessage(placeholderMessage);
+
+        let localAccumulatedContent = '';
+
+        const { response: finalResponse, error: finalApiError } = await sendChatMessage({
+          message: messageToSend,
+          history: requestPayload.history,
+          state: currentState,
+          assessmentStage,
+          initialMessage: currentInitialMessage,
+          meta: requestPayload.meta,
+          sessionId: currentSessionId,
+          onTextChunk: (chunk) => {
+            if (chunk) {
+              localAccumulatedContent += chunk;
+              updateMessage(assistantMsgId, { content: localAccumulatedContent });
+            }
+          },
+          onDataChunk: (data) => {
+            updateMessage(assistantMsgId, {
+              metadata: {
+                routeType: data.routeType,
+                assessmentStage: data.assessmentStage,
+                actionCards: data.actionCards,
+                assistantQuestions: data.assistantQuestions,
+                validationError: data.validationError,
+                toolCalls: data.toolCalls,
+              }
+            } as any);
+          },
+        });
+
+        if (finalApiError) {
+          setDraft(originalContent);
+          updateMessage(assistantMsgId, {
+            content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
+            metadata: {
+              error: true,
+              errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
+              originalError: finalApiError.error,
+              isSystemError: true,
+            }
+          } as any);
+          setError(finalApiError.error);
+          return;
+        }
+
+        if ((!finalResponse.reply || finalResponse.reply.trim() === '') && localAccumulatedContent.trim().length > 0) {
+          finalResponse.reply = localAccumulatedContent;
+        }
+
+        const responseData = finalResponse;
+        const isEmptyReply = !responseData.reply || responseData.reply.trim() === '';
+        const hasStructuredContent = (responseData.actionCards && responseData.actionCards.length > 0) ||
+          (responseData.assistantQuestions && responseData.assistantQuestions.length > 0) ||
+          (responseData.toolCalls && responseData.toolCalls.length > 0);
+
+        if (isEmptyReply && !hasStructuredContent) {
+          setDraft(originalContent);
+          updateMessage(assistantMsgId, {
+            content: '发送失败：服务器返回了空回复。你的消息已恢复到输入框，可以点击重试。',
+            metadata: {
+              error: true,
+              errorCode: 'EMPTY_REPLY_NO_STRUCTURE',
+              isSystemError: true,
+            }
+          } as any);
+          setError('服务器返回了空回复');
+          return;
+        }
+
+        if (isEmptyReply && hasStructuredContent) {
+          responseData.reply = '请查看下方的建议：';
+          updateMessage(assistantMsgId, { content: responseData.reply });
+        }
+
+        updateMessage(assistantMsgId, {
+          content: responseData.reply,
+          timestamp: responseData.timestamp,
+          emotion: responseData.emotion,
+          metadata: {
+            routeType: responseData.routeType,
+            assessmentStage: responseData.assessmentStage,
+            actionCards: responseData.actionCards,
+            assistantQuestions: responseData.assistantQuestions,
+            validationError: responseData.validationError,
+            toolCalls: responseData.toolCalls,
+          }
+        } as any);
+
+        updateState({
+          currentState: responseData.state,
+          routeType: responseData.routeType,
+          assessmentStage: responseData.assessmentStage,
+          initialMessage: currentInitialMessage,
+        });
+
+        if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
+          clearFollowupAnswer();
+        } else if (responseData.state === 'awaiting_followup' && currentState !== 'awaiting_followup') {
+          clearFollowupAnswer();
+        }
+
+        if (responseData.debugPrompts) setDebugPrompts(responseData.debugPrompts);
+        if (responseData.validationError) setValidationError(responseData.validationError);
+
+      } catch (err: any) {
+        console.error('[ChatShell] handleSend error:', err);
+        setDraft(originalContent);
+        addMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: `抱歉，发送过程中出现了未预料的错误：${err.message}。请检查控制台或稍后重试。`,
+          timestamp: new Date().toISOString(),
+          metadata: { error: true, isSystemError: true }
+        } as any);
+        setError(err.message);
+      } finally {
+        setIsSending(false);
+        setLoading(false);
+      }
+    },
+    [
+      draft,
+      messages,
+      isLoading,
+      isSending,
+      isReadOnly,
+      isSessionEnded,
+      internalSessionId,
+      currentState,
+      assessmentStage,
+      initialMessage,
+      followupAnswerDraft,
+      addMessage,
+      updateMessage,
+      setIsSending,
+      setLoading,
+      setError,
+      updateState,
+      appendFollowupAnswer,
+      clearFollowupAnswer,
+      setLastRequestPayload,
+      setDraft,
+      setDebugPrompts,
+      setValidationError,
+      router,
+    ]
+  );
+
+
   return (
-    <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
-      {/* 顶部栏 - 固定高度 */}
-      <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
+    <div
+      className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
+      style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
+    >
+
+      {/* 顶部栏 - 固定高度，使用固定布局避免闪烁 */}
+      <header
+        className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0"
+        style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)' }}
+      >
         <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
-              <span className="text-xl">{isReadOnly ? '📋' : '💬'}</span>
-              <h1 className="text-lg font-semibold text-gray-800">
-                {isReadOnly ? '历史会话' : '咨询中'}
+            <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
+              <span className="text-xl transition-all duration-300">{isReadOnly ? '📋' : internalSessionId ? '💬' : '✨'}</span>
+              <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
+                {isReadOnly ? '历史会话' : internalSessionId ? '咨询中' : '新咨询'}
               </h1>
             </div>
-            {/* 仅活跃会话显示倒计时 */}
-            {!isReadOnly && !isSessionEnded && (
+            {/* 倒计时 - 使用 opacity 控制显示，保持布局空间 */}
+            <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <Tag
                 color={timeLeft < 300 ? 'red' : 'arcoblue'}
                 size="small"
@@ -591,13 +562,14 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
               >
                 ⏱️ 剩余 {formatTime(timeLeft)}
               </Tag>
-            )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-[80px] justify-end">
             {isReadOnly ? (
               <Tag color="gray" size="small">咨询已结束</Tag>
             ) : (
-              messages.length > 0 && (
+              // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
+              <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                 <Button
                   size="small"
                   icon={<IconStop />}
@@ -605,7 +577,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
                 >
                   结束咨询
                 </Button>
-              )
+              </div>
             )}
           </div>
         </div>
@@ -615,7 +587,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       <section
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+        style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
       >
         <MessageList
           messages={messages}
@@ -624,6 +596,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
           messageExtras={messageExtras}
           onSendMessage={(text: string) => handleSend(text)}
           scrollContainerRef={scrollContainerRef}
+          sessionId={internalSessionId || sessionIdRef.current || ''}
         />
         {isSessionEnded && (
           <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
@@ -648,9 +621,13 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
       </section>
 
       {/* 输入框 - shrink-0 固定在底部 */}
-      <footer className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100">
+      <footer
+        className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
+        style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
+      >
         <div className="mx-auto w-full max-w-4xl px-4 py-3">
           <ChatInput
+            key={internalSessionId || 'new-session'}
             value={draft}
             onChange={(newValue) => {
               setDraft(newValue);
@@ -659,6 +636,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
             isLoading={isLoading || isSending}
             disabled={isReadOnly || isSessionEnded}
             placeholder={isSessionEnded ? "本次会话已结束" : undefined}
+            autoFocus={!isReadOnly && !isSessionEnded}
           />
         </div>
       </footer>
@@ -676,31 +654,24 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false }: Ch
         validationError={validationError}
         emotions={emotions}
         lastRequestPayload={lastRequestPayload}
+        user={user}
       />
 
       {/* 免责声明弹窗 */}
       <Modal
-        visible={disclaimerOpen}
-        onCancel={() => setDisclaimerOpen(false)}
         title="免责声明"
-        footer={
-          <Button type="primary" long onClick={() => setDisclaimerOpen(false)}>
-            我知道了
-          </Button>
-        }
-        style={{ maxWidth: 420 }}
+        visible={disclaimerOpen}
+        onOk={() => setDisclaimerOpen(false)}
+        onCancel={() => setDisclaimerOpen(false)}
+        okText="我已知晓"
+        hideCancel
+        style={{ width: '400px', maxWidth: '90vw' }}
       >
-        <div className="text-sm text-gray-700 space-y-3">
-          <p>
-            本产品仅供学习和研究使用，不能替代专业心理咨询服务。
-          </p>
-          <p>
-            如遇严重心理危机，请立即寻求专业帮助：
-          </p>
-          <ul className="list-disc list-inside space-y-1 ml-2 text-gray-600">
-            <li>全国24小时心理危机干预热线：<strong className="text-gray-800">400-161-9995</strong></li>
-            <li>如遇紧急情况，请立即拨打 <strong className="text-gray-800">110</strong> 或前往就近医院急诊科</li>
-          </ul>
+        <div className="text-gray-600 space-y-2">
+          <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
+          <p>2. AI 可能会产生错误或误导性的信息。</p>
+          <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
+          <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
         </div>
       </Modal>
     </div>

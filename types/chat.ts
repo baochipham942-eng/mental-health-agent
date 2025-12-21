@@ -8,6 +8,16 @@ export interface Message {
   emotion?: Emotion;
   resources?: AnyResource[]; // RAG 推荐资源
   toolCalls?: ToolCall[];
+  metadata?: {
+    routeType?: RouteType;
+    assessmentStage?: AssessmentStage;
+    actionCards?: ActionCard[];
+    assistantQuestions?: string[];
+    validationError?: any;
+    error?: boolean;
+    errorCode?: string;
+    isSystemError?: boolean;
+  };
 }
 
 export interface ToolCall {
@@ -49,7 +59,7 @@ export interface ActionCard {
   steps: string[];
   when: string;
   effort: 'low' | 'medium' | 'high';
-  widget?: 'breathing' | 'mood_tracker';
+  widget?: 'breathing' | 'meditation' | 'mood_tracker';
 }
 
 export interface ChatResponse {

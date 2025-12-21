@@ -3,6 +3,7 @@
 import { Message } from '@/types/chat';
 import { MessageBubble } from './MessageBubble';
 import { useEffect, useRef, useState, useCallback, RefObject } from 'react';
+import { useHasHydrated } from '@/store/chatStore';
 
 interface MessageListProps {
   messages: Message[];
@@ -17,12 +18,26 @@ interface MessageListProps {
       actionCards?: string;
       nextStepsLines?: string;
     };
+    toolCalls?: any[];
   }>;
   onSendMessage?: (text: string) => void;
   scrollContainerRef?: RefObject<HTMLElement>;
+  sessionId: string;
 }
 
-export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef }: MessageListProps) {
+// 简单的时间问候语
+function getTimeGreeting(): { greeting: string; emoji: string } {
+  const hour = new Date().getHours();
+  if (hour < 6) return { greeting: '夜深了', emoji: '🌙' };
+  if (hour < 9) return { greeting: '早上好', emoji: '🌅' };
+  if (hour < 12) return { greeting: '上午好', emoji: '☀️' };
+  if (hour < 14) return { greeting: '中午好', emoji: '🌤️' };
+  if (hour < 18) return { greeting: '下午好', emoji: '🌇' };
+  if (hour < 22) return { greeting: '晚上好', emoji: '🌆' };
+  return { greeting: '夜深了', emoji: '🌙' };
+}
+
+export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef, sessionId }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -31,12 +46,14 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     messages.length > 0 ? messages[messages.length - 1].role : null
   );
 
-  // 获取滚动容器：优先使用传入的 ref，否则降级查找
+  // 等待 Zustand 水合完成，避免闪烁
+  const hasHydrated = useHasHydrated();
+
+  // 获取滚动容器
   const getScrollContainer = useCallback((): HTMLElement | null => {
     if (scrollContainerRef?.current) {
       return scrollContainerRef.current;
     }
-    // 降级方案：查找父容器
     if (!containerRef.current) return null;
     let parent = containerRef.current.parentElement;
     while (parent) {
@@ -53,22 +70,17 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   const checkIfNearBottom = useCallback(() => {
     const container = getScrollContainer();
     if (!container) return false;
-
     const { scrollTop, scrollHeight, clientHeight } = container;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    return distanceFromBottom <= 120; // 距离底部120px以内认为接近底部
+    return distanceFromBottom <= 120;
   }, [getScrollContainer]);
 
   // 滚动到底部
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'smooth') => {
     const container = getScrollContainer();
     if (container) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior,
-      });
+      container.scrollTo({ top: container.scrollHeight, behavior });
     } else if (endRef.current) {
-      // 降级方案：如果找不到滚动容器，使用 scrollIntoView
       endRef.current.scrollIntoView({ behavior });
     }
   }, [getScrollContainer]);
@@ -77,88 +89,52 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   useEffect(() => {
     const container = getScrollContainer();
     if (!container) return;
-
     const handleScroll = () => {
-      const isNearBottom = checkIfNearBottom();
-      setShowScrollToBottom(!isNearBottom);
+      setShowScrollToBottom(!checkIfNearBottom());
     };
-
     container.addEventListener('scroll', handleScroll);
-    // 初始检查一次
     handleScroll();
-
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIfNearBottom, getScrollContainer]);
 
-  // 自动滚动逻辑（智能滚动：仅当用户接近底部时才自动滚动）
+  // 自动滚动逻辑
   useEffect(() => {
     const isNewMessage = messages.length !== lastMessageCountRef.current;
     const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
     const isNewUserMessage = lastMessage && lastMessage.role === 'user' && lastMessageRoleRef.current !== 'user';
     const isNewAssistantMessage = lastMessage && lastMessage.role === 'assistant' && lastMessageRoleRef.current !== 'assistant';
 
-    // 触发自动滚动的条件：
-    // 1. 新消息（User 或 Assistant）：强制滚动到底部
-    // 2. 流式更新（Loading/Sending）：只有在用户接近底部时才跟随滚动
     if (isNewMessage || isNewUserMessage || isNewAssistantMessage) {
-      // 新消息出现，强制滚动
       requestAnimationFrame(() => {
         setTimeout(() => {
           scrollToBottom('smooth');
           setShowScrollToBottom(false);
         }, 100);
       });
-
-      // 更新 ref
       lastMessageCountRef.current = messages.length;
       if (lastMessage) {
         lastMessageRoleRef.current = lastMessage.role;
       }
     } else if (isLoading || isSending) {
-      // 流式输出或发送中：检查是否跟随
-      const shouldAutoScroll = checkIfNearBottom();
-      if (shouldAutoScroll) {
-        requestAnimationFrame(() => {
-          scrollToBottom('smooth');
-        });
+      if (checkIfNearBottom()) {
+        requestAnimationFrame(() => scrollToBottom('smooth'));
       } else {
         setShowScrollToBottom(true);
       }
     }
   }, [messages, isLoading, isSending, checkIfNearBottom, scrollToBottom]);
 
-  // 初始滚动到底部（仅在组件首次挂载且有消息时）
+  // 初始滚动到底部
   useEffect(() => {
     if (messages.length > 0) {
-      // 使用 requestAnimationFrame + setTimeout 确保 DOM 渲染完成后再滚动
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          scrollToBottom('auto');
-        }, 0);
+        setTimeout(() => scrollToBottom('auto'), 0);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 仅在挂载时执行一次
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Time-based greeting helper
-  const getTimeGreeting = (): { greeting: string; emoji: string } => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 11) {
-      return { greeting: '早上好，新的一天开始了', emoji: '☀️' };
-    } else if (hour >= 11 && hour < 14) {
-      return { greeting: '中午好，记得休息一下', emoji: '🌤️' };
-    } else if (hour >= 14 && hour < 18) {
-      return { greeting: '下午好，今天过得怎么样', emoji: '🌈' };
-    } else if (hour >= 18 && hour < 22) {
-      return { greeting: '晚上好，有什么想聊的吗', emoji: '🌙' };
-    } else {
-      return { greeting: '夜深了，感谢你愿意倾诉', emoji: '🌌' };
-    }
-  };
-
-  // Hydration fix for returning user greeting
+  // 检查是否是回访用户（仅客户端）
   const [isReturningUser, setIsReturningUser] = useState(false);
-
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hasVisited = localStorage.getItem('hasVisited') === 'true';
@@ -167,7 +143,41 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     }
   }, []);
 
+  // ============== 极简逻辑 ==============
+  // 场景0: 未水合完成 -> 显示空白（避免闪烁）
+  // 场景1: 有消息 -> 显示消息列表
+  // 场景2: 无消息但正在加载/发送 -> 显示加载状态
+  // 场景3: 无消息且不在加载 -> 显示欢迎界面
+
+  // 水合检查：避免在 store 恢复数据前显示欢迎界面导致闪烁
+  if (!hasHydrated) {
+    return (
+      <div className="w-full max-w-4xl mx-auto px-4 py-8 opacity-0">
+        {/* 水合完成前保持空白不可见 */}
+      </div>
+    );
+  }
+
   if (messages.length === 0) {
+    // 正在发送或加载中，显示简单的加载动画
+    if (isSending || isLoading) {
+      return (
+        <div className="w-full max-w-4xl mx-auto px-4 py-8">
+          <div className="flex items-center gap-3 p-4 bg-white rounded-lg shadow-sm">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+            </div>
+            <span className="text-sm text-gray-500">
+              {isSending ? '正在发送...' : '正在思考...'}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // 无消息，显示欢迎界面
     const { greeting, emoji } = getTimeGreeting();
     const examplePrompts = [
       '最近感觉压力有点大...',
@@ -176,11 +186,10 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     ];
 
     return (
-      <div className="h-full w-full flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          {/* Greeting - different for returning users */}
+      <div className="w-full h-full min-h-[60vh] max-w-4xl mx-auto px-4 py-8 welcome-content flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto">
           <h2 className="text-xl font-semibold text-gray-800 mb-1">
-            {isReturningUser ? '欢迎回来 👋' : greeting} {!isReturningUser && emoji}
+            {isReturningUser ? '欢迎回来 👋' : `${greeting} ${emoji}`}
           </h2>
           <p className="text-sm text-gray-600 mb-6">
             {isReturningUser
@@ -189,7 +198,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
             }
           </p>
 
-          {/* Guidance Cards */}
           <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 text-left">
             <p className="text-xs font-medium text-indigo-600 mb-2">💡 不知道说什么？试试这些：</p>
             <div className="space-y-2">
@@ -205,7 +213,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
             </div>
           </div>
 
-          {/* Privacy note */}
           <p className="text-xs text-gray-400">
             🔒 你的对话将被安全保存
           </p>
@@ -214,6 +221,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     );
   }
 
+  // 有消息，显示消息列表
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-6" ref={containerRef}>
       <div className="relative w-full space-y-2 min-h-full">
@@ -225,6 +233,8 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
               message={message}
               routeType={extras?.routeType}
               assessmentStage={extras?.assessmentStage}
+              toolCalls={extras?.toolCalls}
+              sessionId={sessionId}
               actionCards={extras?.actionCards}
               assistantQuestions={extras?.assistantQuestions}
               validationError={extras?.validationError}
@@ -236,7 +246,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
         <div ref={endRef} />
 
-        {/* 回到底部按钮（修复B: 调整位置，避免被输入框遮挡） */}
         {showScrollToBottom && (
           <button
             onClick={() => {
@@ -252,7 +261,3 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     </div>
   );
 }
-
-
-
-

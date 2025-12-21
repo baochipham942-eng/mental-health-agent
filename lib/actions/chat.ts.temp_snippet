@@ -1,0 +1,35 @@
+'use server';
+
+import { auth } from '@/auth';
+import { prisma } from '@/lib/db/prisma';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+// ... existing imports
+
+/**
+ * 更新会话标题
+ */
+export async function updateSessionTitle(sessionId: string, title: string) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        throw new Error('Unauthorized');
+    }
+
+    // 截取前30个字符作为标题
+    const cleanTitle = title.trim().substring(0, 30);
+
+    await prisma.conversation.update({
+        where: {
+            id: sessionId,
+            userId: session.user.id,
+        },
+        data: {
+            title: cleanTitle,
+        },
+    });
+
+    revalidatePath('/dashboard');
+}
+
+// ... existing code

@@ -1,5 +1,5 @@
 import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
-import { UI_TOOLS } from './tools';
+import { UI_TOOLS, SDK_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 
 /**
@@ -17,14 +17,19 @@ const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
    - 将提问包裹在关心中："我有些好奇..."、"方便的话..."
 3. **篇幅**：控制在 3-5 句话，保持对话节奏
 
+**技能卡片触发规则（最高优先级）**：
+- ⚡ 如果用户**明确请求**练习（如"做呼吸练习"、"学习放松技巧"、"我想试试"），**立即调用** \`recommend_skill_card\` 工具，不要再追问。
+- 示例触发词：呼吸练习、放松技巧、做个练习、试试看、好的/行的（在被提问后的同意）
+- ❌ **绝对禁止**在文本中写出具体练习步骤（如"吸气4秒..."）。所有技能必须通过工具渲染。
+
 **严禁行为**：
 - ❌ 不要在支持模式下进行结构化 SCEB 评估
 - ❌ 不要在用户分享日常生活、正面或中性事件时突然询问安全问题
 - ❌ 不要一次性列出多个问题（审讯感）
-- ❌ 不要急于给出建议，先倾听
+- ❌ 用户已明确表达意图时，不要反复追问（如用户说"想做呼吸练习"，直接给练习）
 
 **允许行为**：
-- ✅ 如果用户主动表达需要帮助，可以温和地建议深入探讨
+- ✅ 如果用户表达模糊（如"我有点累"），可以温和询问是否需要帮助
 - ✅ 如果用户表现出明确的痛苦信号，可以表达更多关心`;
 
 /**
@@ -67,7 +72,7 @@ export async function generateSupportReply(
 export async function streamSupportReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  options?: { onFinish?: (text: string) => Promise<void> }
+  options?: { onFinish?: (text: string) => Promise<void>; traceMetadata?: Record<string, any> }
 ) {
   const messages: ChatMessage[] = [
     {
@@ -88,6 +93,7 @@ export async function streamSupportReply(
     temperature: 0.8,
     max_tokens: 400,
     onFinish: options?.onFinish,
-    tools: UI_TOOLS,
+    tools: SDK_TOOLS,
+    traceMetadata: options?.traceMetadata,
   });
 }

@@ -11,14 +11,15 @@ export interface OrchestrationResult {
  */
 export async function coordinateAgents(
     userMessage: string,
-    history: ChatMessage[]
+    history: ChatMessage[],
+    options?: { traceMetadata?: Record<string, any> }
 ): Promise<OrchestrationResult> {
     console.log('[Orchestrator] Starting parallel coordination...');
 
     // 目前主要协调 SafetyObserver
     // 未来可以并行执行语义搜索、记忆提取等
     const [safetyResult] = await Promise.all([
-        runSafetyObserver(userMessage, history),
+        runSafetyObserver(userMessage, history, { traceMetadata: options?.traceMetadata }),
     ]);
 
     console.log('[Orchestrator] Coordination finished. Results:', {
