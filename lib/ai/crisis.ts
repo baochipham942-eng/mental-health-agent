@@ -99,7 +99,7 @@ export async function streamCrisisReply(
     temperature: 0.7,
     max_tokens: 600,
     onFinish: options?.onFinish,
-    // tools: UI_TOOLS, // DISABLED: UI_TOOLS is JSON format, incompatible with Vercel AI SDK streamChatCompletion
+    enableTools: true, // Use unified SDK_TOOLS format
     traceMetadata: options?.traceMetadata,
   });
 }

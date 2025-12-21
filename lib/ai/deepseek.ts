@@ -2,6 +2,7 @@ import { ActionCardSchema, AssessmentConclusionSchema, CrisisClassificationSchem
 import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
 import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '../observability/langfuse';
+import { SDK_TOOLS } from './tools';
 
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -161,6 +162,7 @@ export async function chatStructuredCompletion<T>(
 
 /**
  * Stream chat completion using Vercel AI SDK
+ * Note: Uses built-in SDK_TOOLS for tool support (unified format)
  */
 export async function streamChatCompletion(
   messages: ChatMessage[],
@@ -168,8 +170,7 @@ export async function streamChatCompletion(
     temperature?: number;
     max_tokens?: number;
     onFinish?: (text: string) => Promise<void>;
-    tools?: any;
-    toolChoice?: any;
+    enableTools?: boolean; // 是否启用工具（默认 false，因为大多数场景不需要）
     traceMetadata?: Record<string, any>;
   }
 ) {
@@ -189,7 +190,7 @@ export async function streamChatCompletion(
     messages: coreMessages,
     temperature: options?.temperature ?? 0.7,
     maxTokens: options?.max_tokens ?? 2000,
-    tools: options?.tools, // Enable tools for streaming
+    tools: options?.enableTools ? SDK_TOOLS : undefined, // Use unified SDK_TOOLS format when enabled
 
     onFinish: async ({ text, usage, finishReason, toolCalls }) => {
       // Call external onFinish if provided

@@ -93,7 +93,7 @@ export async function streamSupportReply(
     temperature: 0.8,
     max_tokens: 400,
     onFinish: options?.onFinish,
-    // tools: SDK_TOOLS, // DISABLED: Causes _def error in production (Zod/AI SDK compatibility issue)
+    enableTools: true, // Use unified SDK_TOOLS format
     traceMetadata: options?.traceMetadata,
   });
 }

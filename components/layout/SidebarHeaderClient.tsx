@@ -20,11 +20,15 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
         // 总是先清空当前状态
         resetConversation();
 
-        if (pathname !== '/dashboard') {
-            // 如果不在 dashboard，导航过去
+        // 总是导航到 /dashboard，即使已经在那里也要触发重新加载
+        // 这样可以确保 ChatShell 组件重新初始化
+        if (pathname === '/dashboard') {
+            // 已经在 /dashboard，使用 router.refresh() 强制重新渲染
+            router.refresh();
+        } else {
+            // 从历史会话页面 /dashboard/xxx 导航到 /dashboard
             router.push('/dashboard');
         }
-        // 如果已经在 dashboard，只需重置状态（上面已做）
     };
 
     return (
