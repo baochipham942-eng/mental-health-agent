@@ -18,7 +18,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Use Vercel AI SDK hook for ephemeral chat
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
         api: '/api/chat/mbti',
         body: {
             mbtiType: targetPersona.type,
@@ -33,7 +33,10 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
         ],
         onError: (error) => {
             Message.error(`连接中断: ${error.message}`);
-        }
+        },
+        onFinish: () => {
+            console.log('[MBTIChat] Stream finished');
+        },
     });
 
     // Auto-scroll to bottom
@@ -42,6 +45,17 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    // Safety: if isLoading is true for more than 15s, force stop
+    useEffect(() => {
+        if (isLoading) {
+            const timeout = setTimeout(() => {
+                console.warn('[MBTIChat] Loading timeout, forcing stop');
+                stop();
+            }, 15000);
+            return () => clearTimeout(timeout);
+        }
+    }, [isLoading, stop]);
 
     // Theme color mapping
     const themeColors: Record<string, string> = {
@@ -142,21 +156,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                         </div>
                     ))}
 
-                    {/* Loading State */}
-                    {isLoading && (
-                        <div className="flex gap-4">
-                            <div className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                                <span className="text-lg">{targetPersona.avatar}</span>
-                            </div>
-                            <div className="bg-gray-50 px-4 py-3 rounded-2xl rounded-tl-sm border border-gray-100 flex items-center">
-                                <div className="flex gap-1">
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Removed redundant loading bubble - content streams in real-time */}
                 </div>
 
                 {/* Input Area */}
@@ -173,7 +173,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             onChange={(e) => handleInputChange({ target: { value: e } } as any)}
                             placeholder={`作为 ${userMbti}，你想对 TA 说...`}
                             className="px-4 py-3 h-12 rounded-xl bg-gray-50 border-transparent hover:bg-white hover:border-indigo-300 focus:bg-white focus:border-indigo-500 transition-all text-base"
-                            disabled={isLoading}
+                            autoFocus
                         />
                         <Button
                             type="primary"
