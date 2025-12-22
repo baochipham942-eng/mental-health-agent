@@ -138,20 +138,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                         </div>
                     ))}
 
-                    {isLoading && (
-                        <div className="flex gap-4">
-                            <div className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                                <span className="text-lg">{mentor.avatar}</span>
-                            </div>
-                            <div className="bg-gray-50 px-4 py-3 rounded-2xl rounded-tl-sm border border-gray-100 flex items-center">
-                                <div className="flex gap-1">
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Removed redundant loading bubble - content streams in real-time */}
                 </div>
 
                 {/* Input Area */}
@@ -178,7 +165,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                                     }
                                 }
                             }}
-                            disabled={isLoading}
+                            autoFocus
                         />
                         <Button
                             type="primary"
