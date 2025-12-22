@@ -17,7 +17,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Use Vercel AI SDK hook for ephemeral chat
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
         api: '/api/chat/mentor',
         body: {
             mentorId: mentor.id,
@@ -44,6 +44,18 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    // Safety: if isLoading is true for more than 15s, force stop
+    // This prevents UI from getting stuck in loading state
+    useEffect(() => {
+        if (isLoading) {
+            const timeout = setTimeout(() => {
+                console.warn('[MentorChat] Loading timeout, forcing stop');
+                stop();
+            }, 15000);
+            return () => clearTimeout(timeout);
+        }
+    }, [isLoading, stop]);
 
     // Color mapping
     const colorMap: Record<string, string> = {
