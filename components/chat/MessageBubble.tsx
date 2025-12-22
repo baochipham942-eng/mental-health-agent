@@ -120,7 +120,7 @@ export function MessageBubble({
   const isUser = message.role === 'user';
 
   // 检测是否是占位符消息（正在等待AI回复）
-  const isPlaceholderMessage = !isUser && message.content?.includes('让我整理一下思绪');
+  const isPlaceholderMessage = !isUser && (message.content?.includes('让我整理一下思绪') || message.content?.includes('正在深入思考...'));
 
   // 判断是否有特殊内容（Skill 卡片或问题列表）
   const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0) || (toolCalls && toolCalls.length > 0);
