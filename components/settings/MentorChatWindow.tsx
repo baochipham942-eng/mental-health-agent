@@ -31,7 +31,11 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         ],
         onError: (error) => {
             Message.error(`连接中断: ${error.message}`);
-        }
+        },
+        onFinish: () => {
+            // Ensure UI updates when streaming completes
+            console.log('[MentorChat] Stream finished');
+        },
     });
 
     // Auto-scroll to bottom
