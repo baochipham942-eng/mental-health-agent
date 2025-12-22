@@ -1,4 +1,4 @@
-import { chatCompletion, ChatMessage, ToolCall } from './deepseek';
+import { chatCompletion, streamChatCompletion, ChatMessage, ToolCall } from './deepseek';
 import { UI_TOOLS } from './tools';
 import { classifyDialogueState, StateClassification } from './agents/state-classifier';
 
@@ -118,5 +118,68 @@ export async function continueAssessment(
     toolCalls: result.toolCalls,
     stateClassification: classification,
   };
+}
+
+/**
+ * 流式继续评估对话
+ */
+export async function streamAssessmentReply(
+  userMessage: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  options?: {
+    traceMetadata?: Record<string, any>;
+    memoryContext?: string;
+    onFinish?: (text: string, toolCalls?: any[]) => Promise<void>;
+  }
+) {
+  // Step 1: 构建完整的消息历史（用于状态分类 - 非流式）
+  const fullHistory: ChatMessage[] = history.map(msg => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
+  fullHistory.push({ role: 'user', content: userMessage });
+
+  // Step 2: 调用状态分类器
+  let classification: StateClassification | undefined;
+  try {
+    classification = await classifyDialogueState(fullHistory, {
+      traceMetadata: options?.traceMetadata,
+    });
+
+    // 如果分类器建议结束，我们将通过 metadata 告知调用方，此处不直接流式输出
+    if (classification.shouldConclude) {
+      console.log('[Assessment] State classifier suggests conclusion:', classification.reasoning);
+      // 注意：这里需要一个特殊的处理逻辑，或者让调用方先检查分类
+    }
+  } catch (error) {
+    console.error('[Assessment] State classification failed, continuing with default prompt:', error);
+  }
+
+  // Step 3: 构建带进度的 Prompt
+  let systemPrompt = classification
+    ? buildPromptWithProgress(classification)
+    : ASSESSMENT_LOOP_PROMPT;
+
+  if (options?.memoryContext) {
+    systemPrompt = `${systemPrompt}\n\n${options.memoryContext}`;
+  }
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...history.filter(m => (m.role as string) !== 'system').map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    })),
+    { role: 'user', content: userMessage },
+  ];
+
+  // Step 4: 调用流式接口
+  return streamChatCompletion(messages, {
+    temperature: 0.5,
+    max_tokens: 400,
+    enableTools: true, // 必须启用工具以识别 finish_assessment
+    traceMetadata: options?.traceMetadata,
+    onFinish: options?.onFinish,
+  });
 }
 

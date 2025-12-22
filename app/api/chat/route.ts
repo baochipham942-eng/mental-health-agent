@@ -5,8 +5,8 @@ import { prisma } from '@/lib/db/prisma';
 import { analyzeEmotion } from '@/lib/ai/emotion';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
-import { continueAssessment } from '@/lib/ai/assessment';
-import { generateAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
+import { continueAssessment, streamAssessmentReply } from '@/lib/ai/assessment';
+import { generateAssessmentConclusion, streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { memoryManager } from '@/lib/memory';
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: ChatRequest = await request.json();
-    const { message, history = [], state, meta } = body;
+    const { message, history = [], state, assessmentStage, meta } = body;
 
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
@@ -466,117 +466,73 @@ export async function POST(request: NextRequest) {
         return createFixedStreamResponse(skillReply, data);
       }
 
-      // Call Assessment Loop with State Classifier
-      const { reply, isConclusion, toolCalls, stateClassification } = await continueAssessment(message, processedHistory, { traceMetadata, memoryContext });
+      // Call Assessment Loop with State Classifier (Streaming Version)
+      const onAssessmentFinish = async (text: string, toolCalls?: any[]) => {
+        // Determine if it's a conclusion based on tool calls
+        const isConclusion = toolCalls?.some(tc => tc.function.name === 'finish_assessment') || false;
 
-      // =================================================================================
-      // 🔄 Dynamic Mode Switch: If State Classifier recommends support, switch modes
-      // =================================================================================
-      if (stateClassification?.recommendedMode === 'support' && !isConclusion) {
-        console.log('[API] State Classifier recommends switching to support mode:', stateClassification.reasoning);
+        await saveAssistantMessage(text, {
+          toolCalls,
+          routeType: 'assessment',
+          assessmentStage: isConclusion ? 'conclusion' : 'intake',
+        });
 
-        try {
-          // Switch to support mode for better user experience
-          data.append({
-            timestamp: new Date().toISOString(),
-            routeType: 'support',
-            state: 'normal',
-            emotion: emotionObj,
-            modeSwitch: {
-              from: 'assessment',
-              to: 'support',
-              reason: stateClassification.reasoning,
-            },
-          } as any);
+        data.append({
+          reply: text,
+          toolCalls,
+          routeType: 'assessment',
+          assessmentStage: isConclusion ? 'conclusion' : 'intake'
+        } as any);
+        data.close();
+      };
 
-          const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-            await saveAssistantMessage(text, { routeType: 'support', modeSwitch: true, toolCalls });
-            data.append({ reply: text, toolCalls } as any);
-            data.close();
-          };
-
-          const result = await streamSupportReply(message, processedHistory, { onFinish: onFinishWithMeta, traceMetadata, memoryContext });
-          return result.toDataStreamResponse({ data });
-        } catch (modeSwitchError) {
-          console.error('[API] Mode switch to support failed, continuing with assessment reply:', modeSwitchError);
-          // Fall through to use the assessment reply below
-        }
-      }
-
-      if (isConclusion) {
-        // LLM decided intake is done (via tool calling). Transition to Conclusion.
+      // 🔄 Special Case: If we are already in conclusion stage OR the classifier says we should conclude
+      if (assessmentStage === 'conclusion') {
         const allUserMessages = history.filter(m => m.role === 'user').map(m => m.content);
         allUserMessages.push(message);
-
         const initialMsg = allUserMessages[0] || message;
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
-        let conclusionResult;
-        try {
-          conclusionResult = await generateAssessmentConclusion(initialMsg, followupStr, history, { traceMetadata });
-        } catch (error) {
-          console.error('[API] generateAssessmentConclusion failed:', error);
-          conclusionResult = {
-            reply: "抱歉，生成评估结论时遇到一点小问题，请尝试刷新页面或重新发送消息。",
-            actionCards: [],
-            resources: []
-          };
-        }
+        const onConclusionFinish = async (text: string, actionCards: any[], resources: any[]) => {
+          await saveAssistantMessage(text, {
+            routeType: 'assessment',
+            assessmentStage: 'conclusion',
+            actionCards,
+            resources
+          });
+          data.append({
+            reply: text,
+            actionCards,
+            resources,
+            routeType: 'assessment',
+            assessmentStage: 'conclusion'
+          } as any);
+          data.close();
+        };
 
-        // Save Conclusion Reply with metadata
-        await saveAssistantMessage(conclusionResult.reply, {
-          routeType: 'assessment',
-          state: 'normal',
-          assessmentStage: 'conclusion',
-          actionCards: conclusionResult.actionCards,
-          resources: conclusionResult.resources,
+        const conclusionResult = await streamAssessmentConclusion(initialMsg, followupStr, history, {
+          traceMetadata,
+          onFinish: onConclusionFinish
         });
-
-        data.append({
-          timestamp: new Date().toISOString(),
-          routeType: 'assessment',
-          state: 'normal',
-          assessmentStage: 'conclusion',
-          actionCards: conclusionResult.actionCards,
-          resources: conclusionResult.resources,
-          reply: conclusionResult.reply, // 补全 reply
-          ...(conclusionResult.gate && { gate: conclusionResult.gate }),
-        } as any);
-
-        return createFixedStreamResponse(conclusionResult.reply, data);
-      } else {
-        // Continuing intake
-        // If reply is empty but we have toolCalls, use a placeholder logic or pass toolCalls to client
-        let finalReply = reply;
-        if (!finalReply && toolCalls && toolCalls.length > 0) {
-          // If explicit tool call (e.g. show_quick_replies), we might want to suppress "empty reply" error
-          // by ensuring metadata has toolCalls.
-          // Client checks for structured content.
-          // We can also set a default text if needed, but client should handle "Text + Tool" or "Just Tool"
-          console.log('[API] Assessment loop generated toolCalls without text:', toolCalls.map(tc => tc.function.name));
-        }
-
-        // Persist message
-        await saveAssistantMessage(finalReply, {
-          toolCalls,
-          stateClassification: stateClassification ? {
-            scebProgress: stateClassification.scebProgress,
-            overallProgress: stateClassification.overallProgress,
-          } : undefined,
-        });
-
-        data.append({
-          timestamp: new Date().toISOString(),
-          routeType: 'assessment',
-          state: 'awaiting_followup',
-          assessmentStage: 'intake',
-          toolCalls: toolCalls, // Pass toolCalls to client
-          reply: finalReply, // 补全 reply
-          ...(stateClassification && { scebProgress: stateClassification.scebProgress }),
-        } as any);
-
-        return createFixedStreamResponse(finalReply, data);
+        return conclusionResult.toDataStreamResponse({ data });
       }
+
+      const assessmentResult = await streamAssessmentReply(message, processedHistory, {
+        traceMetadata,
+        memoryContext,
+        onFinish: onAssessmentFinish
+      });
+
+      // Check if conclusion is needed (Dynamic)
+      // Note: True streaming assessment means we might need to handle conclusion transition 
+      // differently if we want to stream the conclusion REPORT immediately.
+      // For now, keep it simple: Intake streams, then client sends another msg or tool triggers it.
+
+      // If we are already heading for a conclusion (State classifier previously said so)
+      // we might want to skip intake streaming and go straight to conclusion streaming.
+      // But classifyDialogueState is currently non-streaming.
+
+      return assessmentResult.toDataStreamResponse({ data });
     }
 
     // Fallback? Should cover all cases.

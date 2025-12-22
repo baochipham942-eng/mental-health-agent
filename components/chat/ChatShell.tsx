@@ -10,6 +10,7 @@ import { ChatInput } from './ChatInput';
 import { DebugDrawer } from './DebugDrawer';
 import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
 import { IconStop, IconInfoCircle } from '@arco-design/web-react/icon';
+import { generateSummaryForSession } from '@/lib/actions/summary';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -69,37 +70,24 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasInitializedRef = useRef(false);
 
-  // Sync ref with prop/state
-  useEffect(() => {
-    if (internalSessionId) {
-      sessionIdRef.current = internalSessionId;
-    }
-  }, [internalSessionId]);
-
-  // Hydrate Store on Mount / Session Change
-  // 关键修复：组件首次挂载时总是用 props 初始化，不依赖 store 中的旧状态
-  useEffect(() => {
-    // 首次挂载：强制用 props 初始化（不检查 messages.length）
+  // ★ 同步初始化：在组件挂载时立即用 props 数据初始化 store，避免等待 useEffect
+  // 这是消除闪烁的核心修复：确保首帧渲染就使用正确的数据
+  const initializedThisRender = useMemo(() => {
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
-      console.log('[ChatShell] First mount, force init with props', {
+      // 同步调用 store actions，确保首帧就有正确的数据
+      console.log('[ChatShell] Sync init on first render', {
         sessionId,
         msgCount: initialMessages?.length || 0
       });
-
-      // 无条件用 props 数据初始化 store
       setMessages(initialMessages || []);
-      setInternalSessionId(sessionId);
-      sessionIdRef.current = sessionId;
-      prevSessionIdRef.current = sessionId;
       setError(null);
       setLoading(false);
-      setIsSending(false);
 
-      // 恢复或清空状态
+      // 恢复路由状态
       if (initialMessages && initialMessages.length > 0) {
         const lastMsg = initialMessages[initialMessages.length - 1];
-        if (lastMsg && lastMsg.role === 'assistant' && lastMsg.metadata) {
+        if (lastMsg?.role === 'assistant' && lastMsg.metadata) {
           updateState({
             currentState: (lastMsg.metadata as any).state || undefined,
             routeType: lastMsg.metadata.routeType,
@@ -113,19 +101,38 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           assessmentStage: undefined,
         });
       }
+      return true;
+    }
+    return false;
+    // 故意不用完整依赖数组，只在组件首次挂载时执行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync ref with prop/state
+  useEffect(() => {
+    if (internalSessionId) {
+      sessionIdRef.current = internalSessionId;
+    }
+  }, [internalSessionId]);
+
+  // ★ 后续更新：用于处理动态 session 切换（不通过 key prop 重新挂载的情况）
+  // 由于我们用 key={sessionId}，所以这个 effect 通常不会触发
+  useEffect(() => {
+    // 跳过首次挂载（已由 useMemo 处理）
+    if (initializedThisRender) {
       return;
     }
 
-    // 后续更新：处理动态 session 切换（有 key prop 通常不会触发）
+    // 动态 session 切换检测
     const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
     if (isSessionSwitch) {
-      console.log('[ChatShell] Session switch', { old: internalSessionId, new: sessionId });
+      console.log('[ChatShell] Dynamic session switch (rare case)', { old: internalSessionId, new: sessionId });
       setMessages(initialMessages || []);
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
       prevSessionIdRef.current = sessionId;
     }
-  }, [sessionId, initialMessages, setMessages, updateState, setError, setLoading, setIsSending, internalSessionId]);
+  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender]);
 
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
@@ -188,19 +195,31 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       cancelText: '继续咨询',
       icon: null, // 不显示图标
       style: { width: 400 },
-      onOk: () => {
-        // 1. Clear local store
+      onOk: async () => {
+        // 1. Trigger summary generation (if session has messages)
+        if (internalSessionId && messages.length > 0) {
+          console.log('[ChatShell] Triggering summary generation for session:', internalSessionId);
+          try {
+            await generateSummaryForSession(internalSessionId);
+            console.log('[ChatShell] Summary generated successfully');
+          } catch (error) {
+            console.error('[ChatShell] Summary generation failed:', error);
+            // Don't block user flow if summary fails
+          }
+        }
+
+        // 2. Clear local store
         resetConversation();
         setDraft('');
         setIsSending(false);
         setLoading(false);
         setError(null);
 
-        // 2. Reset session ID state and ref
+        // 3. Reset session ID state and ref
         setInternalSessionId(undefined);
         sessionIdRef.current = undefined;
 
-        // 3. Redirect to dashboard list
+        // 4. Redirect to dashboard list
         router.push('/dashboard');
       },
     });
@@ -382,7 +401,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         const placeholderMessage: Message = {
           id: assistantMsgId,
           role: 'assistant',
-          content: '好的，我在听。让我整理一下思绪，马上回复你...',
+          content: '正在深入思考...',
           timestamp: new Date().toISOString(),
         };
         addMessage(placeholderMessage);
@@ -602,7 +621,17 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         />
         {isSessionEnded && (
           <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <div className="text-center">
+            <div className="flex flex-col items-center gap-4 p-8 bg-white/50 backdrop-blur-md rounded-2xl shadow-sm border border-indigo-50/50">
+              <div className="relative flex items-center justify-center w-12 h-12">
+                <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
+                <div className="absolute w-6 h-6 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
+                <div className="absolute w-10 h-10 border-2 border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
+              </div>
+              <span className="text-sm font-medium text-indigo-600 animate-pulse">
+                {isSending ? '正在准备空间...' : '正在开启心灵对话...'}
+              </span>
+            </div>
+            <div className="text-center mt-6">
               <div className="text-3xl mb-3">🌿</div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
               <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>

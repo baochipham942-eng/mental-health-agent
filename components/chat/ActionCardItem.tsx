@@ -104,6 +104,9 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
     setHeaderControl(null);
   };
 
+  // UI 状态：showCompletionConfirm 用于显示完成确认信息
+  const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
+
   // 提交评分
   const handleRatingSubmit = async (score: number) => {
     // 保存本地（可选）
@@ -124,12 +127,11 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
       console.error("Logging failed", e);
     }
 
-    // 收起卡片
-    setTimeout(() => {
-      setIsExpanded(false);
-      setShowRating(false);
-      setStartTime(null);
-    }, 500); // 稍微延迟一点让用户看到点击效果
+    // ★ 修复：不再自动收起卡片，而是显示完成确认信息
+    // 用户可以手动点击"收起"按钮来关闭卡片
+    setShowRating(false);
+    setShowCompletionConfirm(true);
+    setStartTime(null);
   };
 
   // 普通步骤的完成逻辑 (简化的 Toggle)
@@ -251,7 +253,27 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
             <div className="p-5">
               {/* 这里的布局根据内容动态调整 */}
 
-              {showRating ? (
+              {showCompletionConfirm ? (
+                /* ★ 完成确认状态：显示成功信息和手动关闭按钮 */
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-6"
+                >
+                  <div className="text-4xl mb-3">🎉</div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">练习完成！</h4>
+                  <p className="text-sm text-gray-500 mb-4">干得漂亮！坚持下去，你会感受到积极的变化。</p>
+                  <button
+                    onClick={() => {
+                      setIsExpanded(false);
+                      setShowCompletionConfirm(false);
+                    }}
+                    className="px-5 py-2 bg-green-600 text-white rounded-full text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
+                  >
+                    ✓ 我知道了
+                  </button>
+                </motion.div>
+              ) : showRating ? (
                 <InlineMoodRating onRate={handleRatingSubmit} />
               ) : (
                 <>

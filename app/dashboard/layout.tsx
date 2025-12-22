@@ -39,6 +39,9 @@ export default async function DashboardLayout({
     const session = await auth();
     const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
 
+    // 检查是否是管理员（username === 'demo'）
+    const isAdmin = session?.user?.name === 'demo';
+
     // 创建一个 server action 用于登出
     const handleSignOut = async () => {
         'use server';
@@ -83,6 +86,7 @@ export default async function DashboardLayout({
                                 userName={userName}
                                 nickname={(session?.user as any)?.nickname}
                                 avatar={(session?.user as any)?.avatar}
+                                isAdmin={isAdmin}
                                 signOutAction={handleSignOut}
                             />
                         </div>

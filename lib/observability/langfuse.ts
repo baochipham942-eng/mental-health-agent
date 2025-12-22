@@ -19,17 +19,36 @@ let langfuseInstance: Langfuse | null = null;
  * 如果未配置环境变量，返回 null（禁用追踪）
  */
 export function getLangfuse(): Langfuse | null {
+    // 如果明确禁用 Langfuse，直接返回 null
+    if (process.env.LANGFUSE_ENABLED === 'false') {
+        return null;
+    }
+
     // 如果未配置密钥，禁用追踪
     if (!process.env.LANGFUSE_SECRET_KEY || !process.env.LANGFUSE_PUBLIC_KEY) {
         return null;
     }
 
+    // 检查密钥是否为示例值（占位符）
+    if (
+        process.env.LANGFUSE_SECRET_KEY.startsWith('sk-lf-...') ||
+        process.env.LANGFUSE_PUBLIC_KEY.startsWith('pk-lf-...')
+    ) {
+        console.warn('[Langfuse] 检测到示例密钥，已禁用 Langfuse 追踪');
+        return null;
+    }
+
     if (!langfuseInstance) {
-        langfuseInstance = new Langfuse({
-            secretKey: process.env.LANGFUSE_SECRET_KEY,
-            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-            baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
-        });
+        try {
+            langfuseInstance = new Langfuse({
+                secretKey: process.env.LANGFUSE_SECRET_KEY,
+                publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+                baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+            });
+        } catch (error) {
+            console.error('[Langfuse] 初始化失败，已禁用追踪:', error);
+            return null;
+        }
     }
 
     return langfuseInstance;

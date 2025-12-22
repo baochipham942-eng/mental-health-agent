@@ -7,6 +7,7 @@ interface UserMenuWrapperProps {
     userName?: string;
     nickname?: string;
     avatar?: string;
+    isAdmin?: boolean;
     signOutAction: () => Promise<void>;
 }
 
@@ -14,7 +15,7 @@ interface UserMenuWrapperProps {
  * UserMenu 包装器
  * 处理客户端调用 server action 的 signOut
  */
-export function UserMenuWrapper({ userName, nickname, avatar, signOutAction }: UserMenuWrapperProps) {
+export function UserMenuWrapper({ userName, nickname, avatar, isAdmin, signOutAction }: UserMenuWrapperProps) {
     const [isPending, startTransition] = useTransition();
 
     const handleSignOut = () => {
@@ -28,6 +29,7 @@ export function UserMenuWrapper({ userName, nickname, avatar, signOutAction }: U
             userName={userName}
             nickname={nickname}
             avatar={avatar}
+            isAdmin={isAdmin}
             onSignOut={handleSignOut}
         />
     );

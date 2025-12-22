@@ -151,18 +151,26 @@ export default function LoginPage() {
                     {view === 'LOGIN' && (
                         <div className="animate-fade-in">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">账号登录</h2>
-                            <form action={dispatchLogin} className="space-y-4">
+                            <form action={dispatchLogin} className="space-y-4" id="loginForm">
                                 <Input
                                     name="username"
                                     prefix={<IconUser />}
                                     placeholder="手机号 / 账号"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
+                                    onPressEnter={() => {
+                                        const form = document.getElementById('loginForm') as HTMLFormElement;
+                                        form?.requestSubmit();
+                                    }}
                                 />
                                 <Input.Password
                                     name="password"
                                     prefix={<IconLock />}
                                     placeholder="密码"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
+                                    onPressEnter={() => {
+                                        const form = document.getElementById('loginForm') as HTMLFormElement;
+                                        form?.requestSubmit();
+                                    }}
                                 />
 
                                 <Button type="primary" long size="large" htmlType="submit" className="rounded-xl h-12 text-base mt-2">
@@ -183,13 +191,18 @@ export default function LoginPage() {
                     {view === 'REGISTER' && (
                         <div className="animate-fade-in">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">新用户注册</h2>
-                            <form onSubmit={handleRegister} className="space-y-4">
+                            <form onSubmit={handleRegister} className="space-y-4" id="registerForm">
                                 <Input
                                     name="phone"
                                     prefix={<IconPhone />}
                                     placeholder="手机号"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     maxLength={11}
+                                    onPressEnter={() => {
+                                        // 聚焦到下一个输入框
+                                        const passwordInput = document.querySelector('input[name="password"]') as HTMLInputElement;
+                                        passwordInput?.focus();
+                                    }}
                                 />
                                 <Input.Password
                                     name="password"
@@ -197,6 +210,11 @@ export default function LoginPage() {
                                     placeholder="设置密码 (6位以上)"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     minLength={6}
+                                    onPressEnter={() => {
+                                        // 聚焦到邀请码输入框
+                                        const inviteInput = document.querySelector('input[name="inviteCode"]') as HTMLInputElement;
+                                        inviteInput?.focus();
+                                    }}
                                 />
                                 <Input
                                     name="inviteCode"
@@ -205,6 +223,10 @@ export default function LoginPage() {
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     maxLength={6}
                                     style={{ textTransform: 'uppercase' }}
+                                    onPressEnter={() => {
+                                        const form = document.getElementById('registerForm') as HTMLFormElement;
+                                        form?.requestSubmit();
+                                    }}
                                 />
 
                                 <Button

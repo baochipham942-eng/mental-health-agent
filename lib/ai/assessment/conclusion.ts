@@ -1,5 +1,5 @@
-import { chatCompletion, chatStructuredCompletion, ChatMessage } from '../deepseek';
-import { ASSESSMENT_CONCLUSION_PROMPT } from '../prompts';
+import { chatCompletion, chatStructuredCompletion, streamChatCompletion, ChatMessage } from '../deepseek';
+import { ASSESSMENT_CONCLUSION_PROMPT, ASSESSMENT_CONCLUSION_STREAMING_PROMPT } from '../prompts';
 import { ActionCard } from '../../../types/chat';
 import { gateAssessment, gateActionCardsSteps, GateResult } from './gates';
 import { sanitizeActionCards } from './sanitize';
@@ -189,4 +189,97 @@ ${result.nextStepList.map(step => `• ${step}`).join('\n')}`;
     debugPrompts,
     resources: retrievedResources,
   };
+}
+
+/**
+ * 流式生成阶段总结
+ */
+export async function streamAssessmentConclusion(
+  initialMessage: string,
+  followupAnswer: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  options?: {
+    traceMetadata?: Record<string, any>;
+    onFinish?: (text: string, actionCards: ActionCard[], resources: AnyResource[]) => Promise<void>;
+  }
+) {
+  const cleanedFollowupAnswer = deduplicateFollowupAnswer(followupAnswer, initialMessage);
+  const shouldIncludeHistory = process.env.CONCLUSION_INCLUDE_HISTORY === '1';
+
+  // 1. RAG 检索
+  let ragContext = '';
+  let retrievedResources: AnyResource[] = [];
+  try {
+    const resourceService = getResourceService();
+    const retrievalContext: RetrievalContext = {
+      routeType: 'assessment',
+      userMessage: `${initialMessage} ${cleanedFollowupAnswer}`,
+    };
+    const ragResult = resourceService.retrieve(retrievalContext, 2);
+    if (ragResult.resources.length > 0) {
+      ragContext = ragResult.formattedContext;
+      retrievedResources = ragResult.resources.map(r => r.resource);
+    }
+  } catch (ragError) {
+    console.error('[RAG] Failed to retrieve resources:', ragError);
+  }
+
+  // 2. 构建 Prompt (使用流式专用 Prompt)
+  const conclusionPrompt = ASSESSMENT_CONCLUSION_STREAMING_PROMPT ||
+    `你是心理评估师。根据初始主诉和回答生成结构化的初筛总结。
+    
+    请按以下格式输出报告：
+    【初筛总结】
+    (这里描述主诉、持续时间、核心困扰和影响程度)
+    
+    【风险与分流】
+    (根据评估结果给出风险提示和分流建议：危机/及时跟进/自我关怀)
+    
+    【下一步清单】
+    (给出2-3条具体的下一步建议)
+    
+    注意：保持温和、专业、客观。`;
+
+  const enhancedSystemPrompt = ragContext
+    ? `${conclusionPrompt}\n\n${ragContext}`
+    : conclusionPrompt;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: enhancedSystemPrompt },
+    ...(shouldIncludeHistory ? history.map(msg => ({ role: msg.role as 'user' | 'assistant', content: msg.content })) : []),
+    { role: 'user', content: `初始主诉：${initialMessage}\n\n对评估问题的回答：${cleanedFollowupAnswer}` },
+  ];
+
+  // 3. 调用流式生成
+  return streamChatCompletion(messages, {
+    temperature: 0.3,
+    max_tokens: 1000,
+    traceMetadata: options?.traceMetadata,
+    onFinish: async (text) => {
+      // 这里的 onFinish 只负责处理 ActionCards 的生成
+      if (options?.onFinish) {
+        let actionCards: ActionCard[] = [];
+        try {
+          // 第二步：根据已生成的流式文本，快速提取/生成结构化卡片
+          // 这里可以重用现有的 generateAssessmentConclusion 逻辑，但为了效率采用更轻量的调用
+          console.log('[Conclusion] Streaming text finished, generating action cards...');
+
+          const result = await chatStructuredCompletion(
+            [
+              { role: 'system', content: '根据以下心理评估报告，生成 2 张结构化的行动建议卡片。' },
+              { role: 'user', content: text }
+            ],
+            AssessmentConclusionSchema, // 可以重用或简化
+            { temperature: 0.1, max_tokens: 600 }
+          );
+
+          actionCards = sanitizeActionCards(result.actionCards as ActionCard[]);
+        } catch (cardError) {
+          console.error('[Conclusion] Failed to generate cards in onFinish:', cardError);
+        }
+
+        await options.onFinish(text, actionCards, retrievedResources);
+      }
+    }
+  });
 }

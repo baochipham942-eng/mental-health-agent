@@ -162,15 +162,15 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     // 正在发送或加载中，显示简单的加载动画
     if (isSending || isLoading) {
       return (
-        <div className="w-full max-w-4xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 p-4 bg-white rounded-lg shadow-sm">
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+        <div className="w-full h-[60vh] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 p-8 bg-white/50 backdrop-blur-md rounded-2xl shadow-sm border border-indigo-50/50">
+            <div className="relative flex items-center justify-center w-12 h-12">
+              <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
+              <div className="absolute w-6 h-6 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
+              <div className="absolute w-10 h-10 border-2 border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
             </div>
-            <span className="text-sm text-gray-500">
-              {isSending ? '正在发送...' : '正在思考...'}
+            <span className="text-sm font-medium text-indigo-600 animate-pulse">
+              {isSending ? '正在准备空间...' : '正在开启心灵对话...'}
             </span>
           </div>
         </div>

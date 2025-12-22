@@ -149,15 +149,25 @@ export function MessageBubble({
     // 如果正在加载中、正在发送中、或是占位符消息，显示 Loading 动画 + 安抚文案
     if (isLoading || isSending || isPlaceholderMessage) {
       return (
-        <div className="flex flex-col gap-2 mb-4 items-start">
-          <div className="rounded-lg px-4 py-3 shadow-sm bg-white">
-            <div className="flex items-center gap-3">
-              <div className="flex space-x-1 items-center">
-                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+        <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="rounded-2xl px-5 py-4 shadow-sm bg-white border border-indigo-50/50">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-4">
+                {/* 核心“心灵呼吸”动画 */}
+                <div className="relative flex items-center justify-center w-6 h-6">
+                  <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
+                  <div className="absolute w-3 h-3 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
+                  <div className="absolute w-5 h-5 border border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
+                </div>
+                <span className="text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  正在深入思考...
+                </span>
               </div>
-              <span className="text-sm text-gray-500 italic">{comfortMessages[comfortIndex]}</span>
+              <div className="h-4 overflow-hidden relative">
+                <span className="text-xs text-indigo-400/80 italic whitespace-nowrap transition-all duration-700 block translate-y-0">
+                  {comfortMessages[comfortIndex]}
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -26,6 +26,8 @@ export async function createNewSession() {
 
 /**
  * 更新会话标题
+ * 注意：不调用 revalidatePath，因为这会导致正在输入的用户丢失内容
+ * 侧边栏列表会在页面切换或手动刷新时更新
  */
 export async function updateSessionTitle(sessionId: string, title: string) {
     const session = await auth();
@@ -44,12 +46,14 @@ export async function updateSessionTitle(sessionId: string, title: string) {
         },
     });
 
-    revalidatePath('/dashboard');
+    // ★ 移除 revalidatePath：防止用户正在输入时页面刷新
+    // revalidatePath('/dashboard');
 }
 
 /**
  * 创建新会话并返回 ID（用于懒创建模式）
  * 不进行重定向，由前端处理 URL 更新
+ * 注意：不调用 revalidatePath，因为这会导致正在输入的用户丢失内容
  */
 export async function createNewSessionAndReturnId(): Promise<string> {
     const session = await auth();
@@ -64,7 +68,9 @@ export async function createNewSessionAndReturnId(): Promise<string> {
         },
     });
 
-    revalidatePath('/dashboard');
+    // ★ 移除 revalidatePath：防止用户正在输入时页面刷新
+    // 侧边栏会在用户导航或刷新页面时自动更新
+    // revalidatePath('/dashboard');
     return conversation.id;
 }
 

@@ -8,6 +8,7 @@ interface UserMenuProps {
     userName?: string;
     nickname?: string;
     avatar?: string;
+    isAdmin?: boolean;
     onSignOut: () => void;
 }
 
@@ -19,7 +20,7 @@ interface UserMenuProps {
  * - Custom animated avatar trigger on hover (rotates like the logo)
  * - "Lab" (Wisdom Hall) access
  */
-export function UserMenu({ userName, nickname, avatar, onSignOut }: UserMenuProps) {
+export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOut }: UserMenuProps) {
     const router = useRouter();
 
     const handleMenuClick = (key: string) => {
@@ -27,6 +28,8 @@ export function UserMenu({ userName, nickname, avatar, onSignOut }: UserMenuProp
             router.push('/dashboard/memory');
         } else if (key === 'lab') {
             router.push('/dashboard/lab');
+        } else if (key === 'optimization') {
+            router.push('/dashboard/optimization');
         } else if (key === 'logout') {
             onSignOut();
         }
@@ -46,6 +49,16 @@ export function UserMenu({ userName, nickname, avatar, onSignOut }: UserMenuProp
                     <span>实验室</span>
                 </div>
             </Menu.Item>
+            {isAdmin && (
+                <Menu.Item key="optimization">
+                    <div className="flex items-center gap-2 py-1">
+                        <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
+                        <span>Prompt 优化</span>
+                    </div>
+                </Menu.Item>
+            )}
             <Divider style={{ margin: '4px 0' }} />
             <Menu.Item key="logout">
                 <div className="flex items-center gap-2 py-1 text-red-600">

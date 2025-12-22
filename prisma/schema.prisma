@@ -3,160 +3,231 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-// 1. User
 model User {
-  id            String    @id @default(cuid())
-  username      String    @unique
-  passwordHash  String
-  nickname      String?
-  avatar        String?
-  phone         String?   @unique // 新增：手机号（可选，兼容老账号）
-  quickLoginToken String? // 新增：快捷登录令牌
-  createdAt     DateTime  @default(now())
-  
-  conversations Conversation[]
-  reports       AssessmentReport[]
-  exerciseLogs  ExerciseLog[]
-  memories      UserMemory[]
+  id              String             @id @default(cuid())
+  username        String             @unique
+  passwordHash    String
+  nickname        String?
+  createdAt       DateTime           @default(now())
+  avatar          String?
+  phone           String?            @unique
+  quickLoginToken String?
+  reports         AssessmentReport[]
+  conversations   Conversation[]
+  exerciseLogs    ExerciseLog[]
+  memories        UserMemory[]
+  sessionSummaries SessionSummary[]
+  evaluations     ConversationEvaluation[]
 }
 
-// 1.1 InvitationCode
 model InvitationCode {
   id        String   @id @default(cuid())
-  code      String   @unique // 6位数字字母组合
-  type      String   @default("REGISTRATION") // 用途
+  code      String   @unique
+  type      String   @default("REGISTRATION")
   maxUsages Int      @default(1)
   usedCount Int      @default(0)
-  expiresAt DateTime 
-  channel   String?  // 渠道标识
+  expiresAt DateTime
+  channel   String?
   createdAt DateTime @default(now())
 }
 
-// 2. Conversation
 model Conversation {
-  id        String   @id @default(cuid())
+  id        String                  @id @default(cuid())
   userId    String
   title     String?
-  status    String   @default("ACTIVE") // 'ACTIVE' | 'COMPLETED'
-  isHidden  Boolean  @default(false)    // 软删除：从用户列表隐藏
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  user      User     @relation(fields: [userId], references: [id])
+  status    String                  @default("ACTIVE")
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  isHidden  Boolean                 @default(false)
+  user      User                    @relation(fields: [userId], references: [id])
   messages  Message[]
+  summary   SessionSummary?
+  evaluation ConversationEvaluation?
 }
 
-// 3. Message
 model Message {
-  id             String       @id @default(cuid())
+  id             String           @id @default(cuid())
   conversationId String
-  role           String       // 'user' | 'assistant' | 'system'
+  role           String
   content        String
   meta           Json?
-  createdAt      DateTime     @default(now())
-
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime         @default(now())
+  conversation   Conversation     @relation(fields: [conversationId], references: [id])
   feedback       MessageFeedback?
 }
 
-// 3.1 MessageFeedback - 用户对消息的反馈
 model MessageFeedback {
-  id          String   @id @default(cuid())
-  messageId   String   @unique
-  userId      String
-  rating      Int      // -1 (点踩) | 1 (点赞)
-  reason      String?  // 点踩原因：'unhelpful' | 'incorrect' | 'unsafe' | 'other'
-  comment     String?  // 可选的详细说明
-  createdAt   DateTime @default(now())
-
-  message     Message  @relation(fields: [messageId], references: [id])
+  id        String   @id @default(cuid())
+  messageId String   @unique
+  userId    String
+  rating    Int
+  reason    String?
+  comment   String?
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id])
 
   @@index([userId])
   @@index([rating])
 }
 
-// 4. AssessmentReport
 model AssessmentReport {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   userId         String
   conversationId String
-  
   summary        String
   riskLevel      String
   mainIssue      String?
-  
-  createdAt      DateTime @default(now())
-  
-  user           User     @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
   actionPlans    ActionPlan[]
+  user           User         @relation(fields: [userId], references: [id])
 }
 
-// 5. ActionPlan (Tool/Card)
 model ActionPlan {
-  id        String   @id @default(cuid())
-  reportId  String
-  
-  title     String
-  type      String
-  content   Json     // { steps: [], when, effort }
-  
-  isCompleted Boolean  @default(false)
-  
-  report    AssessmentReport @relation(fields: [reportId], references: [id])
-  logs      ExerciseLog[]
+  id          String           @id @default(cuid())
+  reportId    String
+  title       String
+  type        String
+  content     Json
+  isCompleted Boolean          @default(false)
+  report      AssessmentReport @relation(fields: [reportId], references: [id])
+  logs        ExerciseLog[]
 }
 
-// 6. ExerciseLog (Telemetry)
 model ExerciseLog {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   userId       String
   actionPlanId String?
-  
   type         String
-  duration     Int      // seconds
-  
+  duration     Int
   preMood      Int?
   postMood     Int?
   feedback     String?
-  
-  completedAt  DateTime @default(now())
-  
-  user         User        @relation(fields: [userId], references: [id])
+  completedAt  DateTime    @default(now())
   actionPlan   ActionPlan? @relation(fields: [actionPlanId], references: [id])
+  user         User        @relation(fields: [userId], references: [id])
 }
 
-// 7. UserMemory - 跨会话持久化的关键信息（记忆系统）
 model UserMemory {
-  id             String   @id @default(cuid())
-  userId         String
-  topic          String   // 记忆类型：emotional_pattern, coping_preference, personal_context, therapy_progress, trigger_warning
-  content        String   // 记忆内容
-  entities       Json?    // 提取的实体
-  relationships  Json?    // 提取的关系
-  confidence     Float    @default(0.8) // 置信度 0-1
-  sourceConvId   String?  // 来源会话ID
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  accessedAt     DateTime @default(now()) // 最后访问时间，用于遗忘机制
-  
-  user           User     @relation(fields: [userId], references: [id])
-  
+  id            String   @id @default(cuid())
+  userId        String
+  topic         String
+  content       String
+  confidence    Float    @default(0.8)
+  sourceConvId  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  accessedAt    DateTime @default(now())
+  entities      Json?
+  relationships Json?
+  user          User     @relation(fields: [userId], references: [id])
+
   @@index([userId, topic])
   @@index([userId, updatedAt])
 }
 
-// 8. MemoryExtractionLog - 记忆提取日志（用于追踪和调试）
 model MemoryExtractionLog {
   id             String   @id @default(cuid())
   conversationId String
   extractedCount Int
-  status         String   // 'success' | 'failed' | 'skipped'
+  status         String
   error          String?
   createdAt      DateTime @default(now())
+}
+
+model SessionSummary {
+  id             String       @id @default(cuid())
+  conversationId String       @unique
+  userId         String
+  
+  // 基础信息
+  mainTopic      String       // 主要议题
+  startTime      DateTime     // 会话开始时间
+  endTime        DateTime     // 会话结束时间
+  duration       Int          // 持续时间（分钟）
+  
+  // 情绪变化
+  emotionInitial Json         // { label: "焦虑", score: 7 }
+  emotionFinal   Json         // { label: "轻松", score: 4 }
+  
+  // 核心内容
+  keyInsights    Json         // ["洞察1", "洞察2"]
+  actionItems    Json         // ["行动1", "行动2"]
+  keyTopics      Json         // ["工作压力", "焦虑"]
+  
+  // 专业观察
+  therapistNote  String       // 咨询师观察
+  
+  createdAt      DateTime     @default(now())
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ConversationEvaluation {
+  id             String   @id @default(cuid())
+  conversationId String   @unique
+  userId         String
+  
+  // 评估分数（0-10）
+  legalScore        Int    // 法律合规性
+  ethicalScore      Int    // 伦理规范
+  professionalScore Int    // 专业性
+  uxScore           Int    // 用户体验
+  
+  // 发现的问题（JSON 数组）
+  legalIssues        Json   // string[]
+  ethicalIssues      Json   // string[]
+  professionalIssues Json   // string[]
+  uxIssues           Json   // string[]
+  
+  // 整体评级
+  overallGrade   String   // "A" | "B" | "C" | "D" | "F"
+  overallScore   Float    // 综合得分（0-10）
+  
+  // 改进建议
+  improvements   Json     // string[]
+  
+  // 元数据
+  evaluatedBy    String   @default("deepseek")
+  evaluatedAt    DateTime @default(now())
+  
+  // 审核状态: PENDING, ADOPTED, REJECTED
+  reviewStatus   String   @default("PENDING")
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  reviewNote     String?  // 驳回原因
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([overallGrade])
+  @@index([evaluatedAt])
+  @@index([overallScore])
+}
+
+model PromptOptimizationLog {
+  id              String    @id @default(cuid())
+  
+  // 分析结果
+  analyzedPeriod  String    // "2025-12-15 to 2025-12-22"
+  lowScoreCount   Int
+  commonIssues    Json
+  suggestions     Json      // string[]
+  affectedPrompts Json      // string[]
+  
+  // 元数据
+  createdAt       DateTime  @default(now())
+  appliedAt       DateTime?
+  appliedBy       String?
+  
+  @@index([createdAt])
 }
