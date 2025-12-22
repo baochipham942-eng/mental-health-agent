@@ -17,14 +17,7 @@ export function Logo() {
                 className="w-9 h-9 relative overflow-visible flex items-center justify-center shrink-0"
                 style={{ width: '36px', height: '36px', position: 'relative' }}
             >
-                {/* Static snow on tree */}
-                <div className="absolute inset-0 z-10 pointer-events-none">
-                    {/* Snow dots on tree */}
-                    <div className="absolute top-[8px] left-[12px] w-1.5 h-1.5 bg-white rounded-full shadow-sm opacity-90" />
-                    <div className="absolute top-[14px] left-[20px] w-1 h-1 bg-white rounded-full shadow-sm opacity-80" />
-                    <div className="absolute top-[10px] right-[10px] w-1.5 h-1.5 bg-white rounded-full shadow-sm opacity-85" />
-                    <div className="absolute top-[18px] left-[8px] w-1 h-1 bg-white rounded-full shadow-sm opacity-75" />
-                </div>
+
 
                 {/* Tree Element */}
                 <div className="absolute inset-0 translate-y-[4px] transition-transform duration-500 ease-out group-hover:rotate-[12deg] group-hover:scale-110">
