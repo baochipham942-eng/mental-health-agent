@@ -95,7 +95,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                     <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
                         {nickname || userName || '用户'}
                     </p>
-                    <p className="text-xs text-slate-400 font-normal">我的资料</p>
+                    <p className="text-xs text-slate-400 font-normal">个性化设置</p>
                 </div>
 
                 <svg
