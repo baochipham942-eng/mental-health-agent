@@ -94,32 +94,43 @@ export async function streamSupportReply(
     memoryContext?: string;
   }
 ) {
-  // 1. RAG 检索
-  let ragContext = '';
-  try {
-    const { getResourceService } = await import('../rag');
-    const resourceService = getResourceService();
-    const ragResult = resourceService.retrieve({
-      routeType: 'support',
-      userMessage: userMessage,
-    }, 2);
-    ragContext = ragResult.formattedContext;
-  } catch (e) {
-    console.error('[Support RAG] Failed:', e);
-  }
+  // 🚀 并行加载 RAG 和 Golden Examples
+  const [ragContext, goldenExamplesResult] = await Promise.all([
+    // RAG 检索
+    (async () => {
+      try {
+        const { getResourceService } = await import('../rag');
+        const resourceService = getResourceService();
+        const ragResult = resourceService.retrieve({
+          routeType: 'support',
+          userMessage: userMessage,
+        }, 2);
+        return ragResult.formattedContext;
+      } catch (e) {
+        console.error('[Support RAG] Failed:', e);
+        return '';
+      }
+    })(),
+    // Golden Examples
+    (async () => {
+      try {
+        const examples = await loadActiveGoldenExamples(3);
+        if (examples.length > 0) {
+          return {
+            context: formatGoldenExamplesForPrompt(examples),
+            ids: examples.map(e => e.id),
+          };
+        }
+        return { context: '', ids: [] };
+      } catch (e) {
+        console.error('[Support Golden Examples] Failed:', e);
+        return { context: '', ids: [] };
+      }
+    })(),
+  ]);
 
-  // 2. 加载黄金样本 (Few-Shot Examples)
-  let goldenExamplesContext = '';
-  let exampleIds: string[] = [];
-  try {
-    const examples = await loadActiveGoldenExamples(3);
-    if (examples.length > 0) {
-      goldenExamplesContext = formatGoldenExamplesForPrompt(examples);
-      exampleIds = examples.map(e => e.id);
-    }
-  } catch (e) {
-    console.error('[Support Golden Examples] Failed:', e);
-  }
+  const goldenExamplesContext = goldenExamplesResult.context;
+  const exampleIds = goldenExamplesResult.ids;
 
   const messages: ChatMessage[] = [
     {
