@@ -7,6 +7,7 @@ import { IconSend, IconClose, IconUser } from '@arco-design/web-react/icon';
 import { MBTIPersona } from '@/lib/ai/mbti/personas';
 import { cn } from '@/lib/utils/cn';
 import ReactMarkdown from 'react-markdown';
+import { VoiceInputButton } from '@/components/chat/VoiceInputButton';
 
 interface MBTIChatWindowProps {
     userMbti: string; // The user's own type
@@ -174,6 +175,11 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             placeholder={`作为 ${userMbti}，你想对 TA 说...`}
                             className="px-4 py-3 h-12 rounded-xl bg-gray-50 border-transparent hover:bg-white hover:border-indigo-300 focus:bg-white focus:border-indigo-500 transition-all text-base"
                             autoFocus
+                        />
+                        <VoiceInputButton
+                            onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+                            disabled={isLoading}
+                            size={48}
                         />
                         <Button
                             type="primary"

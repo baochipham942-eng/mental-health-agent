@@ -7,6 +7,7 @@ import { IconSend, IconClose, IconRobot, IconUser } from '@arco-design/web-react
 import { MentorPersona } from '@/lib/ai/mentors/personas';
 import { cn } from '@/lib/utils/cn';
 import ReactMarkdown from 'react-markdown';
+import { VoiceInputButton } from '@/components/chat/VoiceInputButton';
 
 interface MentorChatWindowProps {
     mentor: MentorPersona;
@@ -182,6 +183,11 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                                 }
                             }}
                             autoFocus
+                        />
+                        <VoiceInputButton
+                            onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+                            disabled={isLoading}
+                            size={48}
                         />
                         <Button
                             type="primary"
