@@ -5,6 +5,9 @@ import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsage
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
+ * 
+ * 【RAG 已移除】经分析，DeepSeek 已具备足够的心理健康知识，
+ * RAG 注入反而增加延迟和冗余 Token 消耗。
  */
 const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
 
@@ -31,7 +34,12 @@ const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
 
 **允许行为**：
 - ✅ 如果用户表达模糊（如"我有点累"），可以温和询问是否需要帮助
-- ✅ 如果用户表现出明确的痛苦信号，可以表达更多关心`;
+- ✅ 如果用户表现出明确的痛苦信号，可以表达更多关心
+
+**危机热线（仅在用户表达严重困扰时提供）**：
+- 全国心理援助热线：400-161-9995（24小时）
+- 希望24热线：400-161-9995（24小时）
+- 生命热线：400-821-1215（24小时）`;
 
 /**
  * 生成支持性倾听回复
@@ -44,24 +52,10 @@ export async function generateSupportReply(
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
   memoryContext?: string
 ): Promise<string> {
-  // 1. RAG 检索
-  let ragContext = '';
-  try {
-    const { getResourceService } = await import('../rag');
-    const resourceService = getResourceService();
-    const ragResult = resourceService.retrieve({
-      routeType: 'support',
-      userMessage: userMessage,
-    }, 2);
-    ragContext = ragResult.formattedContext;
-  } catch (e) {
-    console.error('[Support RAG] Failed:', e);
-  }
-
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${memoryContext ? `\n\n${memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
+      content: `${SUPPORT_PROMPT}${memoryContext ? `\n\n${memoryContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',
@@ -94,48 +88,23 @@ export async function streamSupportReply(
     memoryContext?: string;
   }
 ) {
-  // 🚀 并行加载 RAG 和 Golden Examples
-  const [ragContext, goldenExamplesResult] = await Promise.all([
-    // RAG 检索
-    (async () => {
-      try {
-        const { getResourceService } = await import('../rag');
-        const resourceService = getResourceService();
-        const ragResult = resourceService.retrieve({
-          routeType: 'support',
-          userMessage: userMessage,
-        }, 2);
-        return ragResult.formattedContext;
-      } catch (e) {
-        console.error('[Support RAG] Failed:', e);
-        return '';
-      }
-    })(),
-    // Golden Examples
-    (async () => {
-      try {
-        const examples = await loadActiveGoldenExamples(3);
-        if (examples.length > 0) {
-          return {
-            context: formatGoldenExamplesForPrompt(examples),
-            ids: examples.map(e => e.id),
-          };
-        }
-        return { context: '', ids: [] };
-      } catch (e) {
-        console.error('[Support Golden Examples] Failed:', e);
-        return { context: '', ids: [] };
-      }
-    })(),
-  ]);
-
-  const goldenExamplesContext = goldenExamplesResult.context;
-  const exampleIds = goldenExamplesResult.ids;
+  // 加载黄金样本 (Few-Shot Examples)
+  let goldenExamplesContext = '';
+  let exampleIds: string[] = [];
+  try {
+    const examples = await loadActiveGoldenExamples(3);
+    if (examples.length > 0) {
+      goldenExamplesContext = formatGoldenExamplesForPrompt(examples);
+      exampleIds = examples.map(e => e.id);
+    }
+  } catch (e) {
+    console.error('[Support Golden Examples] Failed:', e);
+  }
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
+      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',

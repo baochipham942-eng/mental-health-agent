@@ -1,9 +1,10 @@
 'use client';
 
-import { KeyboardEvent, useRef, useEffect } from 'react';
+import { KeyboardEvent, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@arco-design/web-react';
 import { IconSend } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
+import { VoiceInputButton } from './VoiceInputButton';
 
 interface ChatInputProps {
   value: string;
@@ -12,8 +13,8 @@ interface ChatInputProps {
   isLoading?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  showDisclaimer?: boolean; // 是否显示免责声明
-  autoFocus?: boolean; // 是否自动聚焦
+  showDisclaimer?: boolean;
+  autoFocus?: boolean;
 }
 
 export function ChatInput({
@@ -47,10 +48,9 @@ export function ChatInput({
     adjustHeight();
   }, [value]);
 
-  // 自动聚焦：组件挂载时自动聚焦输入框
+  // 自动聚焦
   useEffect(() => {
     if (autoFocus && textareaRef.current && !disabled) {
-      // 使用 setTimeout 确保 DOM 完全渲染后再聚焦
       const timer = setTimeout(() => {
         textareaRef.current?.focus();
       }, 100);
@@ -66,6 +66,17 @@ export function ChatInput({
       console.warn('Input change error:', error);
     }
   };
+
+  // 语音输入回调
+  const handleVoiceTranscript = useCallback((text: string) => {
+    if (text.trim()) {
+      // 追加到现有文本（如果有的话）
+      const newValue = value.trim() ? `${value} ${text}` : text;
+      onChange(newValue);
+      // 聚焦到输入框
+      textareaRef.current?.focus();
+    }
+  }, [value, onChange]);
 
   const valueStr = typeof value === 'string' ? value : '';
   const trimmedValue = valueStr.trim();
@@ -104,7 +115,6 @@ export function ChatInput({
       onSend(value);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
-        // Keep focus on textarea after sending
         requestAnimationFrame(() => {
           textareaRef.current?.focus();
         });
@@ -132,7 +142,7 @@ export function ChatInput({
 
   return (
     <div className="w-full">
-      {/* 输入框容器 - 白色背景作为整体 */}
+      {/* 输入框容器 */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 flex gap-2 items-end">
         <textarea
           ref={textareaRef}
@@ -141,7 +151,7 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          readOnly={disabled && !isLoading} // Allow typing while loading
+          readOnly={disabled && !isLoading}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
@@ -150,7 +160,7 @@ export function ChatInput({
           data-form-type="other"
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-xl px-3 py-3', // Increased py for better centering on single line
+            'flex-1 resize-none rounded-xl px-3 py-3',
             'text-gray-900 placeholder:text-gray-400',
             'bg-transparent border-none',
             'focus:outline-none focus:ring-0',
@@ -163,6 +173,15 @@ export function ChatInput({
             maxHeight: '160px',
           }}
         />
+
+        {/* 语音输入按钮 */}
+        <VoiceInputButton
+          onTranscript={handleVoiceTranscript}
+          disabled={disabled || isLoading}
+          size={40}
+        />
+
+        {/* 发送按钮 */}
         <Button
           type="primary"
           size="large"
@@ -183,7 +202,7 @@ export function ChatInput({
         />
       </div>
 
-      {/* 免责声明 - 简洁版本 */}
+      {/* 免责声明 */}
       {showDisclaimer && (
         <p className="text-[11px] text-gray-400 mt-2 text-center">
           内容由 AI 生成，不能替代专业心理咨询服务
