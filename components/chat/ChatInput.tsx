@@ -141,7 +141,7 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          readOnly={disabled}
+          readOnly={disabled && !isLoading} // Allow typing while loading
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
@@ -156,7 +156,7 @@ export function ChatInput({
             'focus:outline-none focus:ring-0',
             'overflow-y-auto transition-all duration-200',
             'leading-6 text-[15px]',
-            disabled && 'cursor-not-allowed opacity-60'
+            disabled && !isLoading && 'cursor-not-allowed opacity-60'
           )}
           style={{
             minHeight: '44px',
