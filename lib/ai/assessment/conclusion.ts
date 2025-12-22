@@ -3,7 +3,6 @@ import { ASSESSMENT_CONCLUSION_PROMPT, ASSESSMENT_CONCLUSION_STREAMING_PROMPT } 
 import { ActionCard } from '../../../types/chat';
 import { gateAssessment, gateActionCardsSteps, GateResult } from './gates';
 import { sanitizeActionCards } from './sanitize';
-import { getResourceService, RetrievalContext, AnyResource } from '../../rag';
 import { AssessmentConclusionSchema } from '../schemas';
 
 export interface AssessmentConclusionResult {
@@ -19,7 +18,6 @@ export interface AssessmentConclusionResult {
     userPrompt: string;
     messages: Array<{ role: string; content: string }>;
   };
-  resources?: AnyResource[]; // 新增：检索到的 RAG 资源
 }
 
 /**
@@ -78,29 +76,8 @@ export async function generateAssessmentConclusion(
   const cleanedFollowupAnswer = deduplicateFollowupAnswer(followupAnswer, initialMessage);
   const shouldIncludeHistory = process.env.CONCLUSION_INCLUDE_HISTORY === '1';
 
-  // 1. RAG 检索
-  let ragContext = '';
-  let retrievedResources: AnyResource[] = [];
-  try {
-    const resourceService = getResourceService();
-    const retrievalContext: RetrievalContext = {
-      routeType: 'assessment',
-      userMessage: `${initialMessage} ${cleanedFollowupAnswer}`,
-    };
-    const ragResult = resourceService.retrieve(retrievalContext, 2);
-    if (ragResult.resources.length > 0) {
-      ragContext = ragResult.formattedContext;
-      retrievedResources = ragResult.resources.map(r => r.resource);
-      console.log(`[RAG] Retrieved ${ragResult.resources.length} resources`);
-    }
-  } catch (ragError) {
-    console.error('[RAG] Failed to retrieve resources:', ragError);
-  }
-
-  // 2. 构建 Prompt
-  const enhancedSystemPrompt = ragContext
-    ? `${ASSESSMENT_CONCLUSION_PROMPT}\n\n${ragContext}`
-    : ASSESSMENT_CONCLUSION_PROMPT;
+  // 构建 Prompt
+  const enhancedSystemPrompt = ASSESSMENT_CONCLUSION_PROMPT;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: enhancedSystemPrompt },
@@ -108,7 +85,7 @@ export async function generateAssessmentConclusion(
     { role: 'user', content: `初始主诉：${initialMessage}\n\n对评估问题的回答：${cleanedFollowupAnswer}` },
   ];
 
-  // 3. 调用 LLM (结构化生成) - 增加一次重试机会
+  // 调用 LLM (结构化生成) - 增加一次重试机会
   let result;
   try {
     result = await chatStructuredCompletion(messages, AssessmentConclusionSchema, {
@@ -140,7 +117,7 @@ export async function generateAssessmentConclusion(
     throw new Error('Unexpected state: conclusion result is null');
   }
 
-  // 4. 组装回复（保持向后兼容 UI）
+  // 组装回复（保持向后兼容 UI）
   const reply = `【初筛总结】
 ${result.summary}
 
@@ -152,10 +129,10 @@ ${result.nextStepList.map(step => `• ${step}`).join('\n')}`;
 
   let actionCards = result.actionCards as ActionCard[];
 
-  // 5. 基础清洗 (Sanitize) 
+  // 基础清洗 (Sanitize) 
   actionCards = sanitizeActionCards(actionCards);
 
-  // 6. 质量监控 (仅记录日志)
+  // 质量监控 (仅记录日志)
   let gateResult = null;
   if (process.env.GATE_FIX !== '0') {
     const textGate = gateAssessment(reply);
@@ -187,7 +164,6 @@ ${result.nextStepList.map(step => `• ${step}`).join('\n')}`;
     actionCards,
     gate: gateResult || undefined,
     debugPrompts,
-    resources: retrievedResources,
   };
 }
 
@@ -200,31 +176,13 @@ export async function streamAssessmentConclusion(
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
   options?: {
     traceMetadata?: Record<string, any>;
-    onFinish?: (text: string, actionCards: ActionCard[], resources: AnyResource[]) => Promise<void>;
+    onFinish?: (text: string, actionCards: ActionCard[]) => Promise<void>;
   }
 ) {
   const cleanedFollowupAnswer = deduplicateFollowupAnswer(followupAnswer, initialMessage);
   const shouldIncludeHistory = process.env.CONCLUSION_INCLUDE_HISTORY === '1';
 
-  // 1. RAG 检索
-  let ragContext = '';
-  let retrievedResources: AnyResource[] = [];
-  try {
-    const resourceService = getResourceService();
-    const retrievalContext: RetrievalContext = {
-      routeType: 'assessment',
-      userMessage: `${initialMessage} ${cleanedFollowupAnswer}`,
-    };
-    const ragResult = resourceService.retrieve(retrievalContext, 2);
-    if (ragResult.resources.length > 0) {
-      ragContext = ragResult.formattedContext;
-      retrievedResources = ragResult.resources.map(r => r.resource);
-    }
-  } catch (ragError) {
-    console.error('[RAG] Failed to retrieve resources:', ragError);
-  }
-
-  // 2. 构建 Prompt (使用流式专用 Prompt)
+  // 构建 Prompt (使用流式专用 Prompt)
   const conclusionPrompt = ASSESSMENT_CONCLUSION_STREAMING_PROMPT ||
     `你是心理评估师。根据初始主诉和回答生成结构化的初筛总结。
     
@@ -240,9 +198,7 @@ export async function streamAssessmentConclusion(
     
     注意：保持温和、专业、客观。`;
 
-  const enhancedSystemPrompt = ragContext
-    ? `${conclusionPrompt}\n\n${ragContext}`
-    : conclusionPrompt;
+  const enhancedSystemPrompt = conclusionPrompt;
 
   const messages: ChatMessage[] = [
     { role: 'system', content: enhancedSystemPrompt },
@@ -278,7 +234,7 @@ export async function streamAssessmentConclusion(
           console.error('[Conclusion] Failed to generate cards in onFinish:', cardError);
         }
 
-        await options.onFinish(text, actionCards, retrievedResources);
+        await options.onFinish(text, actionCards);
       }
     }
   });

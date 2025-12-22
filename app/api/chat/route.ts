@@ -522,17 +522,15 @@ export async function POST(request: NextRequest) {
         const initialMsg = allUserMessages[0] || message;
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
-        const onConclusionFinish = async (text: string, actionCards: any[], resources: any[]) => {
+        const onConclusionFinish = async (text: string, actionCards: any[]) => {
           await saveAssistantMessage(text, {
             routeType: 'assessment',
             assessmentStage: 'conclusion',
             actionCards,
-            resources
           });
           data.append({
             reply: text,
             actionCards,
-            resources,
             routeType: 'assessment',
             assessmentStage: 'conclusion'
           } as any);
