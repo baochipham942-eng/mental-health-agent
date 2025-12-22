@@ -333,8 +333,9 @@ export function MessageBubble({
                           <div className="prose prose-sm max-w-none text-gray-700 space-y-2 leading-relaxed">
                             <ReactMarkdown>{assistantQuestions[0]}</ReactMarkdown>
                           </div>
-                          {/* 修复：在 gap_followup 阶段，如果问题包含 0-10 量表，显示可点击选项 */}
-                          {assistantQuestions[0] && /0-10|0\s*到\s*10|0\s*至\s*10|打分|评分/.test(assistantQuestions[0]) && (
+                          {/* 修复：在 gap_followup 阶段，如果问题明确要求用0-10评分，显示可点击选项 */}
+                          {/* 更严格的检测：需要明确的评分请求模式，避免误触发 */}
+                          {assistantQuestions[0] && /用\s*0\s*[-到至]\s*10\s*(分|打分|评分)|请.*打分|给.*评分|0\s*[-到至]\s*10\s*分.*评/.test(assistantQuestions[0]) && (
                             <>
                               <p className="text-xs text-gray-600 mt-2 italic">
                                 提示：点击数字即可发送
@@ -366,9 +367,10 @@ export function MessageBubble({
                       <div className="text-red-500 text-xs mt-1">Debug: Content is empty</div>
                     )}
 
-                    {/* 修复：在 gap_followup 阶段，如果 assistant 文本包含 0-10 量表，显示可点击选项 */}
+                    {/* 修复：在 gap_followup 阶段，如果 assistant 文本明确要求用0-10评分，显示可点击选项 */}
+                    {/* 更严格的检测：需要明确的评分请求模式，避免误触发 */}
                     {(isGapFollowup || (routeType === 'assessment' && assessmentStage === 'gap_followup')) &&
-                      (quickReplyMode === 'scale0to10' || /0-10|0\s*到\s*10|0\s*至\s*10|打分|评分/.test(message.content)) && (
+                      (quickReplyMode === 'scale0to10' || /用\s*0\s*[-到至]\s*10\s*(分|打分|评分)|请.*打分|给.*评分|0\s*[-到至]\s*10\s*分.*评/.test(message.content)) && (
                         <>
                           <p className="text-xs text-gray-600 mt-2 italic">
                             提示：点击数字即可发送
