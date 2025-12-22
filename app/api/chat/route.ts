@@ -268,11 +268,30 @@ export async function POST(request: NextRequest) {
 
     const data = new StreamData();
     const traceMetadata = { sessionId, userId };
+
+    // Timeout wrapper to prevent Vercel 10s timeout on free tier
+    // If pre-stream AI calls take too long, use defaults and continue
+    const withTimeout = <T,>(promise: Promise<T>, fallback: T, timeoutMs = 5000): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((resolve) => setTimeout(() => {
+          console.warn('[Timeout] Pre-stream AI call timed out, using fallback');
+          resolve(fallback);
+        }, timeoutMs))
+      ]);
+    };
+
     const emotionPromise = analyzeEmotion(message, traceMetadata);
     const orchestrationPromise = coordinateAgents(message, history.map(m => ({ role: m.role as any, content: m.content })), { traceMetadata });
 
-    // Run parallel
-    const [emotion, orchestration] = await Promise.all([emotionPromise, orchestrationPromise]);
+    // Run parallel with 5s timeout to avoid Vercel 10s limit
+    const defaultEmotion = { label: '平静' as const, score: 5, confidence: 0.5 };
+    const defaultOrchestration: OrchestrationResult = { safety: { reasoning: 'Timeout fallback', label: 'normal', score: 0 } };
+
+    const [emotion, orchestration] = await Promise.all([
+      withTimeout(emotionPromise, defaultEmotion, 4000),
+      withTimeout(orchestrationPromise, defaultOrchestration, 4000)
+    ]);
 
     const emotionObj = emotion ? { label: emotion.label, score: emotion.score } : null;
     let routeType = determineRouteType(message, orchestration, emotionObj ? emotionObj : undefined);
