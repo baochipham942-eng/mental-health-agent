@@ -36,8 +36,8 @@ export function Logo() {
                     />
                 </div>
 
-                {/* Hat Element */}
-                <div className="absolute -top-[3px] left-0 w-full h-full scale-[0.65] transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-[12deg] group-hover:scale-[0.75] group-hover:translate-x-1">
+                {/* Hat Element - z-30 to stay in front of snow */}
+                <div className="absolute -top-[3px] left-0 w-full h-full scale-[0.65] z-30 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-[12deg] group-hover:scale-[0.75] group-hover:translate-x-1">
                     <Image
                         src="/logo-hat.svg"
                         alt="圣诞帽"
