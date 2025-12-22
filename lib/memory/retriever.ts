@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma';
+import { calculateMemoryStrength, updateAfterAccess } from './forgetting-curve';
 import type { Memory, MemoryTopic, MemoryRetrievalOptions, ALL_MEMORY_TOPICS } from './types';
 
 /**
@@ -64,6 +65,10 @@ export async function retrieveMemories(
         createdAt: m.createdAt,
         updatedAt: m.updatedAt,
         accessedAt: m.accessedAt,
+        // Ebbinghaus forgetting curve fields
+        accessCount: m.accessCount,
+        stabilityFactor: m.stabilityFactor,
+        memoryStrength: m.memoryStrength,
     }));
 }
 
@@ -89,7 +94,7 @@ export async function retrieveRelevantMemories(
     // 获取所有记忆
     const allMemories = await retrieveMemories(userId, { limit: 50, minConfidence });
 
-    // 基于关键词相关性排序
+    // 基于关键词相关性排序，使用艾宾浩斯记忆强度
     const scored = allMemories.map(memory => {
         let score = 0;
         for (const keyword of keywords) {
@@ -97,13 +102,12 @@ export async function retrieveRelevantMemories(
                 score += keyword.length > 2 ? 2 : 1;
             }
         }
-        // 加入时间衰减因子
-        const daysSinceUpdate = (Date.now() - memory.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
-        const recencyBoost = Math.max(0, 1 - daysSinceUpdate / 30);
+        // 使用艾宾浩斯记忆强度替代简单的线性衰减
+        const strength = calculateMemoryStrength(memory);
 
         return {
             memory,
-            score: score + recencyBoost + memory.confidence,
+            score: score + strength + memory.confidence,
         };
     });
 

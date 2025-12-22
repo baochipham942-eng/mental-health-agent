@@ -49,6 +49,10 @@ export interface Memory {
     createdAt: Date;
     updatedAt: Date;
     accessedAt: Date;
+    // Ebbinghaus forgetting curve fields
+    accessCount: number;
+    stabilityFactor: number;
+    memoryStrength: number;
 }
 
 /**

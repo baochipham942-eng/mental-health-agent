@@ -27,3 +27,15 @@ export { formatMemoriesForInjection } from './prompts';
 
 // PII工具
 export { redactPII, containsPII } from './redact';
+
+// 艾宾浩斯遗忘曲线
+export {
+    calculateMemoryStrength,
+    updateAfterAccess,
+    shouldForget,
+    rankByStrength,
+    getMemoriesToPrune,
+    FORGETTING_TOPICS,
+    SLOW_DECAY_TOPICS,
+    PERMANENT_TOPICS,
+} from './forgetting-curve';

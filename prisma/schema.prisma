@@ -113,18 +113,22 @@ model ExerciseLog {
 }
 
 model UserMemory {
-  id            String   @id @default(cuid())
-  userId        String
-  topic         String
-  content       String
-  confidence    Float    @default(0.8)
-  sourceConvId  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  accessedAt    DateTime @default(now())
-  entities      Json?
-  relationships Json?
-  user          User     @relation(fields: [userId], references: [id])
+  id              String   @id @default(cuid())
+  userId          String
+  topic           String
+  content         String
+  confidence      Float    @default(0.8)
+  sourceConvId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  accessedAt      DateTime @default(now())
+  entities        Json?
+  relationships   Json?
+  // Ebbinghaus forgetting curve fields
+  accessCount     Int      @default(1)    // Number of times this memory was accessed
+  stabilityFactor Float    @default(1.0)  // Memory stability (increases with each access)
+  memoryStrength  Float    @default(1.0)  // Current memory strength (0-1, decays over time)
+  user            User     @relation(fields: [userId], references: [id])
 
   @@index([userId, topic])
   @@index([userId, updatedAt])
