@@ -1,0 +1,20 @@
+{
+  "id": "snapshot-1766416348088-i0bh",
+  "version": "1.0",
+  "createdAt": "2025-12-22T15:12:28.088Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Test persistence message"
+    },
+    {
+      "role": "assistant",
+      "content": "听起来你正在测试消息的持久性。我注意到你最近工作压力较大，思绪纷乱的情况持续了半个月。\n\n方便的话，可以和我分享一下你此刻的感受吗？\n\n*来源：心灵树洞专业知识库 | 认知行为疗法（CBT）实践指南*"
+    }
+  ],
+  "tags": [
+    "negative_feedback",
+    "unknown"
+  ],
+  "source": "auto_negative_feedback"
+}

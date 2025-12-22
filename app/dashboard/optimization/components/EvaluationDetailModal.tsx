@@ -32,6 +32,10 @@ interface ConversationMessage {
     role: string;
     content: string;
     createdAt: string;
+    feedback?: {
+        rating: number; // 1 = thumbs up, -1 = thumbs down
+        reason?: string;
+    } | null;
 }
 
 interface EvaluationDetailModalProps {
@@ -415,6 +419,15 @@ export default function EvaluationDetailModal({
                             {/* Tab 3: 原始对话 */}
                             <TabPane key="conversation" title="💬 原始对话">
                                 <div className="p-4">
+                                    {/* 对话统计 */}
+                                    {messages.length > 0 && (
+                                        <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                                            <span>📊 <strong>{messages.length}</strong> 条消息</span>
+                                            <span>🔄 <strong>{messages.filter(m => m.role === 'user').length}</strong> 轮对话</span>
+                                            <span>👍 <strong>{messages.filter(m => m.feedback?.rating === 1).length}</strong> 点赞</span>
+                                            <span>👎 <strong>{messages.filter(m => m.feedback?.rating === -1).length}</strong> 点踩</span>
+                                        </div>
+                                    )}
                                     {loadingMessages ? (
                                         <div className="text-center py-8"><Spin /></div>
                                     ) : messages.length === 0 ? (
@@ -434,6 +447,19 @@ export default function EvaluationDetailModal({
                                                     >
                                                         <div className="text-xs opacity-70 mb-1">
                                                             {msg.role === 'user' ? '👤 用户' : '🤖 AI'} · {new Date(msg.createdAt).toLocaleTimeString('zh-CN')}
+                                                            {/* Feedback indicator for AI messages */}
+                                                            {msg.role === 'assistant' && msg.feedback && (
+                                                                <span
+                                                                    className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${msg.feedback.rating === 1
+                                                                        ? 'bg-green-100 text-green-700'
+                                                                        : 'bg-red-100 text-red-700'
+                                                                        }`}
+                                                                    title={msg.feedback.reason || undefined}
+                                                                >
+                                                                    {msg.feedback.rating === 1 ? '👍' : '👎'}
+                                                                    {msg.feedback.reason && ` ${msg.feedback.reason}`}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
                                                     </div>

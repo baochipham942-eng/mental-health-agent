@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, Button, Space, Message, Pagination, Statistic, Grid } from '@arco-design/web-react';
-import { IconPlus, IconPlayArrow, IconDelete } from '@arco-design/web-react/icon';
+import { Card, Button, Space, Message, Pagination, Statistic, Grid, Tabs, Badge } from '@arco-design/web-react';
+import { IconPlus, IconPlayArrow, IconDelete, IconExclamationCircle, IconThumbDown, IconLoop, IconStar } from '@arco-design/web-react/icon';
 import EvaluationList, { Evaluation } from './components/EvaluationList';
 import SelectConversationModal from './components/SelectConversationModal';
 import EvaluationDetailModal from './components/EvaluationDetailModal';
+import EventFeedTab from './components/EventFeedTab';
+import GoldenSamplesTab from './components/GoldenSamplesTab';
 
 const Row = Grid.Row;
 const Col = Grid.Col;
+const TabPane = Tabs.TabPane;
 
 interface Stats {
     allConversations: number;
@@ -17,9 +20,16 @@ interface Stats {
     lowScore: number;
 }
 
+interface EventStats {
+    LOW_SCORE: number;
+    NEGATIVE_FEEDBACK: number;
+    STUCK_LOOP: number;
+}
+
 export default function OptimizationPage() {
     const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
     const [stats, setStats] = useState<Stats>({ allConversations: 0, pending: 0, completed: 0, lowScore: 0 });
+    const [eventStats, setEventStats] = useState<EventStats>({ LOW_SCORE: 0, NEGATIVE_FEEDBACK: 0, STUCK_LOOP: 0 });
     const [loading, setLoading] = useState(false);
     const [evaluating, setEvaluating] = useState(false);
     const [page, setPage] = useState(1);
@@ -33,6 +43,7 @@ export default function OptimizationPage() {
     // 初始加载
     useEffect(() => {
         loadEvaluations();
+        loadEventStats();
     }, [page]);
 
     const loadEvaluations = async () => {
@@ -51,6 +62,18 @@ export default function OptimizationPage() {
             Message.error('加载评估列表失败');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadEventStats = async () => {
+        try {
+            const res = await fetch('/api/optimization/events?type=ALL&status=PENDING&pageSize=1');
+            if (res.ok) {
+                const data = await res.json();
+                setEventStats(data.stats || { LOW_SCORE: 0, NEGATIVE_FEEDBACK: 0, STUCK_LOOP: 0 });
+            }
+        } catch (error) {
+            console.error('Failed to load event stats:', error);
         }
     };
 
@@ -152,6 +175,35 @@ export default function OptimizationPage() {
         setDetailModalVisible(true);
     };
 
+    // 点击事件行查看详情（根据 conversationId 获取评估数据）
+    const handleEventClick = async (event: { conversationId: string }) => {
+        // 快速路径：先从已有的 evaluations 中查找
+        const existing = evaluations.find(e => e.conversationId === event.conversationId);
+        if (existing) {
+            setSelectedEvaluation(existing);
+            setDetailModalVisible(true);
+            return;
+        }
+
+        // 慢路径：创建一个临时的 Evaluation 对象，让 Modal 自己加载消息
+        // 这样可以立即打开 Modal，用户能看到加载状态而不是等待
+        const tempEvaluation = {
+            id: `temp-${event.conversationId}`,
+            conversationId: event.conversationId,
+            conversationTitle: '加载中...',
+            evaluatedAt: new Date().toISOString(),
+            overallGrade: 'EVALUATING',
+            overallScore: 0,
+            legalScore: 0, legalIssues: [],
+            ethicalScore: 0, ethicalIssues: [],
+            professionalScore: 0, professionalIssues: [],
+            uxScore: 0, uxIssues: [],
+        } as any;
+
+        setSelectedEvaluation(tempEvaluation);
+        setDetailModalVisible(true);
+    };
+
     return (
         <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 to-indigo-50">
             <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -207,58 +259,125 @@ export default function OptimizationPage() {
                     </Col>
                 </Row>
 
-                {/* Actions */}
-                <Card className="shadow-md">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">评估列表</h3>
-                        <Space>
-                            <Button
-                                icon={<IconPlus />}
-                                onClick={() => setSelectModalVisible(true)}
-                            >
-                                选择会话
-                            </Button>
-                            <Button
-                                type="primary"
-                                icon={<IconPlayArrow />}
-                                loading={evaluating}
-                                onClick={handleBatchEvaluate}
-                                disabled={selectedPendingCount === 0}
-                            >
-                                {evaluating ? '评估中...' : `批量评估 (${selectedPendingCount})`}
-                            </Button>
-                            <Button
-                                status="danger"
-                                icon={<IconDelete />}
-                                onClick={handleDeleteSelected}
-                                disabled={selectedEvaluationIds.length === 0}
-                            >
-                                删除 ({selectedEvaluationIds.length})
-                            </Button>
-                        </Space>
-                    </div>
-                </Card>
+                {/* 4-Tab Layout */}
+                <Tabs defaultActiveTab="all" type="rounded">
+                    {/* Tab 1: 全部会话 (现有功能) */}
+                    <TabPane key="all" title={<span>📋 全部会话</span>}>
+                        {/* Actions */}
+                        <Card className="shadow-md mb-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold">评估列表</h3>
+                                <Space>
+                                    <Button
+                                        icon={<IconPlus />}
+                                        onClick={() => setSelectModalVisible(true)}
+                                    >
+                                        选择会话
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        icon={<IconPlayArrow />}
+                                        loading={evaluating}
+                                        onClick={handleBatchEvaluate}
+                                        disabled={selectedPendingCount === 0}
+                                    >
+                                        {evaluating ? '评估中...' : `批量评估 (${selectedPendingCount})`}
+                                    </Button>
+                                    <Button
+                                        status="danger"
+                                        icon={<IconDelete />}
+                                        onClick={handleDeleteSelected}
+                                        disabled={selectedEvaluationIds.length === 0}
+                                    >
+                                        删除 ({selectedEvaluationIds.length})
+                                    </Button>
+                                </Space>
+                            </div>
+                        </Card>
 
-                {/* Evaluation List */}
-                <EvaluationList
-                    evaluations={evaluations}
-                    loading={loading}
-                    selectedRowKeys={selectedEvaluationIds}
-                    onSelectionChange={setSelectedEvaluationIds}
-                    onRowClick={handleRowClick}
-                />
-
-                {/* Pagination */}
-                {total > pageSize && (
-                    <div className="flex justify-center">
-                        <Pagination
-                            current={page}
-                            pageSize={pageSize}
-                            total={total}
-                            onChange={setPage}
+                        {/* Evaluation List */}
+                        <EvaluationList
+                            evaluations={evaluations}
+                            loading={loading}
+                            selectedRowKeys={selectedEvaluationIds}
+                            onSelectionChange={setSelectedEvaluationIds}
+                            onRowClick={handleRowClick}
                         />
-                    </div>
-                )}
+
+                        {/* Pagination */}
+                        {total > pageSize && (
+                            <div className="flex justify-center mt-4">
+                                <Pagination
+                                    current={page}
+                                    pageSize={pageSize}
+                                    total={total}
+                                    onChange={setPage}
+                                />
+                            </div>
+                        )}
+                    </TabPane>
+
+                    {/* Tab 2: 死循环 */}
+                    <TabPane
+                        key="stuck"
+                        title={
+                            <span>
+                                <IconLoop style={{ marginRight: 4 }} />
+                                死循环
+                                {eventStats.STUCK_LOOP > 0 && (
+                                    <Badge count={eventStats.STUCK_LOOP} style={{ marginLeft: 6 }} />
+                                )}
+                            </span>
+                        }
+                    >
+                        <EventFeedTab type="STUCK_LOOP" onRowClick={handleEventClick} />
+                    </TabPane>
+
+                    {/* Tab 3: 低分会话 */}
+                    <TabPane
+                        key="low_score"
+                        title={
+                            <span>
+                                <IconExclamationCircle style={{ marginRight: 4 }} />
+                                低分会话
+                                {eventStats.LOW_SCORE > 0 && (
+                                    <Badge count={eventStats.LOW_SCORE} style={{ marginLeft: 6 }} />
+                                )}
+                            </span>
+                        }
+                    >
+                        <EventFeedTab type="LOW_SCORE" onRowClick={handleEventClick} />
+                    </TabPane>
+
+                    {/* Tab 4: 差评反馈 */}
+                    <TabPane
+                        key="feedback"
+                        title={
+                            <span>
+                                <IconThumbDown style={{ marginRight: 4 }} />
+                                差评反馈
+                                {eventStats.NEGATIVE_FEEDBACK > 0 && (
+                                    <Badge count={eventStats.NEGATIVE_FEEDBACK} style={{ marginLeft: 6 }} />
+                                )}
+                            </span>
+                        }
+                    >
+                        <EventFeedTab type="NEGATIVE_FEEDBACK" onRowClick={handleEventClick} />
+                    </TabPane>
+
+                    {/* Tab 5: 黄金样本 */}
+                    <TabPane
+                        key="golden"
+                        title={
+                            <span>
+                                <IconStar style={{ marginRight: 4, color: '#ffc53d' }} />
+                                黄金样本
+                            </span>
+                        }
+                    >
+                        <GoldenSamplesTab onRowClick={(s) => handleEventClick({ conversationId: s.conversationId })} />
+                    </TabPane>
+                </Tabs>
 
                 {/* Select Conversation Modal */}
                 <SelectConversationModal
@@ -280,6 +399,6 @@ export default function OptimizationPage() {
                     }}
                 />
             </div>
-        </div>
+        </div >
     );
 }

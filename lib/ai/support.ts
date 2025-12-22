@@ -1,6 +1,7 @@
 import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
 import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
+import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsageCount } from './golden-examples';
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -107,10 +108,23 @@ export async function streamSupportReply(
     console.error('[Support RAG] Failed:', e);
   }
 
+  // 2. 加载黄金样本 (Few-Shot Examples)
+  let goldenExamplesContext = '';
+  let exampleIds: string[] = [];
+  try {
+    const examples = await loadActiveGoldenExamples(3);
+    if (examples.length > 0) {
+      goldenExamplesContext = formatGoldenExamplesForPrompt(examples);
+      exampleIds = examples.map(e => e.id);
+    }
+  } catch (e) {
+    console.error('[Support Golden Examples] Failed:', e);
+  }
+
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
+      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${ragContext ? `\n\n${ragContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',
@@ -121,6 +135,11 @@ export async function streamSupportReply(
       content: userMessage,
     },
   ];
+
+  // 异步更新黄金样本使用统计
+  if (exampleIds.length > 0) {
+    incrementUsageCount(exampleIds).catch(() => { });
+  }
 
   return await streamChatCompletion(messages, {
     temperature: 0.8,

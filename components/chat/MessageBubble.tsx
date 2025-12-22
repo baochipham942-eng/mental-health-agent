@@ -4,6 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '@/types/chat';
+import { Message as Toast } from '@arco-design/web-react';
+import { IconThumbUp, IconThumbDown, IconThumbUpFill, IconThumbDownFill } from '@arco-design/web-react/icon';
 import { formatTime } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { ConclusionSections } from './ConclusionSections';
@@ -432,6 +434,65 @@ export function MessageBubble({
       )}>
         {formatTime(message.timestamp)}
       </span>
+
+      {/* Feedback Buttons (Only for Assistant & Not Placeholder) */}
+      {!isUser && !isPlaceholderMessage && !isSending && (
+        <FeedbackButtons messageId={message.id} />
+      )}
+    </div>
+  );
+}
+
+function FeedbackButtons({ messageId }: { messageId: string }) {
+  const [rating, setRating] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRate = async (newRating: number) => {
+    if (isSubmitting || rating === newRating) return;
+
+    // Optimistic UI update
+    setRating(newRating);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, rating: newRating })
+      });
+
+      if (!res.ok) throw new Error('Failed to submit feedback');
+    } catch (e) {
+      console.error('Feedback failed:', e);
+      Toast.error('反馈提交失败，请稍后重试');
+      setRating(null); // Revert on error
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 px-2 opacity-40 hover:opacity-100 transition-opacity duration-300">
+      <button
+        onClick={() => handleRate(1)}
+        className={cn(
+          "flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors bg-transparent border-none cursor-pointer outline-none",
+          rating === 1 ? "text-indigo-600" : "text-gray-500"
+        )}
+        title="有帮助"
+      >
+        {rating === 1 ? <IconThumbUpFill /> : <IconThumbUp />}
+      </button>
+      <button
+        onClick={() => handleRate(-1)}
+        className={cn(
+          "flex items-center gap-1 text-xs hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer outline-none",
+          rating === -1 ? "text-gray-900" : "text-gray-500"
+        )}
+        title="没感觉/不相关"
+      >
+        {rating === -1 ? <IconThumbDownFill /> : <IconThumbDown />}
+      </button>
     </div>
   );
 }

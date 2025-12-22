@@ -60,21 +60,37 @@ export async function POST(request: NextRequest) {
             reason,
         });
 
-        // 负面反馈自动创建快照
+        // 负面反馈自动创建快照和优化事件
         if (rating === -1) {
             try {
                 const message = await prisma.message.findUnique({
                     where: { id: messageId },
-                    select: { conversationId: true },
+                    select: { conversationId: true, content: true },
                 });
 
                 if (message) {
+                    // 1. 创建快照 (现有逻辑)
                     await saveConversationAsSnapshot(
                         message.conversationId,
                         undefined,
                         ['negative_feedback', reason || 'unknown'],
                         'auto_negative_feedback'
                     );
+
+                    // 2. 创建优化事件 (新增)
+                    await prisma.optimizationEvent.create({
+                        data: {
+                            conversationId: message.conversationId,
+                            type: 'NEGATIVE_FEEDBACK',
+                            triggerMessageId: messageId,
+                            severity: 7, // 用户主动反馈，默认较高严重度
+                            summary: reason
+                                ? `用户反馈: ${reason}`
+                                : `用户对回复点踩: "${message.content?.substring(0, 50)}..."`,
+                            details: { reason, comment, messageId },
+                            status: 'PENDING'
+                        }
+                    });
 
                     logInfo('auto-snapshot-created', {
                         conversationId: message.conversationId,
@@ -83,8 +99,8 @@ export async function POST(request: NextRequest) {
                     });
                 }
             } catch (snapshotError) {
-                // 快照失败不影响反馈保存
-                console.error('Failed to create auto snapshot:', snapshotError);
+                // 快照/事件失败不影响反馈保存
+                console.error('Failed to create auto snapshot or event:', snapshotError);
             }
         }
 

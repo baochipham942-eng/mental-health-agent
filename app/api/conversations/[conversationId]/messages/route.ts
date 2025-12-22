@@ -29,6 +29,12 @@ export async function GET(
                 role: true,
                 content: true,
                 createdAt: true,
+                feedback: {
+                    select: {
+                        rating: true,
+                        reason: true,
+                    }
+                }
             },
         });
 
@@ -38,6 +44,10 @@ export async function GET(
                 role: m.role,
                 content: m.content,
                 createdAt: m.createdAt.toISOString(),
+                feedback: m.feedback ? {
+                    rating: m.feedback.rating,
+                    reason: m.feedback.reason,
+                } : null,
             })),
         });
 

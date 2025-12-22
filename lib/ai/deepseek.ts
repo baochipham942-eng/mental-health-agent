@@ -24,6 +24,8 @@ export const deepseek = createOpenAI({
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  name?: string;
+  cache_control?: { type: 'ephemeral' };
 }
 
 export interface ToolCall {
@@ -50,6 +52,8 @@ export interface ChatCompletionResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
   };
 }
 
@@ -72,6 +76,17 @@ export async function chatCompletion(
     throw new Error('DEEPSEEK_API_KEY is not configured');
   }
 
+  // Auto-inject cache_control for the last system message (DeepSeek best practice)
+  // Actually, caching the first system prompt is usually enough for prefix caching
+  const messagesWithCache = messages.map((msg, index) => {
+    // Only cache the first system message or the one with large context
+    // Simple strategy: Cache the first system message
+    if (msg.role === 'system' && index === 0) {
+      return { ...msg, cache_control: { type: 'ephemeral' } };
+    }
+    return msg;
+  });
+
   const response = await fetch(DEEPSEEK_API_URL, {
     method: 'POST',
     headers: {
@@ -80,7 +95,7 @@ export async function chatCompletion(
     },
     body: JSON.stringify({
       model: 'deepseek-chat',
-      messages: messages,
+      messages: messagesWithCache,
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 2000,
       stream: options?.stream ?? false,

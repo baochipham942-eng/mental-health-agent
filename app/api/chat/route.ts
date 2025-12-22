@@ -15,6 +15,7 @@ import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { coordinateAgents, OrchestrationResult } from '@/lib/ai/agents/orchestrator';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
+import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -495,6 +496,15 @@ export async function POST(request: NextRequest) {
           routeType: 'assessment',
           assessmentStage: isConclusion ? 'conclusion' : 'intake',
         });
+
+        // 🔄 异步检测死循环（不阻塞响应）
+        if (!isConclusion && sessionId) {
+          analyzeConversationForStuckLoop(sessionId).then(result => {
+            if (result?.isStuck) {
+              createStuckLoopEvent(sessionId, result);
+            }
+          }).catch(err => console.error('[StuckLoop] Detection failed:', err));
+        }
 
         data.append({
           reply: text,

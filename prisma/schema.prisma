@@ -157,6 +157,7 @@ model SessionSummary {
   // 情绪变化
   emotionInitial Json         // { label: "焦虑", score: 7 }
   emotionFinal   Json         // { label: "轻松", score: 4 }
+  moodChange     Int?         // 情绪变化值 (Final Score - Initial Score)
   
   // 核心内容
   keyInsights    Json         // ["洞察1", "洞察2"]
@@ -234,4 +235,59 @@ model PromptOptimizationLog {
   appliedBy       String?
   
   @@index([createdAt])
+}
+
+model OptimizationEvent {
+  id             String   @id @default(cuid())
+  conversationId String
+  type           String   // 'LOW_SCORE', 'NEGATIVE_FEEDBACK', 'STUCK_LOOP'
+  subType        String?  // For STUCK_LOOP: 'REPETITION', 'REFUSAL', 'PHASE_TIMEOUT'
+  
+  // 核心快照数据（避免联表查询）
+  triggerMessageId String? // 触发事件的消息ID
+  severity       Int      // 严重程度 (1-10)
+  summary        String   // 事件摘要 (e.g. "用户点踩：觉得太啰嗦")
+  details        Json?    // 额外详情（如分数、关键词等）
+  
+  // 状态流转
+  status         String   @default("PENDING") // 'PENDING', 'PROCESSED', 'IGNORED'
+  resolution     String?  // 解决变动 (e.g. "Updated prompt v2")
+  processedAt    DateTime?
+  processedBy    String?
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([type, status])
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model GoldenExample {
+  id              String   @id @default(cuid())
+  
+  // 来源关联
+  conversationId  String
+  messageId       String   @unique  // 确保同一消息不会被多次纳入
+  feedbackId      String?  // 关联的用户反馈ID
+  
+  // 对话内容快照（避免联表查询）
+  userMessage     String   // 用户的问题/输入
+  assistantMessage String  // AI 的优质回复
+  context         String?  // 可选的上下文摘要
+  
+  // 状态
+  status          String   @default("ACTIVE") // 'ACTIVE', 'ARCHIVED'
+  
+  // 元数据
+  approvedBy      String   // 审批人 ID
+  approvedAt      DateTime @default(now())
+  userReason      String?  // 用户点赞原因
+  adminNote       String?  // 管理员备注
+  
+  // 使用统计
+  usageCount      Int      @default(0)  // 被注入的次数
+  lastUsedAt      DateTime?
+  
+  @@index([status])
+  @@index([approvedAt])
 }

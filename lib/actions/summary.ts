@@ -70,6 +70,7 @@ export async function generateSummaryForSession(conversationId: string) {
                 duration: summaryData.duration,
                 emotionInitial: summaryData.emotionInitial,
                 emotionFinal: summaryData.emotionFinal,
+                moodChange: summaryData.emotionFinal.score - summaryData.emotionInitial.score,
                 keyInsights: summaryData.keyInsights,
                 actionItems: summaryData.actionItems,
                 keyTopics: summaryData.keyTopics,
