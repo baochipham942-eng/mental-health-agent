@@ -1,15 +1,114 @@
-import dynamic from "next/dynamic";
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { ChatShell } from '@/components/chat/ChatShell';
+import { ensureUserProfile } from '@/lib/actions/auth';
+import { getSessionHistory, hideSession, createNewSession } from '@/lib/actions/chat';
+import { signOut } from '@/auth';
+import { UserMenuWrapper } from '@/components/layout/UserMenuWrapper';
+import { SidebarListClient } from '@/components/layout/SidebarListClient';
+import { SidebarMobileWrapper } from '@/components/layout/SidebarMobileWrapper';
+import { SidebarHeaderClient } from '@/components/layout/SidebarHeaderClient';
+import { AuthSync } from '@/components/auth/AuthSync';
 
-const ChatShell = dynamic(() => import("@/components/chat/ChatShell").then(mod => ({ default: mod.ChatShell })), { ssr: false });
+export const dynamic = 'force-dynamic';
 
-export default function Page() {
-  return (
-    <main className="min-h-dvh w-full bg-slate-50">
-      <ChatShell sessionId="default-session" initialMessages={[]} />
-    </main>
-  );
+// Helper function to format date as relative time
+function formatRelativeDate(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const inputDate = new Date(date);
+  const inputDateOnly = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate());
+
+  if (inputDateOnly.getTime() === today.getTime()) {
+    return '今天';
+  } else if (inputDateOnly.getTime() === yesterday.getTime()) {
+    return '昨天';
+  } else {
+    return `${inputDate.getMonth() + 1}月${inputDate.getDate()}日`;
+  }
 }
 
+/**
+ * 根路由 - 主聊天界面
+ * 已登录用户直接看到空聊天界面，发送第一条消息时自动创建会话
+ */
+export default async function HomePage() {
+  // 确保用户拥有人格特质（昵称/头像）
+  await ensureUserProfile();
 
+  const session = await auth();
+  if (!session?.user) {
+    redirect('/login');
+  }
 
+  const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
+  const isAdmin = session?.user?.name === 'demo';
 
+  // 创建一个 server action 用于登出
+  const handleSignOut = async () => {
+    'use server';
+    await signOut();
+  };
+
+  // 获取会话列表并转换格式
+  const sessions = await getSessionHistory();
+  const formattedSessions = sessions.map(s => ({
+    id: s.id,
+    title: s.title,
+    status: s.status,
+    createdAt: s.createdAt.toISOString(),
+    relativeDate: formatRelativeDate(s.createdAt),
+  }));
+
+  return (
+    <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
+      <AuthSync />
+      {/* 侧边栏 */}
+      <SidebarMobileWrapper>
+        <div className="flex h-full flex-col px-3 py-4 md:px-3">
+          <SidebarHeaderClient createNewSessionAction={createNewSession} />
+
+          <div className="flex grow flex-col min-h-0 space-y-2 overflow-hidden">
+            <div className="flex flex-col min-h-0 grow">
+              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mt-5 mb-2 px-1">
+                历史记录
+              </div>
+
+              <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin">
+                <SidebarListClient
+                  sessions={formattedSessions}
+                  hideSessionAction={hideSession}
+                />
+              </div>
+            </div>
+
+            {/* 用户菜单（整合记忆 + 退出登录） */}
+            <div className="flex-shrink-0 mt-auto pt-3 border-t border-slate-100">
+              <UserMenuWrapper
+                userName={userName}
+                nickname={(session?.user as any)?.nickname}
+                avatar={(session?.user as any)?.avatar}
+                isAdmin={isAdmin}
+                signOutAction={handleSignOut}
+              />
+            </div>
+          </div>
+        </div>
+      </SidebarMobileWrapper>
+
+      {/* 主内容区域 */}
+      <div className="flex-grow md:overflow-y-auto flex flex-col min-h-0">
+        <div className="h-full flex flex-col">
+          <ChatShell
+            key="new-session"
+            sessionId={undefined}
+            initialMessages={[]}
+            isReadOnly={false}
+            user={session.user}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

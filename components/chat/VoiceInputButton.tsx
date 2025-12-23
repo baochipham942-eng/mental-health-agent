@@ -79,6 +79,7 @@ export function VoiceInputButton({
                 className={cn(
                     'relative flex items-center justify-center rounded-full transition-all duration-200',
                     'focus:outline-none focus:ring-2 focus:ring-offset-1',
+                    'md:hidden', // Hide on desktop/tablet (mobile only)
                     isListening
                         ? 'bg-red-500 text-white focus:ring-red-400 shadow-md'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 focus:ring-gray-300',

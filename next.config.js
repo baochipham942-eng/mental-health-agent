@@ -9,6 +9,16 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  // 旧路由重定向：/dashboard/[id] -> /c/[id]
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/:sessionId((?!memory|lab|optimization)[^/]+)',
+        destination: '/c/:sessionId',
+        permanent: true,
+      },
+    ];
+  },
   // 确保 API 路由正确配置
   async headers() {
     return [

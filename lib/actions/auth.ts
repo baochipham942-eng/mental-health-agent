@@ -12,7 +12,7 @@ export async function authenticate(
     formData: FormData,
 ) {
     try {
-        await signIn('credentials', formData, { redirectTo: '/dashboard' });
+        await signIn('credentials', formData, { redirectTo: '/' });
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
@@ -73,7 +73,7 @@ export async function ensureUserProfile() {
             where: { id: user.id },
             data: updateData,
         });
-        revalidatePath('/dashboard');
+        revalidatePath('/');
         return true;
     }
 

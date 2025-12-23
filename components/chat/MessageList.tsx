@@ -39,6 +39,12 @@ function getTimeGreeting(): { greeting: string; emoji: string } {
 
 export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef, sessionId }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 防护日志：帮助调试 sessionId 问题
+  if (!sessionId && messages.length > 0) {
+    console.warn('[MessageList] Rendering messages without valid sessionId');
+  }
+
   const endRef = useRef<HTMLDivElement>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const lastMessageCountRef = useRef(messages.length);

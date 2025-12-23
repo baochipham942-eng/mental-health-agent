@@ -19,7 +19,14 @@ interface SidebarItemProps {
 
 export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps) {
     const pathname = usePathname();
-    const isActive = pathname === `/dashboard/${session.id}`;
+
+    // 防护：如果 session.id 无效，不渲染该项
+    if (!session?.id) {
+        console.warn('[SidebarItem] Invalid session without id:', session);
+        return null;
+    }
+
+    const isActive = pathname === `/c/${session.id}`;
     const [isHiding, setIsHiding] = useState(false);
 
     const handleDelete = async (e: React.MouseEvent) => {
@@ -59,7 +66,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
         >
             <Tooltip content={`ID: ${session.id}`} position="right" mini>
                 <Link
-                    href={`/dashboard/${session.id}`}
+                    href={`/c/${session.id}`}
                     className={`
                         flex items-center gap-2 rounded-lg p-2.5 text-sm font-medium transition-all
                         ${isActive

@@ -246,7 +246,7 @@ export function MemoryPageContent() {
                             type="text"
                             size="small"
                             icon={<IconLeft />}
-                            onClick={() => router.push('/dashboard')}
+                            onClick={() => router.push('/')}
                         >
                             返回
                         </Button>
@@ -305,7 +305,7 @@ export function MemoryPageContent() {
                             </p>
                             <Button
                                 type="primary"
-                                onClick={() => router.push('/dashboard')}
+                                onClick={() => router.push('/')}
                             >
                                 开始对话
                             </Button>

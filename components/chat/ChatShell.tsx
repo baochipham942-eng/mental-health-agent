@@ -219,8 +219,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         setInternalSessionId(undefined);
         sessionIdRef.current = undefined;
 
-        // 4. Redirect to dashboard list
-        router.push('/dashboard');
+        // 4. Redirect to home
+        router.push('/');
       },
     });
   }, [resetConversation, setLoading, setError, router]);
@@ -356,12 +356,19 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
           sessionIdRef.current = currentSessionId;
           setInternalSessionId(currentSessionId);
-          window.history.replaceState(null, '', `/dashboard/${currentSessionId}`);
+          // 防护：仅当 sessionId 有效时才更新 URL
+          if (currentSessionId && currentSessionId !== 'undefined') {
+            window.history.replaceState(null, '', `/c/${currentSessionId}`);
+          } else {
+            console.error('[ChatShell] Attempted to update URL with invalid sessionId:', currentSessionId);
+          }
         } catch (err) {
           console.error('[ChatShell] Session creation error:', err);
           setIsSending(false);
           setLoading(false);
           setError('创建会话失败，请刷新页面重试');
+          // 确保 currentSessionId 不会有脏值
+          currentSessionId = undefined;
           return;
         }
       }
@@ -563,8 +570,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
       {/* 顶部栏 - 固定高度，使用固定布局避免闪烁 */}
       <header
-        className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0"
-        style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)' }}
+        className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
+        style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -642,7 +649,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
               </div>
               <Button
                 type="primary"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/')}
               >
                 开始新的咨询
               </Button>

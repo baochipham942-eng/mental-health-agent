@@ -20,8 +20,8 @@ export async function createNewSession() {
         },
     });
 
-    revalidatePath('/dashboard');
-    redirect(`/dashboard/${conversation.id}`);
+    revalidatePath('/');
+    redirect(`/c/${conversation.id}`);
 }
 
 /**
@@ -118,7 +118,7 @@ export async function hideSession(sessionId: string): Promise<void> {
         },
     });
 
-    revalidatePath('/dashboard');
+    revalidatePath('/');
 }
 
 export async function getSessionById(sessionId: string) {

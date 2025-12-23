@@ -243,3 +243,70 @@ main {
     display: none;
   }
 }
+
+/* ========================================
+   移动端优化样式
+   ======================================== */
+
+/* 移动端键盘弹出时的布局优化 */
+@supports (height: 100dvh) {
+  .h-\[100dvh\] {
+    height: 100dvh;
+  }
+}
+
+/* iOS 安全区域完整支持 */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  .pb-safe-enhanced {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+}
+
+/* 移动端触摸滚动优化 */
+@media (max-width: 768px) {
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* 防止页面 bounce 干扰聊天滚动 */
+  html, body {
+    overscroll-behavior-y: none;
+  }
+  
+  /* 移动端消息列表优化滚动 */
+  .flex-1.overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 移动端输入框 focus 时防止页面缩放 */
+@media (max-width: 768px) {
+  input, textarea {
+    font-size: 16px !important; /* 防止 iOS 自动缩放 */
+  }
+  
+  /* 优化移动端输入体验 */
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+/* 移动端按钮触摸反馈优化 */
+@media (max-width: 768px) {
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* 增加触摸目标大小 */
+  button[type="submit"],
+  button.send-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
