@@ -181,15 +181,15 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
         <motion.div
             initial={{
                 x: -180,
-                y: 40 + Math.random() * 60,
+                y: 280 + Math.random() * 40, // Start lower (pixels, approx 60% of h-480)
                 rotate: -15,
                 scale: 0.9,
                 opacity: 0
             }}
             animate={{
-                x: ["-20%", "130%"], // Left to Right covering full width
-                y: ["10%", "90%"],  // Gentle downstream slope
-                rotate: [-15, -5, 5, 25, 45], // Natural slow rotation
+                x: ["-20%", "130%"],
+                y: ["60%", "75%"],  // Constrained to the stream
+                rotate: [-15, -5, 5, 25, 45],
                 opacity: [0, 1, 1, 1, 0],
             }}
             transition={{
@@ -197,10 +197,10 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
                 ease: "linear",
             }}
             onAnimationComplete={onComplete}
-            className="absolute top-0 left-0 w-full"
+            className="absolute top-0 left-0 w-full h-[480px] pointer-events-none" // Height constraint
             style={{ top: '0%' }}
         >
-            {/* 
+            {/*
                 Removing outer filter drop-shadow to fix the "border box" issue.
                 Shadows will be handled internally or via SVG filters if needed (but clean is better).
             */}
