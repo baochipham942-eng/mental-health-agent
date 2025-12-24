@@ -745,6 +745,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         } as any);
         setError(err.message);
       } finally {
+        console.log('[ChatShell] handleSend finally block executing, resetting loading states');
         setIsSending(false);
         setLoading(false);
       }
