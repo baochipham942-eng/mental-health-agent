@@ -7,6 +7,8 @@ import { Message } from '@/types/chat';
 import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
+import { ChatActionProvider } from './ChatContext'; // Imported
+import { v4 as uuidv4 } from 'uuid';
 import { DebugDrawer } from './DebugDrawer';
 import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
 import { IconStop, IconInfoCircle } from '@arco-design/web-react/icon';
@@ -781,140 +783,141 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
 
   return (
-    <div
-      className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
-      style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
-    >
-
-      {/* 顶部栏 - 固定高度，使用固定布局避免闪烁 */}
-      <header
-        className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
-        style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    <ChatActionProvider value={{ sendMessage: (content) => handleSend(content), isLoading }}>
+      <div
+        className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
+        style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
       >
-        <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
-              <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
-              <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
-                {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
-              </h1>
-            </div>
-            {/* 倒计时 - 使用 opacity 控制显示，保持布局空间 */}
-            <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <Tag
-                color={timeLeft < 300 ? 'red' : 'arcoblue'}
-                size="small"
-                className="font-mono !rounded-xl"
-              >
-                ⏱️ 剩余 {formatTime(timeLeft)}
-              </Tag>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 min-w-[80px] justify-end">
-            {(isReadOnly || isSessionEnded) ? (
-              <Tag color="gray" size="small" className="!rounded-xl">咨询已结束</Tag>
-            ) : (
-              // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
-              <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <Button
+
+        {/* 顶部栏 */}
+        <header
+          className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
+          style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
+                <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
+                <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
+                  {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
+                </h1>
+              </div>
+              {/* 倒计时 */}
+              <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <Tag
+                  color={timeLeft < 300 ? 'red' : 'arcoblue'}
                   size="small"
-                  icon={<IconStop />}
-                  onClick={handleEndSession}
-                  className="!rounded-xl"
+                  className="font-mono !rounded-xl"
                 >
-                  结束咨询
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 消息列表 - flex-1 滚动容器 */}
-      <section
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
-        style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
-      >
-        <MessageList
-          messages={displayMessages}
-          isLoading={isLoading}
-          isSending={isSending}
-          messageExtras={messageExtras}
-          onSendMessage={(text: string) => handleSend(text)}
-          scrollContainerRef={scrollContainerRef}
-          sessionId={internalSessionId || sessionIdRef.current || ''}
-        />
-        {isSessionEnded && (
-          <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <div className="text-center">
-              <div className="text-3xl mb-3">🌿</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
-              <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
-              <div className="bg-white rounded-xl p-3 text-left text-sm text-gray-700">
-                <p className="font-medium mb-1">小结：</p>
-                <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
-                <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
+                  ⏱️ 剩余 {formatTime(timeLeft)}
+                </Tag>
               </div>
             </div>
+            <div className="flex items-center gap-2 min-w-[80px] justify-end">
+              {(isReadOnly || isSessionEnded) ? (
+                <Tag color="gray" size="small" className="!rounded-xl">咨询已结束</Tag>
+              ) : (
+                <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  <Button
+                    size="small"
+                    icon={<IconStop />}
+                    onClick={handleEndSession}
+                    className="!rounded-xl"
+                  >
+                    结束咨询
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* 消息列表 */}
+        <section
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
+          style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
+        >
+          <MessageList
+            messages={displayMessages}
+            isLoading={isLoading}
+            isSending={isSending}
+            messageExtras={messageExtras}
+            onSendMessage={(text: string) => handleSend(text)}
+            scrollContainerRef={scrollContainerRef}
+            sessionId={internalSessionId || sessionIdRef.current || ''}
+          />
+          {isSessionEnded && (
+            <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+              <div className="text-center">
+                <div className="text-3xl mb-3">🌿</div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
+                <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
+                <div className="bg-white rounded-xl p-3 text-left text-sm text-gray-700">
+                  <p className="font-medium mb-1">小结：</p>
+                  <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
+                  <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 输入框 */}
+        <footer
+          className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
+          style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
+        >
+          <div className="mx-auto w-full max-w-4xl px-4 py-3">
+            <ChatInput
+              key={internalSessionId || 'new-session'}
+              value={draft}
+              onChange={(newValue) => {
+                setDraft(newValue);
+              }}
+              onSend={handleSend}
+              isLoading={isLoading || isSending}
+              disabled={isReadOnly || isSessionEnded}
+              placeholder={isSessionEnded ? "本次会话已结束" : undefined}
+              autoFocus={!isReadOnly && !isSessionEnded}
+            />
+          </div>
+        </footer>
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
+            {error}
           </div>
         )}
-      </section>
 
-      {/* 输入框 - shrink-0 固定在底部 */}
-      <footer
-        className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
-        style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
-      >
-        <div className="mx-auto w-full max-w-4xl px-4 py-3">
-          <ChatInput
-            key={internalSessionId || 'new-session'}
-            value={draft}
-            onChange={(newValue) => {
-              setDraft(newValue);
-            }}
-            onSend={handleSend}
-            isLoading={isLoading || isSending}
-            disabled={isReadOnly || isSessionEnded}
-            placeholder={isSessionEnded ? "本次会话已结束" : undefined}
-            autoFocus={!isReadOnly && !isSessionEnded}
-          />
-        </div>
-      </footer>
+        {/* Debug 面板 */}
+        <DebugDrawer
+          debugPrompts={debugPrompts}
+          validationError={validationError}
+          emotions={emotions}
+          lastRequestPayload={lastRequestPayload}
+          user={user}
+        />
 
-      {/* 错误提示 */}
-      {error && (
-        <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
-          {error}
-        </div>
-      )}
-
-      {/* Debug 面板 */}
-      <DebugDrawer
-        debugPrompts={debugPrompts}
-        validationError={validationError}
-        emotions={emotions}
-        lastRequestPayload={lastRequestPayload}
-        user={user}
-      />
-
-      {/* 免责声明弹窗 */}
-      <Modal
-        title="免责声明"
-        visible={disclaimerOpen}
-        onOk={() => setDisclaimerOpen(false)}
-        onCancel={() => setDisclaimerOpen(false)}
-        okText="我已知晓"
-        hideCancel
-        style={{ width: '400px', maxWidth: '90vw' }}
-      >
-        <div className="text-gray-600 space-y-2">
-          <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
-          <p>2. AI 可能会产生错误或误导性的信息。</p>
-          <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
-          <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
-        </div>
-      </Modal>
-    </div>
+        {/* 免责声明弹窗 */}
+        <Modal
+          title="免责声明"
+          visible={disclaimerOpen}
+          onOk={() => setDisclaimerOpen(false)}
+          onCancel={() => setDisclaimerOpen(false)}
+          okText="我已知晓"
+          hideCancel
+          style={{ width: '400px', maxWidth: '90vw' }}
+        >
+          <div className="text-gray-600 space-y-2">
+            <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
+            <p>2. AI 可能会产生错误或误导性的信息。</p>
+            <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
+            <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
+          </div>
+        </Modal>
+      </div>
+    </ChatActionProvider>
   );
 }
