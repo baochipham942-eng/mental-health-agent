@@ -206,7 +206,7 @@ export function ChatInput({
             isLoading ? (
               <IconLoading style={{ fontSize: 18 }} />
             ) : (
-              <IconSend style={{ fontSize: 18 }} />
+              <IconSend style={{ fontSize: 18, transform: 'translateX(1px)' }} />
             )
           }
           onClick={doSend}
