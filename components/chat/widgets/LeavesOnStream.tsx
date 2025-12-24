@@ -91,16 +91,19 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-teal-50 to-blue-50"></div>
 
                 {/* Layer 1: Slow Deep Current (Left to Right) */}
-                <div className="absolute bottom-[-20%] left-0 right-0 h-[150%] opacity-40 animate-[wave-flow_12s_linear_infinite]">
-                    <svg className="w-[300%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                        <path fill="#b2ebf2" d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                <div className="absolute bottom-[-20%] left-0 right-0 h-[150%] opacity-40 animate-[wave-flow_15s_linear_infinite]">
+                    {/* Width 200% containing 2 identical cycles of the wave pattern */}
+                    <svg className="w-[200%] h-full" viewBox="0 0 2880 320" preserveAspectRatio="none">
+                        {/* 2 Cycles of M0..1440 L1440..2880 perfectly matching */}
+                        <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 C1920,250 2400,150 2880,192 V320 H0 Z"></path>
                     </svg>
                 </div>
 
                 {/* Layer 2: Surface Ripples (Left to Right, Faster) */}
-                <div className="absolute bottom-[-30%] left-0 right-0 h-[150%] opacity-30 animate-[wave-flow_8s_linear_infinite]">
-                    <svg className="w-[300%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                        <path fill="#4dd0e1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,112C672,96,768,96,864,112C960,128,1056,160,1152,160C1248,160,1344,128,1440,112L1440,320L1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                <div className="absolute bottom-[-30%] left-0 right-0 h-[150%] opacity-30 animate-[wave-flow_10s_linear_infinite]">
+                    <svg className="w-[200%] h-full" viewBox="0 0 2880 320" preserveAspectRatio="none">
+                        {/* 2 Cycles of a different frequency wave */}
+                        <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 C1800,160 2520,96 2880,128 V320 H0 Z"></path>
                     </svg>
                 </div>
 
@@ -111,7 +114,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
             <style jsx>{`
                 @keyframes wave-flow {
                     0% { transform: translateX(-50%); } 
-                    100% { transform: translateX(0%); } // Move Left to Right
+                    100% { transform: translateX(0%); } // seamless loop for 200% width
                 }
             `}</style>
 
