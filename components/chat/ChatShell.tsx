@@ -258,7 +258,18 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         // Keep timer as is (it's running for the new session)
       } else {
         // If switching to existing session, load initialMessages
-        setMessages(initialMessages || []);
+        // CRITICAL FIX: Only overwrite if initialMessages has actual content
+        // If server returns empty but we have local messages for this session, keep local
+        const currentStore = useChatStore.getState();
+        const hasLocalDataForSession = currentStore.currentSessionId === sessionId && currentStore.messages.length > 0;
+
+        if ((!initialMessages || initialMessages.length === 0) && hasLocalDataForSession) {
+          console.log('[ChatShell] Preserving local messages (server returned empty for existing session)');
+          // Don't call setMessages - keep existing data
+        } else {
+          setMessages(initialMessages || []);
+        }
+
         setInternalSessionId(sessionId);
         setCurrentSessionId(sessionId); // Sync global store
         sessionIdRef.current = sessionId;
