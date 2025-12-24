@@ -388,9 +388,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
           if (currentSessionId && currentSessionId !== 'undefined') {
-            // 使用 router.replace 而不是 window.history，保证 Next.js router 状态一致
-            window.history.replaceState(null, '', `/c/${currentSessionId}`); // 先用 native 更新 URL 避免页面刷新
-            // router.replace(`/c/${currentSessionId}`, { scroll: false }); // 暂时注释，native replaceState 更稳，不触发重渲染
+            // 使用 router.replace 确保 Next.js router 状态一致，防止后续因状态不一致导致的强制刷新 (Jump)
+            router.replace(`/c/${currentSessionId}`, { scroll: false });
           } else {
             console.error('[ChatShell] Attempted to update URL with invalid sessionId:', currentSessionId);
           }

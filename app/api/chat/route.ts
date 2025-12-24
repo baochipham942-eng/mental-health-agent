@@ -453,11 +453,13 @@ export async function POST(request: NextRequest) {
         data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
         const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-          await saveAssistantMessage(text, {
+          // Non-blocking save
+          saveAssistantMessage(text, {
             toolCalls,
             safety: safetyData,
             state: stateData,
-          });
+          }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
           data.append({
             reply: text,
@@ -474,11 +476,13 @@ export async function POST(request: NextRequest) {
       data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
 
       const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
-        await saveAssistantMessage(text, {
+        // Non-blocking save
+        saveAssistantMessage(text, {
           toolCalls,
           safety: safetyData,
           state: stateData,
-        });
+        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
         data.append({
           reply: text,
           toolCalls,
@@ -543,10 +547,12 @@ export async function POST(request: NextRequest) {
       });
 
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-        await saveAssistantMessage(text, actionCards
+        // Non-blocking save
+        saveAssistantMessage(text, actionCards
           ? { routeType: 'support', actionCards, toolCalls, safety: safetyData, state: stateData }
           : { toolCalls, safety: safetyData, state: stateData }
-        );
+        ).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
         data.append({
           reply: text,
           toolCalls,
@@ -594,13 +600,13 @@ export async function POST(request: NextRequest) {
           skillReply = '好的，我们来做一个简单的呼吸练习来帮助你放松。请点击下方的卡片开始：';
         }
 
-        // Save with metadata so actionCards persist across page refresh
-        await saveAssistantMessage(skillReply, {
+        // Save with metadata so actionCards persist across page refresh (Non-blocking)
+        saveAssistantMessage(skillReply, {
           routeType: 'support',
           state: 'normal',
           actionCards: [skillCard],
           safety: safetyData,
-        });
+        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
 
         data.append({
           timestamp: new Date().toISOString(),
@@ -617,13 +623,14 @@ export async function POST(request: NextRequest) {
         // Determine if it's a conclusion based on tool calls
         const isConclusion = toolCalls?.some(tc => tc.function.name === 'finish_assessment') || false;
 
-        await saveAssistantMessage(text, {
+        // Non-blocking save
+        saveAssistantMessage(text, {
           toolCalls,
           routeType: 'assessment',
           assessmentStage: isConclusion ? 'conclusion' : 'intake',
           safety: safetyData,
           state: stateData,
-        });
+        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
 
         // 🔄 异步检测死循环（不阻塞响应）
         if (!isConclusion && sessionId) {
@@ -652,11 +659,13 @@ export async function POST(request: NextRequest) {
         const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
         const onConclusionFinish = async (text: string, actionCards: any[]) => {
-          await saveAssistantMessage(text, {
+          // Non-blocking save
+          saveAssistantMessage(text, {
             routeType: 'assessment',
             assessmentStage: 'conclusion',
             actionCards,
-          });
+          }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
           data.append({
             reply: text,
             actionCards,
