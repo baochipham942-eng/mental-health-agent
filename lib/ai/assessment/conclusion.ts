@@ -170,6 +170,9 @@ ${result.nextStepList.map(step => `• ${step}`).join('\n')}`;
 /**
  * 流式生成阶段总结
  */
+/**
+ * 流式生成阶段总结
+ */
 export async function streamAssessmentConclusion(
   initialMessage: string,
   followupAnswer: string,
@@ -206,34 +209,40 @@ export async function streamAssessmentConclusion(
     { role: 'user', content: `初始主诉：${initialMessage}\n\n对评估问题的回答：${cleanedFollowupAnswer}` },
   ];
 
+  // =================================================================================
+  // Parallel Optimization: Start Action Card Generation concurrently
+  // =================================================================================
+  let actionCardsPromise: Promise<ActionCard[]> = Promise.resolve([]);
+
+  if (options?.onFinish) {
+    // Generate cards independently based on INPUT, not output (for speed)
+    // To ensure consistency, we ask it to "Based on this user input, suggest 2 action cards that fit a standard assessment conclusion."
+    console.log('[Conclusion] Starting parallel action card generation...');
+    actionCardsPromise = chatStructuredCompletion(
+      [
+        { role: 'system', content: '你是专业的心理治疗师。根据用户的主诉和回答，推荐 2 个最合适的心理调节练习（如呼吸法、冥想、认知重构等）。请返回结构化的 ActionCard 数据。' },
+        { role: 'user', content: `用户主诉：${initialMessage}\n用户回答：${cleanedFollowupAnswer}` }
+      ],
+      AssessmentConclusionSchema,
+      { temperature: 0.2, max_tokens: 600, traceMetadata: { ...options.traceMetadata, type: 'parallel_cards' } }
+    ).then(res => {
+      return sanitizeActionCards(res.actionCards as ActionCard[]);
+    }).catch(err => {
+      console.error('[Conclusion] Parallel card generation failed:', err);
+      return [];
+    });
+  }
+
   // 3. 调用流式生成
   return streamChatCompletion(messages, {
     temperature: 0.3,
     max_tokens: 1000,
     traceMetadata: options?.traceMetadata,
     onFinish: async (text) => {
-      // 这里的 onFinish 只负责处理 ActionCards 的生成
       if (options?.onFinish) {
-        let actionCards: ActionCard[] = [];
-        try {
-          // 第二步：根据已生成的流式文本，快速提取/生成结构化卡片
-          // 这里可以重用现有的 generateAssessmentConclusion 逻辑，但为了效率采用更轻量的调用
-          console.log('[Conclusion] Streaming text finished, generating action cards...');
-
-          const result = await chatStructuredCompletion(
-            [
-              { role: 'system', content: '根据以下心理评估报告，生成 2 张结构化的行动建议卡片。' },
-              { role: 'user', content: text }
-            ],
-            AssessmentConclusionSchema, // 可以重用或简化
-            { temperature: 0.1, max_tokens: 600 }
-          );
-
-          actionCards = sanitizeActionCards(result.actionCards as ActionCard[]);
-        } catch (cardError) {
-          console.error('[Conclusion] Failed to generate cards in onFinish:', cardError);
-        }
-
+        // Wait for the parallel card generation to finish
+        const actionCards = await actionCardsPromise;
+        console.log('[Conclusion] Stream finished, retrieved parallel cards:', actionCards.length);
         await options.onFinish(text, actionCards);
       }
     }

@@ -7,7 +7,7 @@ import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
 import { continueAssessment, streamAssessmentReply } from '@/lib/ai/assessment';
 import { deepseek, streamEFTValidationReply } from '@/lib/ai/deepseek'; // Updated import
-import { generateAssessmentConclusion, streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
+import { streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { memoryManager } from '@/lib/memory';
