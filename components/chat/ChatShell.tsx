@@ -177,12 +177,12 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // 监听isLoading和isSending，如果异常卡住则自动恢复
   // 监听isLoading和isSending，如果异常卡住则自动恢复
   useEffect(() => {
-    // 如果isLoading为true但isSending为false超过30秒，说明可能卡住了 (修正：从3秒延长到30秒)
+    // 如果isLoading为true但isSending为false超过8秒，说明可能卡住了
     if (isLoading && !isSending) {
       const timer = setTimeout(() => {
         console.warn('检测到isLoading异常卡住，正在自动恢复...');
         setLoading(false);
-      }, 30000);
+      }, 8000);
       return () => clearTimeout(timer);
     }
   }, [isLoading, isSending, setLoading]);
