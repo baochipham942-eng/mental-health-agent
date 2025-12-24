@@ -24,19 +24,19 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
     ];
 
     return (
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
         {choices.map((choice) => (
           <button
             key={choice.value}
             onClick={() => !disabled && onPick(choice.value)}
             disabled={disabled}
             className={cn(
-              'px-4 py-2 text-sm font-medium rounded-lg',
-              'bg-orange-100 text-orange-800 border border-orange-300',
-              'hover:bg-orange-200 hover:border-orange-400',
-              'transition-colors duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1',
-              disabled && 'opacity-50 cursor-not-allowed'
+              'px-4 py-2 text-sm font-medium rounded-full shadow-sm',
+              'bg-white text-indigo-600 border border-indigo-200',
+              'hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md',
+              'active:scale-95 transform transition-all duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
+              disabled && 'opacity-50 cursor-not-allowed grayscale'
             )}
           >
             {choice.text}
@@ -48,10 +48,10 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
 
   if (mode === 'scale0to10') {
     return (
-      <div className="mt-3">
-        <p className="text-xs text-gray-500 mb-2">
+      <div className="mt-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+        <p className="text-xs text-gray-500 mb-2 font-medium ml-1">
           {scaleContext ? `请评估你的${scaleContext}: ` : ''}
-          0 = 最低/没有, 10 = 最高/非常强烈
+          <span className="text-slate-400 font-normal">(0 = 最低, 10 = 最高)</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: 11 }, (_, i) => i).map((num) => (
@@ -60,11 +60,13 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
               onClick={() => !disabled && onPick(num.toString())}
               disabled={disabled}
               className={cn(
-                'w-10 h-10 text-sm font-medium rounded-lg',
-                'bg-orange-100 text-orange-800 border border-orange-300',
-                'hover:bg-orange-200 hover:border-orange-400',
-                'transition-colors duration-200',
-                'focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1',
+                'w-9 h-9 text-sm font-medium rounded-full shadow-sm',
+                'bg-white text-gray-700 border border-gray-200',
+                'hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200',
+                // Highlight ends
+                (num === 0 || num === 10) && 'border-indigo-100 bg-slate-50',
+                'transition-all duration-200',
+                'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
             >
@@ -78,18 +80,18 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
 
   if (mode === 'optionChoice' && options.length > 0) {
     return (
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
         {options.map((option, idx) => (
           <button
             key={idx}
             onClick={() => !disabled && onPick(option.trim())}
             disabled={disabled}
             className={cn(
-              'px-4 py-2 text-sm font-medium rounded-lg',
-              'bg-orange-100 text-orange-800 border border-orange-300',
-              'hover:bg-orange-200 hover:border-orange-400',
-              'transition-colors duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1',
+              'px-4 py-2 text-sm font-medium rounded-full shadow-sm',
+              'bg-white text-indigo-600 border border-indigo-200',
+              'hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md',
+              'transition-all duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
               disabled && 'opacity-50 cursor-not-allowed'
             )}
           >

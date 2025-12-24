@@ -70,6 +70,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // 追踪前一个 sessionId，用于检测导航行为
   const prevSessionIdRef = useRef<string | undefined>(sessionId);
   const sessionIdRef = useRef<string | undefined>(sessionId);
+  // Track if we just created a session locally (SPA mode), to prevent aggressive reset
+  const isJustCreatedRef = useRef(false);
 
   const [isSending, setIsSending] = useState(false);
   // Initial draft from store (if navigating from new chat or switching sessions)
@@ -118,7 +120,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // ★ Safe Message Display Logic:
   // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
   // Only show store messages if internal ID matches prop ID (or both undefined)
-  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId);
+  // OR if we just created a session locally (SPA mode) and prop hasn't caught up
+  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isJustCreatedRef.current && internalSessionId && !sessionId);
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
@@ -187,12 +190,21 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       console.log('[ChatShell] Switching session, loading new messages', { from: internalSessionId, to: sessionId });
 
       // If switching to New Chat (!sessionId), reset everything
-      if (!sessionId) {
+      // BUT check if we just created it locally (isJustCreatedRef). If so, ignore the mismatch logic.
+      if (!sessionId && !isJustCreatedRef.current) {
+        console.log('[ChatShell] Resetting to empty state for New Chat (verified not just-created)');
         setMessages([]);
         setInternalSessionId(undefined);
         sessionIdRef.current = undefined;
         prevSessionIdRef.current = undefined;
         setDraft(inputDraft || ''); // Restore draft if any
+      } else if (!sessionId && isJustCreatedRef.current) {
+        console.log('[ChatShell] Ignoring reset because session was JUST created locally');
+        // We might want to reset the ref now? No, wait until sessionId prop actually arrives?
+        // If we reset it here, next render might clear it?
+        // Actually, sessionId prop stays undefined until full page reload or router push.
+        // window.history.replaceState doesn't change props.
+        // So we keep isJustCreatedRef = true.
       } else {
         // If switching to existing session, load initialMessages
         setMessages(initialMessages || []);
@@ -437,7 +449,11 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           updateSessionTitle(currentSessionId, content)
             .catch(console.error);
 
+          updateSessionTitle(currentSessionId, content)
+            .catch(console.error);
+
           sessionIdRef.current = currentSessionId;
+          isJustCreatedRef.current = true; // Mark as just created
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
           if (currentSessionId && currentSessionId !== 'undefined') {
