@@ -24,24 +24,29 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
     ];
 
     return (
-      <div className="mt-3 flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {choices.map((choice) => (
-          <button
-            key={choice.value}
-            onClick={() => !disabled && onPick(choice.value)}
-            disabled={disabled}
-            className={cn(
-              'px-4 py-2 text-sm font-medium rounded-full shadow-sm',
-              'bg-white text-indigo-600 border border-indigo-200',
-              'hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md',
-              'active:scale-95 transform transition-all duration-200',
-              'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
-              disabled && 'opacity-50 cursor-not-allowed grayscale'
-            )}
-          >
-            {choice.text}
-          </button>
-        ))}
+      <div className="mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <p className="text-xs text-slate-500 mb-2 font-medium ml-1">
+          关于自伤念头，目前的真实情况是：
+        </p>
+        <div className="flex flex-wrap gap-2 text-left">
+          {choices.map((choice) => (
+            <button
+              key={choice.value}
+              onClick={() => !disabled && onPick(choice.value)}
+              disabled={disabled}
+              className={cn(
+                'px-4 py-2 text-sm font-medium rounded-full shadow-sm',
+                'bg-white text-indigo-600 border border-indigo-200',
+                'hover:bg-indigo-50 hover:border-indigo-300 hover:shadow-md',
+                'active:scale-95 transform transition-all duration-200',
+                'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
+                disabled && 'opacity-50 cursor-not-allowed grayscale'
+              )}
+            >
+              {choice.text}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
