@@ -617,6 +617,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         let capturedState: any = null;
         let capturedActionCards: any[] | undefined = undefined;
 
+        console.log('[ChatShell] Calling sendChatMessage...', { sessionId: currentSessionId });
         const { response: finalResponse, error: finalApiError } = await sendChatMessage({
           message: messageToSend,
           history: requestPayload.history,
@@ -651,6 +652,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             } as any);
           },
         });
+        console.log('[ChatShell] sendChatMessage returned', { hasError: !!finalApiError });
 
         if (finalApiError) {
           setDraft(originalContent);

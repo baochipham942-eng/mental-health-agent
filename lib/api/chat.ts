@@ -147,13 +147,35 @@ export async function sendChatMessage(options: {
       sessionId, // Pass sessionId
     };
 
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    // Add fetch timeout to prevent infinite hang
+    const FETCH_TIMEOUT_MS = 60000; // 60 seconds
+    const controller = new AbortController();
+    const fetchTimeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(fetchTimeoutId);
+      if (fetchError.name === 'AbortError') {
+        return {
+          response: {} as ValidatedChatResponse,
+          error: {
+            error: '请求超时，请检查网络后重试',
+            details: 'FETCH_TIMEOUT',
+          },
+        };
+      }
+      throw fetchError;
+    }
+    clearTimeout(fetchTimeoutId);
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: '请求失败' }));
