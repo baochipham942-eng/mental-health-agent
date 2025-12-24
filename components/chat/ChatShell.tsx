@@ -143,10 +143,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     }
 
     // 动态 session 切换检测
-    const isSessionSwitch = sessionId && internalSessionId && sessionId !== internalSessionId;
-    if (isSessionSwitch) {
-      console.log('[ChatShell] Dynamic session switch (rare case)', { old: internalSessionId, new: sessionId });
+    const isSessionSwitch = sessionId && sessionId !== internalSessionId;
+
+    // FIX: 如果是从"新对话"跳转到"已创建对话"，且本地已有消息，不要用服务端旧数据覆盖本地
+    // 这防止了 async save 还没完成时，页面跳转导致的"消息丢失" (UI看起来像回退)
+    const isCreationTransition = !internalSessionId && sessionId && messages.length > 0;
+
+    if (isSessionSwitch && !isCreationTransition) {
+      console.log('[ChatShell] Switching session, loading new messages', { from: internalSessionId, to: sessionId });
       setMessages(initialMessages || []);
+      setInternalSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+      prevSessionIdRef.current = sessionId;
+    } else if (isCreationTransition) {
+      console.log('[ChatShell] Creation transition detected, preserving local messages');
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
       prevSessionIdRef.current = sessionId;
