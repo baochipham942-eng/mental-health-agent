@@ -95,6 +95,7 @@ export async function streamSupportReply(
     onFinish?: (text: string, toolCalls?: any[]) => Promise<void>;
     traceMetadata?: Record<string, any>;
     memoryContext?: string;
+    systemInstructionInjection?: string;
   }
 ) {
   // 关键词相似度检索相关黄金样本（带内存缓存）
@@ -112,7 +113,7 @@ export async function streamSupportReply(
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}`,
+      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',

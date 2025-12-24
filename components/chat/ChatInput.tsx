@@ -164,7 +164,8 @@ export function ChatInput({
               <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
               <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
               <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
-              <Menu.Item key="认知重构">🧠 认知重构 (挑战消极想法)</Menu.Item>
+              <Menu.Item key="溪流落叶">🍃 溪流落叶 (改善纠结)</Menu.Item>
+              <Menu.Item key="认知重构">🧠 认知重构 (转换视角)</Menu.Item>
               <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
               <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
             </Menu>

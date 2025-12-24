@@ -6,9 +6,11 @@ import { BreathingExercise } from './widgets/BreathingExercise';
 import { MeditationExercise } from './widgets/MeditationExercise';
 import { MoodTracker } from './widgets/MoodTracker';
 import { BasicEmptyChair } from './widgets/BasicEmptyChair'; // Imported
+import { LeavesOnStream } from './widgets/LeavesOnStream'; // Imported
 import { InlineMoodRating } from './widgets/InlineMoodRating';
 import { logExercise } from '@/lib/actions/exercise';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useChatActions } from './ChatContext';
 
 interface ActionCardItemProps {
   card: ActionCard;
@@ -108,6 +110,8 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
   // UI 状态：showCompletionConfirm 用于显示完成确认信息
   const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
 
+  const { sendMessage } = useChatActions(); // Consume actions
+
   // 提交评分
   const handleRatingSubmit = async (score: number) => {
     // 保存本地（可选）
@@ -133,6 +137,13 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
     setShowRating(false);
     setShowCompletionConfirm(true);
     setStartTime(null);
+
+    // ★ SFBT Trigger: Send a structured message to trigger the backend SFBT logic
+    // Improved Format: "我完成了五感着陆练习，现在感觉：🙂 (4分)"
+    const emotions = ['😣', '☹️', '😐', '🙂', '😁'];
+    const emoji = emotions[score - 1] || '😐';
+
+    sendMessage(`我完成了“${card.title}”练习，现在感觉：${emoji} (${score}分)`);
   };
 
   // 普通步骤的完成逻辑 (简化的 Toggle)
@@ -295,6 +306,12 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                     <MoodTracker />
                   ) : card.widget === 'empty_chair' ? ( // 新增：空椅子
                     <BasicEmptyChair
+                      onComplete={handleWidgetComplete}
+                      setHeaderControl={setHeaderControl}
+                      onStart={handleWidgetStart}
+                    />
+                  ) : card.widget === 'leaves_stream' ? ( // 新增：想法脱钩
+                    <LeavesOnStream
                       onComplete={handleWidgetComplete}
                       setHeaderControl={setHeaderControl}
                       onStart={handleWidgetStart}

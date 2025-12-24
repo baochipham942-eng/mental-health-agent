@@ -8,6 +8,7 @@ import { streamSupportReply } from '@/lib/ai/support';
 import { continueAssessment, streamAssessmentReply } from '@/lib/ai/assessment';
 import { deepseek, streamEFTValidationReply } from '@/lib/ai/deepseek'; // Updated import
 import { streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
+import { generateSFBTQuery } from '@/lib/ai/sfbt'; // SFBT logic
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { memoryManager } from '@/lib/memory';
@@ -141,6 +142,13 @@ export const SKILL_CARDS = {
       '记录触发情绪的想法或事件'
     ],
   },
+  leaves_stream: {
+    title: '溪流落叶',
+    when: '反复纠结、被念头困扰时',
+    effort: 'low' as const,
+    widget: 'leaves_stream',
+    steps: [] // Widget handles logical steps
+  }
 };
 
 export type SkillType = keyof typeof SKILL_CARDS;
@@ -157,6 +165,7 @@ export function detectDirectSkillRequest(message: string): SkillType | null {
   if (/行为激活|活动|小任务/.test(lowerMsg)) return 'activation';
   if (/空椅子|对话练习|宣泄|委屈/.test(lowerMsg)) return 'empty_chair';
   if (/情绪记录|心情|记录情绪/.test(lowerMsg)) return 'mood_tracker';
+  if (/脱钩|纠结|杂念|想法|落叶|溪流/.test(lowerMsg)) return 'leaves_stream';
   return null;
 }
 
@@ -177,6 +186,7 @@ function createSkillCardStreamResponse(
     activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
     empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
     mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
+    leaves_stream: '溪流落叶练习 (Leaves on a Stream) 能帮你从纠结中抽离。试着把念头放在叶子上流走：',
   };
 
   const stream = new ReadableStream({
@@ -250,6 +260,7 @@ export async function POST(request: NextRequest) {
         activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
         empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
         mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
+        leaves_stream: '溪流落叶练习 (Leaves on a Stream) 能帮你从纠结中抽离。试着把念头放在叶子上流走：',
       };
 
       // 异步保存消息（不阻塞）
@@ -549,6 +560,20 @@ export async function POST(request: NextRequest) {
     // 2. Support Handler (Positive / Venting / Neutral)
     // =================================================================================
     if (routeType === 'support') {
+      // SFBT Logic Detection
+      // SFBT Logic Detection
+      let sfbtInstruction = undefined;
+      // Match: "我完成了“五感着陆”练习，现在感觉：🙂 (4分)"
+      // Matches the format sent by ActionCardItem
+      const sfbtMatch = message.match(/我完成了“(.+)”练习，现在感觉：.*\((\d+)分\)/);
+      if (sfbtMatch) {
+        const [_, exerciseName, scoreStr] = sfbtMatch;
+        const postScore = parseInt(scoreStr);
+        // preScore is unknown, so we rely on absolute postScore logic
+        sfbtInstruction = generateSFBTQuery({ postScore, exerciseName });
+        logInfo('sfbt-trigger', { exerciseName, postScore });
+      }
+
       let actionCards: any[] | undefined;
       if (wantsSkillCard) {
         // 根据具体关键词选择合适的技能卡片
@@ -561,6 +586,9 @@ export async function POST(request: NextRequest) {
         } else if (/空椅子|委屈|宣泄/.test(message)) {
           // 空椅子
           actionCards = [SKILL_CARDS.empty_chair];
+        } else if (/脱钩|纠结|杂念|想法/.test(message)) {
+          // 想法脱钩 ACT
+          actionCards = [SKILL_CARDS.leaves_stream];
         } else {
           // 默认：呼吸练习卡片
           actionCards = [SKILL_CARDS.breathing];
@@ -591,7 +619,12 @@ export async function POST(request: NextRequest) {
         data.close();
       };
 
-      const result = await streamSupportReply(message, processedHistory, { onFinish: onFinishWithMeta, traceMetadata, memoryContext });
+      const result = await streamSupportReply(message, processedHistory, {
+        onFinish: onFinishWithMeta,
+        traceMetadata,
+        memoryContext,
+        systemInstructionInjection: sfbtInstruction
+      });
       // data.close() moved to onFinish
       return result.toDataStreamResponse({ data });
     }
