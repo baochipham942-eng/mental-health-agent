@@ -178,8 +178,9 @@ export async function sendChatMessage(options: {
 
     let buffer = '';
     // Safety: Timeout if stream hangs without data for too long
-    // Reduced from 10s to 3s to avoid unnecessary delay after content finishes
-    const STREAM_TIMEOUT_MS = 3000;
+    // 10 seconds is needed for DeepSeek cold start or slow network
+    // The loading delay issue is fixed by async LangFuse, not by reducing this timeout
+    const STREAM_TIMEOUT_MS = 10000;
 
     while (!done) {
       // Create a promise that rejects after timeout
