@@ -78,11 +78,10 @@ export function VoiceInputButton({
                 disabled={disabled}
                 className={cn(
                     'relative flex items-center justify-center rounded-full transition-all duration-200',
-                    'focus:outline-none focus:ring-2 focus:ring-offset-1',
-                    'md:hidden', // Hide on desktop/tablet (mobile only)
+                    'focus:outline-none',
                     isListening
-                        ? 'bg-red-500 text-white focus:ring-red-400 shadow-md'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 focus:ring-gray-300',
+                        ? 'bg-red-500 text-white shadow-md'
+                        : 'text-gray-400 hover:text-gray-600',
                     disabled && 'opacity-50 cursor-not-allowed'
                 )}
                 style={{ width: size, height: size }}
