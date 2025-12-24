@@ -134,9 +134,15 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           // Don't call setMessages - keep existing
         } else {
           // Genuine New Chat - clear everything
-          console.log('[ChatShell] New Chat: clearing messages');
+          console.log('[ChatShell] ★ Init: New Chat mode - clearing all state', {
+            storeSessionId: currentStore.currentSessionId,
+            storeMessageCount: currentStore.messages.length
+          });
           setMessages([]);
           setCurrentSessionId(undefined);
+          // Reset refs on fresh mount for New Chat
+          isJustCreatedRef.current = false;
+          sessionIdRef.current = undefined;
         }
       } else {
         // Case 3: sessionId defined but no initialMessages (server returned empty) - clear anyway
@@ -249,17 +255,34 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       // BUT check if we just created it locally (isJustCreatedRef). If so, ignore the mismatch logic.
       // BUT check if we just created it locally (isJustCreatedRef). If so, ignore the mismatch logic.
       if (!sessionId && !isJustCreatedRef.current) {
-        console.log('[ChatShell] Resetting to empty state for New Chat (verified not just-created)');
+        console.log('[ChatShell] ★ FULL RESET to New Chat mode', {
+          prevInternalId: internalSessionId,
+          prevSessionIdRef: sessionIdRef.current,
+          isJustCreated: isJustCreatedRef.current
+        });
+
+        // ★ COMPREHENSIVE RESET for New Chat
         setMessages([]);
         setInternalSessionId(undefined);
         setCurrentSessionId(undefined); // Sync global store
         sessionIdRef.current = undefined;
         prevSessionIdRef.current = undefined;
+        isJustCreatedRef.current = false; // CRITICAL: ensure this is false for fresh start
         setDraft(inputDraft || ''); // Restore draft if any
         setTimeLeft(SESSION_DURATION); // Reset timer for new session
+
         // 立即重置 loading 状态，避免等待超时
         setLoading(false);
         setIsSending(false);
+        setError(null);
+
+        // Reset conversation state as well
+        updateState({
+          currentState: undefined,
+          routeType: undefined,
+          assessmentStage: undefined,
+          initialMessage: undefined,
+        });
       } else if (!sessionId && isJustCreatedRef.current) {
         console.log('[ChatShell] Ignoring reset because session was JUST created locally');
         // Keep timer as is (it's running for the new session)
@@ -292,7 +315,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         }
       }
     }
-  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender, inputDraft]);
+  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender, inputDraft, updateState]);
 
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
