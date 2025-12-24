@@ -2,6 +2,7 @@
 
 import { ActionCard } from '@/types/chat';
 import { ActionCardItem } from './ActionCardItem';
+import { useRef, useEffect } from 'react';
 
 interface ActionCardGridProps {
   cards: ActionCard[];
@@ -10,17 +11,23 @@ interface ActionCardGridProps {
 }
 
 export function ActionCardGrid({ cards, messageId, sessionId }: ActionCardGridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // 卡片首次出现时自动滚动到屏幕中央
+  useEffect(() => {
+    if (gridRef.current && cards.length > 0) {
+      setTimeout(() => {
+        gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, []); // 只在首次渲染时触发
+
   if (!cards || cards.length === 0) {
     return null;
   }
 
-  // 容错：少于 2 张时按实际渲染
-  // if (cards.length < 2 && process.env.NODE_ENV === 'development') {
-  //   console.warn(`[ActionCardGrid] actionCards 数量不足（期望2张，实际${cards.length}张）`);
-  // }
-
   return (
-    <div className="w-full min-w-0">
+    <div ref={gridRef} className="w-full min-w-0">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
         {cards.map((card, index) => (
           <ActionCardItem
@@ -35,3 +42,4 @@ export function ActionCardGrid({ cards, messageId, sessionId }: ActionCardGridPr
     </div>
   );
 }
+
