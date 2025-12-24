@@ -430,7 +430,7 @@ export function MessageBubble({
 
       <span className={cn(
         'text-xs px-2 font-medium',
-        isUser ? 'text-gray-500' : 'text-gray-600'
+        isUser ? 'text-gray-400' : 'text-gray-400'
       )}>
         {formatTime(message.timestamp)}
       </span>
