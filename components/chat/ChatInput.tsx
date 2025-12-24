@@ -202,7 +202,7 @@ export function ChatInput({
           disabled={!canSend || disabled || isLoading}
           loading={isLoading}
           icon={
-            <span style={{ display: 'inline-flex', transform: 'translateX(1px)' }}>
+            <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
               <IconSend />
             </span>
           }
