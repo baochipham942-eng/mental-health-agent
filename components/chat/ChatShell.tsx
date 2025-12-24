@@ -100,49 +100,56 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         msgCount: initialMessages?.length || 0
       });
 
-      // FIX: Check if we have valid local data for this session
-      // If store has messages for THIS session ID, and initialMessages is empty (likely race condition),
-      // we trust the store and DO NOT overwrite with empty array.
       const currentStore = useChatStore.getState();
 
-      // SPA Mode Detection:
-      // If sessionId (prop) is undefined, but window URL contains a session ID (/c/xyz),
-      // we are in a client-side navigation state where Router props haven't updated yet.
-      // We must trust the URL and the Store over the empty/undefined props.
-      let effectiveSessionId = sessionId;
-      if (!effectiveSessionId && typeof window !== 'undefined') {
-        const match = window.location.pathname.match(/\/c\/([^\/]+)/);
-        if (match) {
-          effectiveSessionId = match[1];
+      // ★ SIMPLIFIED LOGIC to prevent cross-session contamination:
+      // 1. If sessionId (prop) is defined AND initialMessages has content → ALWAYS use server data
+      // 2. If sessionId is undefined (New Chat) → Check if we're in SPA mode with URL having ID
+      // 3. Only preserve local data if we're in a genuine SPA race condition
+
+      if (sessionId && initialMessages && initialMessages.length > 0) {
+        // Case 1: Server provided valid session with messages - ALWAYS use it
+        console.log('[ChatShell] Using server initialMessages', { sessionId, count: initialMessages.length });
+        setMessages(initialMessages);
+        setCurrentSessionId(sessionId);
+      } else if (!sessionId) {
+        // Case 2: New Chat mode - check for SPA race condition
+        let effectiveSessionId: string | undefined = undefined;
+        if (typeof window !== 'undefined') {
+          const match = window.location.pathname.match(/\/c\/([^\/]+)/);
+          if (match) {
+            effectiveSessionId = match[1];
+          }
         }
-      }
 
-      // Use the effective ID to check against the store
-      const hasLocalData = effectiveSessionId && currentStore.currentSessionId === effectiveSessionId && currentStore.messages.length > 0;
+        const hasLocalDataForUrlSession = effectiveSessionId &&
+          currentStore.currentSessionId === effectiveSessionId &&
+          currentStore.messages.length > 0;
 
-      if (hasLocalData && (!initialMessages || initialMessages.length === 0)) {
-        console.log('[ChatShell] Preserving local messages during mount (SPA mode/race condition)', {
-          count: currentStore.messages.length,
-          effectiveSessionId
-        });
-        // Restore internal ID if it was lost during remount (e.g. prop was undefined)
-        if (!internalSessionId && effectiveSessionId) {
+        if (hasLocalDataForUrlSession) {
+          // SPA race condition: URL has session ID but prop is undefined, preserve local data
+          console.log('[ChatShell] SPA race: preserving local data for URL session', { effectiveSessionId });
           setInternalSessionId(effectiveSessionId);
           setCurrentSessionId(effectiveSessionId);
+          // Don't call setMessages - keep existing
+        } else {
+          // Genuine New Chat - clear everything
+          console.log('[ChatShell] New Chat: clearing messages');
+          setMessages([]);
+          setCurrentSessionId(undefined);
         }
-        // Don't call setMessages([])
       } else {
-        setMessages(initialMessages || []);
+        // Case 3: sessionId defined but no initialMessages (server returned empty) - clear anyway
+        console.log('[ChatShell] Session with no messages from server', { sessionId });
+        setMessages([]);
+        setCurrentSessionId(sessionId);
       }
 
       setError(null);
       setLoading(false);
 
-      // 恢复路由状态
-      // Same logic: If we use local messages, we should keep local state?
-      // Actually state is usually synced. If we used local messages, state is probably already correct in store.
-      // But if we use initialMessages, we update state.
-      if (!hasLocalData && initialMessages && initialMessages.length > 0) {
+      // 恢复路由状态 from last message metadata
+      if (initialMessages && initialMessages.length > 0) {
         const lastMsg = initialMessages[initialMessages.length - 1];
         if (lastMsg?.role === 'assistant' && lastMsg.metadata) {
           updateState({
@@ -151,8 +158,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             assessmentStage: lastMsg.metadata.assessmentStage
           });
         }
-      } else if (!hasLocalData) {
-        // Reset state if we are truly resetting messages
+      } else {
+        // Reset state if no messages
         updateState({
           currentState: undefined,
           routeType: undefined,
@@ -261,26 +268,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         // CRITICAL FIX: Reset isJustCreatedRef to ensure future navigations to New Chat work correctly
         isJustCreatedRef.current = false;
 
-        // CRITICAL FIX: Only overwrite if initialMessages has actual content
-        // If server returns empty but we have local messages for this session, keep local
-        const currentStore = useChatStore.getState();
-        const hasLocalDataForSession = currentStore.currentSessionId === sessionId && currentStore.messages.length > 0;
-
-        if ((!initialMessages || initialMessages.length === 0) && hasLocalDataForSession) {
-          console.log('[ChatShell] Preserving local messages (server returned empty for existing session)');
-          // Don't call setMessages - keep existing data
-        } else {
-          setMessages(initialMessages || []);
-        }
+        // ★ CRITICAL: ALWAYS load server data when switching to existing session.
+        // The previous hasLocalDataForSession check was WRONG - it preserved NEW session data
+        // when navigating to a HISTORY session (because currentSessionId was the new one).
+        // This caused cross-session contamination.
+        console.log('[ChatShell] Loading initialMessages for existing session', {
+          sessionId,
+          msgCount: initialMessages?.length || 0
+        });
+        setMessages(initialMessages || []);
 
         setInternalSessionId(sessionId);
         setCurrentSessionId(sessionId); // Sync global store
         sessionIdRef.current = sessionId;
         prevSessionIdRef.current = sessionId;
-        // Reset timer for existing session (should calculate real time left from server? 
-        // For MVP, we reset to full duration if re-entering, or maybe we shouldn't? 
-        // User requirements said 45 min per session. If resuming, maybe it should reflect remaining time?
-        // But we don't store startTime in DB yet. So reset to full is safer than keeping it 0.)
         setTimeLeft(SESSION_DURATION);
         // 立即重置 loading 状态，避免等待超时
         setLoading(false);
