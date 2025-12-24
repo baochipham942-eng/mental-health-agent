@@ -108,44 +108,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       // 3. Only preserve local data if we're in a genuine SPA race condition
 
       if (sessionId && initialMessages && initialMessages.length > 0) {
-        // Case 1: Server provided valid session with messages - ALWAYS use it
+        // Case 1: Existing session with messages - use server data
         console.log('[ChatShell] Using server initialMessages', { sessionId, count: initialMessages.length });
         setMessages(initialMessages);
         setCurrentSessionId(sessionId);
       } else if (!sessionId) {
-        // Case 2: New Chat mode - check for SPA race condition
-        let effectiveSessionId: string | undefined = undefined;
-        if (typeof window !== 'undefined') {
-          const match = window.location.pathname.match(/\/c\/([^\/]+)/);
-          if (match) {
-            effectiveSessionId = match[1];
-          }
-        }
-
-        const hasLocalDataForUrlSession = effectiveSessionId &&
-          currentStore.currentSessionId === effectiveSessionId &&
-          currentStore.messages.length > 0;
-
-        if (hasLocalDataForUrlSession) {
-          // SPA race condition: URL has session ID but prop is undefined, preserve local data
-          console.log('[ChatShell] SPA race: preserving local data for URL session', { effectiveSessionId });
-          setInternalSessionId(effectiveSessionId);
-          setCurrentSessionId(effectiveSessionId);
-          // Don't call setMessages - keep existing
-        } else {
-          // Genuine New Chat - clear everything
-          console.log('[ChatShell] ★ Init: New Chat mode - clearing all state', {
-            storeSessionId: currentStore.currentSessionId,
-            storeMessageCount: currentStore.messages.length
-          });
-          setMessages([]);
-          setCurrentSessionId(undefined);
-          // Reset refs on fresh mount for New Chat
-          isJustCreatedRef.current = false;
-          sessionIdRef.current = undefined;
-        }
+        // Case 2: New Chat mode - ALWAYS clear everything
+        // Since we now use key prop, component remounts fresh, no need for SPA race detection
+        console.log('[ChatShell] ★ New Chat mode - clearing all state');
+        setMessages([]);
+        setCurrentSessionId(undefined);
+        isJustCreatedRef.current = false;
+        sessionIdRef.current = undefined;
       } else {
-        // Case 3: sessionId defined but no initialMessages (server returned empty) - clear anyway
+        // Case 3: sessionId defined but no initialMessages (server returned empty)
         console.log('[ChatShell] Session with no messages from server', { sessionId });
         setMessages([]);
         setCurrentSessionId(sessionId);
@@ -828,7 +804,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
               <Tag
                 color={timeLeft < 300 ? 'red' : 'arcoblue'}
                 size="small"
-                className="font-mono !rounded-lg"
+                className="font-mono !rounded-xl"
               >
                 ⏱️ 剩余 {formatTime(timeLeft)}
               </Tag>
@@ -836,7 +812,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           </div>
           <div className="flex items-center gap-2 min-w-[80px] justify-end">
             {(isReadOnly || isSessionEnded) ? (
-              <Tag color="gray" size="small" className="!rounded-lg">咨询已结束</Tag>
+              <Tag color="gray" size="small" className="!rounded-xl">咨询已结束</Tag>
             ) : (
               // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
               <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>

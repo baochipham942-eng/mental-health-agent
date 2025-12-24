@@ -2,7 +2,7 @@
 
 import { KeyboardEvent, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@arco-design/web-react';
-import { IconSend } from '@arco-design/web-react/icon';
+import { IconSend, IconLoading } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
 
@@ -196,17 +196,20 @@ export function ChatInput({
           size={44}
         />
 
-        {/* 发送按钮 */}
+        {/* 发送按钮 - 不使用loading属性以避免布局抖动 */}
         <Button
           type="primary"
           size="large"
           shape="circle"
-          disabled={!canSend || disabled || isLoading}
-          loading={isLoading}
+          disabled={!canSend || disabled}
           icon={
-            <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
-              <IconSend />
-            </span>
+            isLoading ? (
+              <IconLoading style={{ fontSize: 18 }} />
+            ) : (
+              <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
+                <IconSend />
+              </span>
+            )
           }
           onClick={doSend}
           className={cn(
