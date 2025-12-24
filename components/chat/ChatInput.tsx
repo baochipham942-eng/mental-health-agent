@@ -175,14 +175,16 @@ export function ChatInput({
               'bg-transparent border-none outline-none ring-0',
               'focus:outline-none focus:ring-0 focus:border-none shadow-none',
               'overflow-y-auto transition-all duration-200',
-              'leading-6 text-[15px]',
+              'text-[15px]',
               disabled && !isLoading && 'cursor-not-allowed opacity-60'
             )}
             style={{
               minHeight: '24px', // 单行文字高度
               maxHeight: '144px', // 6行
-              paddingTop: '0',
-              paddingBottom: '0',
+              padding: '10px 12px', // 10px top/bottom for centering in 44px container
+              margin: 0,
+              lineHeight: '24px',
+              alignSelf: 'center',
             }}
           />
         </div>

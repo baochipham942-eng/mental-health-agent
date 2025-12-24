@@ -52,7 +52,7 @@ export function Logo() {
 
             <div className="mt-1.5">
                 <h1 className="font-semibold text-base text-gray-800 leading-tight" style={{ fontSize: '16px', margin: 0 }}>心灵树洞</h1>
-                <p className="text-[11px] text-gray-400" style={{ fontSize: '11px', margin: 0 }}>倾诉你的心声</p>
+                <p className="text-[11px] text-gray-400" style={{ fontSize: '11px', margin: 0 }}>倾听你的心声</p>
             </div>
 
             {/* Keyframe animations */}
