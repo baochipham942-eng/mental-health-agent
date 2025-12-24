@@ -62,7 +62,7 @@ export function MentorSection() {
                             <Button
                                 type="outline"
                                 size="small"
-                                className="w-full border-gray-300 text-gray-600 group-hover:border-indigo-500 group-hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                className="w-full border-gray-300 text-gray-600 group-hover:border-indigo-500 group-hover:text-indigo-600 hover:bg-indigo-50 transition-all !rounded-xl"
                             >
                                 开始对话
                             </Button>

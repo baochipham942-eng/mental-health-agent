@@ -35,7 +35,7 @@ export function MBTISection() {
     return (
         <div className="space-y-6">
             {/* Header Area */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-100">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -57,6 +57,7 @@ export function MBTISection() {
                                 style={{ width: 140 }}
                                 value={userType}
                                 onChange={setUserType}
+                                className="[&_.arco-select-view]:!rounded-xl"
                                 triggerProps={{
                                     autoAlignPopupWidth: false,
                                     autoAlignPopupMinWidth: true,
@@ -76,8 +77,7 @@ export function MBTISection() {
 
                         <Button
                             type="primary"
-                            shape="round"
-                            className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
+                            className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto !rounded-xl"
                             icon={<IconSwap />}
                             onClick={handleRandomMatch}
                             loading={isRandomizing}
