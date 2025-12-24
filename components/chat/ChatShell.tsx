@@ -280,7 +280,19 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // 45分钟倒计时逻辑 (2700秒)
   const SESSION_DURATION = 2700;
   const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
-  const isSessionEnded = timeLeft <= 0;
+
+  // 检测是否是旧会话（最后一条消息超过 1 小时前）
+  const isOldSession = useMemo(() => {
+    if (messages.length === 0) return false;
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage.timestamp) return false;
+    const lastMessageTime = new Date(lastMessage.timestamp).getTime();
+    const hourAgo = Date.now() - 60 * 60 * 1000; // 1 小时前
+    return lastMessageTime < hourAgo;
+  }, [messages]);
+
+  // 会话结束判断：倒计时结束 OR 是旧会话
+  const isSessionEnded = timeLeft <= 0 || isOldSession;
 
   useEffect(() => {
     // 如果已经结束，不执行
