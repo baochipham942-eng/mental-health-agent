@@ -177,71 +177,87 @@ export async function sendChatMessage(options: {
     let assembledData: any = {};
 
     let buffer = '';
+    // Safety: Timeout if stream hangs without data for too long
+    const STREAM_TIMEOUT_MS = 10000;
 
     while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
+      // Create a promise that rejects after timeout
+      const timeoutPromise = new Promise<{ done: boolean; value: undefined }>((_, reject) => {
+        setTimeout(() => reject(new Error('Stream timeout')), STREAM_TIMEOUT_MS);
+      });
 
-      if (value) {
-        buffer += decoder.decode(value, { stream: true });
+      try {
+        const { value, done: doneReading } = await Promise.race([
+          reader.read(),
+          timeoutPromise
+        ]);
+        done = doneReading;
 
-        // Split by newline
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
-          if (!line) continue;
+          // Split by newline
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
 
-          if (line.startsWith('0:')) {
-            // Text chunk: 0:"text"
-            try {
-              const text = JSON.parse(line.substring(2));
-              accumulatedReply += text;
-              if (onTextChunk) {
-                onTextChunk(text);
+          for (const line of lines) {
+            if (!line) continue;
+
+            if (line.startsWith('0:')) {
+              // Text chunk: 0:"text"
+              try {
+                const text = JSON.parse(line.substring(2));
+                accumulatedReply += text;
+                if (onTextChunk) {
+                  onTextChunk(text);
+                }
+              } catch (e) {
+                console.error('Error parsing text chunk', e);
               }
-            } catch (e) {
-              console.error('Error parsing text chunk', e);
-            }
-          } else if (line.startsWith('d:')) {
-            // Data chunk (Legacy): d:{...}
-            try {
-              const data = JSON.parse(line.substring(2));
-              assembledData = { ...assembledData, ...data };
-            } catch (e) {
-              console.error('Error parsing data chunk (d:)', e);
-            }
-          } else if (line.startsWith('2:')) {
-            // Data chunk (New Protocol): 2:[...]
-            try {
-              const data = JSON.parse(line.substring(2));
-              // Vercel SDK sends an array of data items
-              const items = Array.isArray(data) ? data : [data];
-              items.forEach(item => {
-                // Special handling for array fields - concatenate instead of overwrite
-                if (item.actionCards && assembledData.actionCards) {
-                  item.actionCards = [...assembledData.actionCards, ...item.actionCards];
-                }
-                assembledData = { ...assembledData, ...item };
-                // Callback for real-time updates
-                if (onDataChunk) {
-                  onDataChunk(assembledData);
-                }
-              });
-            } catch (e) {
-              console.error('Error parsing data chunk (2:)', e);
-            }
-          } else if (line.startsWith('9:')) {
-            // Tool Call (New Protocol): 9:{...}
-            try {
-              const toolCall = JSON.parse(line.substring(2));
-              if (!assembledData.toolCalls) assembledData.toolCalls = [];
-              assembledData.toolCalls.push(toolCall);
-            } catch (e) {
-              console.error('Error parsing tool call chunk (9:)', e);
+            } else if (line.startsWith('d:')) {
+              // Data chunk (Legacy): d:{...}
+              try {
+                const data = JSON.parse(line.substring(2));
+                assembledData = { ...assembledData, ...data };
+              } catch (e) {
+                console.error('Error parsing data chunk (d:)', e);
+              }
+            } else if (line.startsWith('2:')) {
+              // Data chunk (New Protocol): 2:[...]
+              try {
+                const data = JSON.parse(line.substring(2));
+                // Vercel SDK sends an array of data items
+                const items = Array.isArray(data) ? data : [data];
+                items.forEach(item => {
+                  // Special handling for array fields - concatenate instead of overwrite
+                  if (item.actionCards && assembledData.actionCards) {
+                    item.actionCards = [...assembledData.actionCards, ...item.actionCards];
+                  }
+                  assembledData = { ...assembledData, ...item };
+                  // Callback for real-time updates
+                  if (onDataChunk) {
+                    onDataChunk(assembledData);
+                  }
+                });
+              } catch (e) {
+                console.error('Error parsing data chunk (2:)', e);
+              }
+            } else if (line.startsWith('9:')) {
+              // Tool Call (New Protocol): 9:{...}
+              try {
+                const toolCall = JSON.parse(line.substring(2));
+                if (!assembledData.toolCalls) assembledData.toolCalls = [];
+                assembledData.toolCalls.push(toolCall);
+              } catch (e) {
+                console.error('Error parsing tool call chunk (9:)', e);
+              }
             }
           }
         }
+      }
+      catch (err) {
+        console.error('[API] Stream reading error:', err);
+        done = true;
       }
     }
 
