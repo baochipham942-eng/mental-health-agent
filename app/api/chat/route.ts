@@ -149,48 +149,53 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0.5 Memory Retrieval & Summarization - 获取用户记忆并根据历史冗余生成摘要
+    // 0.5 Memory Retrieval + Groq Analysis (并行执行，节省 ~300ms)
     // =================================================================================
     let memoryContext = '';
     let processedHistory = history;
 
-    // 只有非首轮才检索记忆（首轮无历史可用，跳过以减少延迟）
-    if (userId && history.length > 0) {
-      try {
-        // 1. 获取长期记忆
-        const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
-        if (contextString) {
-          memoryContext = contextString;
-          console.log('[Memory] Retrieved context for user:', userId, 'length:', contextString.length);
-        }
+    // 并行执行：Groq 分析 + 记忆检索
+    const groqPromise = quickAnalyze(message);
 
-        // 2. 检查是否需要生成对话摘要 (Short-term context compression)
-        if (sessionId && shouldSummarize(history.length)) {
-          console.log('[Summarizer] History length exceeds threshold, generating summary...');
-          const summary = await generateSummary(history);
-          if (summary) {
-            // 存储摘要到记忆系统
-            await updateConversationSummary(sessionId, summary);
-            // 将摘要注入到当前上下文
-            memoryContext += `\n\n### 对话背景摘要\n${summary}\n`;
-            // 裁剪历史记录，只保留最近的 8 条，避免上下文过长
-            processedHistory = history.slice(-8);
-            console.log('[Summarizer] Summary generated and history trimmed.');
+    const memoryPromise = (userId && history.length > 0)
+      ? (async () => {
+        try {
+          const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
+          if (contextString) {
+            console.log('[Memory] Retrieved context for user:', userId, 'length:', contextString.length);
+            return contextString;
           }
+        } catch (e) {
+          console.error('[Memory] Failed:', e);
+        }
+        return '';
+      })()
+      : Promise.resolve('');
+
+    // 同时等待两个结果
+    const [analysis, retrievedMemory] = await Promise.all([groqPromise, memoryPromise]);
+    memoryContext = retrievedMemory;
+
+    console.log('[Groq] Quick analysis result:', analysis);
+
+    // 检查是否需要生成对话摘要 (放在并行之后，因为依赖 history)
+    if (userId && sessionId && history.length > 0 && shouldSummarize(history.length)) {
+      try {
+        console.log('[Summarizer] History length exceeds threshold, generating summary...');
+        const summary = await generateSummary(history);
+        if (summary) {
+          await updateConversationSummary(sessionId, summary);
+          memoryContext += `\n\n### 对话背景摘要\n${summary}\n`;
+          processedHistory = history.slice(-8);
+          console.log('[Summarizer] Summary generated and history trimmed.');
         }
       } catch (e) {
-        console.error('[Memory/Summarizer] Failed:', e);
+        console.error('[Summarizer] Failed:', e);
       }
     }
 
     const data = new StreamData();
     const traceMetadata = { sessionId, userId };
-
-    // =================================================================================
-    // 使用 Groq 快速分析 (Llama 3.1 8B) - 一次调用完成安全+情绪+路由判断 (~300ms)
-    // =================================================================================
-    const analysis = await quickAnalyze(message);
-    console.log('[Groq] Quick analysis result:', analysis);
 
     const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
     let routeType: RouteType = analysis.route;
