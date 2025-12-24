@@ -163,20 +163,21 @@ export function ChatInput({
               <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (缓解焦虑)</Menu.Item>
               <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
               <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
-              <Menu.Item key="着陆技术">🦶 五感着陆法 (缓解恐慌)</Menu.Item>
+              <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
               <Menu.Item key="认知重构">🧠 认知重构 (挑战消极想法)</Menu.Item>
-              <Menu.Item key="行为激活">🔋 行为激活 (提升动力)</Menu.Item>
-              <Menu.Item key="情绪记录">📊 情绪记录 (觉察当下)</Menu.Item>
+              <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
+              <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
             </Menu>
           }
         >
           <Button
             type="text"
             shape="circle"
-            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors"
+            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
             style={{ width: 36, height: 36, flexShrink: 0 }}
-            icon={<IconApps style={{ fontSize: 20 }} />}
-          />
+          >
+            <IconApps style={{ fontSize: 20 }} />
+          </Button>
         </Dropdown>
 
         {/* 输入框包装器 - 使用 flex 实现真正的垂直居中 */}
