@@ -35,8 +35,8 @@ export function ChatInput({
     if (!textarea) return;
 
     textarea.style.height = 'auto';
-    const lineHeight = 24;
-    const padding = 20; // 对应 py-2.5 (10px * 2)
+    const lineHeight = 20; // leading-5
+    const padding = 24; // py-3 (12px * 2)
     const minHeight = lineHeight + padding;
     const maxHeight = lineHeight * 6 + padding;
 
@@ -168,12 +168,12 @@ export function ChatInput({
           data-form-type="other"
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-xl px-3 py-2.5',
+            'flex-1 resize-none rounded-xl px-3 py-3',
             'text-gray-900 placeholder:text-gray-400',
             'bg-transparent border-none outline-none ring-0',
             'focus:outline-none focus:ring-0 focus:border-none shadow-none',
             'overflow-y-auto transition-all duration-200',
-            'leading-6 text-[15px]',
+            'leading-5 text-[15px]',
             disabled && !isLoading && 'cursor-not-allowed opacity-60'
           )}
           style={{
@@ -186,7 +186,7 @@ export function ChatInput({
         <VoiceInputButton
           onTranscript={handleVoiceTranscript}
           disabled={disabled || isLoading}
-          size={40}
+          size={44}
         />
 
         {/* 发送按钮 */}
@@ -202,6 +202,7 @@ export function ChatInput({
             width: 44,
             height: 44,
             padding: 0,
+            fontSize: 18,
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
