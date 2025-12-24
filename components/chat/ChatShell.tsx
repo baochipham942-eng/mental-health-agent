@@ -53,6 +53,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     inputDraft,
     setInputDraft,
     setMessages, // Need to expose setMessages in store or use clear+add
+    debugDrawerOpen,
+    setDebugDrawerOpen,
+    setTransitionMessages,
+    getAndClearTransitionMessages,
   } = useChatStore();
 
   const router = useRouter();
@@ -142,14 +146,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       return;
     }
 
+    // FIX: 优先检查是否有"过渡态消息"（来自 setTransitionMessages）
+    // 这解决了 loading.tsx 导致组件卸载后，本地状态丢失的问题
+    const transitionMsgs = sessionId ? getAndClearTransitionMessages(sessionId) : undefined;
+
     // 动态 session 切换检测
     const isSessionSwitch = sessionId && sessionId !== internalSessionId;
 
-    // FIX: 如果是从"新对话"跳转到"已创建对话"，且本地已有消息，不要用服务端旧数据覆盖本地
-    // 这防止了 async save 还没完成时，页面跳转导致的"消息丢失" (UI看起来像回退)
+    // 旧 FIX 保留（作为双重保险）：如果已经有本地消息且是创建过程，不要被服务端覆盖
     const isCreationTransition = !internalSessionId && sessionId && messages.length > 0;
 
-    if (isSessionSwitch && !isCreationTransition) {
+    if (transitionMsgs && transitionMsgs.length > 0) {
+      console.log('[ChatShell] Restoring transition messages from store', { count: transitionMsgs.length });
+      setMessages(transitionMsgs);
+      setInternalSessionId(sessionId);
+      sessionIdRef.current = sessionId;
+      prevSessionIdRef.current = sessionId;
+    } else if (isSessionSwitch && !isCreationTransition) {
       console.log('[ChatShell] Switching session, loading new messages', { from: internalSessionId, to: sessionId });
       setMessages(initialMessages || []);
       setInternalSessionId(sessionId);
@@ -398,7 +411,36 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
           if (currentSessionId && currentSessionId !== 'undefined') {
-            // 使用 router.replace 确保 Next.js router 状态一致，防止后续因状态不一致导致的强制刷新 (Jump)
+            // CRITICAL FIX: 在跳转前，将当前的完整消息列表（含用户消息+思考中占位符）保存到全局 Store
+            // 这样即使 loading.tsx 导致 ChatShell 卸载，新实例也能从 Store 恢复状态
+            const tempMessages = [...messages, userMessage];
+            // 注意：此时 assistantMsgId 的占位符还没生成，我们在下面生成后追加吗？
+            // 不，逻辑是 handleSend 继续运行。
+            // 但 router.replace 会触发 Unmount。
+            // 所以我们必须在这里“预借”占位符，或者单纯依靠 store 恢复 user message，然后 hook 内部状态恢复?
+
+            // 更稳妥的方式：router.replace 触发的是异步导航。
+            // 我们生成的 assistantMsgId 及其 placeholder 是在下面代码生成的。
+            // 我们应该把 router.replace 放到生成 placeholder 之后吗？
+            // 不行，router.replace 最好尽早。
+
+            // 但如果 router.replace 导致 unmount，handleSend 的后续逻辑（流式接收）会被中断吗？
+            // 会！如果组件卸载，await sendChatMessage 后的代码可能不会执行，或者 state update 报 warning。
+            // 所以，必须确保 ChatShell 不会因为 ID 变化而卸载？我们已经移除了 key。
+            // 但 loading.tsx 会替换它。
+
+            // 唯一解法：把"消息发送"逻辑移到 store 或 service 层，脱离组件生命周期？太复杂。
+            // 简单解法：Navigation 发生时，保存当前所有状态。
+
+            // 我们先保存现有的。后续的 placeholder 会在 addMessage 时加入 store 吗？
+            // addMessage 是 store action。是的！
+            // 所以只要 we DON'T clear messages on mount, store keeps them.
+            // 但 ChatShell useChatStore是持久化的吗？ messages 字段显式排除了 persistence。
+
+            // 所以：我们需要显式保存 transitionMessages。
+            setTransitionMessages(currentSessionId, [...messages, userMessage]);
+
+            // 使用 router.replace 确保 Next.js router 状态一致
             router.replace(`/c/${currentSessionId}`, { scroll: false });
           } else {
             console.error('[ChatShell] Attempted to update URL with invalid sessionId:', currentSessionId);

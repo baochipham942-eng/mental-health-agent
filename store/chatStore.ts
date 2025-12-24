@@ -25,6 +25,9 @@ interface ChatStore {
   // 全局 input 暂存（用于页面切换时保留输入框内容）
   inputDraft: string;
 
+  // 临时过渡消息（sessionId -> Messages），用于解决新会话跳转时的状态丢失问题
+  transitionMessages: Record<string, Message[]>;
+
   // 技能进度（行动卡片完成态）
   skillProgress: Record<string, SkillProgress>;
 
@@ -61,6 +64,8 @@ interface ChatStore {
   updateSkillProgress: (cardId: string, progress: SkillProgress) => void;
   getSkillProgress: (cardId: string) => SkillProgress | undefined;
   setMessages: (messages: Message[]) => void;
+  setTransitionMessages: (sessionId: string, messages: Message[]) => void;
+  getAndClearTransitionMessages: (sessionId: string) => Message[] | undefined;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -73,6 +78,7 @@ export const useChatStore = create<ChatStore>()(
       initialMessage: undefined,
       followupAnswerDraft: '',
       inputDraft: '',
+      transitionMessages: {},
       skillProgress: {},
       isLoading: false,
       error: null,
@@ -150,6 +156,28 @@ export const useChatStore = create<ChatStore>()(
 
       setMessages: (messages: Message[]) =>
         set({ messages }),
+
+      setTransitionMessages: (sessionId: string, messages: Message[]) =>
+        set((state: ChatStore) => ({
+          transitionMessages: {
+            ...state.transitionMessages,
+            [sessionId]: messages,
+          },
+        })),
+
+      getAndClearTransitionMessages: (sessionId: string) => {
+        const state = get();
+        const messages = state.transitionMessages[sessionId];
+        if (messages) {
+          // 如果取出，立即清理（阅后即焚），避免污染后续逻辑
+          set((state: ChatStore) => {
+            const newTransitionMessages = { ...state.transitionMessages };
+            delete newTransitionMessages[sessionId];
+            return { transitionMessages: newTransitionMessages };
+          });
+        }
+        return messages;
+      },
 
       updateSkillProgress: (cardId: string, progress: SkillProgress) =>
         set((state: ChatStore) => ({
