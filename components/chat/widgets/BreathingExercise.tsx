@@ -45,10 +45,10 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
             <button
                 onClick={isRunning ? handleStop : handleStart}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${isRunning
-                        ? cycleCount >= 4
-                            ? 'bg-green-500 text-white hover:bg-green-600 animate-pulse' // 达标: 绿色
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'  // 未达标: 灰色/提前结束
-                        : 'bg-blue-600 text-white hover:bg-blue-700'        // 未开始: 蓝色
+                    ? cycleCount >= 4
+                        ? 'bg-green-500 text-white hover:bg-green-600 animate-pulse' // 达标: 绿色
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'  // 未达标: 灰色/提前结束
+                    : 'bg-blue-600 text-white hover:bg-blue-700'        // 未开始: 蓝色
                     }`}
             >
                 {isRunning
@@ -124,12 +124,13 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                     initial="ready"
                 />
 
-                {/* 核心呼吸球 */}
+                {/* 核心呼吸球 - 点击可开始 */}
                 <motion.div
-                    className="relative w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full shadow-lg flex items-center justify-center z-10"
+                    className={`relative w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full shadow-lg flex items-center justify-center z-10 ${!isRunning ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
                     variants={circleVariants}
                     animate={phase}
                     initial="ready"
+                    onClick={() => !isRunning && handleStart()}
                 >
                     <span className="text-white font-medium text-sm">
                         {phase === 'inhale' ? '吸' : phase === 'exhale' ? '呼' : phase === 'hold' ? '停' : '开始'}

@@ -576,9 +576,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
-              <span className="text-xl transition-all duration-300">{isReadOnly ? '📋' : internalSessionId ? '💬' : '✨'}</span>
+              <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
               <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
-                {isReadOnly ? '历史会话' : internalSessionId ? '咨询中' : '新咨询'}
+                {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
               </h1>
             </div>
             {/* 倒计时 - 使用 opacity 控制显示，保持布局空间 */}
@@ -593,7 +593,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             </div>
           </div>
           <div className="flex items-center gap-2 min-w-[80px] justify-end">
-            {isReadOnly ? (
+            {(isReadOnly || isSessionEnded) ? (
               <Tag color="gray" size="small">咨询已结束</Tag>
             ) : (
               // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
@@ -628,31 +628,15 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         />
         {isSessionEnded && (
           <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <div className="flex flex-col items-center gap-4 p-8 bg-white/50 backdrop-blur-md rounded-2xl shadow-sm border border-indigo-50/50">
-              <div className="relative flex items-center justify-center w-12 h-12">
-                <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
-                <div className="absolute w-6 h-6 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
-                <div className="absolute w-10 h-10 border-2 border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
-              </div>
-              <span className="text-sm font-medium text-indigo-600 animate-pulse">
-                {isSending ? '正在准备空间...' : '正在开启心灵对话...'}
-              </span>
-            </div>
-            <div className="text-center mt-6">
+            <div className="text-center">
               <div className="text-3xl mb-3">🌿</div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
               <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
-              <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700 mb-4">
+              <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700">
                 <p className="font-medium mb-1">小结：</p>
                 <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
                 <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
               </div>
-              <Button
-                type="primary"
-                onClick={() => router.push('/')}
-              >
-                开始新的咨询
-              </Button>
             </div>
           </div>
         )}
