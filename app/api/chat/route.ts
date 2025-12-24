@@ -48,6 +48,118 @@ function createFixedStreamResponse(content: string, data: StreamData): NextRespo
   });
 }
 
+// =================================================================================
+// 预设技能卡配置 - 用于直接技能请求的快速响应
+// =================================================================================
+const SKILL_CARDS = {
+  breathing: {
+    title: '4-7-8呼吸法',
+    when: '思绪纷乱或焦虑时',
+    effort: 'low' as const,
+    widget: 'breathing',
+    steps: [
+      '找一个舒适的姿势坐好',
+      '用鼻子吸气4秒',
+      '屏住呼吸7秒',
+      '用嘴缓慢呼气8秒',
+      '重复3-4次'
+    ],
+  },
+  meditation: {
+    title: '5分钟正念冥想',
+    when: '需要放松或专注时',
+    effort: 'low' as const,
+    widget: 'meditation',
+    steps: [
+      '找一个安静的地方坐下',
+      '闭上眼睛，专注呼吸',
+      '注意身体的感受',
+      '当思绪飘走时，温柔地拉回',
+      '保持5分钟'
+    ],
+  },
+  grounding: {
+    title: '5-4-3-2-1着陆技术',
+    when: '感到焦虑或恐慌时',
+    effort: 'low' as const,
+    widget: undefined,
+    steps: [
+      '说出你能看到的5样东西',
+      '说出你能摸到的4样东西',
+      '说出你能听到的3种声音',
+      '说出你能闻到的2种气味',
+      '说出你能尝到的1种味道'
+    ],
+  },
+};
+
+type SkillType = keyof typeof SKILL_CARDS;
+
+/**
+ * 检测直接技能请求类型
+ */
+function detectDirectSkillRequest(message: string): SkillType | null {
+  const lowerMsg = message.toLowerCase();
+  if (/呼吸|4.?7.?8|深呼吸/.test(lowerMsg)) return 'breathing';
+  if (/冥想|正念|静心|meditation/.test(lowerMsg)) return 'meditation';
+  if (/着陆|5.?4.?3.?2.?1|grounding/.test(lowerMsg)) return 'grounding';
+  return null;
+}
+
+/**
+ * 创建带技能卡的快速流式响应（跳过 DeepSeek）
+ */
+function createSkillCardStreamResponse(
+  skillType: SkillType,
+  data: StreamData,
+  metadata: Record<string, any>
+): NextResponse {
+  const skill = SKILL_CARDS[skillType];
+  const introMessages: Record<SkillType, string> = {
+    breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
+    meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
+    grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
+  };
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+
+      // 1. 先输出简短文字
+      const intro = introMessages[skillType];
+      controller.enqueue(encoder.encode(`0:${JSON.stringify(intro)}\n`));
+
+      // 2. 添加元数据（包含 actionCards）
+      data.append({
+        ...metadata,
+        routeType: 'support',
+        actionCards: [skill],
+        fastSkillResponse: true,
+      } as any);
+
+      data.close();
+      const reader = data.stream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+      } catch (e) {
+        console.error('Error reading data stream', e);
+      }
+      controller.close();
+    }
+  });
+
+  return new NextResponse(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-Vercel-AI-Data-Stream': 'v1',
+    },
+  });
+}
+
 
 export const dynamic = 'force-dynamic';
 
@@ -207,9 +319,41 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0.5.5 Skill Card Override (Global Pre-check)
+    // 0.5.5 Skill Card Override (Global Pre-check) - 直接技能请求快速响应
     // =================================================================================
-    const skillKeywords = /呼吸练习|放松技巧|放松方法|做个练习|想试试|缓解焦虑|学习放松|冥想|正念|着陆技术/i;
+    const directSkillType = detectDirectSkillRequest(message);
+    if (directSkillType && routeType !== 'crisis') {
+      console.log('[API] Direct skill request detected, bypassing DeepSeek:', directSkillType);
+
+      // 异步保存 AI 消息（不阻塞响应）
+      const assistantId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const skill = SKILL_CARDS[directSkillType];
+      const introMessages: Record<SkillType, string> = {
+        breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
+        meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
+        grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
+      };
+
+      if (sessionId) {
+        prisma.message.create({
+          data: {
+            id: assistantId,
+            conversationId: sessionId,
+            role: 'assistant',
+            content: introMessages[directSkillType],
+            meta: { routeType: 'support', actionCards: [skill], fastSkillResponse: true },
+          }
+        }).catch(e => console.error('[DB] Failed to save skill response:', e));
+      }
+
+      return createSkillCardStreamResponse(directSkillType, data, {
+        timestamp: new Date().toISOString(),
+        emotion: emotionObj,
+      });
+    }
+
+    // 旧逻辑降级（用于不精确匹配的情况）
+    const skillKeywords = /做个练习|想试试|缓解焦虑|学习放松|放松技巧|放松方法/i;
     const wantsSkillCard = skillKeywords.test(message);
     if (wantsSkillCard) {
       console.log('[API] Skill keyword detected, forcing support route with action card.');
