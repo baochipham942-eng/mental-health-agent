@@ -244,7 +244,7 @@ export async function streamChatCompletion(
     tools: options?.enableTools ? SDK_TOOLS : undefined, // Use unified SDK_TOOLS format when enabled
 
     onFinish: async ({ text, usage, finishReason, toolCalls }) => {
-      // Call external onFinish with text and toolCalls
+      // Call external onFinish with text and toolCalls (必须等待)
       if (options?.onFinish) {
         // Convert tool calls to a more usable format for API response
         const formattedToolCalls = toolCalls?.map((tc: any) => ({
@@ -258,33 +258,41 @@ export async function streamChatCompletion(
         await options.onFinish(text, formattedToolCalls);
       }
 
-      // LangFuse Tracing (Async)
-      const trace = createTrace(
-        'streamChatCompletion',
-        {
-          model: 'deepseek-chat',
-          temperature: options?.temperature ?? 0.7,
-          max_tokens: options?.max_tokens ?? 2000,
-          finishReason,
-          toolCalls,
-          ...options?.traceMetadata,
-        },
-        messages // Input
-      );
+      // LangFuse Tracing (Async, Non-Blocking)
+      // 使用 setImmediate pattern 确保不阻塞流关闭
+      // 这样用户端能立即收到流结束信号，而日志在后台发送
+      (async () => {
+        try {
+          const trace = createTrace(
+            'streamChatCompletion',
+            {
+              model: 'deepseek-chat',
+              temperature: options?.temperature ?? 0.7,
+              max_tokens: options?.max_tokens ?? 2000,
+              finishReason,
+              toolCalls,
+              ...options?.traceMetadata,
+            },
+            messages // Input
+          );
 
-      if (trace) {
-        const generation = createGeneration(trace, 'DeepSeek Stream', messages, 'deepseek-chat');
-        endGeneration(generation, text, {
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-        });
+          if (trace) {
+            const generation = createGeneration(trace, 'DeepSeek Stream', messages, 'deepseek-chat');
+            endGeneration(generation, text, {
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+            });
 
-        // Update trace with output
-        updateTrace(trace, { output: text });
+            // Update trace with output
+            updateTrace(trace, { output: text });
 
-        await flushLangfuse();
-      }
+            await flushLangfuse();
+          }
+        } catch (e) {
+          console.error('[LangFuse] Async trace error:', e);
+        }
+      })();
     },
   });
 
