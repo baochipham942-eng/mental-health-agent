@@ -1,7 +1,11 @@
+```typescript
 import { notFound, redirect } from 'next/navigation';
-import { getSessionById } from '@/lib/actions/chat';
-import { auth } from '@/auth';
 import { ChatShell } from '@/components/chat/ChatShell';
+import { getSessionById, getSessionMessages } from '@/lib/db/queries'; // Assume these exist
+import { auth } from '@/auth';
+import { Metadata } from 'next';
+
+export const dynamic = 'force-dynamic';
 
 interface SessionPageProps {
     params: {

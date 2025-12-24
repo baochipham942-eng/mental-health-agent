@@ -151,7 +151,7 @@ export function ChatInput({
   return (
     <div className="w-full">
       {/* 输入框容器 */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 flex gap-2 items-end">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 flex gap-2 items-center">
         <textarea
           ref={textareaRef}
           value={value}
@@ -170,8 +170,8 @@ export function ChatInput({
           className={cn(
             'flex-1 resize-none rounded-xl px-3 py-3',
             'text-gray-900 placeholder:text-gray-400',
-            'bg-transparent border-none',
-            'focus:outline-none focus:ring-0',
+            'bg-transparent border-none outline-none ring-0',
+            'focus:outline-none focus:ring-0 focus:border-none shadow-none',
             'overflow-y-auto transition-all duration-200',
             'leading-6 text-[15px]',
             disabled && !isLoading && 'cursor-not-allowed opacity-60'

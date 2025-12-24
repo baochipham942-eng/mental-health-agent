@@ -151,7 +151,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     const transitionMsgs = sessionId ? getAndClearTransitionMessages(sessionId) : undefined;
 
     // 动态 session 切换检测
-    const isSessionSwitch = sessionId && sessionId !== internalSessionId;
+    // FIX: Handle switch to 'undefined' (New Chat) as well
+    const isSessionSwitch = (sessionId && sessionId !== internalSessionId) || (!sessionId && internalSessionId);
 
     // 旧 FIX 保留（作为双重保险）：如果已经有本地消息且是创建过程，不要被服务端覆盖
     const isCreationTransition = !internalSessionId && sessionId && messages.length > 0;
@@ -178,12 +179,26 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       }
 
       console.log('[ChatShell] Switching session, loading new messages', { from: internalSessionId, to: sessionId });
-      setMessages(initialMessages || []);
-      setInternalSessionId(sessionId);
-      sessionIdRef.current = sessionId;
-      prevSessionIdRef.current = sessionId;
+
+      // If switching to New Chat (!sessionId), reset everything
+      if (!sessionId) {
+        setMessages([]);
+        setInternalSessionId(undefined);
+        sessionIdRef.current = undefined;
+        prevSessionIdRef.current = undefined;
+        setDraft(inputDraft || ''); // Restore draft if any
+      } else {
+        // If switching to existing session, load initialMessages
+        setMessages(initialMessages || []);
+        setInternalSessionId(sessionId);
+        sessionIdRef.current = sessionId;
+        prevSessionIdRef.current = sessionId;
+        if (!initialMessages || initialMessages.length === 0) {
+          console.warn('[ChatShell] Switched to session but no messages found', { sessionId });
+        }
+      }
     }
-  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender]);
+  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender, inputDraft]);
 
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）

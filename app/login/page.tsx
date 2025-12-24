@@ -219,7 +219,7 @@ export default function LoginPage() {
                                 <Input
                                     name="inviteCode"
                                     prefix={<IconSafe />}
-                                    placeholder="邀请码 (6位)"
+                                    placeholder="邀请码"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     maxLength={6}
                                     style={{ textTransform: 'uppercase' }}
