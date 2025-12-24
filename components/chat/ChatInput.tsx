@@ -36,7 +36,7 @@ export function ChatInput({
 
     textarea.style.height = 'auto';
     const lineHeight = 24;
-    const padding = 16;
+    const padding = 20; // 对应 py-2.5 (10px * 2)
     const minHeight = lineHeight + padding;
     const maxHeight = lineHeight * 6 + padding;
 
@@ -168,7 +168,7 @@ export function ChatInput({
           data-form-type="other"
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-xl px-3 py-3',
+            'flex-1 resize-none rounded-xl px-3 py-2.5',
             'text-gray-900 placeholder:text-gray-400',
             'bg-transparent border-none outline-none ring-0',
             'focus:outline-none focus:ring-0 focus:border-none shadow-none',
@@ -201,6 +201,7 @@ export function ChatInput({
           style={{
             width: 44,
             height: 44,
+            padding: 0,
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',

@@ -258,6 +258,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         // Keep timer as is (it's running for the new session)
       } else {
         // If switching to existing session, load initialMessages
+        // CRITICAL FIX: Reset isJustCreatedRef to ensure future navigations to New Chat work correctly
+        isJustCreatedRef.current = false;
+
         // CRITICAL FIX: Only overwrite if initialMessages has actual content
         // If server returns empty but we have local messages for this session, keep local
         const currentStore = useChatStore.getState();
@@ -359,7 +362,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       okText: '确定结束',
       cancelText: '继续咨询',
       icon: null, // 不显示图标
-      style: { width: 400 },
+      style: { width: 400, borderRadius: '12px' }, // 这里也可以加上圆角
       onOk: async () => {
         // 1. Trigger summary generation (if session has messages)
         if (internalSessionId && messages.length > 0) {
@@ -822,7 +825,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
               <Tag
                 color={timeLeft < 300 ? 'red' : 'arcoblue'}
                 size="small"
-                className="font-mono"
+                className="font-mono !rounded-lg"
               >
                 ⏱️ 剩余 {formatTime(timeLeft)}
               </Tag>
@@ -830,7 +833,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           </div>
           <div className="flex items-center gap-2 min-w-[80px] justify-end">
             {(isReadOnly || isSessionEnded) ? (
-              <Tag color="gray" size="small">咨询已结束</Tag>
+              <Tag color="gray" size="small" className="!rounded-lg">咨询已结束</Tag>
             ) : (
               // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
               <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -838,6 +841,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
                   size="small"
                   icon={<IconStop />}
                   onClick={handleEndSession}
+                  className="!rounded-xl"
                 >
                   结束咨询
                 </Button>
@@ -868,7 +872,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
               <div className="text-3xl mb-3">🌿</div>
               <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
               <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
-              <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700">
+              <div className="bg-white rounded-xl p-3 text-left text-sm text-gray-700">
                 <p className="font-medium mb-1">小结：</p>
                 <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
                 <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
