@@ -66,6 +66,7 @@ export function useChat() {
       const dataItems = m.data as any[];
       let emotion = undefined;
       let resources = undefined;
+      let metadata: Message['metadata'] = undefined;
 
       if (dataItems && Array.isArray(dataItems)) {
         // 查找包含 emotion 或 resources 的项
@@ -74,6 +75,16 @@ export function useChat() {
         dataItems.forEach(item => {
           if (item?.emotion) emotion = item.emotion;
           if (item?.resources) resources = item.resources;
+          // 提取 safety, routeType, assessmentStage, actionCards
+          if (item?.safety || item?.routeType || item?.assessmentStage || item?.actionCards) {
+            metadata = {
+              ...metadata,
+              safety: item.safety || metadata?.safety,
+              routeType: item.routeType || metadata?.routeType,
+              assessmentStage: item.assessmentStage || metadata?.assessmentStage,
+              actionCards: item.actionCards || metadata?.actionCards,
+            };
+          }
         });
       }
 
@@ -84,6 +95,7 @@ export function useChat() {
         timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
         emotion,
         resources,
+        metadata,
       };
     });
   }, [aiMessages]);
