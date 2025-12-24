@@ -240,26 +240,32 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
       // If switching to New Chat (!sessionId), reset everything
       // BUT check if we just created it locally (isJustCreatedRef). If so, ignore the mismatch logic.
+      // BUT check if we just created it locally (isJustCreatedRef). If so, ignore the mismatch logic.
       if (!sessionId && !isJustCreatedRef.current) {
         console.log('[ChatShell] Resetting to empty state for New Chat (verified not just-created)');
         setMessages([]);
         setInternalSessionId(undefined);
+        setCurrentSessionId(undefined); // Sync global store
         sessionIdRef.current = undefined;
         prevSessionIdRef.current = undefined;
         setDraft(inputDraft || ''); // Restore draft if any
+        setTimeLeft(SESSION_DURATION); // Reset timer for new session
       } else if (!sessionId && isJustCreatedRef.current) {
         console.log('[ChatShell] Ignoring reset because session was JUST created locally');
-        // We might want to reset the ref now? No, wait until sessionId prop actually arrives?
-        // If we reset it here, next render might clear it?
-        // Actually, sessionId prop stays undefined until full page reload or router push.
-        // window.history.replaceState doesn't change props.
-        // So we keep isJustCreatedRef = true.
+        // Keep timer as is (it's running for the new session)
       } else {
         // If switching to existing session, load initialMessages
         setMessages(initialMessages || []);
         setInternalSessionId(sessionId);
+        setCurrentSessionId(sessionId); // Sync global store
         sessionIdRef.current = sessionId;
         prevSessionIdRef.current = sessionId;
+        // Reset timer for existing session (should calculate real time left from server? 
+        // For MVP, we reset to full duration if re-entering, or maybe we shouldn't? 
+        // User requirements said 45 min per session. If resuming, maybe it should reflect remaining time?
+        // But we don't store startTime in DB yet. So reset to full is safer than keeping it 0.)
+        setTimeLeft(SESSION_DURATION);
+
         if (!initialMessages || initialMessages.length === 0) {
           console.warn('[ChatShell] Switched to session but no messages found', { sessionId });
         }
