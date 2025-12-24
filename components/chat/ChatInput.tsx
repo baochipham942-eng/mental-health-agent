@@ -196,42 +196,27 @@ export function ChatInput({
           size={44}
         />
 
-        {/* 发送按钮 - 使用自定义图标包装器实现光学居中 */}
+        {/* 发送按钮 */}
         <Button
           type="primary"
           size="large"
           shape="circle"
           disabled={!canSend || disabled || isLoading}
+          loading={isLoading}
           icon={
-            isLoading ? (
-              <span className="animate-spin" style={{ display: 'inline-flex' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                </svg>
-              </span>
-            ) : (
-              <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
-                <IconSend />
-              </span>
-            )
+            <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
+              <IconSend />
+            </span>
           }
           onClick={doSend}
-          style={{
-            width: 44,
-            height: 44,
-            minWidth: 44,
-            minHeight: 44,
-            padding: 0,
-            fontSize: 18,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
           className={cn(
-            'transition-all duration-200',
+            'transition-all duration-200 !w-[44px] !h-[44px] !min-w-[44px] !min-h-[44px] !p-0',
             canSend && !isLoading && 'shadow-md hover:shadow-lg'
           )}
+          style={{
+            fontSize: 18,
+            flexShrink: 0,
+          }}
         />
       </div>
 

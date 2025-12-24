@@ -15,7 +15,7 @@ export default async function NewChatPage() {
 
     return (
         <ChatShell
-            // key="new-session" // 移除 key 以复用组件状态，实现无刷新切换
+            key="new-session"
             sessionId={undefined}
             initialMessages={[]}
             isReadOnly={false}
