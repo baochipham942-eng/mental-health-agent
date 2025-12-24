@@ -6,6 +6,7 @@ import { quickAnalyze } from '@/lib/ai/groq';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
 import { continueAssessment, streamAssessmentReply } from '@/lib/ai/assessment';
+import { deepseek, streamEFTValidationReply } from '@/lib/ai/deepseek'; // Updated import
 import { generateAssessmentConclusion, streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
@@ -51,7 +52,8 @@ function createFixedStreamResponse(content: string, data: StreamData): NextRespo
 // =================================================================================
 // 预设技能卡配置 - 用于直接技能请求的快速响应
 // =================================================================================
-const SKILL_CARDS = {
+// Export for testing
+export const SKILL_CARDS = {
   breathing: {
     title: '4-7-8呼吸法',
     when: '思绪纷乱或焦虑时',
@@ -114,20 +116,33 @@ const SKILL_CARDS = {
       '完成后给自己一个微小的正反馈',
     ],
   },
+  empty_chair: {
+    title: '空椅子对话练习',
+    when: '有未解的心结或强烈委屈时',
+    effort: 'high' as const,
+    widget: 'empty_chair',
+    steps: [
+      '设定对面椅子上坐着的人',
+      '尽情宣泄你的真实感受',
+      '互换位置，体验对方的视角',
+      '重新整合你的感受'
+    ],
+  },
 };
 
-type SkillType = keyof typeof SKILL_CARDS;
+export type SkillType = keyof typeof SKILL_CARDS;
 
 /**
  * 检测直接技能请求类型
  */
-function detectDirectSkillRequest(message: string): SkillType | null {
+export function detectDirectSkillRequest(message: string): SkillType | null {
   const lowerMsg = message.toLowerCase();
   if (/呼吸|4.?7.?8|深呼吸/.test(lowerMsg)) return 'breathing';
   if (/冥想|正念|静心|meditation/.test(lowerMsg)) return 'meditation';
   if (/着陆|5.?4.?3.?2.?1|grounding/.test(lowerMsg)) return 'grounding';
   if (/重构|想法挑战|认知/.test(lowerMsg)) return 'reframing';
   if (/行为激活|活动|小任务/.test(lowerMsg)) return 'activation';
+  if (/空椅子|对话练习|宣泄|委屈/.test(lowerMsg)) return 'empty_chair';
   return null;
 }
 
@@ -146,6 +161,7 @@ function createSkillCardStreamResponse(
     grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
     reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
     activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
+    empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
   };
 
   const stream = new ReadableStream({
@@ -217,6 +233,7 @@ export async function POST(request: NextRequest) {
         grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
         reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
         activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
+        empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
       };
 
       // 异步保存消息（不阻塞）
@@ -375,6 +392,8 @@ export async function POST(request: NextRequest) {
       routeType = 'crisis';
     }
 
+
+
     // 检查是否需要生成对话摘要 (放在并行之后，因为依赖 history)
     if (userId && sessionId && history.length > 0 && shouldSummarize(history.length)) {
       try {
@@ -502,6 +521,38 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
+      return result.toDataStreamResponse({ data });
+    }
+
+    // =================================================================================
+    // 1.5 EFT Validation Logic - (The "Heart" Phase)
+    // 优先处理高情绪唤起 (非危机状态下)
+    // =================================================================================
+    if (analysis.needsValidation) {
+      console.log('[API] EFT Validation triggered (High Emotion Score)');
+
+      const onFinishWithMeta = async (text: string) => {
+        // Non-blocking save
+        saveAssistantMessage(text, {
+          routeType: 'support',
+          subRoute: 'eft_validation',
+          safety: safetyData,
+          state: stateData
+        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
+        data.append({
+          reply: text,
+          routeType: 'support',
+          safety: safetyData,
+          isEFT: true
+        } as any);
+        data.close();
+      };
+
+      const result = await streamEFTValidationReply(message, processedHistory, {
+        onFinish: onFinishWithMeta,
+        traceMetadata
+      });
       return result.toDataStreamResponse({ data });
     }
 

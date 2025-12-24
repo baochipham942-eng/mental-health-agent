@@ -80,14 +80,14 @@ export const SDK_TOOLS = {
         })
     }),
     recommend_skill_card: tool({
-        description: '向用户推荐心理调节技能卡片（Action Card）。当用户需要干预、放松、记录情绪或应对具体困难时调用。',
+        description: '向用户推荐心理调节技能卡片（Action Card）。支持的技能类型：1.呼吸练习(breathing) 2.正念冥想(meditation) 3.空椅子技术(empty_chair, 用于处理未竟情感) 4.情绪记录(mood_tracker)。当用户症状匹配时主动调用。',
         parameters: z.object({
             card: z.object({
                 title: z.string().describe('卡片标题，如"4-7-8呼吸法"'),
                 steps: z.array(z.string()).describe('简练的步骤列表，每步不超过15字'),
                 when: z.string().describe('适用场景，如"焦虑时"'),
                 effort: z.enum(['low', 'medium', 'high']).describe('所需精力'),
-                widget: z.enum(['mood_tracker', 'breathing', 'meditation']).optional().describe('关联的交互组件')
+                widget: z.enum(['mood_tracker', 'breathing', 'meditation', 'empty_chair']).optional().describe('关联的交互组件')
             })
         })
     })

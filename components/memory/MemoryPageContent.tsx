@@ -57,7 +57,34 @@ interface Memory {
     confidence: number;
     createdAt: string;
     updatedAt: string;
+    // Ebbinghaus fields
+    memoryStrength?: number;
+    accessCount?: number;
 }
+
+// 记忆强度可视化组件
+const StrengthIndicator = ({ strength = 1.0, count = 1 }: { strength?: number; count?: number }) => {
+    // 强度颜色：高(>0.7)绿，中(>0.4)黄，低(<0.4)红
+    let color = 'bg-red-500';
+    if (strength > 0.7) color = 'bg-green-500';
+    else if (strength > 0.4) color = 'bg-yellow-500';
+
+    return (
+        <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+            <div className="flex items-center gap-1" title={`记忆强度: ${(strength * 100).toFixed(0)}%`}>
+                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all duration-500 ${color}`}
+                        style={{ width: `${strength * 100}%` }}
+                    />
+                </div>
+                <span>{(strength * 100).toFixed(0)}%</span>
+            </div>
+            <span className="w-px h-3 bg-gray-200 mx-1" />
+            <span title="提取次数">🔄 {count} 次回忆</span>
+        </div>
+    );
+};
 
 export function MemoryPageContent() {
     const router = useRouter();
@@ -185,10 +212,14 @@ export function MemoryPageContent() {
                 </div>
             ) : (
                 <div className="flex items-start justify-between gap-4">
-                    <p className="text-sm text-gray-700 flex-1 leading-relaxed">
-                        {memory.content}
-                    </p>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <div className="flex-1">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                            {memory.content}
+                        </p>
+                        {/* Phase 3 Visualization: Memory Strength */}
+                        <StrengthIndicator strength={memory.memoryStrength} count={memory.accessCount} />
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 self-start">
                         <Button
                             type="text"
                             size="mini"

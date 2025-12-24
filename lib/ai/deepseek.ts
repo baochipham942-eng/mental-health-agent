@@ -1,6 +1,7 @@
 import { ActionCardSchema, AssessmentConclusionSchema, CrisisClassificationSchema, EmotionAnalysisSchema } from './schemas';
 import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
+import { EFT_VALIDATION_PROMPT } from './prompts-eft';
 import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '../observability/langfuse';
 import { SDK_TOOLS } from './tools';
 
@@ -401,3 +402,42 @@ function matchEmotionByKeywords(text: string): EmotionAnalysis {
 
 
 
+
+/**
+ * 生成 EFT (情绪聚焦) 共情回复 (流式)
+ */
+export async function streamEFTValidationReply(
+    userMessage: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    options?: {
+        onFinish?: (text: string) => Promise<void>;
+        traceMetadata?: Record<string, any>;
+    }
+) {
+    // 构建 EFT 专用上下文
+    const messages: ChatMessage[] = [
+        {
+            role: 'system',
+            content: EFT_VALIDATION_PROMPT,
+        },
+        ...history.slice(-6).map(msg => ({ // 只取最近 6 条，聚焦当下情绪
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+        })),
+        {
+            role: 'user',
+            content: userMessage,
+        },
+    ];
+
+    return streamChatCompletion(messages, {
+        temperature: 0.9, // 稍微提高温度，增加情感丰富度
+        max_tokens: 400,
+        traceMetadata: { ...options?.traceMetadata, type: 'eft_validation' },
+        onFinish: async (text, toolCalls) => {
+            if (options?.onFinish) {
+                await options.onFinish(text);
+            }
+        }
+    });
+}

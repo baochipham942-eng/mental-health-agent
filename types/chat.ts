@@ -68,7 +68,7 @@ export interface ActionCard {
   steps: string[];
   when: string;
   effort: 'low' | 'medium' | 'high';
-  widget?: 'breathing' | 'meditation' | 'mood_tracker';
+  widget?: 'breathing' | 'meditation' | 'mood_tracker' | 'empty_chair';
 }
 
 export interface ChatResponse {

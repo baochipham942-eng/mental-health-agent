@@ -5,6 +5,7 @@ import { useChatStore } from '@/store/chatStore';
 import { BreathingExercise } from './widgets/BreathingExercise';
 import { MeditationExercise } from './widgets/MeditationExercise';
 import { MoodTracker } from './widgets/MoodTracker';
+import { BasicEmptyChair } from './widgets/BasicEmptyChair'; // Imported
 import { InlineMoodRating } from './widgets/InlineMoodRating';
 import { logExercise } from '@/lib/actions/exercise';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -292,6 +293,12 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                     />
                   ) : card.widget === 'mood_tracker' ? (
                     <MoodTracker />
+                  ) : card.widget === 'empty_chair' ? ( // 新增：空椅子
+                    <BasicEmptyChair
+                      onComplete={handleWidgetComplete}
+                      setHeaderControl={setHeaderControl}
+                      onStart={handleWidgetStart}
+                    />
                   ) : (
                     /* Default Steps List */
                     <div className="space-y-4">

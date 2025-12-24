@@ -20,6 +20,7 @@ export interface QuickAnalysis {
     stateReasoning: string; // 对话状态/意图分析
     emotion: { label: string; score: number };
     route: 'crisis' | 'support' | 'assessment';
+    needsValidation?: boolean; // 新增：是否需要优先进行情绪共情（EFT模式）
 }
 
 const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析用户消息，直接输出 JSON（不要任何其他文字）：
@@ -29,7 +30,8 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
   "safetyReasoning": "实事求是地说明用户消息内容与安全等级判断，1句话",
   "stateReasoning": "简要说明用户的意图和当前对话状态，1句话",
   "emotion": { "label": "焦虑|抑郁|悲伤|愤怒|恐惧|平静|快乐", "score": 1-10 },
-  "route": "crisis" | "support" | "assessment"
+  "route": "crisis" | "support" | "assessment",
+  "needsValidation": boolean
 }
 
 安全等级规则（必须严格遵守，不要过度解读）：
@@ -37,14 +39,16 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 - urgent: 用户**明确提及**自伤念头但无具体计划
 - normal: 其他所有情况，包括失眠、压力、情绪低落等常见心理困扰
 
-**重要**：safetyReasoning 必须基于用户实际说的内容，不要臆测或过度推断。例如：
-- 用户说"晚上睡不好觉" → "用户反映睡眠问题，无安全风险" ✅
-- 用户说"晚上睡不好觉" → "用户表达了自伤念头" ❌（这是错误的！）
+**重要**：safetyReasoning 必须基于用户实际说的内容，不要臆测或过度推断。
 
 路由规则：
 - crisis: 当 safety=crisis 或 urgent
 - assessment: 用户明确求助，有负面情绪需深入探索
 - support: 日常倾诉、正面情绪、问候、闲聊
+
+EFT共情判断 (needsValidation):
+- true: 当 emotion.score >= 7 且 用户处于高唤起状态（哭诉、愤怒、绝望）时。此时不应讲道理，应优先共情。
+- false: 情绪平稳，或用户明确在询问建议/解决方案时。
 
 只输出 JSON，不要其他内容。`;
 

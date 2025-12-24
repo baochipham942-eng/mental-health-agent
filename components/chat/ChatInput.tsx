@@ -1,8 +1,8 @@
 'use client';
 
 import { KeyboardEvent, useRef, useEffect, useCallback } from 'react';
-import { Button } from '@arco-design/web-react';
-import { IconSend, IconLoading } from '@arco-design/web-react/icon';
+import { Button, Dropdown, Menu } from '@arco-design/web-react';
+import { IconSend, IconLoading, IconApps } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
 
@@ -152,6 +152,28 @@ export function ChatInput({
     <div className="w-full">
       {/* 输入框容器 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
+        {/* 工具箱 (Magic Wand / Toolkit) - New Phase 2.5 Feature */}
+        <Dropdown
+          position="tl"
+          trigger="click"
+          droplist={
+            <Menu onClickMenuItem={(key) => onSend(`我想试试${key}`)}>
+              <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (4-7-8)</Menu.Item>
+              <Menu.Item key="正念冥想">🧘 正念冥想</Menu.Item>
+              <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
+              <Menu.Item key="情绪记录">📊 情绪记录</Menu.Item>
+            </Menu>
+          }
+        >
+          <Button
+            type="text"
+            shape="circle"
+            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors"
+            style={{ width: 36, height: 36, flexShrink: 0 }}
+            icon={<IconApps style={{ fontSize: 20 }} />}
+          />
+        </Dropdown>
+
         {/* 输入框包装器 - 使用 flex 实现真正的垂直居中 */}
         <div className="flex-1 flex items-center min-h-[44px]">
           <textarea
