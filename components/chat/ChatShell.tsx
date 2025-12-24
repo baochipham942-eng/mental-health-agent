@@ -506,298 +506,315 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           role: 'assistant',
           content: '正在深入思考...',
           timestamp: new Date().toISOString(),
-        };
-        addMessage(placeholderMessage);
+          const placeholderMessage: Message = {
+            id: assistantMsgId,
+            role: 'assistant',
+            content: '正在深入思考...',
+            timestamp: new Date().toISOString(),
+          };
+          addMessage(placeholderMessage);
 
         let localAccumulatedContent = '';
+          // Capture metadata progressively to ensure no data loss on final update
+          let capturedSafety: any = null;
+          let capturedState: any = null;
+          let capturedActionCards: any[] | undefined = undefined;
 
-        const { response: finalResponse, error: finalApiError } = await sendChatMessage({
-          message: messageToSend,
-          history: requestPayload.history,
-          state: currentState,
-          assessmentStage,
-          initialMessage: currentInitialMessage,
-          meta: requestPayload.meta,
-          sessionId: currentSessionId,
-          onTextChunk: (chunk) => {
-            if (chunk) {
-              localAccumulatedContent += chunk;
-              updateMessage(assistantMsgId, { content: localAccumulatedContent });
-            }
-          },
-          onDataChunk: (data) => {
+          const { response: finalResponse, error: finalApiError } = await sendChatMessage({
+            message: messageToSend,
+            history: requestPayload.history,
+            state: currentState,
+            assessmentStage,
+            initialMessage: currentInitialMessage,
+            meta: requestPayload.meta,
+            sessionId: currentSessionId,
+            onTextChunk: (chunk) => {
+              if (chunk) {
+                localAccumulatedContent += chunk;
+                updateMessage(assistantMsgId, { content: localAccumulatedContent });
+              }
+            },
+            onDataChunk: (data) => {
+              // Update captured metadata
+              if (data.safety) capturedSafety = data.safety;
+              if (data.state) capturedState = data.state;
+              if (data.actionCards) capturedActionCards = data.actionCards;
+
+              updateMessage(assistantMsgId, {
+                metadata: {
+                  safety: data.safety || capturedSafety,
+                  state: data.state || capturedState,
+                  routeType: data.routeType,
+                  assessmentStage: data.assessmentStage,
+                  actionCards: data.actionCards || capturedActionCards,
+                  assistantQuestions: data.assistantQuestions,
+                  validationError: data.validationError,
+                  toolCalls: data.toolCalls,
+                }
+              } as any);
+            },
+          });
+
+          if(finalApiError) {
+            setDraft(originalContent);
             updateMessage(assistantMsgId, {
+              content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
               metadata: {
-                safety: data.safety, // CoT 安全评估
-                state: data.state,   // CoT 对话状态
-                routeType: data.routeType,
-                assessmentStage: data.assessmentStage,
-                actionCards: data.actionCards,
-                assistantQuestions: data.assistantQuestions,
-                validationError: data.validationError,
-                toolCalls: data.toolCalls,
+                error: true,
+                errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
+                originalError: finalApiError.error,
+                isSystemError: true,
               }
             } as any);
-          },
-        });
-
-        if (finalApiError) {
-          setDraft(originalContent);
-          updateMessage(assistantMsgId, {
-            content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
-            metadata: {
-              error: true,
-              errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
-              originalError: finalApiError.error,
-              isSystemError: true,
-            }
-          } as any);
-          setError(finalApiError.error);
-          setIsSending(false);
-          setLoading(false);
-          return;
-        }
-
-        if ((!finalResponse.reply || finalResponse.reply.trim() === '') && localAccumulatedContent.trim().length > 0) {
-          finalResponse.reply = localAccumulatedContent;
-        }
-
-        const responseData = finalResponse;
-        const isEmptyReply = !responseData.reply || responseData.reply.trim() === '';
-        const hasStructuredContent = (responseData.actionCards && responseData.actionCards.length > 0) ||
-          (responseData.assistantQuestions && responseData.assistantQuestions.length > 0) ||
-          (responseData.toolCalls && responseData.toolCalls.length > 0);
-
-        if (isEmptyReply && !hasStructuredContent) {
-          setDraft(originalContent);
-          updateMessage(assistantMsgId, {
-            content: '发送失败：服务器返回了空回复。你的消息已恢复到输入框，可以点击重试。',
-            metadata: {
-              error: true,
-              errorCode: 'EMPTY_REPLY_NO_STRUCTURE',
-              isSystemError: true,
-            }
-          } as any);
-          setError('服务器返回了空回复');
-          setIsSending(false);
-          setLoading(false);
-          return;
-        }
-
-        if (isEmptyReply && hasStructuredContent) {
-          responseData.reply = '请查看下方的建议：';
-          updateMessage(assistantMsgId, { content: responseData.reply });
-        }
-
-        updateMessage(assistantMsgId, {
-          content: responseData.reply,
-          timestamp: responseData.timestamp,
-          emotion: responseData.emotion,
-          metadata: {
-            routeType: responseData.routeType,
-            assessmentStage: responseData.assessmentStage,
-            actionCards: responseData.actionCards,
-            assistantQuestions: responseData.assistantQuestions,
-            validationError: responseData.validationError,
-            toolCalls: responseData.toolCalls,
+            setError(finalApiError.error);
+            setIsSending(false);
+            setLoading(false);
+            return;
           }
-        } as any);
 
-        updateState({
-          currentState: responseData.state,
-          routeType: responseData.routeType,
-          assessmentStage: responseData.assessmentStage,
-          initialMessage: currentInitialMessage,
-        });
+        if((!finalResponse.reply || finalResponse.reply.trim() === '') && localAccumulatedContent.trim().length > 0) {
+      finalResponse.reply = localAccumulatedContent;
+}
 
-        if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
-          clearFollowupAnswer();
-        } else if (responseData.state === 'awaiting_followup' && currentState !== 'awaiting_followup') {
-          clearFollowupAnswer();
-        }
+const responseData = finalResponse;
+const isEmptyReply = !responseData.reply || responseData.reply.trim() === '';
+const hasStructuredContent = (responseData.actionCards && responseData.actionCards.length > 0) ||
+  (responseData.assistantQuestions && responseData.assistantQuestions.length > 0) ||
+  (responseData.toolCalls && responseData.toolCalls.length > 0);
 
-        if (responseData.debugPrompts) setDebugPrompts(responseData.debugPrompts);
-        if (responseData.validationError) setValidationError(responseData.validationError);
+if (isEmptyReply && !hasStructuredContent) {
+  setDraft(originalContent);
+  updateMessage(assistantMsgId, {
+    content: '发送失败：服务器返回了空回复。你的消息已恢复到输入框，可以点击重试。',
+    metadata: {
+      error: true,
+      errorCode: 'EMPTY_REPLY_NO_STRUCTURE',
+      isSystemError: true,
+    }
+  } as any);
+  setError('服务器返回了空回复');
+  setIsSending(false);
+  setLoading(false);
+  return;
+}
+
+if (isEmptyReply && hasStructuredContent) {
+  responseData.reply = '请查看下方的建议：';
+  updateMessage(assistantMsgId, { content: responseData.reply });
+}
+
+updateMessage(assistantMsgId, {
+  content: responseData.reply,
+  timestamp: responseData.timestamp,
+  emotion: responseData.emotion,
+  metadata: {
+    routeType: responseData.routeType,
+    assessmentStage: responseData.assessmentStage,
+    actionCards: responseData.actionCards || capturedActionCards,
+    assistantQuestions: responseData.assistantQuestions,
+    validationError: responseData.validationError,
+    toolCalls: responseData.toolCalls,
+    // MERGE: Ensure we don't lose safety/state if responseData misses them
+    safety: responseData.safety || capturedSafety,
+    state: responseData.state || capturedState,
+  }
+} as any);
+
+updateState({
+  currentState: responseData.state,
+  routeType: responseData.routeType,
+  assessmentStage: responseData.assessmentStage,
+  initialMessage: currentInitialMessage,
+});
+
+if (responseData.state === 'normal' || responseData.assessmentStage === 'conclusion') {
+  clearFollowupAnswer();
+} else if (responseData.state === 'awaiting_followup' && currentState !== 'awaiting_followup') {
+  clearFollowupAnswer();
+}
+
+if (responseData.debugPrompts) setDebugPrompts(responseData.debugPrompts);
+if (responseData.validationError) setValidationError(responseData.validationError);
 
       } catch (err: any) {
-        console.error('[ChatShell] handleSend error:', err);
-        setDraft(originalContent);
-        addMessage({
-          id: generateId(),
-          role: 'assistant',
-          content: `抱歉，发送过程中出现了未预料的错误：${err.message}。请检查控制台或稍后重试。`,
-          timestamp: new Date().toISOString(),
-          metadata: { error: true, isSystemError: true }
-        } as any);
-        setError(err.message);
-      } finally {
-        setIsSending(false);
-        setLoading(false);
-      }
+  console.error('[ChatShell] handleSend error:', err);
+  setDraft(originalContent);
+  addMessage({
+    id: generateId(),
+    role: 'assistant',
+    content: `抱歉，发送过程中出现了未预料的错误：${err.message}。请检查控制台或稍后重试。`,
+    timestamp: new Date().toISOString(),
+    metadata: { error: true, isSystemError: true }
+  } as any);
+  setError(err.message);
+} finally {
+  setIsSending(false);
+  setLoading(false);
+}
     },
-    [
-      draft,
-      messages,
-      isLoading,
-      isSending,
-      isReadOnly,
-      isSessionEnded,
-      internalSessionId,
-      currentState,
-      assessmentStage,
-      initialMessage,
-      followupAnswerDraft,
-      addMessage,
-      updateMessage,
-      setIsSending,
-      setLoading,
-      setError,
-      updateState,
-      appendFollowupAnswer,
-      clearFollowupAnswer,
-      setLastRequestPayload,
-      setDraft,
-      setDebugPrompts,
-      setValidationError,
-      router,
-    ]
+[
+  draft,
+  messages,
+  isLoading,
+  isSending,
+  isReadOnly,
+  isSessionEnded,
+  internalSessionId,
+  currentState,
+  assessmentStage,
+  initialMessage,
+  followupAnswerDraft,
+  addMessage,
+  updateMessage,
+  setIsSending,
+  setLoading,
+  setError,
+  updateState,
+  appendFollowupAnswer,
+  clearFollowupAnswer,
+  setLastRequestPayload,
+  setDraft,
+  setDebugPrompts,
+  setValidationError,
+  router,
+]
   );
 
 
-  return (
-    <div
-      className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
-      style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
+return (
+  <div
+    className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
+    style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
+  >
+
+    {/* 顶部栏 - 固定高度，使用固定布局避免闪烁 */}
+    <header
+      className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
+      style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
-
-      {/* 顶部栏 - 固定高度，使用固定布局避免闪烁 */}
-      <header
-        className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
-        style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
-              <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
-              <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
-                {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
-              </h1>
-            </div>
-            {/* 倒计时 - 使用 opacity 控制显示，保持布局空间 */}
-            <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <Tag
-                color={timeLeft < 300 ? 'red' : 'arcoblue'}
+      <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
+            <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
+            <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
+              {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
+            </h1>
+          </div>
+          {/* 倒计时 - 使用 opacity 控制显示，保持布局空间 */}
+          <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <Tag
+              color={timeLeft < 300 ? 'red' : 'arcoblue'}
+              size="small"
+              className="font-mono"
+            >
+              ⏱️ 剩余 {formatTime(timeLeft)}
+            </Tag>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 min-w-[80px] justify-end">
+          {(isReadOnly || isSessionEnded) ? (
+            <Tag color="gray" size="small">咨询已结束</Tag>
+          ) : (
+            // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
+            <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+              <Button
                 size="small"
-                className="font-mono"
+                icon={<IconStop />}
+                onClick={handleEndSession}
               >
-                ⏱️ 剩余 {formatTime(timeLeft)}
-              </Tag>
+                结束咨询
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+
+    {/* 消息列表 - flex-1 滚动容器 */}
+    <section
+      ref={scrollContainerRef}
+      className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
+      style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
+    >
+      <MessageList
+        messages={messages}
+        isLoading={isLoading}
+        isSending={isSending}
+        messageExtras={messageExtras}
+        onSendMessage={(text: string) => handleSend(text)}
+        scrollContainerRef={scrollContainerRef}
+        sessionId={internalSessionId || sessionIdRef.current || ''}
+      />
+      {isSessionEnded && (
+        <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+          <div className="text-center">
+            <div className="text-3xl mb-3">🌿</div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
+            <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
+            <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700">
+              <p className="font-medium mb-1">小结：</p>
+              <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
+              <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 min-w-[80px] justify-end">
-            {(isReadOnly || isSessionEnded) ? (
-              <Tag color="gray" size="small">咨询已结束</Tag>
-            ) : (
-              // 使用 opacity 过渡，避免按钮突然出现导致布局跳动
-              <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <Button
-                  size="small"
-                  icon={<IconStop />}
-                  onClick={handleEndSession}
-                >
-                  结束咨询
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 消息列表 - flex-1 滚动容器 */}
-      <section
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin"
-        style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
-      >
-        <MessageList
-          messages={messages}
-          isLoading={isLoading}
-          isSending={isSending}
-          messageExtras={messageExtras}
-          onSendMessage={(text: string) => handleSend(text)}
-          scrollContainerRef={scrollContainerRef}
-          sessionId={internalSessionId || sessionIdRef.current || ''}
-        />
-        {isSessionEnded && (
-          <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <div className="text-center">
-              <div className="text-3xl mb-3">🌿</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
-              <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
-              <div className="bg-white rounded-lg p-3 text-left text-sm text-gray-700">
-                <p className="font-medium mb-1">小结：</p>
-                <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
-                <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* 输入框 - shrink-0 固定在底部 */}
-      <footer
-        className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
-        style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
-      >
-        <div className="mx-auto w-full max-w-4xl px-4 py-3">
-          <ChatInput
-            key={internalSessionId || 'new-session'}
-            value={draft}
-            onChange={(newValue) => {
-              setDraft(newValue);
-            }}
-            onSend={handleSend}
-            isLoading={isLoading || isSending}
-            disabled={isReadOnly || isSessionEnded}
-            placeholder={isSessionEnded ? "本次会话已结束" : undefined}
-            autoFocus={!isReadOnly && !isSessionEnded}
-          />
-        </div>
-      </footer>
-
-      {/* 错误提示 */}
-      {error && (
-        <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
-          {error}
         </div>
       )}
+    </section>
 
-      {/* Debug 面板 */}
-      <DebugDrawer
-        debugPrompts={debugPrompts}
-        validationError={validationError}
-        emotions={emotions}
-        lastRequestPayload={lastRequestPayload}
-        user={user}
-      />
+    {/* 输入框 - shrink-0 固定在底部 */}
+    <footer
+      className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
+      style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
+    >
+      <div className="mx-auto w-full max-w-4xl px-4 py-3">
+        <ChatInput
+          key={internalSessionId || 'new-session'}
+          value={draft}
+          onChange={(newValue) => {
+            setDraft(newValue);
+          }}
+          onSend={handleSend}
+          isLoading={isLoading || isSending}
+          disabled={isReadOnly || isSessionEnded}
+          placeholder={isSessionEnded ? "本次会话已结束" : undefined}
+          autoFocus={!isReadOnly && !isSessionEnded}
+        />
+      </div>
+    </footer>
 
-      {/* 免责声明弹窗 */}
-      <Modal
-        title="免责声明"
-        visible={disclaimerOpen}
-        onOk={() => setDisclaimerOpen(false)}
-        onCancel={() => setDisclaimerOpen(false)}
-        okText="我已知晓"
-        hideCancel
-        style={{ width: '400px', maxWidth: '90vw' }}
-      >
-        <div className="text-gray-600 space-y-2">
-          <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
-          <p>2. AI 可能会产生错误或误导性的信息。</p>
-          <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
-          <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
-        </div>
-      </Modal>
-    </div>
-  );
+    {/* 错误提示 */}
+    {error && (
+      <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
+        {error}
+      </div>
+    )}
+
+    {/* Debug 面板 */}
+    <DebugDrawer
+      debugPrompts={debugPrompts}
+      validationError={validationError}
+      emotions={emotions}
+      lastRequestPayload={lastRequestPayload}
+      user={user}
+    />
+
+    {/* 免责声明弹窗 */}
+    <Modal
+      title="免责声明"
+      visible={disclaimerOpen}
+      onOk={() => setDisclaimerOpen(false)}
+      onCancel={() => setDisclaimerOpen(false)}
+      okText="我已知晓"
+      hideCancel
+      style={{ width: '400px', maxWidth: '90vw' }}
+    >
+      <div className="text-gray-600 space-y-2">
+        <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
+        <p>2. AI 可能会产生错误或误导性的信息。</p>
+        <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
+        <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
+      </div>
+    </Modal>
+  </div>
+);
 }
