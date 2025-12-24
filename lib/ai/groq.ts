@@ -17,6 +17,7 @@ const groq = createOpenAI({
 export interface QuickAnalysis {
     safety: 'crisis' | 'urgent' | 'normal';
     safetyReasoning: string; // 安全评估理由
+    stateReasoning: string; // 对话状态/意图分析
     emotion: { label: string; score: number };
     route: 'crisis' | 'support' | 'assessment';
 }
@@ -26,6 +27,7 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 {
   "safety": "crisis" | "urgent" | "normal",
   "safetyReasoning": "简要说明为什么给出这个安全等级，1-2句话",
+  "stateReasoning": "简要说明用户的意图和当前对话状态，例如：用户在分享工作压力，希望得到理解，1-2句话",
   "emotion": { "label": "焦虑|抑郁|悲伤|愤怒|恐惧|平静|快乐", "score": 1-10 },
   "route": "crisis" | "support" | "assessment"
 }
@@ -45,6 +47,7 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 const DEFAULT_ANALYSIS: QuickAnalysis = {
     safety: 'normal',
     safetyReasoning: 'Default fallback - no analysis performed',
+    stateReasoning: 'Default fallback - no analysis performed',
     emotion: { label: '平静', score: 5 },
     route: 'support'
 };
@@ -86,9 +89,12 @@ export async function quickAnalyze(message: string): Promise<QuickAnalysis> {
             return DEFAULT_ANALYSIS;
         }
 
-        // 确保 safetyReasoning 存在
+        // 确保 safetyReasoning 和 stateReasoning 存在
         if (!result.safetyReasoning) {
             result.safetyReasoning = `Safety: ${result.safety}`;
+        }
+        if (!result.stateReasoning) {
+            result.stateReasoning = `Route: ${result.route}`;
         }
 
         return result;

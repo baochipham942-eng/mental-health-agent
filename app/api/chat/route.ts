@@ -358,6 +358,12 @@ export async function POST(request: NextRequest) {
       reasoning: analysis.safetyReasoning,
     };
 
+    // 构建对话状态对象
+    const stateData = {
+      reasoning: analysis.stateReasoning,
+      route: analysis.route,
+    };
+
     console.log('[Groq] Quick analysis result:', analysis);
     console.log('[Safety] Assessment:', safetyData);
 
@@ -422,7 +428,8 @@ export async function POST(request: NextRequest) {
     // Append analysis and dialogue metadata to stream
     data.append({
       timestamp: new Date().toISOString(),
-      safety: safetyData, // Use high-fidelity safety data from orchestrator
+      safety: safetyData,
+      state: stateData, // 对话状态推理
       dialogue: {
         turn: conversationTurn,
         phase: dialoguePhase,
