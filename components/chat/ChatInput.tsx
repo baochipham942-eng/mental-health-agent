@@ -46,6 +46,14 @@ export function ChatInput({
 
   useEffect(() => {
     adjustHeight();
+    // 修复：当值通过 draft 恢复时，将光标移动到末尾 (仅在有值且当前未聚焦或聚焦位置为0时)
+    const textarea = textareaRef.current;
+    if (textarea && value && document.activeElement !== textarea) {
+      // 使用 requestAnimationFrame 确保在渲染后执行
+      requestAnimationFrame(() => {
+        textarea.setSelectionRange(value.length, value.length);
+      });
+    }
   }, [value]);
 
   // 自动聚焦

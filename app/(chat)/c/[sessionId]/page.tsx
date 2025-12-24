@@ -40,7 +40,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
 
     return (
         <ChatShell
-            key={conversation.id}
+            // key={conversation.id} // 移除 key 以复用组件状态，实现无刷新切换
             sessionId={conversation.id}
             initialMessages={uiMessages as any}
             isReadOnly={conversation.status === 'COMPLETED'}
