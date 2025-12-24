@@ -57,6 +57,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     setDebugDrawerOpen,
     setTransitionMessages,
     getAndClearTransitionMessages,
+    currentSessionId,
+    setCurrentSessionId,
   } = useChatStore();
 
   const router = useRouter();
@@ -66,6 +68,13 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
   // Internal session ID state - allows lazy creation
   const [internalSessionId, setInternalSessionId] = useState<string | undefined>(sessionId);
+
+  // Sync internal ID to global store for persistence across remounts
+  useEffect(() => {
+    if (internalSessionId) {
+      setCurrentSessionId(internalSessionId);
+    }
+  }, [internalSessionId, setCurrentSessionId]);
 
   // 追踪前一个 sessionId，用于检测导航行为
   const prevSessionIdRef = useRef<string | undefined>(sessionId);
@@ -87,14 +96,34 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       // 同步调用 store actions，确保首帧就有正确的数据
       console.log('[ChatShell] Sync init on first render', {
         sessionId,
+        storeSessionId: useChatStore.getState().currentSessionId,
         msgCount: initialMessages?.length || 0
       });
-      setMessages(initialMessages || []);
+
+      // FIX: Check if we have valid local data for this session
+      // If store has messages for THIS session ID, and initialMessages is empty (likely race condition),
+      // we trust the store and DO NOT overwrite with empty array.
+      const currentStore = useChatStore.getState();
+      // Use persisted currentSessionId instead of the non-existent internalSessionId
+      const hasLocalData = currentStore.currentSessionId === sessionId && currentStore.messages.length > 0;
+
+      if (hasLocalData && (!initialMessages || initialMessages.length === 0)) {
+        console.log('[ChatShell] Preserving local messages during mount (ignoring empty server props)', {
+          count: currentStore.messages.length
+        });
+        // Don't call setMessages([])
+      } else {
+        setMessages(initialMessages || []);
+      }
+
       setError(null);
       setLoading(false);
 
       // 恢复路由状态
-      if (initialMessages && initialMessages.length > 0) {
+      // Same logic: If we use local messages, we should keep local state?
+      // Actually state is usually synced. If we used local messages, state is probably already correct in store.
+      // But if we use initialMessages, we update state.
+      if (!hasLocalData && initialMessages && initialMessages.length > 0) {
         const lastMsg = initialMessages[initialMessages.length - 1];
         if (lastMsg?.role === 'assistant' && lastMsg.metadata) {
           updateState({
@@ -103,7 +132,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             assessmentStage: lastMsg.metadata.assessmentStage
           });
         }
-      } else {
+      } else if (!hasLocalData) {
+        // Reset state if we are truly resetting messages
         updateState({
           currentState: undefined,
           routeType: undefined,

@@ -66,6 +66,10 @@ interface ChatStore {
   setMessages: (messages: Message[]) => void;
   setTransitionMessages: (sessionId: string, messages: Message[]) => void;
   getAndClearTransitionMessages: (sessionId: string) => Message[] | undefined;
+
+  // 当前会话 ID（持久化跨组件状态）
+  currentSessionId: string | undefined;
+  setCurrentSessionId: (id: string | undefined) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -178,6 +182,10 @@ export const useChatStore = create<ChatStore>()(
         }
         return messages;
       },
+
+      currentSessionId: undefined,
+      setCurrentSessionId: (id: string | undefined) =>
+        set({ currentSessionId: id }),
 
       updateSkillProgress: (cardId: string, progress: SkillProgress) =>
         set((state: ChatStore) => ({
