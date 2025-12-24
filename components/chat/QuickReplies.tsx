@@ -6,10 +6,11 @@ interface QuickRepliesProps {
   mode: 'riskChoice' | 'scale0to10' | 'optionChoice' | 'none';
   onPick: (text: string) => void;
   options?: string[]; // 用于 optionChoice 模式的选项列表
+  scaleContext?: string; // 0-10 量表正在测量什么
   disabled?: boolean;  // 新增：是否禁用（发送中）
 }
 
-export function QuickReplies({ mode, onPick, options = [], disabled = false }: QuickRepliesProps) {
+export function QuickReplies({ mode, onPick, options = [], scaleContext, disabled = false }: QuickRepliesProps) {
   if (mode === 'none') {
     return null;
   }
@@ -48,7 +49,10 @@ export function QuickReplies({ mode, onPick, options = [], disabled = false }: Q
   if (mode === 'scale0to10') {
     return (
       <div className="mt-3">
-        <p className="text-xs text-gray-500 mb-2">0 = 最低/没有, 10 = 最高/非常强烈</p>
+        <p className="text-xs text-gray-500 mb-2">
+          {scaleContext ? `请评估你的${scaleContext}: ` : ''}
+          0 = 最低/没有, 10 = 最高/非常强烈
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: 11 }, (_, i) => i).map((num) => (
             <button
@@ -106,6 +110,7 @@ export function QuickReplies({ mode, onPick, options = [], disabled = false }: Q
 export function detectQuickReplyMode(content: string): {
   mode: 'riskChoice' | 'scale0to10' | 'optionChoice' | 'none';
   options?: string[];
+  scaleContext?: string;
 } {
   const lowerContent = content.toLowerCase();
 
@@ -146,7 +151,28 @@ export function detectQuickReplyMode(content: string): {
   }
 
   if (hasScaleKeyword) {
-    return { mode: 'scale0to10' };
+    // 提取量表上下文：找到 0-10 关键词前后的文本
+    let scaleContext: string | undefined;
+
+    // 尝试匹配常见模式："你的XXX大概是"、"评估一下你的XXX"、"XXX程度"等
+    const contextPatterns = [
+      /你的([\u4e00-\u9fa5]{2,8})(?:大概|大约|有多|程度)?/,
+      /评(?:估|价)[\u4e00-\u9fa5·]{0,4}你的([\u4e00-\u9fa5]{2,8})/,
+      /([\u4e00-\u9fa5]{2,6})程度/,
+      /([\u4e00-\u9fa5]{2,6})质量/,
+      /([\u4e00-\u9fa5]{2,6})情况/,
+      /([\u4e00-\u9fa5]{2,6})强度/,
+    ];
+
+    for (const pattern of contextPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        scaleContext = match[1];
+        break;
+      }
+    }
+
+    return { mode: 'scale0to10', scaleContext };
   }
 
   // 如果匹配到选项格式，提取选项

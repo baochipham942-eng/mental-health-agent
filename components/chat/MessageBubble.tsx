@@ -199,9 +199,10 @@ export function MessageBubble({
   const isInFollowup = isGapFollowup || currentState === 'awaiting_followup';
   const quickReplyResult = !isUser && isInFollowup && onSendMessage
     ? detectQuickReplyMode(message.content)
-    : { mode: 'none' as const, options: undefined };
+    : { mode: 'none' as const, options: undefined, scaleContext: undefined };
   const quickReplyMode = quickReplyResult.mode;
   const quickReplyOptions = quickReplyResult.options || [];
+  const quickReplyScaleContext = quickReplyResult.scaleContext;
 
   // 修复A: 确保快捷回复能正确发送
   const handleQuickReply = (text: string) => {
@@ -377,6 +378,7 @@ export function MessageBubble({
                                 mode="scale0to10"
                                 onPick={handleQuickReply}
                                 options={[]}
+                                scaleContext={detectQuickReplyMode(assistantQuestions[0]).scaleContext}
                                 disabled={isSending}
                               />
                             </>
@@ -412,6 +414,7 @@ export function MessageBubble({
                             mode="scale0to10"
                             onPick={handleQuickReply}
                             options={[]}
+                            scaleContext={quickReplyScaleContext}
                             disabled={isSending}
                           />
                         </>
