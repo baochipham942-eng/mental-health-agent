@@ -174,15 +174,14 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     };
   }, []); // 只在挂载时执行一次
 
-  // 监听isLoading和isSending，如果异常卡住则自动恢复
-  // 监听isLoading和isSending，如果异常卡住则自动恢复
+  // 监听isLoading和isSending，如果异常卡住则自动恢复（备用保护机制）
   useEffect(() => {
-    // 如果isLoading为true但isSending为false超过8秒，说明可能卡住了
+    // 如果isLoading为true但isSending为false超过3秒，说明可能卡住了
     if (isLoading && !isSending) {
       const timer = setTimeout(() => {
-        console.warn('检测到isLoading异常卡住，正在自动恢复...');
+        console.warn('[ChatShell] Loading state stuck, auto-recovering...');
         setLoading(false);
-      }, 8000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isLoading, isSending, setLoading]);
@@ -467,6 +466,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             }
           } as any);
           setError(finalApiError.error);
+          setIsSending(false);
+          setLoading(false);
           return;
         }
 
@@ -491,6 +492,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             }
           } as any);
           setError('服务器返回了空回复');
+          setIsSending(false);
+          setLoading(false);
           return;
         }
 
