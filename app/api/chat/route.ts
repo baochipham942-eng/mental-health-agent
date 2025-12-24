@@ -82,7 +82,7 @@ export const SKILL_CARDS = {
     ],
   },
   grounding: {
-    title: '5-4-3-2-1着陆技术',
+    title: '五感着陆法',
     when: '感到焦虑或恐慌时',
     effort: 'low' as const,
     widget: undefined,
