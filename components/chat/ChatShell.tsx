@@ -104,13 +104,32 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       // If store has messages for THIS session ID, and initialMessages is empty (likely race condition),
       // we trust the store and DO NOT overwrite with empty array.
       const currentStore = useChatStore.getState();
-      // Use persisted currentSessionId instead of the non-existent internalSessionId
-      const hasLocalData = currentStore.currentSessionId === sessionId && currentStore.messages.length > 0;
+
+      // SPA Mode Detection:
+      // If sessionId (prop) is undefined, but window URL contains a session ID (/c/xyz),
+      // we are in a client-side navigation state where Router props haven't updated yet.
+      // We must trust the URL and the Store over the empty/undefined props.
+      let effectiveSessionId = sessionId;
+      if (!effectiveSessionId && typeof window !== 'undefined') {
+        const match = window.location.pathname.match(/\/c\/([^\/]+)/);
+        if (match) {
+          effectiveSessionId = match[1];
+        }
+      }
+
+      // Use the effective ID to check against the store
+      const hasLocalData = effectiveSessionId && currentStore.currentSessionId === effectiveSessionId && currentStore.messages.length > 0;
 
       if (hasLocalData && (!initialMessages || initialMessages.length === 0)) {
-        console.log('[ChatShell] Preserving local messages during mount (ignoring empty server props)', {
-          count: currentStore.messages.length
+        console.log('[ChatShell] Preserving local messages during mount (SPA mode/race condition)', {
+          count: currentStore.messages.length,
+          effectiveSessionId
         });
+        // Restore internal ID if it was lost during remount (e.g. prop was undefined)
+        if (!internalSessionId && effectiveSessionId) {
+          setInternalSessionId(effectiveSessionId);
+          setCurrentSessionId(effectiveSessionId);
+        }
         // Don't call setMessages([])
       } else {
         setMessages(initialMessages || []);
