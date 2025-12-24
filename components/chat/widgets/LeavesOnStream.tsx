@@ -174,88 +174,74 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 }
 
 function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
-    // Slower, majestic, linear flow
-    const flowDuration = 18 + Math.random() * 6; // Slower flow for calmness
-    // Independent bobbing (breathing) cycle - Very slow and subtle
-    const bobDuration = 5 + Math.random() * 4;
+    // Slow, elegant, linear flow - no jitter
+    const flowDuration = 20 + Math.random() * 5;
 
-    // Y-position: Lifted higher to the "first" stream layer (upper middle)
-    const randomYStart = 100 + Math.random() * 40; // ~30% - 40% of height
-    const randomYEnd = randomYStart + 20; // Minimal vertical drift for stability
+    // Y-position: On the "first" stream layer (upper middle)
+    const randomYStart = 100 + Math.random() * 30;
 
     return (
         <motion.div
             initial={{
-                x: -150,
+                x: -120,
                 y: randomYStart,
                 opacity: 0,
-                scale: 0.8
+                scale: 0.9,
+                rotate: -5
             }}
             animate={{
-                x: ["-20%", "120%"],
-                y: [randomYStart, randomYEnd],
+                x: ["-15%", "115%"],
+                y: randomYStart, // No vertical movement - pure horizontal glide
                 opacity: [0, 1, 1, 1, 0],
-                rotate: [-2, 2] // Minimal base rotation (gliding)
+                scale: 1,
+                rotate: 5 // Gentle single rotation over entire journey
             }}
             transition={{
                 duration: flowDuration,
                 ease: "linear",
-                opacity: { duration: flowDuration, times: [0, 0.1, 0.9, 1] }
+                opacity: { duration: flowDuration, times: [0, 0.08, 0.92, 1] },
+                rotate: { duration: flowDuration, ease: "easeInOut" }
             }}
             onAnimationComplete={onComplete}
             className="absolute top-0 left-0"
         >
-            {/* Bobbing Motion Wrapper (Simulating Buoyancy) */}
-            <motion.div
-                animate={{
-                    y: [0, -3, 0], // Very subtle bobbing
-                    rotate: [-1, 1, -1] // Barely perceptible rocking
-                }}
-                transition={{
-                    duration: bobDuration,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                }}
-            >
-                {/* Refined Exquisite Leaf Size: w-48 -> w-32 */}
-                <div className="relative w-32 h-20 flex items-center justify-center">
-                    {/* Leaf SVG: High Fidelity */}
-                    <svg viewBox="0 0 120 60" className="absolute w-full h-full drop-shadow-lg" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,50,30,0.2))' }}>
-                        <defs>
-                            <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="50%">
-                                <stop offset="0%" stopColor="#81c784" />
-                                <stop offset="100%" stopColor="#43a047" />
-                            </linearGradient>
-                            {/* Water reflection highlight on leaf */}
-                            <linearGradient id="leafShine" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                                <stop offset="100%" stopColor="transparent" />
-                            </linearGradient>
-                        </defs>
+            {/* No bobbing wrapper - direct leaf rendering */}
+            <div className="relative w-32 h-20 flex items-center justify-center">
+                {/* Leaf SVG: High Fidelity */}
+                <svg viewBox="0 0 120 60" className="absolute w-full h-full" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,50,30,0.15))' }}>
+                    <defs>
+                        <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="50%">
+                            <stop offset="0%" stopColor="#81c784" />
+                            <stop offset="100%" stopColor="#43a047" />
+                        </linearGradient>
+                        <linearGradient id="leafShine" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                            <stop offset="100%" stopColor="transparent" />
+                        </linearGradient>
+                    </defs>
 
-                        {/* Main Body */}
-                        <path d="M5,30 Q35,-5 65,5 Q95,15 115,30 Q95,45 65,55 Q35,65 5,30 Z" fill="url(#leafGradient)" />
+                    {/* Main Body */}
+                    <path d="M5,30 Q35,-5 65,5 Q95,15 115,30 Q95,45 65,55 Q35,65 5,30 Z" fill="url(#leafGradient)" />
 
-                        {/* Upper Shine */}
-                        <path d="M10,28 Q35,0 65,10" stroke="url(#leafShine)" strokeWidth="2" fill="none" opacity="0.6" />
+                    {/* Upper Shine */}
+                    <path d="M10,28 Q35,0 65,10" stroke="url(#leafShine)" strokeWidth="2" fill="none" opacity="0.6" />
 
-                        {/* Veins - Delicate White */}
-                        <path d="M5,30 C35,30 85,30 115,30" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
-                        <g stroke="rgba(255,255,255,0.2)" strokeWidth="0.5">
-                            <path d="M35,30 L45,15" /> <path d="M35,30 L45,45" />
-                            <path d="M65,30 L75,15" /> <path d="M65,30 L75,45" />
-                            <path d="M90,30 L98,20" /> <path d="M90,30 L98,40" />
-                        </g>
-                    </svg>
+                    {/* Veins - Delicate White */}
+                    <path d="M5,30 C35,30 85,30 115,30" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
+                    <g stroke="rgba(255,255,255,0.2)" strokeWidth="0.5">
+                        <path d="M35,30 L45,15" /> <path d="M35,30 L45,45" />
+                        <path d="M65,30 L75,15" /> <path d="M65,30 L75,45" />
+                        <path d="M90,30 L98,20" /> <path d="M90,30 L98,40" />
+                    </g>
+                </svg>
 
-                    {/* Text - Scaled and Centered */}
-                    <div className="relative z-10 w-24 px-1 text-center flex items-center justify-center transform -rotate-1 pb-0.5">
-                        <span className="text-[11px] font-bold text-white tracking-widest drop-shadow-md select-none line-clamp-1">
-                            {leaf.text}
-                        </span>
-                    </div>
+                {/* Text - Centered */}
+                <div className="relative z-10 w-24 px-1 text-center flex items-center justify-center">
+                    <span className="text-[11px] font-bold text-white tracking-wide drop-shadow-md select-none line-clamp-1">
+                        {leaf.text}
+                    </span>
                 </div>
-            </motion.div>
+            </div>
         </motion.div>
     )
 }
