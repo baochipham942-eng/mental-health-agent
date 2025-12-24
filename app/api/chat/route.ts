@@ -206,6 +206,41 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
+    // 0.0.5 FAST SKILL CARD PATH - 极速路径，跳过所有 LLM 调用
+    // =================================================================================
+    const directSkillType = detectDirectSkillRequest(message);
+    if (directSkillType) {
+      console.log('[API] FAST PATH: Direct skill request detected, bypassing all LLM calls:', directSkillType);
+      const data = new StreamData();
+      const skill = SKILL_CARDS[directSkillType];
+      const introMessages: Record<SkillType, string> = {
+        breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
+        meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
+        grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
+        reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
+        activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
+      };
+
+      // 异步保存消息（不阻塞）
+      if (body.sessionId) {
+        prisma.message.create({
+          data: {
+            conversationId: body.sessionId,
+            role: 'assistant',
+            content: introMessages[directSkillType],
+            meta: { routeType: 'support', actionCards: [skill], fastSkillResponse: true },
+          }
+        }).catch(e => console.error('[DB] Failed to save skill response:', e));
+      }
+
+      return createSkillCardStreamResponse(directSkillType, data, {
+        timestamp: new Date().toISOString(),
+        emotion: { label: 'neutral', score: 5 },
+        safety: { label: 'normal', score: 0, reasoning: 'Fast skill path - no safety check needed' },
+      });
+    }
+
+    // =================================================================================
     // 0.1 Parallel Orchestration - 多 Agent 协同 (安全监测等)
     // =================================================================================
     const orchestrationPromise = coordinateAgents(message, history as ChatMessage[], { traceMetadata: { sessionId: body.sessionId } });
@@ -358,42 +393,6 @@ export async function POST(request: NextRequest) {
     if (routeType !== 'crisis' && quickCrisisKeywordCheck(message)) {
       console.log('[API] Crisis keyword detected, overriding route');
       routeType = 'crisis';
-    }
-
-    // =================================================================================
-    // 0.5.5 Skill Card Override (Global Pre-check) - 直接技能请求快速响应
-    // =================================================================================
-    const directSkillType = detectDirectSkillRequest(message);
-    if (directSkillType && routeType !== 'crisis') {
-      console.log('[API] Direct skill request detected, bypassing DeepSeek:', directSkillType);
-
-      // 异步保存 AI 消息（不阻塞响应）
-      const assistantId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const skill = SKILL_CARDS[directSkillType];
-      const introMessages: Record<SkillType, string> = {
-        breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
-        meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
-        grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
-        reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
-        activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
-      };
-
-      if (sessionId) {
-        prisma.message.create({
-          data: {
-            id: assistantId,
-            conversationId: sessionId,
-            role: 'assistant',
-            content: introMessages[directSkillType],
-            meta: { routeType: 'support', actionCards: [skill], fastSkillResponse: true },
-          }
-        }).catch(e => console.error('[DB] Failed to save skill response:', e));
-      }
-
-      return createSkillCardStreamResponse(directSkillType, data, {
-        timestamp: new Date().toISOString(),
-        emotion: emotionObj,
-      });
     }
 
     // 旧逻辑降级（用于不精确匹配的情况）
