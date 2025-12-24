@@ -181,13 +181,13 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                             if (!input.trim()) { e.preventDefault(); return; }
                             handleSubmit(e);
                         }}
-                        className="flex gap-3 relative"
+                        className="flex items-center gap-3 relative"
                     >
                         <Input
                             value={input}
                             onChange={(e) => handleInputChange({ target: { value: e } } as any)}
                             placeholder={`向${mentor.name}提问...`}
-                            className="px-4 py-3 h-12 rounded-xl bg-gray-50 border border-gray-200 hover:border-indigo-300 focus:bg-white focus:border-indigo-400 focus:shadow-[0_0_0_2px_rgba(99,102,241,0.1)] transition-all text-base"
+                            className="flex-1 px-4 py-3 h-12 rounded-xl bg-gray-50 border border-gray-200 hover:border-indigo-300 focus:bg-white focus:border-indigo-400 focus:shadow-[0_0_0_2px_rgba(99,102,241,0.1)] transition-all text-base"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
