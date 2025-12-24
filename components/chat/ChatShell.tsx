@@ -250,6 +250,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         prevSessionIdRef.current = undefined;
         setDraft(inputDraft || ''); // Restore draft if any
         setTimeLeft(SESSION_DURATION); // Reset timer for new session
+        // 立即重置 loading 状态，避免等待超时
+        setLoading(false);
+        setIsSending(false);
       } else if (!sessionId && isJustCreatedRef.current) {
         console.log('[ChatShell] Ignoring reset because session was JUST created locally');
         // Keep timer as is (it's running for the new session)
@@ -265,6 +268,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         // User requirements said 45 min per session. If resuming, maybe it should reflect remaining time?
         // But we don't store startTime in DB yet. So reset to full is safer than keeping it 0.)
         setTimeLeft(SESSION_DURATION);
+        // 立即重置 loading 状态，避免等待超时
+        setLoading(false);
+        setIsSending(false);
 
         if (!initialMessages || initialMessages.length === 0) {
           console.warn('[ChatShell] Switched to session but no messages found', { sessionId });
