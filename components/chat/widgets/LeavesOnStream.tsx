@@ -65,17 +65,21 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 
     if (!isStarted) {
         return (
-            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                <div className="mb-4 text-4xl">🍃</div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">想法脱钩练习</h3>
-                <p className="text-gray-600 text-sm max-w-xs mb-6 leading-relaxed">
+            <div className="flex flex-col items-center justify-center h-[480px] px-4 text-center select-none transition-all">
+                <div className="mb-6 relative">
+                    <div className="absolute inset-0 bg-green-100 rounded-full blur-xl opacity-20 animate-pulse"></div>
+                    <span className="text-6xl relative z-10 drop-shadow-sm">🍃</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-3 tracking-tight">想法脱钩练习</h3>
+                <p className="text-slate-600 text-sm max-w-[280px] mb-8 leading-relaxed font-medium">
                     想象你正坐在一条缓缓流淌的小溪边。<br />
-                    对于头脑中出现的每一个想法 —— 无论是积极的、消极的，还是中立的 —— <br />
-                    以此把它放在一片树叶上，看着它顺流而下。
+                    对于头脑中出现的每一个想法 —— <br />
+                    无论好坏，都把它放在树叶上，<br />
+                    看着它顺流而下。
                 </p>
                 <button
                     onClick={handleStart}
-                    className="px-8 py-3 bg-green-600 text-white rounded-full text-sm font-bold shadow-lg hover:bg-green-700 hover:shadow-xl transition-all transform hover:scale-105"
+                    className="px-8 py-3 bg-[#4caf50] text-white rounded-full text-[15px] font-bold shadow-lg shadow-green-500/20 hover:bg-[#43a047] hover:shadow-green-500/30 hover:scale-105 active:scale-95 transition-all"
                 >
                     开始练习
                 </button>
