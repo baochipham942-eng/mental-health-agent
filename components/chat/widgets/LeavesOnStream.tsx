@@ -84,22 +84,27 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
     }
 
     return (
-        <div className="relative h-[480px] bg-gradient-to-br from-blue-300 to-cyan-200 rounded-xl overflow-hidden mb-2 border border-blue-200 shadow-inner group">
-            {/* Stream Background - Moving Water Effect */}
-            <div className="absolute inset-0 z-0">
-                {/* CSS Gradient Animation for Water */}
-                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:60px_60px] animate-[move-water_4s_linear_infinite] opacity-30"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent opacity-80"></div>
+        <div className="relative h-[480px] bg-gradient-to-br from-cyan-100 to-blue-200 rounded-xl overflow-hidden mb-2 border border-blue-200 shadow-inner group transition-all">
+            {/* Stream Background - Improved Realism */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                {/* Main gradient with subtle flow */}
+                <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.4)_0%,transparent_30%,transparent_70%,rgba(255,255,255,0.4)_100%)] animate-[shimmer-water_8s_ease-in-out_infinite]"></div>
+                {/* Ripple patterns */}
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.8),transparent_70%)]"></div>
+                <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 animate-[flow-texture_20s_linear_infinite] mix-blend-overlay"></div>
             </div>
 
             <style jsx>{`
-                @keyframes move-water {
-                    0% { background-position: 0 0; }
-                    100% { background-position: 60px 60px; } // Diagonal movement
+                @keyframes shimmer-water {
+                    0%, 100% { transform: translateX(-5%) translateY(-2%); }
+                    50% { transform: translateX(5%) translateY(2%); }
+                }
+                @keyframes flow-texture {
+                    0% { transform: rotate(0deg) translate(0, 0); }
+                    100% { transform: rotate(5deg) translate(50px, 50px); }
                 }
             `}</style>
 
-            {/* Leaves Container - z-10 ensures leaves are above background but below UI */}
             <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
                 <AnimatePresence>
                     {thoughts.map(leaf => (
@@ -108,36 +113,35 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 </AnimatePresence>
             </div>
 
-            {/* Input Area (Bottom) - z-30 to be on top */}
-            <div className="absolute bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-md border-t border-white/60 z-30 transition-transform duration-300 translate-y-0">
-                <div className="flex gap-3">
+            {/* Input Area (Bottom) - Compact Design */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-white/80 backdrop-blur-md border-t border-white/60 z-30">
+                <div className="flex gap-2 items-center">
                     <input
                         type="text"
                         value={inputTitle}
                         onChange={e => setInputTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && addThought()}
-                        placeholder="输入此时此刻的一个念头..."
-                        className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/50 bg-white/80 placeholder:text-gray-400"
+                        placeholder="输入一个念头..."
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-green-500/50 bg-white/90 placeholder:text-gray-400 h-9"
                     />
                     <button
                         onClick={addThought}
                         disabled={!inputTitle.trim()}
-                        className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl text-base font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2"
+                        className="px-3 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg text-sm font-semibold shadow-sm hover:shadow hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 h-9 shrink-0"
                     >
-                        <span>放入叶子</span>
-                        <span className="text-xl">🍃</span>
+                        <span>放上叶子</span>
+                        <span className="text-base">🍃</span>
                     </button>
                 </div>
-                <div className="text-center mt-2.5">
-                    <p className="text-xs text-gray-400 font-medium">试着观察甚至不要评判它，仅仅是看着它飘走</p>
+                <div className="text-center mt-1.5">
+                    <p className="text-[10px] text-gray-500/80 font-medium tracking-wide">观察它，不要评判，让水流带走它</p>
                 </div>
             </div>
 
-            {/* Visual Metaphor Hint */}
             {thoughts.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-60 z-20 pb-20">
-                    <span className="text-6xl mb-4 filter drop-shadow-sm opacity-50">🌊</span>
-                    <span className="text-blue-900/40 text-lg font-medium tracking-widest uppercase">Stream of Consciousness</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 pb-16">
+                    <span className="text-4xl mb-2 opacity-40 filter blur-[0.5px]">🌊</span>
+                    <span className="text-blue-900/30 text-xs font-medium tracking-[0.2em] uppercase">Stream of Consciousness</span>
                 </div>
             )}
         </div>
@@ -145,30 +149,23 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 }
 
 function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
-    // Generate random path variations for natural feel
-    // Use stable random values based on leaf ID to avoid hydration mismatch if possible, 
-    // or just memoize simple calculations. Here we use simple inline calculation for demo.
-    // Random start Y to simulate varied entry points vertically if needed, but here we start top-left.
-    const randomY = Math.random() * 80 - 40; // Variation in localized Y
-    const randomDuration = 12 + Math.random() * 6; // 12-18s slow float
+    const randomDuration = 10 + Math.random() * 5;
 
     return (
         <motion.div
-            // Initial: Top-Left (off screen) - utilizing full corner entry
             initial={{
-                x: -120,
-                y: -50,
+                x: -60,
+                y: 20 + Math.random() * 20,
                 opacity: 0,
-                rotate: -60,
+                rotate: -45,
                 scale: 0.8
             }}
-            // Animate to: Bottom-Right (far off screen)
             animate={{
-                x: ["0%", "120%"], // Move across screen width + extra
-                y: ["0%", "500px"], // Move down significantly
-                opacity: [0, 1, 1, 1, 0], // Fade in quickly, stay, fade out
-                rotate: [-60, -20, 10, 45, 90], // Progressive rotation
-                scale: [0.8, 1, 1.1, 1], // Subtle breathing
+                x: ["0%", "120%"],
+                y: ["0%", "400px"],
+                opacity: [0, 1, 1, 1, 0],
+                rotate: [-45, -15, 10, 45, 80],
+                scale: [0.8, 1, 1, 0.9],
             }}
             transition={{
                 duration: randomDuration,
@@ -176,21 +173,19 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
             }}
             onAnimationComplete={onComplete}
             className="absolute top-0 left-0"
-            style={{ top: '10%' }} // Start slightly down from very top
+            style={{ top: '5%' }}
         >
-            <div className="relative w-48 h-24 flex items-center justify-center filter drop-shadow-lg">
-                {/* Enhanced Leaf SVG - Larger and more detailed */}
-                <svg viewBox="0 0 100 50" className="absolute w-full h-full fill-emerald-500 stroke-emerald-600/30 stroke-1 opacity-90">
-                    {/* Main Body */}
-                    <path d="M2,25 Q25,0 50,5 Q75,10 98,25 Q75,40 50,45 Q25,50 2,25 Z" />
-                    {/* Veins */}
-                    <path d="M5,25 L95,25" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" fill="none" />
-                    <path d="M25,25 L35,10 M25,25 L35,40 M50,25 L60,10 M50,25 L60,40 M75,25 L85,15 M75,25 L85,35" stroke="rgba(255,255,255,0.3)" strokeWidth="1" fill="none" />
+            <div className="relative w-36 h-18 flex items-center justify-center filter drop-shadow-sm">
+                {/* More Delicate Leaf Shape */}
+                <svg viewBox="0 0 100 50" className="absolute w-full h-full fill-emerald-500/90 stroke-emerald-600/20 stroke-[0.5]">
+                    <path d="M5,25 Q30,5 55,8 Q80,11 98,25 Q75,39 50,42 Q25,45 5,25 Z" />
+                    <path d="M5,25 L95,25" stroke="rgba(255,255,255,0.3)" strokeWidth="0.8" fill="none" />
+                    {/* Subtle Veins */}
+                    <path d="M30,25 L38,15 M30,25 L38,35 M55,25 L63,15 M55,25 L63,35 M75,25 L82,18 M75,25 L82,32" stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" fill="none" />
                 </svg>
 
-                {/* Text Content - Larger and clearer */}
-                <div className="relative z-10 px-6 py-2 w-full flex items-center justify-center transform -rotate-2">
-                    <span className="text-sm font-bold text-white text-center leading-snug tracking-wide drop-shadow-md line-clamp-2 w-full break-words shadow-black/10">
+                <div className="relative z-10 px-4 w-full flex items-center justify-center transform -rotate-1">
+                    <span className="text-xs font-medium text-white/95 text-center leading-tight tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)] line-clamp-2 w-full break-words">
                         {leaf.text}
                     </span>
                 </div>
