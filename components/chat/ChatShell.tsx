@@ -531,11 +531,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           const { createNewSessionAndReturnId, updateSessionTitle } = await import('@/lib/actions/chat');
           currentSessionId = await createNewSessionAndReturnId();
 
-          updateSessionTitle(currentSessionId, content)
-            .catch(console.error);
-
-          updateSessionTitle(currentSessionId, content)
-            .catch(console.error);
+          // Await title update to ensure persistence before proceeding (fast enough)
+          // Also fixes the bug where title stays "New Session" if user navigates away quickly
+          await updateSessionTitle(currentSessionId, content).catch(console.error);
 
           sessionIdRef.current = currentSessionId;
           isJustCreatedRef.current = true; // Mark as just created
@@ -545,37 +543,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             // CRITICAL FIX: 在跳转前，将当前的完整消息列表（含用户消息+思考中占位符）保存到全局 Store
             // 这样即使 loading.tsx 导致 ChatShell 卸载，新实例也能从 Store 恢复状态
             const tempMessages = [...messages, userMessage];
-            // 注意：此时 assistantMsgId 的占位符还没生成，我们在下面生成后追加吗？
-            // 不，逻辑是 handleSend 继续运行。
-            // 但 router.replace 会触发 Unmount。
-            // 所以我们必须在这里“预借”占位符，或者单纯依靠 store 恢复 user message，然后 hook 内部状态恢复?
 
-            // 更稳妥的方式：router.replace 触发的是异步导航。
-            // 我们生成的 assistantMsgId 及其 placeholder 是在下面代码生成的。
-            // 我们应该把 router.replace 放到生成 placeholder 之后吗？
-            // 不行，router.replace 最好尽早。
-
-            // 但如果 router.replace 导致 unmount，handleSend 的后续逻辑（流式接收）会被中断吗？
-            // 会！如果组件卸载，await sendChatMessage 后的代码可能不会执行，或者 state update 报 warning。
-            // 所以，必须确保 ChatShell 不会因为 ID 变化而卸载？我们已经移除了 key。
-            // 但 loading.tsx 会替换它。
-
-            // 唯一解法：把"消息发送"逻辑移到 store 或 service 层，脱离组件生命周期？太复杂。
-            // 简单解法：Navigation 发生时，保存当前所有状态。
-
-            // 我们先保存现有的。后续的 placeholder 会在 addMessage 时加入 store 吗？
-            // addMessage 是 store action。是的！
-            // 所以只要 we DON'T clear messages on mount, store keeps them.
-            // 但 ChatShell useChatStore是持久化的吗？ messages 字段显式排除了 persistence。
-
-            // 所以：我们需要显式保存 transitionMessages。
             setTransitionMessages(currentSessionId, [...messages, userMessage]);
 
             // Revert back to window.history.replaceState for SPA feel.
-            // Why? router.replace triggers a Server Component re-render (SessionPage).
-            // Since our DB save is non-blocking (async), the Server Page might fetch EMPTY messages (race condition).
-            // This causes the "Back to New Session" bug.
-            // By using window.history, we stay in the current Client Component state (which has the messages).
             window.history.replaceState(null, '', `/c/${currentSessionId}`);
           } else {
             console.error('[ChatShell] Attempted to update URL with invalid sessionId:', currentSessionId);
