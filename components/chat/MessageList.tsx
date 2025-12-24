@@ -165,8 +165,9 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   }
 
   if (messages.length === 0) {
-    // 正在发送或加载中，显示简单的加载动画
-    if (isSending || isLoading) {
+    // 只有在实际发送消息时才显示加载动画（isSending）
+    // isLoading 可能在导航时短暂为 true，不应该触发这个动画
+    if (isSending) {
       return (
         <div className="w-full h-[60vh] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 p-8 bg-white/50 backdrop-blur-md rounded-2xl shadow-sm border border-indigo-50/50">
@@ -176,7 +177,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
               <div className="absolute w-10 h-10 border-2 border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
             </div>
             <span className="text-sm font-medium text-indigo-600 animate-pulse">
-              {isSending ? '正在准备空间...' : '正在开启心灵对话...'}
+              正在准备空间...
             </span>
           </div>
         </div>
