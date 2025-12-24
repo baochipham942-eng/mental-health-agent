@@ -88,18 +88,8 @@ export async function streamSupportReply(
     memoryContext?: string;
   }
 ) {
-  // 加载黄金样本 (Few-Shot Examples)
-  let goldenExamplesContext = '';
-  let exampleIds: string[] = [];
-  try {
-    const examples = await loadActiveGoldenExamples(3);
-    if (examples.length > 0) {
-      goldenExamplesContext = formatGoldenExamplesForPrompt(examples);
-      exampleIds = examples.map(e => e.id);
-    }
-  } catch (e) {
-    console.error('[Support Golden Examples] Failed:', e);
-  }
+  // 暂时移除黄金样本查询，减少延迟（后续可改为语义检索）
+  const goldenExamplesContext = '';
 
   const messages: ChatMessage[] = [
     {
@@ -115,11 +105,6 @@ export async function streamSupportReply(
       content: userMessage,
     },
   ];
-
-  // 异步更新黄金样本使用统计
-  if (exampleIds.length > 0) {
-    incrementUsageCount(exampleIds).catch(() => { });
-  }
 
   return await streamChatCompletion(messages, {
     temperature: 0.8,
