@@ -15,8 +15,6 @@ import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
-import { coordinateAgents } from '@/lib/ai/agents/orchestrator';
-import { ChatMessage } from '@/lib/ai/deepseek';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -241,11 +239,6 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0.1 Parallel Orchestration - 多 Agent 协同 (安全监测等)
-    // =================================================================================
-    const orchestrationPromise = coordinateAgents(message, history as ChatMessage[], { traceMetadata: { sessionId: body.sessionId } });
-
-    // =================================================================================
     // 0.1 Input Guardrail - 输入安全检测
     // =================================================================================
     const inputGuard = guardInput(message);
@@ -354,16 +347,23 @@ export async function POST(request: NextRequest) {
       })()
       : Promise.resolve('');
 
-    // 同时等待两个结果
-    const [analysis, retrievedMemory, orchestration] = await Promise.all([groqPromise, memoryPromise, orchestrationPromise]);
+    // 同时等待两个结果 (Groq 现在包含 safety reasoning)
+    const [analysis, retrievedMemory] = await Promise.all([groqPromise, memoryPromise]);
     memoryContext = retrievedMemory;
 
-    console.log('[Orchestrator] Result:', orchestration.safety);
-    console.log('[Groq] Quick analysis result:', analysis);
+    // 构建统一的 safety 对象 (从 Groq 分析结果中提取)
+    const safetyData = {
+      label: analysis.safety,
+      score: analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1,
+      reasoning: analysis.safetyReasoning,
+    };
 
-    // 如果安全观察员检测到危机，强制切换到危机路由
-    if (orchestration.safety.label === 'crisis') {
-      console.log('[API] SafetyObserver detected crisis, overriding route');
+    console.log('[Groq] Quick analysis result:', analysis);
+    console.log('[Safety] Assessment:', safetyData);
+
+    // 如果 Groq 检测到危机，强制切换到危机路由
+    if (analysis.safety === 'crisis') {
+      console.log('[API] Groq detected crisis, overriding route');
       routeType = 'crisis';
     }
 
@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
     // Append analysis and dialogue metadata to stream
     data.append({
       timestamp: new Date().toISOString(),
-      safety: orchestration.safety, // Use high-fidelity safety data from orchestrator
+      safety: safetyData, // Use high-fidelity safety data from orchestrator
       dialogue: {
         turn: conversationTurn,
         phase: dialoguePhase,
@@ -448,13 +448,13 @@ export async function POST(request: NextRequest) {
         const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
           await saveAssistantMessage(text, {
             toolCalls,
-            safety: orchestration.safety,
+            safety: safetyData,
           });
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
           data.append({
             reply: text,
             toolCalls,
-            safety: orchestration.safety,
+            safety: safetyData,
           } as any);
           data.close();
         };
@@ -468,12 +468,12 @@ export async function POST(request: NextRequest) {
       const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
         await saveAssistantMessage(text, {
           toolCalls,
-          safety: orchestration.safety,
+          safety: safetyData,
         });
         data.append({
           reply: text,
           toolCalls,
-          safety: orchestration.safety,
+          safety: safetyData,
         } as any);
         data.close();
       }
@@ -536,13 +536,13 @@ export async function POST(request: NextRequest) {
       // Wrap saveAssistantMessage to include actionCards in metadata
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
         await saveAssistantMessage(text, actionCards
-          ? { routeType: 'support', actionCards, toolCalls, safety: orchestration.safety }
-          : { toolCalls, safety: orchestration.safety }
+          ? { routeType: 'support', actionCards, toolCalls, safety: safetyData }
+          : { toolCalls, safety: safetyData }
         );
         data.append({
           reply: text,
           toolCalls,
-          safety: orchestration.safety,
+          safety: safetyData,
         } as any);
         data.close();
       };
@@ -628,7 +628,7 @@ export async function POST(request: NextRequest) {
           toolCalls,
           routeType: 'assessment',
           assessmentStage: isConclusion ? 'conclusion' : 'intake',
-          safety: orchestration.safety,
+          safety: safetyData,
         } as any);
         data.close();
       };
@@ -651,7 +651,7 @@ export async function POST(request: NextRequest) {
             actionCards,
             routeType: 'assessment',
             assessmentStage: 'conclusion',
-            safety: orchestration.safety,
+            safety: safetyData,
           } as any);
           data.close();
         };

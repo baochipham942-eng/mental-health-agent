@@ -16,6 +16,7 @@ const groq = createOpenAI({
 
 export interface QuickAnalysis {
     safety: 'crisis' | 'urgent' | 'normal';
+    safetyReasoning: string; // 安全评估理由
     emotion: { label: string; score: number };
     route: 'crisis' | 'support' | 'assessment';
 }
@@ -24,6 +25,7 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 
 {
   "safety": "crisis" | "urgent" | "normal",
+  "safetyReasoning": "简要说明为什么给出这个安全等级，1-2句话",
   "emotion": { "label": "焦虑|抑郁|悲伤|愤怒|恐惧|平静|快乐", "score": 1-10 },
   "route": "crisis" | "support" | "assessment"
 }
@@ -42,6 +44,7 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 
 const DEFAULT_ANALYSIS: QuickAnalysis = {
     safety: 'normal',
+    safetyReasoning: 'Default fallback - no analysis performed',
     emotion: { label: '平静', score: 5 },
     route: 'support'
 };
@@ -81,6 +84,11 @@ export async function quickAnalyze(message: string): Promise<QuickAnalysis> {
         if (!result.safety || !result.emotion || !result.route) {
             console.warn('[Groq] Invalid response format, using default');
             return DEFAULT_ANALYSIS;
+        }
+
+        // 确保 safetyReasoning 存在
+        if (!result.safetyReasoning) {
+            result.safetyReasoning = `Safety: ${result.safety}`;
         }
 
         return result;
