@@ -162,14 +162,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
       prevSessionIdRef.current = sessionId;
-    } else if (isSessionSwitch && !isCreationTransition) {
+    } else if (isSessionSwitch) {
+      // CRITICAL GUARD: If we just created a session locally (internalSessionId exists)
+      // but the router prop (sessionId) is just catching up or mismatched,
+      // and we have local messages, DO NOT WIPE THEM.
+      if (isCreationTransition) {
+        console.log('[ChatShell] Ignoring server props during creation transition (SPA Mode)');
+        // ensure internal ID is synced just in case
+        if (sessionId) {
+          setInternalSessionId(sessionId);
+          sessionIdRef.current = sessionId;
+          prevSessionIdRef.current = sessionId;
+        }
+        return;
+      }
+
       console.log('[ChatShell] Switching session, loading new messages', { from: internalSessionId, to: sessionId });
       setMessages(initialMessages || []);
-      setInternalSessionId(sessionId);
-      sessionIdRef.current = sessionId;
-      prevSessionIdRef.current = sessionId;
-    } else if (isCreationTransition) {
-      console.log('[ChatShell] Creation transition detected, preserving local messages');
       setInternalSessionId(sessionId);
       sessionIdRef.current = sessionId;
       prevSessionIdRef.current = sessionId;
@@ -440,8 +449,12 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
             // 所以：我们需要显式保存 transitionMessages。
             setTransitionMessages(currentSessionId, [...messages, userMessage]);
 
-            // 使用 router.replace 确保 Next.js router 状态一致
-            router.replace(`/c/${currentSessionId}`, { scroll: false });
+            // Revert back to window.history.replaceState for SPA feel.
+            // Why? router.replace triggers a Server Component re-render (SessionPage).
+            // Since our DB save is non-blocking (async), the Server Page might fetch EMPTY messages (race condition).
+            // This causes the "Back to New Session" bug.
+            // By using window.history, we stay in the current Client Component state (which has the messages).
+            window.history.replaceState(null, '', `/c/${currentSessionId}`);
           } else {
             console.error('[ChatShell] Attempted to update URL with invalid sessionId:', currentSessionId);
           }
