@@ -97,7 +97,10 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in">
+        <div
+            className="fixed z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
+            style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+        >
             <div className="w-full md:max-w-2xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] max-h-none md:max-h-[800px] border border-gray-200">
 
                 {/* Header */}
@@ -220,6 +223,6 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
 
             </div>
         </div>,
-        document.body
+        document.getElementById('modal-root') || document.body
     );
 }

@@ -209,6 +209,6 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
 
             </div>
         </div>,
-        document.body
+        document.getElementById('modal-root') || document.body
     );
 }

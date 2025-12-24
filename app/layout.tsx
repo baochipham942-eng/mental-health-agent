@@ -29,6 +29,7 @@ export default function RootLayout({
             {children}
           </ArcoConfigProvider>
         </NextAuthSessionProvider>
+        <div id="modal-root" />
       </body>
     </html>
   );
