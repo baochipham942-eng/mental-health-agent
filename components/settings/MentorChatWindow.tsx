@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useChat } from 'ai/react';
 import { Button, Input, Avatar, Spin, Message } from '@arco-design/web-react';
 import { IconSend, IconClose, IconRobot, IconUser } from '@arco-design/web-react/icon';
@@ -16,6 +17,16 @@ interface MentorChatWindowProps {
 
 export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
 
     // Use Vercel AI SDK hook for ephemeral chat
     const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
@@ -83,7 +94,9 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         onClose();
     };
 
-    return (
+    if (!mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in">
             <div className="w-full md:max-w-2xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] max-h-none md:max-h-[800px] border border-gray-200">
 
@@ -206,6 +219,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useChat } from 'ai/react';
 import { Button, Input, Message } from '@arco-design/web-react';
 import { IconSend, IconClose, IconUser } from '@arco-design/web-react/icon';
@@ -17,6 +18,16 @@ interface MBTIChatWindowProps {
 
 export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
 
     // Use Vercel AI SDK hook for ephemeral chat
     const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
@@ -83,10 +94,11 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
         onClose();
     };
 
-    return (
+    if (!mounted) return null;
+
+    return createPortal(
         <div
-            className="fixed z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
-            style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
         >
             <div className="w-full md:max-w-2xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] max-h-none md:max-h-[800px] border border-gray-200">
 
@@ -196,6 +208,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
