@@ -152,35 +152,40 @@ export function ChatInput({
     <div className="w-full">
       {/* 输入框容器 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          readOnly={disabled && !isLoading}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
-          data-lpignore="true"
-          data-form-type="other"
-          rows={1}
-          className={cn(
-            'flex-1 resize-none rounded-xl px-3 py-3',
-            'text-gray-900 placeholder:text-gray-400',
-            'bg-transparent border-none outline-none ring-0',
-            'focus:outline-none focus:ring-0 focus:border-none shadow-none',
-            'overflow-y-auto transition-all duration-200',
-            'leading-5 text-[15px]',
-            disabled && !isLoading && 'cursor-not-allowed opacity-60'
-          )}
-          style={{
-            minHeight: '44px',
-            maxHeight: '160px',
-          }}
-        />
+        {/* 输入框包装器 - 使用 flex 实现真正的垂直居中 */}
+        <div className="flex-1 flex items-center min-h-[44px]">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            readOnly={disabled && !isLoading}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="other"
+            rows={1}
+            className={cn(
+              'flex-1 resize-none rounded-xl px-3',
+              'text-gray-900 placeholder:text-gray-400',
+              'bg-transparent border-none outline-none ring-0',
+              'focus:outline-none focus:ring-0 focus:border-none shadow-none',
+              'overflow-y-auto transition-all duration-200',
+              'leading-6 text-[15px]',
+              disabled && !isLoading && 'cursor-not-allowed opacity-60'
+            )}
+            style={{
+              minHeight: '24px', // 单行文字高度
+              maxHeight: '144px', // 6行
+              paddingTop: '0',
+              paddingBottom: '0',
+            }}
+          />
+        </div>
 
         {/* 语音输入按钮 */}
         <VoiceInputButton
@@ -189,14 +194,18 @@ export function ChatInput({
           size={44}
         />
 
-        {/* 发送按钮 */}
+        {/* 发送按钮 - 使用自定义图标包装器实现光学居中 */}
         <Button
           type="primary"
           size="large"
           shape="circle"
           disabled={!canSend || disabled || isLoading}
           loading={isLoading}
-          icon={<IconSend />}
+          icon={
+            <span style={{ display: 'inline-flex', transform: 'translateX(1px)' }}>
+              <IconSend />
+            </span>
+          }
           onClick={doSend}
           style={{
             width: 44,
