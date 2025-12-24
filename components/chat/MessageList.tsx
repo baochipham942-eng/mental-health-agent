@@ -211,7 +211,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
   // 有消息，显示消息列表
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-6" ref={containerRef}>
+    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-32" ref={containerRef}>
       <div className="relative w-full space-y-2 min-h-full">
         {messages.map((message) => {
           const extras = messageExtras?.get(message.id);

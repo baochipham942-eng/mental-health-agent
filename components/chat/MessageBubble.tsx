@@ -248,12 +248,36 @@ export function MessageBubble({
                 </div>
                 <p className="pl-1 italic border-l-2 border-indigo-100">{message.metadata.safety.reasoning}</p>
 
+                {message.emotion && (
+                  <>
+                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
+                      🎨 情绪感知
+                    </div>
+                    <div className="pl-1 border-l-2 border-pink-100 flex items-center gap-2">
+                      <span className="font-medium text-gray-800">{message.emotion.label}</span>
+                      <span className="text-gray-400 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded-full">强度 {message.emotion.score}</span>
+                    </div>
+                  </>
+                )}
+
                 {message.metadata.state?.reasoning && (
                   <>
                     <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
                       🎯 对话状态
                     </div>
                     <p className="pl-1 italic border-l-2 border-purple-100">{message.metadata.state.reasoning}</p>
+                  </>
+                )}
+
+                {message.metadata?.routeType && (
+                  <>
+                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
+                      🛣️ 专家路由
+                    </div>
+                    <p className="pl-1 italic border-l-2 border-blue-100 font-mono text-xs">
+                      {message.metadata.routeType === 'crisis' ? '🚨 危机干预专家' :
+                        message.metadata.routeType === 'assessment' ? '📋 心理评估专家' : '❤️ 情感支持专家'}
+                    </p>
                   </>
                 )}
               </div>

@@ -1,7 +1,6 @@
-```typescript
 import { notFound, redirect } from 'next/navigation';
 import { ChatShell } from '@/components/chat/ChatShell';
-import { getSessionById, getSessionMessages } from '@/lib/db/queries'; // Assume these exist
+import { getSessionById } from '@/lib/actions/chat';
 import { auth } from '@/auth';
 import { Metadata } from 'next';
 
@@ -12,8 +11,6 @@ interface SessionPageProps {
         sessionId: string;
     };
 }
-
-export const dynamic = 'force-dynamic';
 
 /**
  * 历史会话页面 - 加载特定会话的消息
