@@ -22,6 +22,9 @@ interface ChatStore {
   // followupAnswer 累计（仅前端内部使用，不持久化）
   followupAnswerDraft: string;
 
+  // 全局 input 暂存（用于页面切换时保留输入框内容）
+  inputDraft: string;
+
   // 技能进度（行动卡片完成态）
   skillProgress: Record<string, SkillProgress>;
 
@@ -49,6 +52,7 @@ interface ChatStore {
   clearMessages: () => void;
   appendFollowupAnswer: (answer: string) => void;
   clearFollowupAnswer: () => void;
+  setInputDraft: (draft: string) => void;
   setDebugDrawerOpen: (open: boolean) => void;
   setDebugPrompts: (prompts: any | null) => void;
   setValidationError: (error: any | null) => void;
@@ -68,6 +72,7 @@ export const useChatStore = create<ChatStore>()(
       assessmentStage: undefined,
       initialMessage: undefined,
       followupAnswerDraft: '',
+      inputDraft: '',
       skillProgress: {},
       isLoading: false,
       error: null,
@@ -128,6 +133,9 @@ export const useChatStore = create<ChatStore>()(
       clearFollowupAnswer: () =>
         set({ followupAnswerDraft: '' }),
 
+      setInputDraft: (draft: string) =>
+        set({ inputDraft: draft }),
+
       setDebugDrawerOpen: (open: boolean) =>
         set({ debugDrawerOpen: open }),
 
@@ -166,6 +174,7 @@ export const useChatStore = create<ChatStore>()(
           initialMessage: undefined,
           followupAnswerDraft: '',
           isLoading: false,
+          // 注意：inputDraft 不重置，以允许"带着输入去新会话"
           error: null,
           debugDrawerOpen: false,
           debugPrompts: null,

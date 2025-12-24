@@ -50,6 +50,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     setLastRequestPayload,
     lastRequestPayload,
     resetConversation,
+    inputDraft,
+    setInputDraft,
     setMessages, // Need to expose setMessages in store or use clear+add
   } = useChatStore();
 
@@ -66,7 +68,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   const sessionIdRef = useRef<string | undefined>(sessionId);
 
   const [isSending, setIsSending] = useState(false);
-  const [draft, setDraft] = useState('');
+  // Initial draft from store (if navigating from new chat or switching sessions)
+  const [draft, setDraft] = useState(inputDraft || '');
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasInitializedRef = useRef(false);
 
@@ -107,6 +110,22 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     // 故意不用完整依赖数组，只在组件首次挂载时执行
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
+  useEffect(() => {
+    // 立即重置所有可能卡住的状态
+    if (isLoading || isSending) {
+      console.log('[ChatShell] Resetting stuck loading state on mount');
+      setIsSending(false);
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount only
+
+  // Sync draft to store
+  useEffect(() => {
+    setInputDraft(draft);
+  }, [draft, setInputDraft]);
 
   // Sync ref with prop/state
   useEffect(() => {
