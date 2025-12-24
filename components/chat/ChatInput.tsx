@@ -206,9 +206,7 @@ export function ChatInput({
             isLoading ? (
               <IconLoading style={{ fontSize: 18 }} />
             ) : (
-              <span style={{ display: 'inline-flex', transform: 'translateX(2px)' }}>
-                <IconSend />
-              </span>
+              <IconSend style={{ fontSize: 18 }} />
             )
           }
           onClick={doSend}
