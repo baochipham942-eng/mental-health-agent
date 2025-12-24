@@ -330,7 +330,9 @@ export async function POST(request: NextRequest) {
     let processedHistory = history;
 
     // 并行执行：Groq 分析 + 记忆检索
-    const groqPromise = quickAnalyze(message);
+    // 传入最近2条历史记录作为上下文，帮助 Groq 判断意图（如回答评估问题 vs 切换话题）
+    const recentContext = history.slice(-2);
+    const groqPromise = quickAnalyze(message, recentContext);
 
     const memoryPromise = (userId && history.length > 0)
       ? (async () => {
@@ -437,18 +439,26 @@ export async function POST(request: NextRequest) {
       },
     } as any);
 
-    // Fix: If we are in evaluation flow (awaiting_followup), continue assessment unless it's a crisis
-    if (state === 'awaiting_followup' && routeType !== 'crisis') {
-      routeType = 'assessment';
-    }
+    // Fix: Sticky Logic Removed
+    // Previously we forced 'assessment' if state was 'awaiting_followup'.
+    // Now we trust Groq's context-aware routing.
+    // However, if the route IS 'assessment' and we are 'awaiting_followup', that's fine.
+    // If Groq says 'support' but we are 'awaiting_followup' -> user likely changed topic -> We respect 'support'.
+
 
     // =================================================================================
     // 1. Crisis Handler (Highest Priority)
     // =================================================================================
     console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
-      const isExplicitSafety = /我没事了|感觉好多了|已经不处在危险中了|放心吧/.test(message);
-      if (state === 'in_crisis' && isExplicitSafety) {
+      // 退出机制：
+      // 1. 显式的安全声明 (正则)
+      // 2. Groq 安全分析也认为是 'normal' (双重确认)
+      const isExplicitSafety = /我没事了|感觉好多了|已经不处在危险中了|放心吧|删除.*记忆|不聊了|换个话题/.test(message);
+      const isAnalysedSafe = safetyData.label === 'normal';
+
+      if (state === 'in_crisis' && (isExplicitSafety || isAnalysedSafe)) {
+        console.log('[API] De-escalating crisis state based on validation:', { isExplicitSafety, isAnalysedSafe });
         // De-escalate
         data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 

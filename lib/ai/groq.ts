@@ -59,9 +59,10 @@ const DEFAULT_ANALYSIS: QuickAnalysis = {
 /**
  * 快速分析用户消息
  * @param message 用户消息
+ * @param recentHistory 最近的对话历史（用于判断上下文）
  * @returns 分析结果
  */
-export async function quickAnalyze(message: string): Promise<QuickAnalysis> {
+export async function quickAnalyze(message: string, recentHistory: { role: string; content: string }[] = []): Promise<QuickAnalysis> {
     if (!GROQ_API_KEY) {
         console.warn('[Groq] API key not configured, using default analysis');
         return DEFAULT_ANALYSIS;
@@ -70,10 +71,17 @@ export async function quickAnalyze(message: string): Promise<QuickAnalysis> {
     try {
         const startTime = Date.now();
 
+        // 构建上下文 Prompt
+        let systemPrompt = QUICK_ANALYSIS_PROMPT;
+        if (recentHistory.length > 0) {
+            const contextStr = recentHistory.map(m => `${m.role}: ${m.content}`).join('\n');
+            systemPrompt += `\n\n**最近对话上下文**（用于判断用户是在回答问题还是切换话题）：\n${contextStr}`;
+        }
+
         const { text } = await generateText({
             model: groq('llama-3.1-8b-instant'),
             messages: [
-                { role: 'system', content: QUICK_ANALYSIS_PROMPT },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: message }
             ],
             temperature: 0,
