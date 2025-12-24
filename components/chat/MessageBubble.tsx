@@ -119,6 +119,7 @@ export function MessageBubble({
   sessionId,
 }: MessageBubbleProps) {
   const { currentState, isLoading } = useChatStore();
+  const [showReasoning, setShowReasoning] = useState(false);
   const isUser = message.role === 'user';
 
   // 检测是否是占位符消息（正在等待AI回复）
@@ -229,6 +230,36 @@ export function MessageBubble({
               : 'bg-white text-gray-900 shadow-sm max-w-[85%] sm:max-w-[80%]'
         )}
       >
+        {/* Logic Chain Visualization (CoT) */}
+        {!isUser && !isPlaceholderMessage && message.metadata?.safety?.reasoning && (
+          <div className="mb-3 border-b border-indigo-50 pb-2">
+            <button
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-400 hover:text-indigo-600 transition-colors bg-indigo-50/30 px-2 py-0.5 rounded-full border-none cursor-pointer"
+            >
+              <div className={cn("w-1 h-1 rounded-full bg-indigo-400 animate-pulse", showReasoning && "bg-indigo-600 animate-none")} />
+              {showReasoning ? '收起思考过程' : '查看思考过程'}
+            </button>
+            {showReasoning && (
+              <div className="mt-2 text-[11px] leading-relaxed text-gray-500 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="flex items-center gap-1.5 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
+                  🛡️ 安全评估
+                </div>
+                <p className="pl-1 italic border-l-2 border-indigo-100">{message.metadata.safety.reasoning}</p>
+
+                {message.metadata.state?.reasoning && (
+                  <>
+                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
+                      🎯 对话状态
+                    </div>
+                    <p className="pl-1 italic border-l-2 border-purple-100">{message.metadata.state.reasoning}</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {isUser ? (
           <p className="whitespace-pre-wrap break-words leading-relaxed text-sm sm:text-base">{message.content}</p>
         ) : (

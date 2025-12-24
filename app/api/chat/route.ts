@@ -15,6 +15,8 @@ import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
+import { coordinateAgents } from '@/lib/ai/agents/orchestrator';
+import { ChatMessage } from '@/lib/ai/deepseek';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -91,6 +93,29 @@ const SKILL_CARDS = {
       '说出你能尝到的1种味道'
     ],
   },
+  reframing: {
+    title: '认知重构练习',
+    when: '当下陷入消极念头时',
+    effort: 'medium' as const,
+    widget: undefined,
+    steps: [
+      '识别当下的消极念头',
+      '寻找支持这个念头的证据',
+      '寻找反驳这个念头的证据',
+      '尝试提出一个更平衡、客观的视角',
+    ],
+  },
+  activation: {
+    title: '行为激活小任务',
+    when: '感到动力不足或情绪低落时',
+    effort: 'low' as const,
+    widget: undefined,
+    steps: [
+      '选择一件可以在5分钟内完成的小事',
+      '立即去做，不要纠结感受',
+      '完成后给自己一个微小的正反馈',
+    ],
+  },
 };
 
 type SkillType = keyof typeof SKILL_CARDS;
@@ -103,6 +128,8 @@ function detectDirectSkillRequest(message: string): SkillType | null {
   if (/呼吸|4.?7.?8|深呼吸/.test(lowerMsg)) return 'breathing';
   if (/冥想|正念|静心|meditation/.test(lowerMsg)) return 'meditation';
   if (/着陆|5.?4.?3.?2.?1|grounding/.test(lowerMsg)) return 'grounding';
+  if (/重构|想法挑战|认知/.test(lowerMsg)) return 'reframing';
+  if (/行为激活|活动|小任务/.test(lowerMsg)) return 'activation';
   return null;
 }
 
@@ -119,6 +146,8 @@ function createSkillCardStreamResponse(
     breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
     meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
     grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
+    reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
+    activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
   };
 
   const stream = new ReadableStream({
@@ -166,6 +195,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   let finalSessionId: string | undefined;
   let finalUserId: string | undefined;
+  let routeType: RouteType = 'support'; // Top-level definition
 
   try {
     const body: ChatRequest = await request.json();
@@ -174,6 +204,11 @@ export async function POST(request: NextRequest) {
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
     }
+
+    // =================================================================================
+    // 0.1 Parallel Orchestration - 多 Agent 协同 (安全监测等)
+    // =================================================================================
+    const orchestrationPromise = coordinateAgents(message, history as ChatMessage[], { traceMetadata: { sessionId: body.sessionId } });
 
     // =================================================================================
     // 0.1 Input Guardrail - 输入安全检测
@@ -285,10 +320,17 @@ export async function POST(request: NextRequest) {
       : Promise.resolve('');
 
     // 同时等待两个结果
-    const [analysis, retrievedMemory] = await Promise.all([groqPromise, memoryPromise]);
+    const [analysis, retrievedMemory, orchestration] = await Promise.all([groqPromise, memoryPromise, orchestrationPromise]);
     memoryContext = retrievedMemory;
 
+    console.log('[Orchestrator] Result:', orchestration.safety);
     console.log('[Groq] Quick analysis result:', analysis);
+
+    // 如果安全观察员检测到危机，强制切换到危机路由
+    if (orchestration.safety.label === 'crisis') {
+      console.log('[API] SafetyObserver detected crisis, overriding route');
+      routeType = 'crisis';
+    }
 
     // 检查是否需要生成对话摘要 (放在并行之后，因为依赖 history)
     if (userId && sessionId && history.length > 0 && shouldSummarize(history.length)) {
@@ -310,7 +352,7 @@ export async function POST(request: NextRequest) {
     const traceMetadata = { sessionId, userId };
 
     const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
-    let routeType: RouteType = analysis.route;
+    routeType = analysis.route;
 
     // 后备：关键词检测危机（防止小模型漏检）
     if (routeType !== 'crisis' && quickCrisisKeywordCheck(message)) {
@@ -332,6 +374,8 @@ export async function POST(request: NextRequest) {
         breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
         meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
         grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
+        reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
+        activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
       };
 
       if (sessionId) {
@@ -379,7 +423,7 @@ export async function POST(request: NextRequest) {
     // Append analysis and dialogue metadata to stream
     data.append({
       timestamp: new Date().toISOString(),
-      safety: { label: analysis.safety, score: analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1 },
+      safety: orchestration.safety, // Use high-fidelity safety data from orchestrator
       dialogue: {
         turn: conversationTurn,
         phase: dialoguePhase,
@@ -403,9 +447,16 @@ export async function POST(request: NextRequest) {
         data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
         const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-          await saveAssistantMessage(text, { toolCalls });
+          await saveAssistantMessage(text, {
+            toolCalls,
+            safety: orchestration.safety,
+          });
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
-          data.append({ reply: text, toolCalls } as any);
+          data.append({
+            reply: text,
+            toolCalls,
+            safety: orchestration.safety,
+          } as any);
           data.close();
         };
 
@@ -416,8 +467,15 @@ export async function POST(request: NextRequest) {
       data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
 
       const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
-        await saveAssistantMessage(text, { toolCalls });
-        data.append({ reply: text, toolCalls } as any);
+        await saveAssistantMessage(text, {
+          toolCalls,
+          safety: orchestration.safety,
+        });
+        data.append({
+          reply: text,
+          toolCalls,
+          safety: orchestration.safety,
+        } as any);
         data.close();
       }
 
@@ -478,8 +536,15 @@ export async function POST(request: NextRequest) {
 
       // Wrap saveAssistantMessage to include actionCards in metadata
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-        await saveAssistantMessage(text, actionCards ? { routeType: 'support', actionCards, toolCalls } : { toolCalls });
-        data.append({ reply: text, toolCalls } as any);
+        await saveAssistantMessage(text, actionCards
+          ? { routeType: 'support', actionCards, toolCalls, safety: orchestration.safety }
+          : { toolCalls, safety: orchestration.safety }
+        );
+        data.append({
+          reply: text,
+          toolCalls,
+          safety: orchestration.safety,
+        } as any);
         data.close();
       };
 
@@ -563,7 +628,8 @@ export async function POST(request: NextRequest) {
           reply: text,
           toolCalls,
           routeType: 'assessment',
-          assessmentStage: isConclusion ? 'conclusion' : 'intake'
+          assessmentStage: isConclusion ? 'conclusion' : 'intake',
+          safety: orchestration.safety,
         } as any);
         data.close();
       };
@@ -585,7 +651,8 @@ export async function POST(request: NextRequest) {
             reply: text,
             actionCards,
             routeType: 'assessment',
-            assessmentStage: 'conclusion'
+            assessmentStage: 'conclusion',
+            safety: orchestration.safety,
           } as any);
           data.close();
         };

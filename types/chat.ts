@@ -17,6 +17,15 @@ export interface Message {
     error?: boolean;
     errorCode?: string;
     isSystemError?: boolean;
+    safety?: {
+      reasoning: string;
+      label: 'crisis' | 'urgent' | 'self-care' | 'normal';
+      score: number;
+    };
+    state?: {
+      reasoning: string;
+      overallProgress: number;
+    };
   };
 }
 
@@ -77,6 +86,11 @@ export interface ChatResponse {
     pass: boolean;
     fixed?: boolean;
     missing?: string[];
+  };
+  safety?: {
+    reasoning: string;
+    label: string;
+    score: number;
   };
   // Simplified debug/meta
   debugPrompts?: {
