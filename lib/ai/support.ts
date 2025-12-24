@@ -88,8 +88,17 @@ export async function streamSupportReply(
     memoryContext?: string;
   }
 ) {
-  // 暂时移除黄金样本查询，减少延迟（后续可改为语义检索）
-  const goldenExamplesContext = '';
+  // 关键词相似度检索相关黄金样本（带内存缓存）
+  let goldenExamplesContext = '';
+  try {
+    const { retrieveRelevantExamples, formatExamplesForPrompt } = await import('./golden-cache');
+    const examples = await retrieveRelevantExamples(userMessage, 3);
+    if (examples.length > 0) {
+      goldenExamplesContext = formatExamplesForPrompt(examples);
+    }
+  } catch (e) {
+    console.error('[GoldenCache] Retrieval failed:', e);
+  }
 
   const messages: ChatMessage[] = [
     {
