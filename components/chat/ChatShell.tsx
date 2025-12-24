@@ -175,13 +175,13 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   }, []); // 只在挂载时执行一次
 
   // 监听isLoading和isSending，如果异常卡住则自动恢复（备用保护机制）
+  // 只在 isSending 为 false 但 isLoading 仍为 true 时触发（流已完成但状态未更新）
   useEffect(() => {
-    // 如果isLoading为true但isSending为false超过3秒，说明可能卡住了
     if (isLoading && !isSending) {
       const timer = setTimeout(() => {
-        console.warn('[ChatShell] Loading state stuck, auto-recovering...');
+        console.warn('[ChatShell] isLoading stuck (isSending=false), auto-recovering...');
         setLoading(false);
-      }, 3000);
+      }, 1500); // 缩短到 1.5 秒，因为 isSending=false 表示 sendChatMessage 已返回
       return () => clearTimeout(timer);
     }
   }, [isLoading, isSending, setLoading]);
@@ -443,6 +443,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           onDataChunk: (data) => {
             updateMessage(assistantMsgId, {
               metadata: {
+                safety: data.safety, // CoT 安全评估
+                state: data.state,   // CoT 对话状态
                 routeType: data.routeType,
                 assessmentStage: data.assessmentStage,
                 actionCards: data.actionCards,

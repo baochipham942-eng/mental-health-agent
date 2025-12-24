@@ -456,6 +456,7 @@ export async function POST(request: NextRequest) {
           await saveAssistantMessage(text, {
             toolCalls,
             safety: safetyData,
+            state: stateData,
           });
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
           data.append({
@@ -476,6 +477,7 @@ export async function POST(request: NextRequest) {
         await saveAssistantMessage(text, {
           toolCalls,
           safety: safetyData,
+          state: stateData,
         });
         data.append({
           reply: text,
@@ -540,11 +542,10 @@ export async function POST(request: NextRequest) {
         ...(actionCards && { actionCards }), // Inject skill cards
       });
 
-      // Wrap saveAssistantMessage to include actionCards in metadata
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
         await saveAssistantMessage(text, actionCards
-          ? { routeType: 'support', actionCards, toolCalls, safety: safetyData }
-          : { toolCalls, safety: safetyData }
+          ? { routeType: 'support', actionCards, toolCalls, safety: safetyData, state: stateData }
+          : { toolCalls, safety: safetyData, state: stateData }
         );
         data.append({
           reply: text,
@@ -598,6 +599,7 @@ export async function POST(request: NextRequest) {
           routeType: 'support',
           state: 'normal',
           actionCards: [skillCard],
+          safety: safetyData,
         });
 
         data.append({
@@ -619,6 +621,8 @@ export async function POST(request: NextRequest) {
           toolCalls,
           routeType: 'assessment',
           assessmentStage: isConclusion ? 'conclusion' : 'intake',
+          safety: safetyData,
+          state: stateData,
         });
 
         // 🔄 异步检测死循环（不阻塞响应）
