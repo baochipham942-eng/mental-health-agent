@@ -321,8 +321,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
     // Determine timeout based on the state
     // If ONLY isLoading is stuck (isSending=false), stream is done, fast recovery
-    // If BOTH are stuck, allow more time for remote request to finish
-    const timeoutMs = (isLoading && isSending) ? 30000 : 1500;
+    // If BOTH are stuck, allow more time for remote request to finish (but not too long)
+    const timeoutMs = (isLoading && isSending) ? 5000 : 1500;
 
     const timer = setTimeout(() => {
       if (isLoading || isSending) {

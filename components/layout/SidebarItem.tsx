@@ -77,6 +77,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
             <Tooltip content={`ID: ${session.id}`} position="right" mini>
                 <Link
                     href={`/c/${session.id}`}
+                    prefetch={false}
                     className={`
                         flex items-center gap-2 rounded-lg p-2.5 text-sm font-medium transition-all
                         ${isActive
