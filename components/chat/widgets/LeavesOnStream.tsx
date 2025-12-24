@@ -65,7 +65,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 
     if (!isStarted) {
         return (
-            <div className="flex flex-col items-center justify-center h-[480px] px-4 text-center select-none transition-all">
+            <div className="flex flex-col items-center justify-center h-[360px] px-4 text-center select-none transition-all">
                 <div className="mb-6 relative">
                     <div className="absolute inset-0 bg-green-100 rounded-full blur-xl opacity-20 animate-pulse"></div>
                     <span className="text-6xl relative z-10 drop-shadow-sm">🍃</span>
@@ -88,7 +88,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
     }
 
     return (
-        <div className="relative h-[480px] rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none bg-[#e0f7fa]">
+        <div className="relative h-[360px] rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none bg-[#e0f7fa]">
             {/* Exquisite Water Background */}
             <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
                 {/* Base Gradient */}
@@ -177,11 +177,11 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
     // Slower, majestic, linear flow
     const flowDuration = 15 + Math.random() * 5;
     // Independent bobbing (breathing) cycle
-    const bobDuration = 2 + Math.random() * 1;
+    const bobDuration = 4 + Math.random() * 3;
 
     // Y-position: Float in the "middle" stream (40% - 60% of height), avoid sinking behind input
-    const randomYStart = 180 + Math.random() * 60; // Start range ~40%
-    const randomYEnd = randomYStart + 60; // Mild downstream drift
+    const randomYStart = 160 + Math.random() * 40; // Start range ~45%
+    const randomYEnd = randomYStart + 40; // Mild downstream drift
 
     return (
         <motion.div
