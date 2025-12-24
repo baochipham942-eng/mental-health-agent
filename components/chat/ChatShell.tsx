@@ -357,6 +357,14 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     };
   }, []); // 只在挂载时执行一次
 
+  // ★ CRITICAL: Reset loading states whenever sessionId prop changes (covers navigation scenarios)
+  // This ensures that even if component doesn't remount, navigation always starts clean
+  useEffect(() => {
+    console.log('[ChatShell] sessionId prop changed, resetting loading states', { sessionId });
+    setLoading(false);
+    setIsSending(false);
+  }, [sessionId, setLoading]);
+
   // 监听isLoading和isSending，如果异常卡住则自动恢复（备用保护机制）
   // Stage 1: Fast recovery if isLoading but NOT isSending (stream returned but state wasn't reset)
   // Stage 2: Slower recovery if BOTH are stuck (component may have remounted mid-send)
