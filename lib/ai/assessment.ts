@@ -143,20 +143,22 @@ export async function streamAssessmentReply(
   }));
   fullHistory.push({ role: 'user', content: userMessage });
 
-  // Step 2: 调用状态分类器
+  // Step 2: 调用状态分类器 (带超时保护，防止挂起)
   let classification: StateClassification | undefined;
   try {
-    classification = await classifyDialogueState(fullHistory, {
-      traceMetadata: options?.traceMetadata,
-    });
+    const classifyWithTimeout = Promise.race([
+      classifyDialogueState(fullHistory, { traceMetadata: options?.traceMetadata }),
+      new Promise<undefined>((_, reject) => setTimeout(() => reject(new Error('Classification timeout')), 5000))
+    ]);
+    classification = await classifyWithTimeout;
 
     // 如果分类器建议结束，我们将通过 metadata 告知调用方，此处不直接流式输出
-    if (classification.shouldConclude) {
+    if (classification?.shouldConclude) {
       console.log('[Assessment] State classifier suggests conclusion:', classification.reasoning);
-      // 注意：这里需要一个特殊的处理逻辑，或者让调用方先检查分类
     }
   } catch (error) {
-    console.error('[Assessment] State classification failed, continuing with default prompt:', error);
+    console.error('[Assessment] State classification failed or timed out:', error);
+    // 即使分类失败也继续，不影响主流程
   }
 
   // Step 3: 构建带进度的 Prompt
