@@ -63,7 +63,7 @@ export function WelcomeScreen({ isReturningUser, onSendMessage }: WelcomeScreenP
                             <button
                                 key={idx}
                                 onClick={() => onSendMessage?.(prompt)}
-                                className="w-full text-left px-3 py-2 bg-white rounded-lg text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
+                                className="w-full text-left px-3 py-2 bg-white rounded-xl text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
                             >
                                 &quot;{prompt}&quot;
                             </button>

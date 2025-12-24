@@ -151,7 +151,7 @@ export function ChatInput({
   return (
     <div className="w-full">
       {/* 输入框容器 */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-1.5 flex gap-2 items-center">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
         <textarea
           ref={textareaRef}
           value={value}

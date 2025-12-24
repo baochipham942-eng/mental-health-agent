@@ -193,7 +193,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
                 <button
                   key={idx}
                   onClick={() => onSendMessage?.(prompt)}
-                  className="w-full text-left px-3 py-2 bg-white rounded-lg text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
+                  className="w-full text-left px-3 py-2 bg-white rounded-xl text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
                 >
                   &quot;{prompt}&quot;
                 </button>
@@ -240,7 +240,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
               scrollToBottom('smooth');
               setShowScrollToBottom(false);
             }}
-            className="fixed bottom-32 right-4 z-40 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="fixed bottom-32 right-4 z-40 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             回到最新
           </button>

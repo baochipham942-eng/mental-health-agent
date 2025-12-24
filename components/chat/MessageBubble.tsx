@@ -153,7 +153,7 @@ export function MessageBubble({
     if (isLoading || isSending || isPlaceholderMessage) {
       return (
         <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="rounded-2xl px-5 py-4 shadow-sm bg-white border border-indigo-50/50">
+          <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-4">
                 {/* 核心“心灵呼吸”动画 */}
@@ -167,7 +167,7 @@ export function MessageBubble({
                 </span>
               </div>
               <div className="h-4 overflow-hidden relative">
-                <span className="text-xs text-indigo-400/80 italic whitespace-nowrap transition-all duration-700 block translate-y-0">
+                <span className="text-xs text-indigo-600/80 italic whitespace-nowrap transition-all duration-700 block translate-y-0">
                   {comfortMessages[comfortIndex]}
                 </span>
               </div>
@@ -181,7 +181,7 @@ export function MessageBubble({
     // return null;
     return (
       <div className="flex flex-col gap-2 mb-4 items-start opacity-50">
-        <div className="rounded-lg px-4 py-3 shadow-sm bg-gray-50 border border-dashed border-gray-300">
+        <div className="rounded-xl px-4 py-3 shadow-sm bg-gray-50 border border-dashed border-gray-300">
           <span className="text-xs text-gray-400">[Debug: Empty Assistant Message]</span>
         </div>
       </div>
@@ -223,12 +223,12 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          'rounded-lg px-4 py-3 shadow-sm',
+          'rounded-xl px-4 py-3 shadow-sm',
           isUser
             ? 'bg-blue-600 text-white max-w-[80%] sm:max-w-[80%]'
             : isSkillMessage
               ? 'bg-white text-gray-900 shadow-sm w-full max-w-6xl mx-auto'
-              : 'bg-white text-gray-900 shadow-sm max-w-[85%] sm:max-w-[80%]'
+              : 'bg-white text-gray-900 shadow-glow max-w-[85%] sm:max-w-[80%]'
         )}
       >
         {/* Logic Chain Visualization (CoT) */}
@@ -236,7 +236,7 @@ export function MessageBubble({
           <div className="mb-3 border-b border-indigo-50 pb-2">
             <button
               onClick={() => setShowReasoning(!showReasoning)}
-              className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-400 hover:text-indigo-600 transition-colors bg-indigo-50/30 px-2 py-0.5 rounded-full border-none cursor-pointer"
+              className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50/30 px-2 py-0.5 rounded-full border-none cursor-pointer"
             >
               <div className={cn("w-1 h-1 rounded-full bg-indigo-400 animate-pulse", showReasoning && "bg-indigo-600 animate-none")} />
               {showReasoning ? '收起思考过程' : '查看思考过程'}

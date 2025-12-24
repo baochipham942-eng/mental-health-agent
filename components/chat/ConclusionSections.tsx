@@ -133,7 +133,7 @@ export function ConclusionSections({
       {/* 行动建议容器 - 紧凑工具卡样式 */}
       {shouldShowActions && (nextStepsLines.length > 0 || hasActionCards) && (
         <ActionCardContainer hasActionCards={hasActionCards}>
-          <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm w-full min-w-0 max-w-5xl mx-auto">
+          <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm w-full min-w-0 max-w-5xl mx-auto">
             <h2 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-1.5">
               <span className="text-base">🎯</span>
               行动建议
@@ -154,7 +154,7 @@ export function ConclusionSections({
 
       {/* 初筛总结 - 紧凑摘要 + 可展开 */}
       {summary && (
-        <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <h3 className="text-xs font-semibold text-gray-700 mb-1">初筛总结</h3>
@@ -179,7 +179,7 @@ export function ConclusionSections({
       {/* 风险与分流 - 紧凑摘要 + 可展开 */}
       {riskTriage && (
         <div
-          className={`p-2.5 rounded-lg border ${routeType === 'crisis'
+          className={`p-2.5 rounded-xl border ${routeType === 'crisis'
             ? 'bg-red-50 border-red-300'
             : 'bg-yellow-50 border-yellow-200'
             }`}

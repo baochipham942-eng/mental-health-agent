@@ -177,3 +177,14 @@ export function getCurrentIdentityPrompt(): string | null {
         return null;
     }
 }
+
+export async function analyzeLowScoreConversations(days: number) {
+    // Placeholder implementation
+    console.warn('analyzeLowScoreConversations is not fully implemented yet.');
+    return {
+        lowScoreCount: 0,
+        commonIssues: {},
+        suggestions: [],
+        affectedPrompts: []
+    };
+}

@@ -30,7 +30,7 @@ export function ResourceCard({ resource }: ResourceCardProps) {
 
 function HotlineCard({ resource }: { resource: CrisisHotlineResource }) {
     return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-2">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-2">
             <div className="flex items-start justify-between">
                 <div>
                     <h3 className="font-bold text-red-800">{resource.title}</h3>
@@ -38,7 +38,7 @@ function HotlineCard({ resource }: { resource: CrisisHotlineResource }) {
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <a
                             href={`tel:${resource.phone}`}
-                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors"
                         >
                             📞 拨打 {resource.phone}
                         </a>
@@ -52,7 +52,7 @@ function HotlineCard({ resource }: { resource: CrisisHotlineResource }) {
 
 function EducationCard({ resource, expanded, onToggle }: { resource: PsychoEducationResource; expanded: boolean; onToggle: () => void }) {
     return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2 transition-all">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-2 transition-all">
             <div className="flex items-start justify-between cursor-pointer" onClick={onToggle}>
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -86,7 +86,7 @@ function EducationCard({ resource, expanded, onToggle }: { resource: PsychoEduca
 
 function StrategyCard({ resource, expanded, onToggle }: { resource: CopingStrategyResource; expanded: boolean; onToggle: () => void }) {
     return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-2">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-2">
             <div className="flex items-start justify-between cursor-pointer" onClick={onToggle}>
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">

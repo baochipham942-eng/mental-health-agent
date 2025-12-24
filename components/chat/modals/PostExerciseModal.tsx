@@ -28,7 +28,7 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">练习完成！</h3>
 
                 {step === 'score' ? (
@@ -39,7 +39,7 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
                                 <button
                                     key={s}
                                     onClick={() => handleScoreSubmit(s)}
-                                    className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors"
+                                    className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl font-medium transition-colors"
                                 >
                                     {s}
                                 </button>
@@ -51,7 +51,7 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
                     <>
                         <p className="text-sm text-gray-600 mb-2">有什么想记录的吗？（可选）</p>
                         <textarea
-                            className="w-full p-2 border border-gray-300 rounded mb-4 text-sm"
+                            className="w-full p-2 border border-gray-300 rounded-xl mb-4 text-sm"
                             rows={3}
                             placeholder="写下你的感受..."
                             value={feedback}
@@ -59,7 +59,7 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
                         />
                         <div className="flex justify-end gap-2">
                             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500">跳过</button>
-                            <button onClick={handleFinalSubmit} className="px-4 py-2 bg-green-600 text-white rounded text-sm">
+                            <button onClick={handleFinalSubmit} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm">
                                 提交
                             </button>
                         </div>

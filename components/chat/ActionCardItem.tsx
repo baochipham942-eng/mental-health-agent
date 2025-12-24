@@ -154,7 +154,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
   }
 
   return (
-    <div ref={cardRef} className={`bg-white rounded-xl border transition-all duration-300 w-full overflow-hidden flex flex-col group ${isExpanded ? 'border-blue-200 shadow-md ring-1 ring-blue-50' : 'border-gray-100 shadow-sm hover:shadow-md'}`}>
+    <div ref={cardRef} className={`bg-white rounded-xl border transition-all duration-300 w-full overflow-hidden flex flex-col group ${isExpanded ? 'border-blue-200 shadow-glow-md ring-1 ring-blue-50' : 'border-gray-100 shadow-glow-card hover:shadow-glow-md'}`}>
 
       {/* 1. 常驻 Summary 区域 (始终显示) */}
       <div className="flex flex-col md:flex-row relative">
@@ -300,7 +300,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                         {card.steps?.map((step, idx) => (
                           <div
                             key={idx}
-                            className={`flex gap-3 p-3 rounded-lg border transition-all cursor-pointer ${completedSteps.includes(idx)
+                            className={`flex gap-3 p-3 rounded-xl border transition-all cursor-pointer ${completedSteps.includes(idx)
                               ? 'bg-blue-50 border-blue-100 opacity-60'
                               : 'bg-white border-gray-200 hover:border-blue-300'
                               }`}
@@ -322,7 +322,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                       <div className="pt-2 flex justify-end">
                         <button
                           onClick={handleManualComplete}
-                          className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm"
+                          className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-sm"
                         >
                           完成打卡
                         </button>

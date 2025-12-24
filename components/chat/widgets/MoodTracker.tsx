@@ -23,7 +23,7 @@ export function MoodTracker() {
 
     if (submitted) {
         return (
-            <div className="p-6 flex flex-col items-center justify-center min-h-[200px] bg-green-50/50 rounded-lg">
+            <div className="p-6 flex flex-col items-center justify-center min-h-[200px] bg-green-50/50 rounded-xl">
                 <div className="text-4xl mb-3 animate-bounce">✨</div>
                 <p className="text-base font-medium text-green-800">心情记录已保存</p>
                 <p className="text-sm text-green-600 mt-1">记录当下是了解自己的第一步</p>
@@ -41,8 +41,8 @@ export function MoodTracker() {
                             key={m.value}
                             onClick={() => setSelectedMood(m.value)}
                             className={`group flex flex-col items-center gap-2 transition-all duration-200 ${selectedMood === m.value
-                                    ? 'scale-125 -translate-y-2'
-                                    : 'text-gray-400 hover:text-gray-600 hover:scale-110'
+                                ? 'scale-125 -translate-y-2'
+                                : 'text-gray-400 hover:text-gray-600 hover:scale-110'
                                 }`}
                         >
                             <span className={`text-3xl transition-all ${selectedMood === m.value ? 'drop-shadow-md' : 'grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100'
@@ -73,8 +73,8 @@ export function MoodTracker() {
                     onClick={handleSubmit}
                     disabled={!selectedMood}
                     className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm ${selectedMood
-                            ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         }`}
                 >
                     保存记录

@@ -44,7 +44,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
   const toggleCompleted = (index: number) => {
     const newCompleted = new Set(completed);
     const wasCompleted = newCompleted.has(index);
-    
+
     if (wasCompleted) {
       newCompleted.delete(index);
     } else {
@@ -53,7 +53,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
       setLastCheckedText(items[index]);
       setTimeout(() => setLastCheckedText(null), 2000);
     }
-    
+
     setCompleted(newCompleted);
 
     // 保存到 localStorage
@@ -87,7 +87,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
     });
 
   return (
-    <div className="p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
+    <div className="p-4 bg-white rounded-xl border border-blue-200 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">下一步行动清单</h3>
         <span className="text-sm text-gray-600 font-medium">
@@ -97,7 +97,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
 
       {/* 勾选提示 */}
       {lastCheckedText && (
-        <div className="mb-3 p-2 bg-green-100 border border-green-300 rounded text-sm text-green-800">
+        <div className="mb-3 p-2 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
           ✓ 已标记完成：{lastCheckedText}
         </div>
       )}
@@ -112,7 +112,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
             <li
               key={index}
               className={cn(
-                'flex items-start gap-2 p-2 rounded transition-colors',
+                'flex items-start gap-2 p-2 rounded-lg transition-colors',
                 isPinned && 'bg-blue-100 border-2 border-blue-400'
               )}
             >
@@ -138,7 +138,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
               <button
                 onClick={() => togglePinned(index)}
                 className={cn(
-                  'px-2 py-1 text-xs rounded transition-colors',
+                  'px-2 py-1 text-xs rounded-lg transition-colors',
                   isPinned
                     ? 'bg-blue-500 text-white hover:bg-blue-600'
                     : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
