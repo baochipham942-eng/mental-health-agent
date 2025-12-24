@@ -115,6 +115,12 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ★ Safe Message Display Logic:
+  // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
+  // Only show store messages if internal ID matches prop ID (or both undefined)
+  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId);
+  const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
+
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
   useEffect(() => {
     // 立即重置所有可能卡住的状态
@@ -747,7 +753,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         style={{ flex: 1, overflowY: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}
       >
         <MessageList
-          messages={messages}
+          messages={displayMessages}
           isLoading={isLoading}
           isSending={isSending}
           messageExtras={messageExtras}

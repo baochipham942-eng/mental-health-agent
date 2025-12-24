@@ -17,16 +17,12 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
     const handleNewChat = (e: React.FormEvent | React.MouseEvent) => {
         e.preventDefault();
 
-        // 清空 store 状态
-        resetConversation();
-
         // 统一导航到首页
-        // 由于 ChatShell 有 key="new-session"，从历史会话导航过来会自动重新挂载
+        // ChatShell 会自动处理状态重置（通过 displayMessages 逻辑）
+        // 从而避免导航前的"白屏闪烁"
         if (pathname !== '/') {
             router.push('/');
         }
-        // 如果已经在首页，resetConversation 已经清空了消息，
-        // ChatShell 会自动更新显示（无需强制刷新）
     };
 
     return (
