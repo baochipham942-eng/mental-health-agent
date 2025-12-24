@@ -84,29 +84,34 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
     }
 
     return (
-        <div className="relative h-[480px] bg-gradient-to-b from-teal-50 to-teal-100 rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none">
-            {/* Zen Water Background */}
+        <div className="relative h-[480px] rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none bg-[#e0f7fa]">
+            {/* Exquisite Water Background */}
             <div className="absolute inset-0 z-0">
-                {/* Deep calming gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#e0f7fa] to-[#b2ebf2] opacity-50"></div>
+                {/* Base Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-teal-50 to-blue-50"></div>
 
-                {/* Organic flowing waves using SVG curve */}
-                <div className="absolute bottom-0 left-0 right-0 h-full opacity-30 animate-[wave-flow_15s_linear_infinite]">
-                    <svg className="w-[200%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                        <path fill="#4dd0e1" fillOpacity="0.3" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,112C672,96,768,96,864,112C960,128,1056,160,1152,160C1248,160,1344,128,1440,112L1440,320L1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                {/* Layer 1: Slow Deep Current (Left to Right) */}
+                <div className="absolute bottom-[-20%] left-0 right-0 h-[150%] opacity-40 animate-[wave-flow_12s_linear_infinite]">
+                    <svg className="w-[300%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                        <path fill="#b2ebf2" d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
                     </svg>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-full opacity-20 animate-[wave-flow_20s_linear_infinite_reverse]" style={{ animationDelay: '-5s' }}>
-                    <svg className="w-[200%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                        <path fill="#26c6da" fillOpacity="0.3" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,213.3C1248,203,1344,213,1440,224L1440,320L1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+
+                {/* Layer 2: Surface Ripples (Left to Right, Faster) */}
+                <div className="absolute bottom-[-30%] left-0 right-0 h-[150%] opacity-30 animate-[wave-flow_8s_linear_infinite]">
+                    <svg className="w-[300%] h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                        <path fill="#4dd0e1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,112C672,96,768,96,864,112C960,128,1056,160,1152,160C1248,160,1344,128,1440,112L1440,320L1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
                     </svg>
                 </div>
+
+                {/* Layer 3: Sun Glimmer Overlay */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.8),transparent_70%)] opacity-60 pointer-events-none mix-blend-soft-light"></div>
             </div>
 
             <style jsx>{`
                 @keyframes wave-flow {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-50%); }
+                    0% { transform: translateX(-50%); } 
+                    100% { transform: translateX(0%); } // Move Left to Right
                 }
             `}</style>
 
@@ -118,31 +123,31 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 </AnimatePresence>
             </div>
 
-            {/* Simpler, cleaner Input Area */}
+            {/* Input Area */}
             <div className="absolute bottom-0 left-0 right-0 p-4 z-30 flex justify-center pb-6">
-                <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/50 p-1.5 flex gap-2 w-full max-w-md transition-all hover:bg-white">
+                <div className="bg-white/80 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(31,38,135,0.1)] border border-white/60 p-1.5 flex gap-2 w-full max-w-sm transition-all hover:bg-white/90 hover:shadow-lg hover:scale-[1.01]">
                     <input
                         type="text"
                         value={inputTitle}
                         onChange={e => setInputTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && addThought()}
-                        placeholder="输入念头..."
-                        className="flex-1 px-4 py-2 rounded-xl bg-transparent text-gray-700 placeholder:text-gray-400 focus:outline-none text-base"
+                        placeholder="输入此时的一个念头..."
+                        className="flex-1 px-4 py-2 rounded-full bg-transparent text-gray-700 placeholder:text-gray-400 focus:outline-none text-sm font-medium"
                     />
                     <button
                         onClick={addThought}
                         disabled={!inputTitle.trim()}
-                        className="p-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed aspect-square flex items-center justify-center"
+                        className="px-5 py-2 bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-500 hover:to-emerald-600 active:scale-95 text-white rounded-full shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold tracking-wide"
                     >
-                        <span className="text-xl">🍃</span>
+                        放入
                     </button>
                 </div>
             </div>
 
             {thoughts.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 pb-20 opacity-40">
-                    <span className="text-6xl text-teal-800/20 mb-2 font-serif italic">Flow</span>
-                    <span className="text-teal-900/40 text-xs tracking-widest">让念头随水流去</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 pb-20 opacity-30">
+                    <span className="text-8xl text-teal-800/10 mb-2 font-serif italic mix-blend-overlay">Flow</span>
+                    <span className="text-teal-900/40 text-xs tracking-[0.3em]">让念头随水流去</span>
                 </div>
             )}
         </div>
@@ -150,21 +155,22 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 }
 
 function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
-    const randomDuration = 15 + Math.random() * 5;
+    // Slower, more majestic movement
+    const randomDuration = 18 + Math.random() * 8;
 
     return (
         <motion.div
             initial={{
-                x: -150,
-                y: 20 + Math.random() * 40,
+                x: -180,
+                y: 40 + Math.random() * 60,
                 rotate: -15,
                 scale: 0.9,
                 opacity: 0
             }}
             animate={{
-                x: ["-20%", "120%"],
-                y: ["5%", "80%"],
-                rotate: [-15, 0, 15, 45],
+                x: ["-20%", "130%"], // Left to Right covering full width
+                y: ["10%", "90%"],  // Gentle downstream slope
+                rotate: [-15, -5, 5, 25, 45], // Natural slow rotation
                 opacity: [0, 1, 1, 1, 0],
             }}
             transition={{
@@ -173,21 +179,49 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
             }}
             onAnimationComplete={onComplete}
             className="absolute top-0 left-0 w-full"
-            style={{ top: '10%' }}
+            style={{ top: '0%' }}
         >
-            {/* Much larger leaf container */}
-            <div className="relative w-48 h-28 flex items-center justify-center filter drop-shadow-md">
-                {/* Broader, more visible leaf shape */}
-                <svg viewBox="0 0 120 60" className="absolute w-full h-full fill-emerald-500 shadow-sm" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
-                    <path d="M10,30 Q30,0 60,5 Q90,10 115,30 Q90,50 60,55 Q30,60 10,30 Z" fill="#4caf50" />
-                    <path d="M10,30 L115,30" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" fill="none" />
-                    {/* Brighter highlight */}
-                    <path d="M60,5 L80,15" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+            {/* 
+                Removing outer filter drop-shadow to fix the "border box" issue.
+                Shadows will be handled internally or via SVG filters if needed (but clean is better).
+            */}
+            <div className="relative w-56 h-32 flex items-center justify-center">
+                {/* Exquisite Leaf with Gradient Fill */}
+                <svg viewBox="0 0 120 60" className="absolute w-full h-full drop-shadow-lg" style={{ filter: 'drop-shadow(0 8px 16px rgba(0,50,30,0.15))' }}>
+                    <defs>
+                        <linearGradient id="leafGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+                            <stop offset="0%" stopColor="#66bb6a" />
+                            <stop offset="100%" stopColor="#43a047" />
+                        </linearGradient>
+                        <linearGradient id="veinGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
+                            <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Leaf Body */}
+                    <path d="M5,30 Q35,-5 65,5 Q95,15 115,30 Q95,45 65,55 Q35,65 5,30 Z" fill="url(#leafGradient)" />
+
+                    {/* Central Vein */}
+                    <path d="M5,30 C35,30 85,30 115,30" stroke="url(#veinGradient)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+                    {/* Side Veins - More organic opacity */}
+                    <g stroke="rgba(255,255,255,0.3)" strokeWidth="0.8">
+                        <path d="M35,30 L45,15" />
+                        <path d="M35,30 L45,45" />
+                        <path d="M65,30 L75,15" />
+                        <path d="M65,30 L75,45" />
+                        <path d="M90,30 L98,20" />
+                        <path d="M90,30 L98,40" />
+                    </g>
+
+                    {/* Highlight for volume */}
+                    <path d="M20,30 Q40,15 60,20" stroke="rgba(255,255,255,0.2)" strokeWidth="2" fill="none" />
                 </svg>
 
-                {/* Text is critical - High contrast white on green, larger size */}
-                <div className="relative z-10 w-32 px-2 text-center transform -rotate-2">
-                    <span className="text-sm font-bold text-white tracking-wide leading-relaxed drop-shadow-md block w-full truncate">
+                {/* Text Content - Perfectly centered */}
+                <div className="relative z-10 w-40 px-4 text-center transform -rotate-1 flex items-center justify-center h-full pb-1">
+                    <span className="text-base font-bold text-white tracking-wide leading-tight drop-shadow-md block w-full line-clamp-2 select-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
                         {leaf.text}
                     </span>
                 </div>
