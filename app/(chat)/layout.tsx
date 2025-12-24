@@ -27,7 +27,11 @@ function formatRelativeDate(date: Date): string {
     }
 }
 
-export default async function CLayout({
+/**
+ * 共享聊天布局 - 用于 / 和 /c/[sessionId] 路由
+ * 这个布局在路由切换时保持不变，只有 children 改变
+ */
+export default async function ChatLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -42,17 +46,14 @@ export default async function CLayout({
     await ensureUserProfile();
 
     const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
-
-    // 检查是否是管理员（username === 'demo'）
     const isAdmin = session?.user?.name === 'demo';
 
-    // 创建一个 server action 用于登出
     const handleSignOut = async () => {
         'use server';
         await signOut();
     };
 
-    // 获取会话列表并转换格式
+    // 获取会话列表
     const sessions = await getSessionHistory();
     const formattedSessions = sessions.map(s => ({
         id: s.id,
@@ -65,7 +66,7 @@ export default async function CLayout({
     return (
         <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
             <AuthSync />
-            {/* 侧边栏 (响应式：Mobile Drawer / Desktop Sidebar) */}
+            {/* 侧边栏 */}
             <SidebarMobileWrapper>
                 <div className="flex h-full flex-col px-3 py-4 md:px-3">
                     <SidebarHeaderClient createNewSessionAction={createNewSession} />
@@ -84,7 +85,6 @@ export default async function CLayout({
                             </div>
                         </div>
 
-                        {/* 用户菜单（整合记忆 + 退出登录） */}
                         <div className="flex-shrink-0 mt-auto pt-3 border-t border-slate-100">
                             <UserMenuWrapper
                                 userName={userName}
@@ -98,9 +98,11 @@ export default async function CLayout({
                 </div>
             </SidebarMobileWrapper>
 
-            {/* 主内容区域 */}
+            {/* 主内容区域 - children 会在路由变化时平滑替换 */}
             <div className="flex-grow md:overflow-y-auto flex flex-col min-h-0">
-                {children}
+                <div className="h-full flex flex-col">
+                    {children}
+                </div>
             </div>
         </div>
     );

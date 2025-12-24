@@ -11,6 +11,9 @@ interface SessionPageProps {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * 历史会话页面 - 加载特定会话的消息
+ */
 export default async function SessionPage({ params }: SessionPageProps) {
     const session = await auth();
     if (!session?.user) {
@@ -23,28 +26,25 @@ export default async function SessionPage({ params }: SessionPageProps) {
         notFound();
     }
 
-    // Ensure strict isolation (double check, though getSessionById already does)
+    // Ensure strict isolation
     if (conversation.userId !== session.user.id) {
         return <div>Unauthorized</div>;
     }
 
     // Transform Prisma messages to UI messages
-    // Map 'meta' from DB to 'metadata' for frontend, and fix "Invalid Date" issue
     const uiMessages = conversation.messages.map(msg => ({
         ...msg,
         timestamp: msg.createdAt.toISOString(),
-        metadata: msg.meta || undefined, // Load actionCards and other metadata from DB
+        metadata: msg.meta || undefined,
     }));
 
     return (
-        <div className="h-full flex flex-col">
-            <ChatShell
-                key={conversation.id}
-                sessionId={conversation.id}
-                initialMessages={uiMessages as any}
-                isReadOnly={conversation.status === 'COMPLETED'}
-                user={session.user}
-            />
-        </div>
+        <ChatShell
+            key={conversation.id}
+            sessionId={conversation.id}
+            initialMessages={uiMessages as any}
+            isReadOnly={conversation.status === 'COMPLETED'}
+            user={session.user}
+        />
     );
 }
