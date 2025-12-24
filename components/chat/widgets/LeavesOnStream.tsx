@@ -175,13 +175,13 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 
 function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
     // Slower, majestic, linear flow
-    const flowDuration = 15 + Math.random() * 5;
-    // Independent bobbing (breathing) cycle
-    const bobDuration = 4 + Math.random() * 3;
+    const flowDuration = 18 + Math.random() * 6; // Slower flow for calmness
+    // Independent bobbing (breathing) cycle - Very slow and subtle
+    const bobDuration = 5 + Math.random() * 4;
 
-    // Y-position: Float in the "middle" stream (40% - 60% of height), avoid sinking behind input
-    const randomYStart = 160 + Math.random() * 40; // Start range ~45%
-    const randomYEnd = randomYStart + 40; // Mild downstream drift
+    // Y-position: Lifted higher to the "first" stream layer (upper middle)
+    const randomYStart = 100 + Math.random() * 40; // ~30% - 40% of height
+    const randomYEnd = randomYStart + 20; // Minimal vertical drift for stability
 
     return (
         <motion.div
@@ -195,7 +195,7 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
                 x: ["-20%", "120%"],
                 y: [randomYStart, randomYEnd],
                 opacity: [0, 1, 1, 1, 0],
-                rotate: [-5, 5] // Rotation driven by bobbing below
+                rotate: [-2, 2] // Minimal base rotation (gliding)
             }}
             transition={{
                 duration: flowDuration,
@@ -203,13 +203,13 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
                 opacity: { duration: flowDuration, times: [0, 0.1, 0.9, 1] }
             }}
             onAnimationComplete={onComplete}
-            className="absolute top-0 left-0" // Removed fixed width/height constraint to allow free movement
+            className="absolute top-0 left-0"
         >
             {/* Bobbing Motion Wrapper (Simulating Buoyancy) */}
             <motion.div
                 animate={{
-                    y: [0, -8, 0], // Bobbing up and down
-                    rotate: [-3, 3, -3] // Rocking
+                    y: [0, -3, 0], // Very subtle bobbing
+                    rotate: [-1, 1, -1] // Barely perceptible rocking
                 }}
                 transition={{
                     duration: bobDuration,
