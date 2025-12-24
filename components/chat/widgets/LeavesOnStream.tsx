@@ -95,7 +95,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-teal-50 to-blue-50"></div>
 
                 {/* Layer 1: Slow Deep Current (Left to Right) */}
-                <div className="absolute bottom-[-20%] left-0 w-[200%] h-[150%] flex opacity-40 animate-[wave-flow_15s_linear_infinite] will-change-transform">
+                <div className="absolute bottom-[-20%] left-0 w-[200%] h-[150%] flex opacity-40 animate-[wave-flow_22s_linear_infinite] will-change-transform">
                     {/* Render identical SVG twice for seamless loop */}
                     <div className="w-1/2 h-full">
                         <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
@@ -110,7 +110,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 </div>
 
                 {/* Layer 2: Surface Ripples (Left to Right, Faster) */}
-                <div className="absolute bottom-[-30%] left-0 w-[200%] h-[150%] flex opacity-30 animate-[wave-flow_10s_linear_infinite] will-change-transform">
+                <div className="absolute bottom-[-30%] left-0 w-[200%] h-[150%] flex opacity-30 animate-[wave-flow_17s_linear_infinite] will-change-transform">
                     <div className="w-1/2 h-full">
                         <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
                             <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 V320 H0 Z"></path>
@@ -174,8 +174,8 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 }
 
 function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
-    // Slow, elegant, linear flow - no jitter
-    const flowDuration = 20 + Math.random() * 5;
+    // Elegant flow - synchronized with water speed
+    const flowDuration = 18 + Math.random() * 4;
 
     // Y-position: On the "first" stream layer (upper middle)
     const randomYStart = 100 + Math.random() * 30;
