@@ -259,4 +259,3 @@ function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) 
         </motion.div>
     )
 }
-```
