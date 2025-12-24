@@ -16,6 +16,7 @@ import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
+import { ChatService } from '@/lib/services/chat-service';
 
 /**
  * Helper to create a stream response for fixed string content
@@ -253,14 +254,9 @@ export async function POST(request: NextRequest) {
 
       // 异步保存消息（不阻塞）
       if (body.sessionId) {
-        prisma.message.create({
-          data: {
-            conversationId: body.sessionId,
-            role: 'assistant',
-            content: introMessages[directSkillType],
-            meta: { routeType: 'support', actionCards: [skill], fastSkillResponse: true },
-          }
-        }).catch(e => console.error('[DB] Failed to save skill response:', e));
+        ChatService.saveAssistantMessage(body.sessionId, introMessages[directSkillType], {
+          routeType: 'support', actionCards: [skill], fastSkillResponse: true
+        });
       }
 
       return createSkillCardStreamResponse(directSkillType, data, {
@@ -294,6 +290,10 @@ export async function POST(request: NextRequest) {
     const sessionId = finalSessionId;
     const userId = finalUserId;
 
+    // Import helper dynamically or at top? Top is better but for this refactor we assume top import added.
+    // We will add the import in a separate block or assume it's available.
+    // Wait, I need to add the import first.
+
     logInfo('chat-request', {
       hasSession: !!session,
       userId,
@@ -301,59 +301,18 @@ export async function POST(request: NextRequest) {
       messageLen: message.length
     });
 
-    // Define helper to save assistant message with optional metadata
-    const saveAssistantMessage = async (content: string, meta?: Record<string, any>) => {
-      if (sessionId && userId) {
-        try {
-          await prisma.message.create({
-            data: {
-              conversationId: sessionId,
-              role: 'assistant',
-              content: content,
-              meta: meta, // Persist actionCards, routeType, etc. (undefined if not provided)
-            }
-          });
-        } catch (e) {
-          console.error('Failed to save assistant message', e);
-        }
-      }
-    };
-
     // Save User Message - 异步执行，不阻塞响应
     if (sessionId && userId) {
-      // 不 await，让 DB 操作在后台执行
-      (async () => {
-        try {
-          await prisma.message.create({
-            data: {
-              conversationId: sessionId,
-              role: 'user',
-              content: message,
-            }
-          });
-
-          // 自动更新会话标题逻辑
-          const conversation = await prisma.conversation.findUnique({
-            where: { id: sessionId },
-            select: { title: true, _count: { select: { messages: true } } }
-          });
-
-          // 如果只有1条消息或者标题是默认值，则更新
-          if (conversation && (conversation._count.messages <= 2 || conversation.title === '新对话')) {
-            const newTitle = message.substring(0, 20) + (message.length > 20 ? '...' : '');
-            await prisma.conversation.update({
-              where: { id: sessionId },
-              data: {
-                title: newTitle,
-                createdAt: new Date(),
-              }
-            });
-          }
-        } catch (e) {
-          console.error('Failed to save user message or update title', e);
-        }
-      })();
+      // Return promise to not block? The original code didn't await the IIFE.
+      ChatService.saveUserMessage(sessionId, userId, message);
     }
+
+    // Helper wrapper to match previous usage
+    const saveAssistantMessage = async (content: string, meta?: Record<string, any>) => {
+      if (sessionId) {
+        await ChatService.saveAssistantMessage(sessionId, content, meta);
+      }
+    };
 
     // =================================================================================
     // 0.5 Memory Retrieval + Groq Analysis (并行执行，节省 ~300ms)
