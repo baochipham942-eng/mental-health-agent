@@ -26,16 +26,20 @@ const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析�
 
 {
   "safety": "crisis" | "urgent" | "normal",
-  "safetyReasoning": "简要说明为什么给出这个安全等级，1-2句话",
-  "stateReasoning": "简要说明用户的意图和当前对话状态，例如：用户在分享工作压力，希望得到理解，1-2句话",
+  "safetyReasoning": "实事求是地说明用户消息内容与安全等级判断，1句话",
+  "stateReasoning": "简要说明用户的意图和当前对话状态，1句话",
   "emotion": { "label": "焦虑|抑郁|悲伤|愤怒|恐惧|平静|快乐", "score": 1-10 },
   "route": "crisis" | "support" | "assessment"
 }
 
-安全等级规则：
-- crisis: 有明确的自杀/自伤/暴力意图或计划
-- urgent: 有自伤念头但无具体计划
-- normal: 无风险
+安全等级规则（必须严格遵守，不要过度解读）：
+- crisis: 用户**明确表达**自杀/自伤/暴力的意图或计划
+- urgent: 用户**明确提及**自伤念头但无具体计划
+- normal: 其他所有情况，包括失眠、压力、情绪低落等常见心理困扰
+
+**重要**：safetyReasoning 必须基于用户实际说的内容，不要臆测或过度推断。例如：
+- 用户说"晚上睡不好觉" → "用户反映睡眠问题，无安全风险" ✅
+- 用户说"晚上睡不好觉" → "用户表达了自伤念头" ❌（这是错误的！）
 
 路由规则：
 - crisis: 当 safety=crisis 或 urgent

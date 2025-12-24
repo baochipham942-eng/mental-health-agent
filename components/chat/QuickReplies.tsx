@@ -48,6 +48,7 @@ export function QuickReplies({ mode, onPick, options = [], disabled = false }: Q
   if (mode === 'scale0to10') {
     return (
       <div className="mt-3">
+        <p className="text-xs text-gray-500 mb-2">0 = 最低/没有, 10 = 最高/非常强烈</p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: 11 }, (_, i) => i).map((num) => (
             <button
@@ -107,7 +108,7 @@ export function detectQuickReplyMode(content: string): {
   options?: string[];
 } {
   const lowerContent = content.toLowerCase();
-  
+
   // 检测自伤想法相关关键词
   const riskKeywords = [
     '伤害自己',
@@ -119,9 +120,9 @@ export function detectQuickReplyMode(content: string): {
     '自杀',
     '自残',
   ];
-  
+
   const hasRiskKeyword = riskKeywords.some(keyword => lowerContent.includes(keyword));
-  
+
   // 检测评分题相关关键词
   const scaleKeywords = [
     '打分 0-10',
@@ -133,21 +134,21 @@ export function detectQuickReplyMode(content: string): {
     '0到10分',
     '0-10分',
   ];
-  
+
   const hasScaleKeyword = scaleKeywords.some(keyword => lowerContent.includes(keyword));
-  
+
   // 检测选项格式：匹配（选项1/选项2/选项3）或（选项1、选项2、选项3）
   const optionPattern = /[（(]([^）)]+)[）)]/;
   const optionMatch = content.match(optionPattern);
-  
+
   if (hasRiskKeyword) {
     return { mode: 'riskChoice' };
   }
-  
+
   if (hasScaleKeyword) {
     return { mode: 'scale0to10' };
   }
-  
+
   // 如果匹配到选项格式，提取选项
   if (optionMatch && optionMatch[1]) {
     // 支持 / 和 、 作为分隔符
@@ -156,6 +157,6 @@ export function detectQuickReplyMode(content: string): {
       return { mode: 'optionChoice', options };
     }
   }
-  
+
   return { mode: 'none' };
 }
