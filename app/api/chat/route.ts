@@ -128,6 +128,18 @@ export const SKILL_CARDS = {
       '重新整合你的感受'
     ],
   },
+  mood_tracker: {
+    title: '情绪记录',
+    when: '感觉很糟但不清楚原因时',
+    effort: 'low' as const,
+    widget: 'mood_tracker',
+    steps: [
+      '停下来，觉察当下的感受',
+      '选择一个最贴切的情绪词',
+      '评估情绪的强烈程度',
+      '记录触发情绪的想法或事件'
+    ],
+  },
 };
 
 export type SkillType = keyof typeof SKILL_CARDS;
@@ -143,6 +155,7 @@ export function detectDirectSkillRequest(message: string): SkillType | null {
   if (/重构|想法挑战|认知/.test(lowerMsg)) return 'reframing';
   if (/行为激活|活动|小任务/.test(lowerMsg)) return 'activation';
   if (/空椅子|对话练习|宣泄|委屈/.test(lowerMsg)) return 'empty_chair';
+  if (/情绪记录|心情|记录情绪/.test(lowerMsg)) return 'mood_tracker';
   return null;
 }
 
@@ -162,6 +175,7 @@ function createSkillCardStreamResponse(
     reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
     activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
     empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
+    mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
   };
 
   const stream = new ReadableStream({
@@ -234,6 +248,7 @@ export async function POST(request: NextRequest) {
         reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
         activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
         empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
+        mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
       };
 
       // 异步保存消息（不阻塞）
@@ -354,21 +369,36 @@ export async function POST(request: NextRequest) {
     const memoryPromise = (userId && history.length > 0)
       ? (async () => {
         try {
-          const { contextString } = await memoryManager.getMemoriesForContext(userId, message);
-          if (contextString) {
-            console.log('[Memory] Retrieved context for user:', userId, 'length:', contextString.length);
-            return contextString;
-          }
+          // Phase 3: Get full memory object including raw memories array
+          return await memoryManager.getMemoriesForContext(userId, message);
         } catch (e) {
           console.error('[Memory] Failed:', e);
         }
-        return '';
+        return { contextString: '', memories: [] };
       })()
-      : Promise.resolve('');
+      : Promise.resolve({ contextString: '', memories: [] });
 
     // 同时等待两个结果 (Groq 现在包含 safety reasoning)
-    const [analysis, retrievedMemory] = await Promise.all([groqPromise, memoryPromise]);
-    memoryContext = retrievedMemory;
+    const [analysis, retrievalResult] = await Promise.all([groqPromise, memoryPromise]);
+
+    // Check if retrievalResult is string (old return) or object
+    if (typeof retrievalResult === 'string') {
+      memoryContext = retrievalResult;
+    } else if (retrievalResult && typeof retrievalResult === 'object') {
+      memoryContext = retrievalResult.contextString || '';
+      // Phase 3 Active Push: Inject relevant memories into data stream
+      if (retrievalResult.memories?.length > 0) {
+        data.append({
+          timestamp: new Date().toISOString(),
+          relevantMemories: retrievalResult.memories.map((m: any) => ({
+            id: m.id,
+            content: m.content,
+            topic: m.topic,
+            sourceConvId: m.sourceConvId
+          }))
+        } as any);
+      }
+    }
 
     // 构建统一的 safety 对象 (从 Groq 分析结果中提取)
     const safetyData = {
@@ -565,36 +595,16 @@ export async function POST(request: NextRequest) {
         // 根据具体关键词选择合适的技能卡片
         if (/冥想|正念/.test(message)) {
           // 冥想相关关键词 -> 正念冥想卡片
-          actionCards = [
-            {
-              title: '正念冥想',
-              steps: [
-                '找一个安静舒适的地方坐下',
-                '轻轻闭上眼睛，放松身体',
-                '专注于呼吸的感觉',
-                '当注意力飘走时，温柔地拉回来',
-              ],
-              when: '想要放松心情或提高专注力时',
-              effort: 'medium',
-              widget: 'meditation',
-            },
-          ];
+          actionCards = [SKILL_CARDS.meditation];
+        } else if (/情绪|记录/.test(message)) {
+          // 情绪记录
+          actionCards = [SKILL_CARDS.mood_tracker];
+        } else if (/空椅子|委屈|宣泄/.test(message)) {
+          // 空椅子
+          actionCards = [SKILL_CARDS.empty_chair];
         } else {
           // 默认：呼吸练习卡片
-          actionCards = [
-            {
-              title: '4-7-8 呼吸法',
-              steps: [
-                '吸气 4 秒',
-                '屏息 7 秒',
-                '呼气 8 秒',
-                '重复 3-4 次',
-              ],
-              when: '感到焦虑或需要快速放松时',
-              effort: 'low',
-              widget: 'breathing',
-            },
-          ];
+          actionCards = [SKILL_CARDS.breathing];
         }
       }
 

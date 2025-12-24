@@ -159,9 +159,12 @@ export function ChatInput({
           droplist={
             <Menu onClickMenuItem={(key) => onSend(`我想试试${key}`)}>
               <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (4-7-8)</Menu.Item>
-              <Menu.Item key="正念冥想">🧘 正念冥想</Menu.Item>
+              <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
               <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
-              <Menu.Item key="情绪记录">📊 情绪记录</Menu.Item>
+              <Menu.Item key="着陆技术">🦶 5-4-3-2-1着陆 (缓解恐慌)</Menu.Item>
+              <Menu.Item key="认知重构">🧠 认知重构 (挑战消极想法)</Menu.Item>
+              <Menu.Item key="行为激活">🔋 行为激活 (提升动力)</Menu.Item>
+              <Menu.Item key="情绪记录">📊 情绪记录 (觉察当下)</Menu.Item>
             </Menu>
           }
         >
