@@ -90,25 +90,37 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
     return (
         <div className="relative h-[480px] rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none bg-[#e0f7fa]">
             {/* Exquisite Water Background */}
-            <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
                 {/* Base Gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-teal-50 to-blue-50"></div>
 
                 {/* Layer 1: Slow Deep Current (Left to Right) */}
-                <div className="absolute bottom-[-20%] left-0 right-0 h-[150%] opacity-40 animate-[wave-flow_15s_linear_infinite]">
-                    {/* Width 200% containing 2 identical cycles of the wave pattern */}
-                    <svg className="w-[200%] h-full" viewBox="0 0 2880 320" preserveAspectRatio="none">
-                        {/* 2 Cycles of M0..1440 L1440..2880 perfectly matching */}
-                        <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 C1920,250 2400,150 2880,192 V320 H0 Z"></path>
-                    </svg>
+                <div className="absolute bottom-[-20%] left-0 w-[200%] h-[150%] flex opacity-40 animate-[wave-flow_15s_linear_infinite] will-change-transform">
+                    {/* Render identical SVG twice for seamless loop */}
+                    <div className="w-1/2 h-full">
+                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                            <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 V320 H0 Z"></path>
+                        </svg>
+                    </div>
+                    <div className="w-1/2 h-full">
+                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                            <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 V320 H0 Z"></path>
+                        </svg>
+                    </div>
                 </div>
 
                 {/* Layer 2: Surface Ripples (Left to Right, Faster) */}
-                <div className="absolute bottom-[-30%] left-0 right-0 h-[150%] opacity-30 animate-[wave-flow_10s_linear_infinite]">
-                    <svg className="w-[200%] h-full" viewBox="0 0 2880 320" preserveAspectRatio="none">
-                        {/* 2 Cycles of a different frequency wave */}
-                        <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 C1800,160 2520,96 2880,128 V320 H0 Z"></path>
-                    </svg>
+                <div className="absolute bottom-[-30%] left-0 w-[200%] h-[150%] flex opacity-30 animate-[wave-flow_10s_linear_infinite] will-change-transform">
+                    <div className="w-1/2 h-full">
+                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                            <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 V320 H0 Z"></path>
+                        </svg>
+                    </div>
+                    <div className="w-1/2 h-full">
+                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                            <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 V320 H0 Z"></path>
+                        </svg>
+                    </div>
                 </div>
 
                 {/* Layer 3: Sun Glimmer Overlay */}
@@ -117,8 +129,8 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 
             <style jsx>{`
                 @keyframes wave-flow {
-                    0% { transform: translateX(-50%); } 
-                    100% { transform: translateX(0%); } // seamless loop for 200% width
+                    0% { transform: translate3d(-50%, 0, 0); } 
+                    100% { transform: translate3d(0, 0, 0); }
                 }
             `}</style>
 
