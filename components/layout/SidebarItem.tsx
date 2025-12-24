@@ -45,6 +45,16 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                 try {
                     await onHide(session.id);
                     Message.success('已删除');
+                    // 如果删除的是当前激活的会话，跳转到新会话
+                    if (isActive) {
+                        try {
+                            // 强制刷新页面以清除本地状态（ChatShell 缓存等）
+                            window.location.href = '/';
+                        } catch (e) {
+                            // fallback
+                            window.location.href = '/';
+                        }
+                    }
                 } catch (err) {
                     Message.error('操作失败');
                 } finally {
