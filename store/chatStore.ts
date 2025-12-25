@@ -42,8 +42,8 @@ interface ChatStore {
   lastRequestPayload: any | null;
 
   // Session lifecycle status (new)
-  sessionStatus: SessionStatus;
-  setSessionStatus: (status: SessionStatus) => void;
+  sessionStatus: SessionStatus | undefined; // undefined = no active session
+  setSessionStatus: (status: SessionStatus | undefined) => void;
 
   // @deprecated Use sessionStatus === 'active' instead
   isConsulting: boolean;
@@ -98,8 +98,8 @@ export const useChatStore = create<ChatStore>()(
       debugPrompts: null,
       validationError: null,
       lastRequestPayload: null,
-      sessionStatus: 'idle',
-      setSessionStatus: (status: SessionStatus) => set({ sessionStatus: status }),
+      sessionStatus: undefined,
+      setSessionStatus: (status: SessionStatus | undefined) => set({ sessionStatus: status }),
       // @deprecated: Use sessionStatus instead. Kept for backward compatibility.
       isConsulting: false,
       setConsulting: (val: boolean) => set({ isConsulting: val }),
@@ -222,7 +222,7 @@ export const useChatStore = create<ChatStore>()(
           assessmentStage: undefined,
           initialMessage: undefined,
           followupAnswerDraft: '',
-          sessionStatus: 'idle',
+          sessionStatus: undefined,
           isConsulting: false, // Keep in sync for backward compat
           // 注意：inputDraft 不重置，以允许"带着输入去新会话"
           error: null,

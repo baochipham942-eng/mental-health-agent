@@ -47,13 +47,14 @@ export type ChatState = 'normal' | 'awaiting_followup' | 'in_crisis';
 export type AssessmentStage = 'intake' | 'conclusion'; // Removed gap_followup
 
 /**
- * Session lifecycle status enum.
- * - 'idle': No active session (e.g., on the New Chat page before the first message).
- * - 'creating': A new session is being created (first message sent, waiting for server confirmation).
- * - 'active': An active consultation is in progress.
+ * Session lifecycle status enum (simplified).
+ * - 'active': An active consultation is in progress (sessionId exists, not completed).
  * - 'ended': The session has ended (timer expired, user ended, or historical read-only view).
+ * 
+ * Note: 'idle' (no session) and 'creating' (transient) are no longer formal states.
+ * They are derived from: sessionId undefined = idle; session creation in progress = internal flag.
  */
-export type SessionStatus = 'idle' | 'creating' | 'active' | 'ended';
+export type SessionStatus = 'active' | 'ended';
 
 export interface ChatRequest {
   message: string;

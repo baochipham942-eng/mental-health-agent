@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { sendChatMessage } from '@/lib/api/chat';
-import { Message } from '@/types/chat';
+import { Message, SessionStatus } from '@/types/chat';
 import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
@@ -19,14 +19,17 @@ function generateId(): string {
 
 import { Session } from 'next-auth';
 
+const SESSION_DURATION_SECONDS = 45 * 60; // 45 minutes
+
 interface ChatShellProps {
   sessionId?: string;  // Optional - undefined for new chat
   initialMessages: Message[];
   isReadOnly?: boolean;
+  initialTimeRemaining?: number; // Server-computed remaining time in seconds
   user?: Session['user']; // Pass entire user object for permission checks
 }
 
-export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user }: ChatShellProps) {
+export function ChatShell({ sessionId, initialMessages, isReadOnly = false, initialTimeRemaining, user }: ChatShellProps) {
   const {
     messages,
     currentState,
@@ -85,8 +88,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // 追踪前一个 sessionId，用于检测导航行为
   const prevSessionIdRef = useRef<string | undefined>(sessionId);
   const sessionIdRef = useRef<string | undefined>(sessionId);
-  // Track if we just created a session locally (SPA mode), to prevent aggressive reset
-  // @deprecated: isJustCreatedRef removed, use sessionStatus === 'creating' instead
+  // Track if we're in the middle of creating a new session (transient state, not persisted)
+  const isCreatingRef = useRef(false);
+  // @deprecated comment removed since we now use isCreatingRef
 
   const [isSending, setIsSending] = useState(false);
   // Initial draft from store (if navigating from new chat or switching sessions)
@@ -124,7 +128,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         console.log('[ChatShell] ★ New Chat mode - clearing all state');
         setMessages([]);
         setCurrentSessionId(undefined);
-        setSessionStatus('idle');
+        setSessionStatus(undefined);
         setInternalSessionId(undefined); // Also reset local state for header display
         sessionIdRef.current = undefined;
       } else {
@@ -166,7 +170,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
   // Only show store messages if internal ID matches prop ID (or both undefined)
   // OR if we just created a session locally (SPA mode) and prop hasn't caught up
-  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (sessionStatus === 'creating' && internalSessionId && !sessionId);
+  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isCreatingRef.current && internalSessionId && !sessionId);
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
@@ -236,7 +240,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
       // If switching to New Chat (!sessionId), reset everything
       // BUT check if we just created it locally (sessionStatus === 'creating'). If so, ignore the mismatch logic.
-      if (!sessionId && sessionStatus !== 'creating') {
+      if (!sessionId && !isCreatingRef.current) {
         console.log('[ChatShell] ★ FULL RESET to New Chat mode', {
           prevInternalId: internalSessionId,
           prevSessionIdRef: sessionIdRef.current,
@@ -249,9 +253,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         setCurrentSessionId(undefined); // Sync global store
         sessionIdRef.current = undefined;
         prevSessionIdRef.current = undefined;
-        setSessionStatus('idle'); // Reset status for fresh start
+        setSessionStatus(undefined); // Reset status for fresh start
         setDraft(inputDraft || ''); // Restore draft if any
-        setTimeLeft(SESSION_DURATION); // Reset timer for new session
+        setTimeLeft(SESSION_DURATION_SECONDS); // Reset timer for new session
 
         // 立即重置 loading 状态，避免等待超时
         setLoading(false);
@@ -265,7 +269,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           assessmentStage: undefined,
           initialMessage: undefined,
         });
-      } else if (!sessionId && sessionStatus === 'creating') {
+      } else if (!sessionId && isCreatingRef.current) {
         console.log('[ChatShell] Ignoring reset because session is in CREATING state');
         // Keep timer as is (it's running for the new session)
       } else {
@@ -287,7 +291,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         setCurrentSessionId(sessionId); // Sync global store
         sessionIdRef.current = sessionId;
         prevSessionIdRef.current = sessionId;
-        setTimeLeft(SESSION_DURATION);
+        setTimeLeft(SESSION_DURATION_SECONDS);
         // 立即重置 loading 状态，避免等待超时
         setLoading(false);
         setIsSending(false);
@@ -458,23 +462,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
       }));
   }, [messages]);
 
+  // ★ 45分钟倒计时逻辑 - 使用服务端计算的剩余时间
+  // 如果没有传入 initialTimeRemaining（例如新会话），使用默认值
+  const [timeLeft, setTimeLeft] = useState(() => {
+    // 新会话：使用完整时间
+    if (!sessionId) return SESSION_DURATION_SECONDS;
+    // 已结束会话：时间为 0
+    if (isReadOnly) return 0;
+    // 活跃会话：使用服务端计算的剩余时间
+    return initialTimeRemaining ?? SESSION_DURATION_SECONDS;
+  });
 
-  // 45分钟倒计时逻辑 (2700秒)
-  const SESSION_DURATION = 2700;
-  const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
-
-  // 检测是否是旧会话（最后一条消息超过 1 小时前）
-  const isOldSession = useMemo(() => {
-    if (messages.length === 0) return false;
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage.timestamp) return false;
-    const lastMessageTime = new Date(lastMessage.timestamp).getTime();
-    const hourAgo = Date.now() - 60 * 60 * 1000; // 1 小时前
-    return lastMessageTime < hourAgo;
-  }, [messages]);
-
-  // 会话结束判断：倒计时结束 OR 是旧会话
-  const isSessionEnded = timeLeft <= 0 || isOldSession;
+  // ★ 简化：会话结束判断完全由服务端决定（通过 isReadOnly 传入）
+  // 前端倒计时只用于 UI 展示，不作为结束的权威来源
+  const isSessionEnded = isReadOnly || timeLeft <= 0;
 
   useEffect(() => {
     // 如果已经结束，不执行
@@ -498,18 +499,16 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // This effect only recalculates when the source values (internalSessionId, isReadOnly, isSessionEnded) change.
   useEffect(() => {
     // Determine the correct status based on current conditions
+    // Simplified: only 'active' | 'ended' | undefined
     const currentStatus = useChatStore.getState().sessionStatus;
-    let newStatus: 'idle' | 'creating' | 'active' | 'ended';
+    let newStatus: SessionStatus | undefined;
 
     if (isReadOnly || isSessionEnded) {
       newStatus = 'ended';
     } else if (internalSessionId) {
       newStatus = 'active';
-    } else if (currentStatus === 'creating') {
-      // Keep 'creating' status if it was set during handleSend
-      newStatus = 'creating';
     } else {
-      newStatus = 'idle';
+      newStatus = undefined; // No session
     }
 
     if (currentStatus !== newStatus) {
@@ -518,7 +517,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
     // Also keep deprecated isConsulting in sync
     const currentIsConsulting = useChatStore.getState().isConsulting;
-    const shouldBeConsulting = newStatus === 'active' || newStatus === 'creating';
+    const shouldBeConsulting = newStatus === 'active';
     if (currentIsConsulting !== shouldBeConsulting) {
       setConsulting(shouldBeConsulting);
     }
@@ -528,9 +527,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   useEffect(() => {
     return () => {
       // 组件卸载时，如果不是在创建新会话的过程中，则重置状态
-      const currentStatus = useChatStore.getState().sessionStatus;
-      if (currentStatus !== 'creating') {
-        setSessionStatus('idle');
+      if (!isCreatingRef.current) {
+        setSessionStatus(undefined);
         setConsulting(false);
       }
     };
@@ -594,7 +592,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
           await updateSessionTitle(currentSessionId, content).catch(console.error);
 
           sessionIdRef.current = currentSessionId;
-          setSessionStatus('creating'); // Mark as creating (replaces isJustCreatedRef)
+          isCreatingRef.current = true; // Mark as creating (transient flag)
+          setSessionStatus('active'); // Set status to active immediately
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
           if (currentSessionId && currentSessionId !== 'undefined') {
@@ -799,6 +798,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         console.log('[ChatShell] handleSend finally block executing, resetting loading states');
         setIsSending(false);
         setLoading(false);
+        isCreatingRef.current = false; // Reset creating flag
       }
     },
     [
