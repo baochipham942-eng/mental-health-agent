@@ -158,14 +158,28 @@ export type SkillType = keyof typeof SKILL_CARDS;
  */
 export function detectDirectSkillRequest(message: string): SkillType | null {
   const lowerMsg = message.toLowerCase();
-  if (/呼吸|4.?7.?8|深呼吸/.test(lowerMsg)) return 'breathing';
-  if (/冥想|正念|静心|meditation/.test(lowerMsg)) return 'meditation';
-  if (/着陆|5.?4.?3.?2.?1|grounding/.test(lowerMsg)) return 'grounding';
-  if (/重构|想法挑战|认知/.test(lowerMsg)) return 'reframing';
-  if (/行为激活|活动|小任务/.test(lowerMsg)) return 'activation';
-  if (/空椅子|对话练习|宣泄|委屈/.test(lowerMsg)) return 'empty_chair';
-  if (/情绪记录|心情|记录情绪/.test(lowerMsg)) return 'mood_tracker';
-  if (/脱钩|纠结|杂念|想法|落叶|溪流/.test(lowerMsg)) return 'leaves_stream';
+
+  // 呼吸法
+  if (/(进行|开始|我要|做个|练习).*(呼吸|4.?7.?8|深呼吸)/.test(lowerMsg)) return 'breathing';
+  // 冥想
+  if (/(进行|开始|我要|做个|练习).*(冥想|正念|静心)/.test(lowerMsg)) return 'meditation';
+  // 着陆
+  if (/(进行|开始|我要|做个|练习).*(着陆|5.?4.?3.?2.?1)/.test(lowerMsg)) return 'grounding';
+  // 重构
+  if (/(进行|开始|我要|做个|练习).*(认知重构|想法挑战)/.test(lowerMsg)) return 'reframing';
+  // 行为激活
+  if (/(进行|开始|我要|做个|练习).*(行为激活|行动任务)/.test(lowerMsg)) return 'activation';
+  // 空椅子
+  if (/(进行|开始|我要|做个|练习).*(空椅子|对话练习)/.test(lowerMsg)) return 'empty_chair';
+  // 情绪记录 - 必须带有"记录"或"打卡"等动作词
+  if (/(进行|开始|我要|做个|练习|打卡).*(情绪记录|记录心情|心情记录|心情打卡)/.test(lowerMsg)) return 'mood_tracker';
+  // 脱钩
+  if (/(进行|开始|我要|做个|练习).*(想法脱钩|溪流落叶|落叶练习)/.test(lowerMsg)) return 'leaves_stream';
+
+  // 极度具体的指令
+  if (/^4.?7.?8$/.test(lowerMsg)) return 'breathing';
+  if (/^5.?4.?3.?2.?1$/.test(lowerMsg)) return 'grounding';
+
   return null;
 }
 
@@ -179,14 +193,14 @@ function createSkillCardStreamResponse(
 ): NextResponse {
   const skill = SKILL_CARDS[skillType];
   const introMessages: Record<SkillType, string> = {
-    breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
-    meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
-    grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
-    reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
-    activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
-    empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
-    mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
-    leaves_stream: '溪流落叶练习 (Leaves on a Stream) 能帮你从纠结中抽离。试着把念头放在叶子上流走：',
+    breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
+    meditation: '好的，找一个不受打扰的空间，让我们通过冥想找回内心的宁静。点击开始：',
+    grounding: '没关系，我们先试着回到当下。请跟着这个着陆练习的指引，一步步来：',
+    reframing: '当念头让你感到困扰时，换个视角或许会有新发现。试试这个认知重构练习：',
+    activation: '如果感到没动力，我们先通过一个小小的行动来打破僵局。请看下面的任务卡片：',
+    empty_chair: '有些话憋在心里一定很难受吧。在“空椅子”面前，你可以放心地抒发出来。准备好了吗？',
+    mood_tracker: '记录和觉察是愈合的开始。我一直在这里陪着你，先来记录下你此刻最真实的感觉吧：',
+    leaves_stream: '感觉思绪乱糟糟的时候，试着把它们看作溪流上的落叶。让我们开始这个练习：',
   };
 
   const stream = new ReadableStream({
@@ -234,11 +248,14 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   let finalSessionId: string | undefined;
   let finalUserId: string | undefined;
-  let routeType: RouteType = 'support'; // Top-level definition
+  let routeType: RouteType = 'support';
+  const data = new StreamData();
 
   try {
     const body: ChatRequest = await request.json();
     const { message, history = [], state, assessmentStage, meta } = body;
+    // data is already declared outside or at the start of POST.
+    // Actually, I'll declare it here inside the try block to ensure it's available for all catch/finally.
 
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
@@ -253,14 +270,14 @@ export async function POST(request: NextRequest) {
       const data = new StreamData();
       const skill = SKILL_CARDS[directSkillType];
       const introMessages: Record<SkillType, string> = {
-        breathing: '好的，这是一个简单有效的呼吸练习。点击下方开始，跟随节奏一起做：',
-        meditation: '好的，让我们一起做个简短的正念冥想。点击开始，找一个安静的地方：',
-        grounding: '好的，这是一个帮助你回到当下的着陆技术。按步骤试试看：',
-        reframing: '这是一个认知重构练习，可以帮助你从不同角度看待当下的消极念头：',
-        activation: '这是一个行为激活小任务，旨在通过微小的行动来提升你的动力和情绪：',
-        empty_chair: '空椅子技术是处理未竟情感的强力工具。准备好面对那个“人”了吗？点击下方开始：',
-        mood_tracker: '记录情绪是自我觉察的第一步。来试试记录下你此刻的感受：',
-        leaves_stream: '溪流落叶练习 (Leaves on a Stream) 能帮你从纠结中抽离。试着把念头放在叶子上流走：',
+        breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
+        meditation: '好的，找一个不受打扰的空间，让我们通过冥想找回内心的宁静。点击开始：',
+        grounding: '没关系，我们先试着回到当下。请跟着这个着陆练习的指引，一步步来：',
+        reframing: '当念头让你感到困扰时，换个视角或许会有新发现。试试这个认知重构练习：',
+        activation: '如果感到没动力，我们先通过一个小小的行动来打破僵局。请看下面的任务卡片：',
+        empty_chair: '有些话憋在心里一定很难受吧。在“空椅子”面前，你可以放心地抒发出来。准备好了吗？',
+        mood_tracker: '记录和觉察是愈合的开始。我一直在这里陪着你，先来记录下你此刻最真实的感觉吧：',
+        leaves_stream: '感觉思绪乱糟糟的时候，试着把它们看作溪流上的落叶。让我们开始这个练习：',
       };
 
       // 异步保存消息（不阻塞）
@@ -273,7 +290,7 @@ export async function POST(request: NextRequest) {
       return createSkillCardStreamResponse(directSkillType, data, {
         timestamp: new Date().toISOString(),
         emotion: { label: 'neutral', score: 5 },
-        safety: { label: 'normal', score: 0, reasoning: 'Fast skill path - no safety check needed' },
+        safety: { label: 'normal', score: 0, reasoning: '检测到明确练习请求，正在为你开启极速引导' },
       });
     }
 
@@ -410,7 +427,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const data = new StreamData();
+    // const data = new StreamData(); // Moved up
     const traceMetadata = { sessionId, userId };
 
     const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
@@ -422,13 +439,7 @@ export async function POST(request: NextRequest) {
       routeType = 'crisis';
     }
 
-    // 旧逻辑降级（用于不精确匹配的情况）
-    const skillKeywords = /做个练习|想试试|缓解焦虑|学习放松|放松技巧|放松方法/i;
-    const wantsSkillCard = skillKeywords.test(message);
-    if (wantsSkillCard) {
-      console.log('[API] Skill keyword detected, forcing support route with action card.');
-      routeType = 'support';
-    }
+    // 移除原有硬编码的关键词强制路由逻辑，改由 Groq 分析意图
 
     // =================================================================================
     // 0.6 Dialogue State Tracking - 对话状态追踪
@@ -574,42 +585,22 @@ export async function POST(request: NextRequest) {
         logInfo('sfbt-trigger', { exerciseName, postScore });
       }
 
-      let actionCards: any[] | undefined;
-      if (wantsSkillCard) {
-        // 根据具体关键词选择合适的技能卡片
-        if (/冥想|正念/.test(message)) {
-          // 冥想相关关键词 -> 正念冥想卡片
-          actionCards = [SKILL_CARDS.meditation];
-        } else if (/情绪|记录/.test(message)) {
-          // 情绪记录
-          actionCards = [SKILL_CARDS.mood_tracker];
-        } else if (/空椅子|委屈|宣泄/.test(message)) {
-          // 空椅子
-          actionCards = [SKILL_CARDS.empty_chair];
-        } else if (/脱钩|纠结|杂念|想法/.test(message)) {
-          // 想法脱钩 ACT
-          actionCards = [SKILL_CARDS.leaves_stream];
-        } else {
-          // 默认：呼吸练习卡片
-          actionCards = [SKILL_CARDS.breathing];
-        }
-      }
-
-      // Force exit assessment if we were in it
+      // 移除手动注入 actionCards 的逻辑，改由 LLM 通过工具调用 (support.ts) 自主推荐，
+      // 从而确保推荐前会有共情话术。
       data.append({
         timestamp: new Date().toISOString(),
         routeType: 'support',
         state: 'normal',
         emotion: emotionObj,
-        ...(actionCards && { actionCards }), // Inject skill cards
       });
 
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
         // Non-blocking save
-        saveAssistantMessage(text, actionCards
-          ? { routeType: 'support', actionCards, toolCalls, safety: safetyData, state: stateData }
-          : { toolCalls, safety: safetyData, state: stateData }
-        ).catch(e => console.error('[DB] Failed to save assistant message:', e));
+        saveAssistantMessage(text, {
+          toolCalls,
+          safety: safetyData,
+          state: stateData
+        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
 
         data.append({
           reply: text,
@@ -633,53 +624,7 @@ export async function POST(request: NextRequest) {
     // 3. Assessment Handler (Intake Loop -> Conclusion)
     // =================================================================================
     if (routeType === 'assessment') {
-      // ⚡ Skill Card Shortcut: If user explicitly requests a skill, bypass assessment loop
-      const skillKeywords = /呼吸练习|放松技巧|放松方法|做个练习|想试试|缓解焦虑|学习放松|冥想|正念|着陆技术/i;
-      const wantsSkillCard = skillKeywords.test(message);
-      console.log('[API] Assessment route - skillKeywords test:', { message, wantsSkillCard });
-
-      if (wantsSkillCard) {
-        // 根据具体关键词选择合适的技能卡片
-        let skillCard;
-        let skillReply;
-
-        if (/冥想|正念/.test(message)) {
-          skillCard = {
-            title: '正念冥想',
-            steps: ['找一个安静舒适的地方坐下', '轻轻闭上眼睛，放松身体', '专注于呼吸的感觉', '当注意力飘走时，温柔地拉回来'],
-            when: '想要放松心情或提高专注力时',
-            effort: 'medium',
-            widget: 'meditation',
-          };
-          skillReply = '好的，我们来做一个简单的正念冥想练习，帮助你放松身心。请点击下方的卡片开始：';
-        } else {
-          skillCard = {
-            title: '4-7-8 呼吸法',
-            steps: ['吸气 4 秒', '屏息 7 秒', '呼气 8 秒', '重复 3-4 次'],
-            when: '感到焦虑或需要快速放松时',
-            effort: 'low',
-            widget: 'breathing',
-          };
-          skillReply = '好的，我们来做一个简单的呼吸练习来帮助你放松。请点击下方的卡片开始：';
-        }
-
-        // Save with metadata so actionCards persist across page refresh (Non-blocking)
-        saveAssistantMessage(skillReply, {
-          routeType: 'support',
-          state: 'normal',
-          actionCards: [skillCard],
-          safety: safetyData,
-        }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-
-        data.append({
-          timestamp: new Date().toISOString(),
-          routeType: 'support', // Switch to support mode
-          state: 'normal',
-          actionCards: [skillCard],
-        });
-
-        return createFixedStreamResponse(skillReply, data);
-      }
+      // 移除 assessment 路由下的硬编码技能快捷路径
 
       // Call Assessment Loop with State Classifier (Streaming Version)
       const onAssessmentFinish = async (text: string, toolCalls?: any[]) => {
