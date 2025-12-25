@@ -124,15 +124,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         console.log('[ChatShell] Using server initialMessages', { sessionId, count: initialMessages.length });
         setMessages(initialMessages);
         setCurrentSessionId(sessionId);
-      } else if (!sessionId) {
-        // Case 2: New Chat mode - ALWAYS clear everything
-        // Since we now use key prop, component remounts fresh, no need for SPA race detection
+      } else if (!sessionId && !currentStore.isCreatingSession) {
+        // Case 2: New Chat mode - clear everything ONLY if not creating
+        // The isCreatingSession check prevents clearing during the "gap" when
+        // URL was updated via replaceState but sessionId prop is still undefined
         console.log('[ChatShell] ★ New Chat mode - clearing all state');
         setMessages([]);
         setCurrentSessionId(undefined);
         setSessionStatus(undefined);
         setInternalSessionId(undefined); // Also reset local state for header display
         sessionIdRef.current = undefined;
+      } else if (!sessionId && currentStore.isCreatingSession) {
+        // Case 2b: Creating session - preserve store messages
+        console.log('[ChatShell] ★ Creating session - preserving store messages', {
+          storeMessages: currentStore.messages.length,
+          isCreating: currentStore.isCreatingSession
+        });
+        // Don't clear anything; the store already has the correct messages
       } else {
         // Case 3: sessionId defined but no initialMessages (server returned empty)
         console.log('[ChatShell] Session with no messages from server', { sessionId });
