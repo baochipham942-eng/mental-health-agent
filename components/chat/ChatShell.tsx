@@ -183,6 +183,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isCreatingSession && internalSessionId && !sessionId);
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
+  // Debug: log message display decision
+  console.log('[ChatShell] displayMessages decision:', {
+    shouldShowStoreMessages,
+    sessionId,
+    internalSessionId,
+    isCreatingSession,
+    storeMessagesCount: messages.length,
+    initialMessagesCount: initialMessages?.length || 0,
+    displayMessagesCount: displayMessages.length,
+    condition1_idMatch: sessionId === internalSessionId,
+    condition2_bothUndefined: !sessionId && !internalSessionId,
+    condition3_creating: isCreatingSession && internalSessionId && !sessionId,
+  });
+
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
   useEffect(() => {
     // 立即重置所有可能卡住的状态
