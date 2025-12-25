@@ -1,9 +1,12 @@
 'use client';
 
-import { IconPlus } from '@arco-design/web-react/icon';
-import { Logo } from '@/components/logo/Logo';
 import { useRouter, usePathname } from 'next/navigation';
 import { useChatStore } from '@/store/chatStore';
+import { Modal } from '@arco-design/web-react';
+import { IconPlus, IconStop } from '@arco-design/web-react/icon';
+import { completeSession } from '@/lib/actions/chat';
+import { generateSummaryForSession } from '@/lib/actions/summary';
+import { Logo } from '@/components/logo/Logo';
 
 interface SidebarHeaderClientProps {
     createNewSessionAction?: any; // Kept optional for compatibility, but unused
@@ -12,16 +15,41 @@ interface SidebarHeaderClientProps {
 export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderClientProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const { resetConversation } = useChatStore();
+    const { isConsulting, currentSessionId, resetConversation } = useChatStore();
 
     const handleNewChat = (e: React.FormEvent | React.MouseEvent) => {
         e.preventDefault();
 
+        if (isConsulting && currentSessionId) {
+            Modal.confirm({
+                title: <div className="text-center w-full">正在咨询中</div>,
+                content: <div className="text-center w-full pb-2 text-gray-500">创建新咨询将结束当前对话并保存记录。确定继续吗？</div>,
+                okText: '结束并开启新咨询',
+                cancelText: '取消',
+                icon: <IconStop className="text-orange-500" />,
+                style: { width: 320, borderRadius: 12 },
+                onOk: async () => {
+                    try {
+                        await completeSession(currentSessionId);
+                        await generateSummaryForSession(currentSessionId);
+                        resetConversation();
+                        router.push('/');
+                    } catch (err) {
+                        console.error('[SidebarHeader] Failed to end session:', err);
+                        resetConversation();
+                        router.push('/');
+                    }
+                }
+            });
+            return;
+        }
+
         // 统一导航到首页
-        // ChatShell 会自动处理状态重置（通过 displayMessages 逻辑）
-        // 从而避免导航前的"白屏闪烁"
         if (pathname !== '/') {
             router.push('/');
+        } else {
+            // 如果已经在首页，可能需要强制重置以开始新会话
+            resetConversation();
         }
     };
 

@@ -40,6 +40,8 @@ interface ChatStore {
   debugPrompts: any | null;
   validationError: any | null;
   lastRequestPayload: any | null;
+  isConsulting: boolean;
+  setConsulting: (val: boolean) => void;
 
   // Actions
   addMessage: (message: Message) => void;
@@ -90,6 +92,8 @@ export const useChatStore = create<ChatStore>()(
       debugPrompts: null,
       validationError: null,
       lastRequestPayload: null,
+      isConsulting: false,
+      setConsulting: (val: boolean) => set({ isConsulting: val }),
 
       addMessage: (message: Message) =>
         set((state: ChatStore) => ({
@@ -209,7 +213,7 @@ export const useChatStore = create<ChatStore>()(
           assessmentStage: undefined,
           initialMessage: undefined,
           followupAnswerDraft: '',
-          isLoading: false,
+          isConsulting: false,
           // 注意：inputDraft 不重置，以允许"带着输入去新会话"
           error: null,
           debugDrawerOpen: false,

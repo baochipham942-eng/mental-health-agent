@@ -141,3 +141,25 @@ export async function getSessionById(sessionId: string) {
 
     return conversation;
 }
+
+
+
+/**
+ * 结束会话 - 标记为 COMPLETED
+ */
+export async function completeSession(sessionId: string): Promise<void> {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error('Unauthorized');
+
+    await prisma.conversation.updateMany({
+        where: {
+            id: sessionId,
+            userId: session.user.id,
+        },
+        data: {
+            status: 'COMPLETED',
+        },
+    });
+
+    revalidatePath('/');
+}

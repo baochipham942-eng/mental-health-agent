@@ -61,6 +61,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
     getAndClearTransitionMessages,
     currentSessionId,
     setCurrentSessionId,
+    isConsulting,
+    setConsulting,
   } = useChatStore();
 
   const router = useRouter();
@@ -488,6 +490,20 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
 
     return () => clearInterval(timer);
   }, [timeLeft]);
+
+  // 同步正在咨询的状态到全局 Store (用于导航拦截)
+  useEffect(() => {
+    const currentlyConsulting = !!internalSessionId && !isReadOnly && !isSessionEnded;
+    if (isConsulting !== currentlyConsulting) {
+      setConsulting(currentlyConsulting);
+    }
+    return () => {
+      // 组件卸载时，如果不是在创建新会话的过程中，则重置状态
+      if (!isJustCreatedRef.current) {
+        setConsulting(false);
+      }
+    };
+  }, [internalSessionId, isReadOnly, isSessionEnded, isConsulting, setConsulting]);
 
   // 格式化时间 MM:SS
   const formatTime = (seconds: number) => {

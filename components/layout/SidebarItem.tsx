@@ -4,7 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button, Modal, Message, Tooltip } from '@arco-design/web-react';
-import { IconDelete } from '@arco-design/web-react/icon';
+import { IconDelete, IconStop } from '@arco-design/web-react/icon';
+import { useChatStore } from '@/store/chatStore';
+import { completeSession } from '@/lib/actions/chat';
+import { generateSummaryForSession } from '@/lib/actions/summary';
+import { useRouter } from 'next/navigation';
 
 interface SidebarItemProps {
     session: {
@@ -19,6 +23,8 @@ interface SidebarItemProps {
 
 export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { isConsulting, currentSessionId, resetConversation } = useChatStore();
 
     // 防护：如果 session.id 无效，不渲染该项
     if (!session?.id) {
@@ -78,7 +84,37 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                 <Link
                     href={`/c/${session.id}`}
                     prefetch={false}
-                    onClick={() => console.log('[SidebarItem] Navigating to session:', session.id, 'current path:', pathname)}
+                    onClick={(e) => {
+                        console.log('[SidebarItem] Navigating to session:', session.id, 'current path:', pathname);
+
+                        // Navigation Guard
+                        if (!isActive && isConsulting && currentSessionId) {
+                            e.preventDefault();
+                            Modal.confirm({
+                                title: <div className="text-center w-full">正在咨询中</div>,
+                                content: <div className="text-center w-full pb-2 text-gray-500">离开当前页面将结束本次咨询并保存记录。确定继续吗？</div>,
+                                okText: '结束并切换',
+                                cancelText: '继续咨询',
+                                icon: <IconStop className="text-orange-500" />,
+                                style: { width: 320, borderRadius: 12 },
+                                onOk: async () => {
+                                    try {
+                                        // 结束当前会话
+                                        await completeSession(currentSessionId);
+                                        await generateSummaryForSession(currentSessionId);
+
+                                        // 重置状态并导航
+                                        resetConversation();
+                                        router.push(`/c/${session.id}`);
+                                    } catch (err) {
+                                        console.error('[SidebarItem] Failed to end session:', err);
+                                        // Still try to navigate
+                                        router.push(`/c/${session.id}`);
+                                    }
+                                }
+                            });
+                        }
+                    }}
                     className={`
                         flex items-center gap-2 rounded-lg p-2.5 text-sm font-medium transition-all
                         ${isActive
