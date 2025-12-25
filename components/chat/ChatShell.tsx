@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
-import { v4 as uuidv4 } from 'uuid';
 import { DebugDrawer } from './DebugDrawer';
 import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
 import { IconStop, IconInfoCircle } from '@arco-design/web-react/icon';
@@ -494,16 +493,18 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   // 同步正在咨询的状态到全局 Store (用于导航拦截)
   useEffect(() => {
     const currentlyConsulting = !!internalSessionId && !isReadOnly && !isSessionEnded;
-    if (isConsulting !== currentlyConsulting) {
-      setConsulting(currentlyConsulting);
-    }
+    // 使用非闭包内的 isConsulting 以避免依赖循环，或者直接设置
+    setConsulting(currentlyConsulting);
+  }, [internalSessionId, isReadOnly, isSessionEnded, setConsulting]);
+
+  useEffect(() => {
     return () => {
       // 组件卸载时，如果不是在创建新会话的过程中，则重置状态
       if (!isJustCreatedRef.current) {
         setConsulting(false);
       }
     };
-  }, [internalSessionId, isReadOnly, isSessionEnded, isConsulting, setConsulting]);
+  }, [setConsulting]);
 
   // 格式化时间 MM:SS
   const formatTime = (seconds: number) => {

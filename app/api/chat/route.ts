@@ -267,7 +267,6 @@ export async function POST(request: NextRequest) {
     const directSkillType = detectDirectSkillRequest(message);
     if (directSkillType) {
       console.log('[API] FAST PATH: Direct skill request detected, bypassing all LLM calls:', directSkillType);
-      const data = new StreamData();
       const skill = SKILL_CARDS[directSkillType];
       const introMessages: Record<SkillType, string> = {
         breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
