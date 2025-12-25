@@ -253,20 +253,9 @@ export function MemoryPageContent() {
             {/* 页面头部 - 与会话页保持一致的毛玻璃效果 */}
             <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Button
-                            type="text"
-                            size="small"
-                            icon={<IconLeft />}
-                            onClick={() => router.push('/')}
-                        >
-                            返回
-                        </Button>
-                        <div className="h-4 w-px bg-gray-200" />
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">🧠</span>
-                            <h1 className="text-lg font-semibold text-gray-800">我的记忆</h1>
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl">🧠</span>
+                        <h1 className="text-lg font-semibold text-gray-800">我的记忆</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <Tag color="gray" size="small">共 {memories.length} 条</Tag>
