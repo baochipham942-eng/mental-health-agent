@@ -15,6 +15,34 @@ import { ResourceCard } from './ResourceCard';
 import { ActionCardGrid } from './ActionCardGrid';
 
 /**
+ * 解析并分离 <thought>...</thought> 标签内容
+ * 返回: { displayContent: 去除thought标签后的内容, thoughtContent: thought标签内的内容 }
+ */
+function parseThoughtTags(content: string): { displayContent: string; thoughtContent: string | null } {
+  if (!content) return { displayContent: '', thoughtContent: null };
+
+  // 匹配 <thought>...</thought> 标签（支持多行）
+  const thoughtRegex = /<thought>([\s\S]*?)<\/thought>/gi;
+  const matches = content.matchAll(thoughtRegex);
+
+  let thoughtContent = '';
+  for (const match of matches) {
+    thoughtContent += match[1].trim() + '\n\n';
+  }
+
+  // 移除所有 thought 标签及其内容
+  const displayContent = content
+    .replace(thoughtRegex, '')
+    .replace(/^\s*\n/gm, '') // 移除多余空行
+    .trim();
+
+  return {
+    displayContent,
+    thoughtContent: thoughtContent.trim() || null
+  };
+}
+
+/**
  * 去除重复的 followup 问题文本
  * 当 assistantText 中包含与 followup 卡片内容高度相似的段落时，将其剔除
  * 改进：更严格的去重逻辑，避免重复渲染问题
@@ -125,9 +153,12 @@ export function MessageBubble({
   // 检测是否是占位符消息（正在等待AI回复）
   const isPlaceholderMessage = !isUser && (message.content?.includes('让我整理一下思绪') || message.content?.includes('正在深入思考...'));
 
+  // 解析并分离 <thought> 标签内容（AI内部思考过程）
+  const { displayContent, thoughtContent } = parseThoughtTags(message.content || '');
+
   // 判断是否有特殊内容（Skill 卡片或问题列表）
   const hasSpecialContent = (actionCards && actionCards.length > 0) || (assistantQuestions && assistantQuestions.length > 0) || (toolCalls && toolCalls.length > 0);
-  const hasTextContent = message.content && message.content.trim() !== '' && !isPlaceholderMessage;
+  const hasTextContent = displayContent && displayContent.trim() !== '' && !isPlaceholderMessage;
 
   // Comfort messages for loading state
   const comfortMessages = [
@@ -292,7 +323,7 @@ export function MessageBubble({
             {/* Generative UI Tool Calling Logic */}
             {toolCalls && toolCalls.length > 0 ? (
               <div className="space-y-4">
-                {message.content && <ReactMarkdown className="prose prose-sm max-w-none">{message.content}</ReactMarkdown>}
+                {displayContent && <ReactMarkdown className="prose prose-sm max-w-none">{displayContent}</ReactMarkdown>}
                 {toolCalls.map((tc: any) => {
                   try {
                     if (!tc?.function?.arguments) return null;
@@ -337,7 +368,7 @@ export function MessageBubble({
               </div>
             ) : isConclusion && routeType === 'assessment' ? (
               <ConclusionSections
-                reply={message.content}
+                reply={displayContent}
                 actionCards={actionCards}
                 routeType={routeType}
                 messageId={message.id}
@@ -347,7 +378,7 @@ export function MessageBubble({
             ) : isConclusion && routeType === 'crisis' ? (
               // Crisis 路由的 conclusion 阶段：只显示风险与分流，不显示行动卡片
               <ConclusionSections
-                reply={message.content}
+                reply={displayContent}
                 actionCards={undefined}
                 routeType={routeType}
                 messageId={message.id}
@@ -361,7 +392,7 @@ export function MessageBubble({
                   <>
                     {/* intake 阶段：普通气泡样式，不突出 - 移除numbered list，保持一致性 */}
                     <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                      {message.content && <p className="mb-2">{message.content}</p>}
+                      {displayContent && <p className="mb-2">{displayContent}</p>}
                       <ReactMarkdown>{assistantQuestions.join('\n\n')}</ReactMarkdown>
                     </div>
                     {/* intake 阶段已渲染问题，不再渲染 message.content（已去重） */}
@@ -377,7 +408,7 @@ export function MessageBubble({
                             {(() => {
                               // 从 message.content 提取引导语，如果没有则使用默认
                               const cleanedContent = stripDuplicateFollowupText(
-                                message.content,
+                                displayContent,
                                 assistantQuestions[0]
                               );
                               // 如果去重后还有内容，使用去重后的内容作为引导语
@@ -385,7 +416,7 @@ export function MessageBubble({
                                 return cleanedContent;
                               }
                               // 否则使用 message.content 作为引导语（如果存在）
-                              return message.content || '我想更准确地帮你，补充一个小问题：';
+                              return displayContent || '我想更准确地帮你，补充一个小问题：';
                             })()}
                           </p>
                           <div className="prose prose-sm max-w-none text-gray-700 space-y-2 leading-relaxed">
@@ -412,24 +443,24 @@ export function MessageBubble({
                       </>
                     ) : (
                       // 如果没有 assistantQuestions，降级为普通 markdown 渲染
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                      <ReactMarkdown>{displayContent}</ReactMarkdown>
                     )}
                   </>
                 ) : (
                   <>
                     {/* 其他阶段：正常渲染 message.content */}
                     <div style={{ color: '#111827' }}>
-                      <ReactMarkdown>{message.content || ''}</ReactMarkdown>
+                      <ReactMarkdown>{displayContent || ''}</ReactMarkdown>
                     </div>
                     {/* Debug: 如果没内容，显示提示 */}
-                    {(!message.content && !isLoading) && (
+                    {(!displayContent && !isLoading) && (
                       <div className="text-red-500 text-xs mt-1">Debug: Content is empty</div>
                     )}
 
                     {/* 修复：在 gap_followup 阶段，如果 assistant 文本明确要求用0-10评分，显示可点击选项 */}
                     {/* 更严格的检测：需要明确的评分请求模式，避免误触发 */}
                     {(isGapFollowup || (routeType === 'assessment' && assessmentStage === 'gap_followup')) &&
-                      (quickReplyMode === 'scale0to10' || /用\s*0\s*[-到至]\s*10\s*(分|打分|评分)|请.*打分|给.*评分|0\s*[-到至]\s*10\s*分.*评/.test(message.content)) && (
+                      (quickReplyMode === 'scale0to10' || /用\s*0\s*[-到至]\s*10\s*(分|打分|评分)|请.*打分|给.*评分|0\s*[-到至]\s*10\s*分.*评/.test(displayContent)) && (
                         <>
                           <p className="text-xs text-gray-600 mt-2 italic">
                             提示：点击数字即可发送
