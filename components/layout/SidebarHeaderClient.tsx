@@ -22,12 +22,18 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
 
         if (isConsulting && currentSessionId) {
             Modal.confirm({
-                title: <div className="text-center w-full">正在咨询中</div>,
-                content: <div className="text-center w-full pb-2 text-gray-500">创建新咨询将结束当前对话并保存记录。确定继续吗？</div>,
+                title: <div className="text-center w-full font-semibold text-gray-800">正在咨询中</div>,
+                content: (
+                    <div className="text-center w-full pb-2 text-gray-500 text-sm">
+                        创建新咨询将结束当前对话并保存记录。<br />
+                        确定继续吗？
+                    </div>
+                ),
                 okText: '结束并开启新咨询',
                 cancelText: '取消',
-                icon: <IconStop className="text-orange-500" />,
-                style: { width: 320, borderRadius: 12 },
+                icon: null,
+                okButtonProps: { status: 'warning' },
+                style: { width: 340, borderRadius: 12 },
                 onOk: async () => {
                     try {
                         await completeSession(currentSessionId);
