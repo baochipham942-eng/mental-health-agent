@@ -493,41 +493,48 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
   }, [timeLeft]);
 
   // 同步会话状态到全局 Store (用于导航拦截)
+  // Note: sessionStatus and isConsulting are INTENTIONALLY excluded from deps to prevent infinite loops.
+  // This effect only recalculates when the source values (internalSessionId, isReadOnly, isSessionEnded) change.
   useEffect(() => {
     // Determine the correct status based on current conditions
+    const currentStatus = useChatStore.getState().sessionStatus;
     let newStatus: 'idle' | 'creating' | 'active' | 'ended';
 
     if (isReadOnly || isSessionEnded) {
       newStatus = 'ended';
     } else if (internalSessionId) {
       newStatus = 'active';
-    } else if (sessionStatus === 'creating') {
+    } else if (currentStatus === 'creating') {
       // Keep 'creating' status if it was set during handleSend
       newStatus = 'creating';
     } else {
       newStatus = 'idle';
     }
 
-    if (sessionStatus !== newStatus) {
+    if (currentStatus !== newStatus) {
       setSessionStatus(newStatus);
     }
 
     // Also keep deprecated isConsulting in sync
-    const currentlyConsulting = newStatus === 'active' || newStatus === 'creating';
-    if (isConsulting !== currentlyConsulting) {
-      setConsulting(currentlyConsulting);
+    const currentIsConsulting = useChatStore.getState().isConsulting;
+    const shouldBeConsulting = newStatus === 'active' || newStatus === 'creating';
+    if (currentIsConsulting !== shouldBeConsulting) {
+      setConsulting(shouldBeConsulting);
     }
-  }, [internalSessionId, isReadOnly, isSessionEnded, sessionStatus, setSessionStatus, isConsulting, setConsulting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [internalSessionId, isReadOnly, isSessionEnded, setSessionStatus, setConsulting]);
 
   useEffect(() => {
     return () => {
       // 组件卸载时，如果不是在创建新会话的过程中，则重置状态
-      if (sessionStatus !== 'creating') {
+      const currentStatus = useChatStore.getState().sessionStatus;
+      if (currentStatus !== 'creating') {
         setSessionStatus('idle');
         setConsulting(false);
       }
     };
-  }, [sessionStatus, setSessionStatus, setConsulting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setSessionStatus, setConsulting]);
 
   // 格式化时间 MM:SS
   const formatTime = (seconds: number) => {
