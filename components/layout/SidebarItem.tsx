@@ -78,6 +78,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                 <Link
                     href={`/c/${session.id}`}
                     prefetch={false}
+                    onClick={() => console.log('[SidebarItem] Navigating to session:', session.id, 'current path:', pathname)}
                     className={`
                         flex items-center gap-2 rounded-lg p-2.5 text-sm font-medium transition-all
                         ${isActive

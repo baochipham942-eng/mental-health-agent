@@ -16,12 +16,18 @@ interface SessionPageProps {
  * 历史会话页面 - 加载特定会话的消息
  */
 export default async function SessionPage({ params }: SessionPageProps) {
+    console.log('[SessionPage] Loading session:', params.sessionId);
+
     const session = await auth();
     if (!session?.user) {
         redirect('/login');
     }
 
     const conversation = await getSessionById(params.sessionId);
+    console.log('[SessionPage] Conversation loaded:', {
+        found: !!conversation,
+        msgCount: conversation?.messages?.length || 0
+    });
 
     if (!conversation) {
         notFound();
