@@ -105,16 +105,17 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                                 style: { width: 340, borderRadius: 12 },
                                 onOk: async () => {
                                     try {
-                                        // 结束当前会话
+                                        // Mark session as completed (fast DB update)
                                         await completeSession(currentSessionId);
-                                        await generateSummaryForSession(currentSessionId);
-
-                                        // 重置状态并导航
+                                        // Fire-and-forget: generate summary in background
+                                        generateSummaryForSession(currentSessionId).catch(err => {
+                                            console.error('[SidebarItem] Background summary generation failed:', err);
+                                        });
+                                        // Navigate immediately
                                         resetConversation();
                                         router.push(`/c/${session.id}`);
                                     } catch (err) {
                                         console.error('[SidebarItem] Failed to end session:', err);
-                                        // Still try to navigate
                                         router.push(`/c/${session.id}`);
                                     }
                                 }

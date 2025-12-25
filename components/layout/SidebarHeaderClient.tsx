@@ -36,8 +36,13 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
                 style: { width: 340, borderRadius: 12 },
                 onOk: async () => {
                     try {
+                        // Mark session as completed (fast DB update)
                         await completeSession(currentSessionId);
-                        await generateSummaryForSession(currentSessionId);
+                        // Fire-and-forget: generate summary in background (slow AI call)
+                        generateSummaryForSession(currentSessionId).catch(err => {
+                            console.error('[SidebarHeader] Background summary generation failed:', err);
+                        });
+                        // Navigate immediately
                         resetConversation();
                         router.push('/');
                     } catch (err) {
