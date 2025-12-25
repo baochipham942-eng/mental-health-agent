@@ -241,7 +241,9 @@ export function ChatInput({
           onClick={doSend}
           className={cn(
             'transition-all duration-200 !w-[44px] !h-[44px] !min-w-[44px] !min-h-[44px] !p-0',
-            canSend && !isLoading && 'shadow-md hover:shadow-lg'
+            canSend && !isLoading && !disabled && 'shadow-md hover:shadow-lg',
+            // 强制禁用状态样式
+            disabled && '!bg-gray-200 !text-gray-400 !cursor-not-allowed !border-gray-200'
           )}
           style={{
             fontSize: 18,
