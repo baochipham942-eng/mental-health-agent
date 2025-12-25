@@ -11,20 +11,24 @@ export function MentorSection() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                        🏛️ 智慧殿堂
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                        与心理学历史上的伟人进行**跨时空对话**。
-                        <br />
-                        <span className="text-xs opacity-80">* 注：此为实验性功能，对话内容不会保存到历史记录。*</span>
-                    </p>
+            {/* Header Area - Gold Theme */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            🏛️ 智慧殿堂 (Hall of Wisdom)
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200">NEW</span>
+                        </h2>
+                        <p className="text-sm text-gray-600 mt-2 max-w-lg">
+                            与心理学历史上的伟人进行<span className="font-semibold text-amber-700">跨时空对话</span>。
+                            <br />
+                            <span className="opacity-80">在这里，没有标准答案，只有关于人生、意义与自我的深度启迪。</span>
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {MENTORS.map((mentor) => (
                     <div
                         key={mentor.id}
@@ -46,6 +50,9 @@ export function MentorSection() {
                                     mentor.id === 'socrates' && "bg-slate-100 text-slate-600",
                                     mentor.id === 'jung' && "bg-indigo-100 text-indigo-600",
                                     mentor.id === 'adler' && "bg-orange-100 text-orange-600",
+                                    mentor.id === 'seligman' && "bg-yellow-100 text-yellow-700",
+                                    mentor.id === 'satir' && "bg-rose-100 text-rose-600",
+                                    mentor.id === 'kahneman' && "bg-cyan-100 text-cyan-700",
                                 )}>
                                     {mentor.title}
                                 </div>

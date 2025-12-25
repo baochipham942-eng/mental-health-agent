@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Spin, Empty, Tag, Input, Button, Message, Modal, Card } from '@arco-design/web-react';
 import { IconEdit, IconDelete, IconSave, IconClose, IconLeft, IconRefresh } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils/cn';
 
 // 记忆类型标签映射 - 优化视觉层次
 const TOPIC_CONFIG: Record<string, {
@@ -50,6 +51,9 @@ const TOPIC_CONFIG: Record<string, {
     },
 };
 
+// Tab顺序
+const TAB_ORDER = ['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning'];
+
 interface Memory {
     id: string;
     topic: string;
@@ -93,6 +97,7 @@ export function MemoryPageContent() {
     const [error, setError] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
+    const [activeTab, setActiveTab] = useState<string>('emotional_pattern');
 
     // 获取记忆列表
     const fetchMemories = async () => {
@@ -177,6 +182,10 @@ export function MemoryPageContent() {
         return acc;
     }, {} as Record<string, Memory[]>);
 
+    // 当前Tab的记忆
+    const currentMemories = groupedMemories[activeTab] || [];
+    const currentConfig = TOPIC_CONFIG[activeTab];
+
     // 渲染单个记忆卡片
     const renderMemoryCard = (memory: Memory, topicConfig: typeof TOPIC_CONFIG[string]) => (
         <div
@@ -239,34 +248,6 @@ export function MemoryPageContent() {
         </div>
     );
 
-    // 渲染分组
-    const renderGroup = (topic: string, items: Memory[]) => {
-        const config = TOPIC_CONFIG[topic] || {
-            label: topic,
-            emoji: '📝',
-            color: 'blue' as const,
-            bgClass: 'bg-slate-50',
-            borderClass: 'border-slate-100',
-        };
-
-        return (
-            <div key={topic} className="space-y-3">
-                {/* 分组标题 - 格式塔：接近性原则 */}
-                <div className="flex items-center gap-2 px-1">
-                    <span className="text-lg">{config.emoji}</span>
-                    <Tag color={config.color} size="small">
-                        {config.label}
-                    </Tag>
-                    <span className="text-xs text-gray-400">({items.length})</span>
-                </div>
-                {/* 记忆卡片列表 */}
-                <div className="space-y-2">
-                    {items.map(memory => renderMemoryCard(memory, config))}
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
             {/* 页面头部 - 与会话页保持一致的毛玻璃效果 */}
@@ -301,11 +282,46 @@ export function MemoryPageContent() {
                 </div>
             </header>
 
-            {/* 内容区 - 使用 section 保持与会话页一致 */}
+            {/* 内容区 */}
             <section className="flex-1 overflow-y-auto overscroll-contain w-full min-h-0 scrollbar-thin">
-                <div className="max-w-4xl mx-auto px-4 py-6 pb-12">
-                    {/* 页面说明 - 放在内容区顶部 */}
-                    <div className="mb-8 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                <div className="w-full max-w-4xl mx-auto px-4 py-6 pb-12">
+                    {/* Tab导航 - 类似Lab页面的胶囊切换 */}
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-gray-100/80 p-1 rounded-full inline-flex flex-wrap gap-1 relative">
+                            {TAB_ORDER.map(topic => {
+                                const config = TOPIC_CONFIG[topic];
+                                const count = groupedMemories[topic]?.length || 0;
+                                return (
+                                    <button
+                                        key={topic}
+                                        onClick={() => setActiveTab(topic)}
+                                        className={cn(
+                                            "py-1.5 px-3 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap",
+                                            activeTab === topic
+                                                ? "bg-white shadow-sm text-gray-800"
+                                                : "text-gray-500 hover:text-gray-700"
+                                        )}
+                                    >
+                                        <span>{config.emoji}</span>
+                                        <span>{config.label}</span>
+                                        {count > 0 && (
+                                            <span className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded-full",
+                                                activeTab === topic
+                                                    ? "bg-gray-100 text-gray-600"
+                                                    : "bg-gray-200/50 text-gray-400"
+                                            )}>
+                                                {count}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 页面说明 */}
+                    <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                         <p className="text-sm text-indigo-700">
                             💡 记忆帮助咨询师更好地了解你。这些信息来自你的对话，你可以随时编辑或删除。
                         </p>
@@ -341,12 +357,16 @@ export function MemoryPageContent() {
                                 开始对话
                             </Button>
                         </div>
+                    ) : currentMemories.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16">
+                            <div className="text-5xl mb-4">{currentConfig?.emoji || '📝'}</div>
+                            <h3 className="text-base font-medium text-gray-600 mb-2">暂无{currentConfig?.label || '此类'}记忆</h3>
+                            <p className="text-sm text-gray-400">继续和咨询师对话，系统会自动记录</p>
+                        </div>
                     ) : (
-                        /* 分组列表 - 格式塔：相似性 + 接近性原则 */
-                        <div className="space-y-8">
-                            {Object.entries(groupedMemories).map(([topic, items]) =>
-                                renderGroup(topic, items)
-                            )}
+                        /* 当前Tab的记忆列表 */
+                        <div className="space-y-3">
+                            {currentMemories.map(memory => renderMemoryCard(memory, currentConfig))}
                         </div>
                     )}
                 </div>
@@ -354,3 +374,4 @@ export function MemoryPageContent() {
         </div>
     );
 }
+

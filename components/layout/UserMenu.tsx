@@ -1,7 +1,7 @@
 'use client';
 
 import { Dropdown, Menu, Divider } from '@arco-design/web-react';
-import { IconUser, IconMindMapping, IconExport, IconExperiment } from '@arco-design/web-react/icon';
+import { IconUser, IconMindMapping, IconExport, IconExperiment, IconEdit } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
 
 interface UserMenuProps {
@@ -10,6 +10,7 @@ interface UserMenuProps {
     avatar?: string;
     isAdmin?: boolean;
     onSignOut: () => void;
+    onEditProfile?: () => void;
 }
 
 /**
@@ -20,11 +21,13 @@ interface UserMenuProps {
  * - Custom animated avatar trigger on hover (rotates like the logo)
  * - "Lab" (Wisdom Hall) access
  */
-export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOut }: UserMenuProps) {
+export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOut, onEditProfile }: UserMenuProps) {
     const router = useRouter();
 
     const handleMenuClick = (key: string) => {
-        if (key === 'memory') {
+        if (key === 'profile') {
+            onEditProfile?.();
+        } else if (key === 'memory') {
             router.push('/dashboard/memory');
         } else if (key === 'lab') {
             router.push('/dashboard/lab');
@@ -37,6 +40,12 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
 
     const dropdownMenu = (
         <Menu onClickMenuItem={handleMenuClick} className="min-w-[160px] select-none">
+            <Menu.Item key="profile">
+                <div className="flex items-center gap-2 py-1">
+                    <IconEdit className="text-indigo-500" />
+                    <span>编辑资料</span>
+                </div>
+            </Menu.Item>
             <Menu.Item key="memory">
                 <div className="flex items-center gap-2 py-1">
                     <IconMindMapping className="text-purple-500" />

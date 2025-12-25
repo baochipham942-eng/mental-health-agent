@@ -30,18 +30,33 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自适应高度：1-6行，超出内部滚动
+  // 修复：避免设置 height=auto 导致的视觉跳变
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    textarea.style.height = 'auto';
-    const lineHeight = 20; // leading-5
-    const padding = 24; // py-3 (12px * 2)
-    const minHeight = lineHeight + padding;
-    const maxHeight = lineHeight * 6 + padding;
+    const minHeight = 44;  // 单行最小高度
+    const maxHeight = 144; // 6行最大高度
 
-    const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
-    textarea.style.height = `${newHeight}px`;
+    // 保存当前 overflow 状态
+    const prevOverflow = textarea.style.overflow;
+
+    // 临时隐藏溢出，避免滚动条跳动
+    textarea.style.overflow = 'hidden';
+
+    // 临时设置 auto 来测量 scrollHeight
+    const prevHeight = textarea.style.height;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+
+    // 计算目标高度
+    const targetHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+
+    // 立即设置目标高度
+    textarea.style.height = `${targetHeight}px`;
+
+    // 恢复 overflow（如果超过最大高度，需要显示滚动条）
+    textarea.style.overflow = targetHeight >= maxHeight ? 'auto' : 'hidden';
   };
 
   useEffect(() => {

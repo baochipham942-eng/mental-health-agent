@@ -33,9 +33,9 @@ export function MBTISection() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" style={{ width: '100%' }}>
             {/* Header Area */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
+            <div className="w-full bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -49,15 +49,15 @@ export function MBTISection() {
                         </p>
                     </div>
 
-                    {/* Control Panel */}
-                    <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/60 p-4 rounded-xl backdrop-blur-sm border border-white/50 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-600">我是:</span>
+                    {/* Integrated Control Tools */}
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <div className="flex items-center gap-2 bg-white/50 p-1 rounded-lg border border-purple-100/50">
+                            <span className="text-xs font-medium text-gray-500 ml-2">我是:</span>
                             <Select
-                                style={{ width: 140 }}
+                                style={{ width: 130 }}
                                 value={userType}
                                 onChange={setUserType}
-                                className="[&_.arco-select-view]:!rounded-xl"
+                                className="[&_.arco-select-view]:!bg-transparent [&_.arco-select-view]:!border-none"
                                 triggerProps={{
                                     autoAlignPopupWidth: false,
                                     autoAlignPopupMinWidth: true,
@@ -73,23 +73,21 @@ export function MBTISection() {
                             </Select>
                         </div>
 
-                        <div className="hidden sm:block text-gray-300">|</div>
-
                         <Button
                             type="primary"
-                            className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto !rounded-xl"
+                            className="bg-purple-600 hover:bg-purple-700 !rounded-lg h-9 px-4"
                             icon={<IconSwap />}
                             onClick={handleRandomMatch}
                             loading={isRandomizing}
                         >
-                            {isRandomizing ? '匹配中...' : '随机匹配灵魂'}
+                            {isRandomizing ? '...' : '随机匹配'}
                         </Button>
                     </div>
                 </div>
             </div>
 
             {/* Grid Area */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-5">
                 {MBTI_PERSONAS.map((persona) => {
                     const isAnalyst = ['INTJ', 'INTP', 'ENTJ', 'ENTP'].includes(persona.type);
                     const isDiplomat = ['INFJ', 'INFP', 'ENFJ', 'ENFP'].includes(persona.type);
@@ -110,7 +108,7 @@ export function MBTISection() {
                             key={persona.id}
                             onClick={() => setActivePersona(persona)}
                             className={cn(
-                                "relative group cursor-pointer transition-all duration-300 rounded-xl border p-4 hover:shadow-md",
+                                "relative group cursor-pointer transition-all duration-300 rounded-xl border p-5 hover:shadow-md",
                                 borderColor,
                                 hoverColor,
                                 bgColor

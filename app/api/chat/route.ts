@@ -426,6 +426,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // =================================================================================
+    // 0.55 User Context Injection - 将用户昵称注入上下文，让 AI 可以自然使用
+    // =================================================================================
+    const userNickname = session?.user?.nickname;
+    if (userNickname) {
+      memoryContext += `\n\n**用户信息**：用户昵称为「${userNickname}」。你可以在合适的时机（如开场问候、鼓励语句）使用这个昵称来增加亲切感，但不要每句都用，保持自然。`;
+    }
+
     // const data = new StreamData(); // Moved up
     const traceMetadata = { sessionId, userId };
 
