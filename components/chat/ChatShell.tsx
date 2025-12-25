@@ -178,9 +178,21 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
   // ★ Safe Message Display Logic:
   // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
-  // Only show store messages if internal ID matches prop ID (or both undefined)
-  // OR if we just created a session locally (SPA mode) and prop hasn't caught up
-  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isCreatingSession && internalSessionId && !sessionId);
+  // 
+  // Show store messages when:
+  // 1. Session IDs match (normal case)
+  // 2. Both undefined (new chat, no session yet)
+  // 3. Creating session (transient state during creation)
+  // 4. ★ NEW: internalSessionId exists but sessionId prop is undefined AND store has messages
+  //    This handles the SPA case where we created a session locally via window.history.replaceState
+  //    but the React props haven't updated (and won't, since replaceState doesn't trigger navigation)
+  const shouldShowStoreMessages =
+    (sessionId === internalSessionId) ||
+    (!sessionId && !internalSessionId) ||
+    (isCreatingSession && internalSessionId && !sessionId) ||
+    // ★ SPA-created session: internal ID exists, no prop ID, and we have messages in store
+    (!sessionId && internalSessionId && messages.length > 0);
+
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
   // Debug: log message display decision
@@ -195,6 +207,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     condition1_idMatch: sessionId === internalSessionId,
     condition2_bothUndefined: !sessionId && !internalSessionId,
     condition3_creating: isCreatingSession && internalSessionId && !sessionId,
+    condition4_spaCreated: !sessionId && internalSessionId && messages.length > 0,
   });
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
