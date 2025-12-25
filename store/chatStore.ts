@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Message, RouteType, AssessmentStage, ChatState, ActionCard } from '@/types/chat';
+import { Message, RouteType, AssessmentStage, ChatState, ActionCard, SessionStatus } from '@/types/chat';
 
 export interface SkillProgress {
   status: 'not_started' | 'in_progress' | 'done';
@@ -40,6 +40,12 @@ interface ChatStore {
   debugPrompts: any | null;
   validationError: any | null;
   lastRequestPayload: any | null;
+
+  // Session lifecycle status (new)
+  sessionStatus: SessionStatus;
+  setSessionStatus: (status: SessionStatus) => void;
+
+  // @deprecated Use sessionStatus === 'active' instead
   isConsulting: boolean;
   setConsulting: (val: boolean) => void;
 
@@ -92,6 +98,9 @@ export const useChatStore = create<ChatStore>()(
       debugPrompts: null,
       validationError: null,
       lastRequestPayload: null,
+      sessionStatus: 'idle',
+      setSessionStatus: (status: SessionStatus) => set({ sessionStatus: status }),
+      // @deprecated: Use sessionStatus instead. Kept for backward compatibility.
       isConsulting: false,
       setConsulting: (val: boolean) => set({ isConsulting: val }),
 
@@ -213,7 +222,8 @@ export const useChatStore = create<ChatStore>()(
           assessmentStage: undefined,
           initialMessage: undefined,
           followupAnswerDraft: '',
-          isConsulting: false,
+          sessionStatus: 'idle',
+          isConsulting: false, // Keep in sync for backward compat
           // 注意：inputDraft 不重置，以允许"带着输入去新会话"
           error: null,
           debugDrawerOpen: false,

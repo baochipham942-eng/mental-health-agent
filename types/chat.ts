@@ -46,6 +46,15 @@ export interface Emotion {
 export type ChatState = 'normal' | 'awaiting_followup' | 'in_crisis';
 export type AssessmentStage = 'intake' | 'conclusion'; // Removed gap_followup
 
+/**
+ * Session lifecycle status enum.
+ * - 'idle': No active session (e.g., on the New Chat page before the first message).
+ * - 'creating': A new session is being created (first message sent, waiting for server confirmation).
+ * - 'active': An active consultation is in progress.
+ * - 'ended': The session has ended (timer expired, user ended, or historical read-only view).
+ */
+export type SessionStatus = 'idle' | 'creating' | 'active' | 'ended';
+
 export interface ChatRequest {
   message: string;
   history?: Array<{
