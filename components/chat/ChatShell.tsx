@@ -125,6 +125,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, user
         setMessages([]);
         setCurrentSessionId(undefined);
         setSessionStatus('idle');
+        setInternalSessionId(undefined); // Also reset local state for header display
         sessionIdRef.current = undefined;
       } else {
         // Case 3: sessionId defined but no initialMessages (server returned empty)
