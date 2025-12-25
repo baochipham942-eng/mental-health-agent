@@ -248,6 +248,7 @@ export function ChatInput({
           style={{
             fontSize: 18,
             flexShrink: 0,
+            alignSelf: 'center',
           }}
         />
       </div>
