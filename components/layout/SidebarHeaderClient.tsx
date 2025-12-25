@@ -29,10 +29,10 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
                         确定继续吗？
                     </div>
                 ),
-                okText: '结束并开启新咨询',
+                okText: '结束咨询',
                 cancelText: '取消',
                 icon: null,
-                okButtonProps: { status: 'warning' },
+                okButtonProps: { status: 'default' },
                 style: { width: 340, borderRadius: 12 },
                 onOk: async () => {
                     try {

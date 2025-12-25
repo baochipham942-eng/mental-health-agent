@@ -98,10 +98,10 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                                         确定继续吗？
                                     </div>
                                 ),
-                                okText: '结束并切换',
+                                okText: '结束咨询',
                                 cancelText: '继续咨询',
                                 icon: null,
-                                okButtonProps: { status: 'warning' },
+                                okButtonProps: { status: 'default' },
                                 style: { width: 340, borderRadius: 12 },
                                 onOk: async () => {
                                     try {
