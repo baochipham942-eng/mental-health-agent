@@ -901,7 +901,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             isLoading={isLoading}
             isSending={isSending}
             messageExtras={messageExtras}
-            onSendMessage={(text: string) => handleSend(text)}
+            onSendMessage={handleSend}
             scrollContainerRef={scrollContainerRef}
             sessionId={internalSessionId || sessionIdRef.current || ''}
           />
