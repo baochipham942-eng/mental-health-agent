@@ -131,9 +131,10 @@ model ExerciseLog {
 ### 3.1 极简认证流程 (Authentication)
 *   **目标**：零门槛，保护隐私。
 *   **流程**：
-    1.  管理员（开发者）直接在数据库生成一批 User 记录，设置初始密码（例如 `demo123`）。
-    2.  用户访问 Landing Page，输入账号密码。
-    3.  NextAuth 验证 `credentials`，签发 JWT Session。
+    1.  管理员（开发者）直接在数据库生成一批 InvitationCode 记录。邀请码格式支持 6-8 位大写字母或数字（例如 `XLSD2025`）。
+    2.  用户访问 Landing Page，输入账号、密码和邀请码。
+    3.  系统进行格式校验（前端 maxLength=8，后端 zod 验证 6-8 位）。
+    4.  NextAuth 验证 `credentials`，签发 JWT Session。
     4.  Session 包含 `userId`，前端根据此 ID 拉取历史数据。
 
 ### 3.2 对话同步与持久化 (Chat Persistence)

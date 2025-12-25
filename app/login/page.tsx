@@ -221,7 +221,7 @@ export default function LoginPage() {
                                     prefix={<IconSafe />}
                                     placeholder="邀请码"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
-                                    maxLength={6}
+                                    maxLength={8}
                                     style={{ textTransform: 'uppercase' }}
                                     onPressEnter={() => {
                                         const form = document.getElementById('registerForm') as HTMLFormElement;

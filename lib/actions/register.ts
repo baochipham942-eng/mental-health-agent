@@ -12,7 +12,7 @@ import { getRandomProfile } from '@/lib/constants/userProfiles';
 const RegisterSchema = z.object({
     phone: z.string().regex(/^1[3-9]\d{9}$/, '请输入有效的手机号'),
     password: z.string().min(6, '密码至少需要6位'),
-    inviteCode: z.string().length(6, '请输入6位邀请码'),
+    inviteCode: z.string().min(6, '请输入6-8位邀请码').max(8, '请输入6-8位邀请码'),
 });
 
 export async function registerUser(prevState: string | undefined, formData: FormData) {
