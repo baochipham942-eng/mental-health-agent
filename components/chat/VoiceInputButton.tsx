@@ -84,7 +84,7 @@ export function VoiceInputButton({
                         : 'text-gray-400 hover:text-gray-600',
                     disabled && 'opacity-50 cursor-not-allowed'
                 )}
-                style={{ width: size, height: size }}
+                style={{ width: size, height: size, flexShrink: 0, alignSelf: 'center' }}
                 aria-label={isListening ? '停止录音' : '开始语音输入'}
             >
                 {/* 麦克风图标 */}

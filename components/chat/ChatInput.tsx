@@ -151,7 +151,7 @@ export function ChatInput({
   return (
     <div className="w-full">
       {/* 输入框容器 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-end">
         {/* 工具箱 (Magic Wand / Toolkit) - New Phase 2.5 Feature */}
         <Dropdown
           position="tl"
@@ -175,7 +175,7 @@ export function ChatInput({
             type="text"
             shape="circle"
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
-            style={{ width: 36, height: 36, flexShrink: 0 }}
+            style={{ width: 36, height: 36, flexShrink: 0, alignSelf: 'center' }}
           >
             <IconApps style={{ fontSize: 20 }} />
           </Button>
