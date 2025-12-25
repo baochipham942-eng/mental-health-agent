@@ -311,7 +311,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         }
       }
     }
-  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender, inputDraft, updateState]);
+  }, [sessionId, initialMessages, setMessages, internalSessionId, initializedThisRender, inputDraft, updateState, isCreatingSession]);
 
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
