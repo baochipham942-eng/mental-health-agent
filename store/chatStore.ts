@@ -45,6 +45,10 @@ interface ChatStore {
   sessionStatus: SessionStatus | undefined; // undefined = no active session
   setSessionStatus: (status: SessionStatus | undefined) => void;
 
+  // Flag to track if we're in the middle of creating a session (survives remounts)
+  isCreatingSession: boolean;
+  setCreatingSession: (val: boolean) => void;
+
   // @deprecated Use sessionStatus === 'active' instead
   isConsulting: boolean;
   setConsulting: (val: boolean) => void;
@@ -100,6 +104,9 @@ export const useChatStore = create<ChatStore>()(
       lastRequestPayload: null,
       sessionStatus: undefined,
       setSessionStatus: (status: SessionStatus | undefined) => set({ sessionStatus: status }),
+      // Track creating state globally to survive remounts
+      isCreatingSession: false,
+      setCreatingSession: (val: boolean) => set({ isCreatingSession: val }),
       // @deprecated: Use sessionStatus instead. Kept for backward compatibility.
       isConsulting: false,
       setConsulting: (val: boolean) => set({ isConsulting: val }),

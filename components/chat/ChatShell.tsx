@@ -65,6 +65,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     setCurrentSessionId,
     sessionStatus,
     setSessionStatus,
+    isCreatingSession,
+    setCreatingSession,
     // @deprecated: Use sessionStatus instead
     isConsulting,
     setConsulting,
@@ -89,8 +91,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   const prevSessionIdRef = useRef<string | undefined>(sessionId);
   const sessionIdRef = useRef<string | undefined>(sessionId);
   // Track if we're in the middle of creating a new session (transient state, not persisted)
-  const isCreatingRef = useRef(false);
-  // @deprecated comment removed since we now use isCreatingRef
+  // isCreatingSession is now in Zustand store to survive remounts
+  // (replaced local isCreatingRef)
 
   const [isSending, setIsSending] = useState(false);
   // Initial draft from store (if navigating from new chat or switching sessions)
@@ -170,7 +172,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
   // Only show store messages if internal ID matches prop ID (or both undefined)
   // OR if we just created a session locally (SPA mode) and prop hasn't caught up
-  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isCreatingRef.current && internalSessionId && !sessionId);
+  const shouldShowStoreMessages = (sessionId === internalSessionId) || (!sessionId && !internalSessionId) || (isCreatingSession && internalSessionId && !sessionId);
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
@@ -240,7 +242,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
       // If switching to New Chat (!sessionId), reset everything
       // BUT check if we just created it locally (sessionStatus === 'creating'). If so, ignore the mismatch logic.
-      if (!sessionId && !isCreatingRef.current) {
+      if (!sessionId && !isCreatingSession) {
         console.log('[ChatShell] ★ FULL RESET to New Chat mode', {
           prevInternalId: internalSessionId,
           prevSessionIdRef: sessionIdRef.current,
@@ -269,7 +271,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           assessmentStage: undefined,
           initialMessage: undefined,
         });
-      } else if (!sessionId && isCreatingRef.current) {
+      } else if (!sessionId && isCreatingSession) {
         console.log('[ChatShell] Ignoring reset because session is in CREATING state');
         // Keep timer as is (it's running for the new session)
       } else {
@@ -527,7 +529,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   useEffect(() => {
     return () => {
       // 组件卸载时，如果不是在创建新会话的过程中，则重置状态
-      if (!isCreatingRef.current) {
+      if (!isCreatingSession) {
         setSessionStatus(undefined);
         setConsulting(false);
       }
@@ -592,7 +594,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           await updateSessionTitle(currentSessionId, content).catch(console.error);
 
           sessionIdRef.current = currentSessionId;
-          isCreatingRef.current = true; // Mark as creating (transient flag)
+          setCreatingSession(true); // Mark as creating (survives remounts)
           setSessionStatus('active'); // Set status to active immediately
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
@@ -798,7 +800,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         console.log('[ChatShell] handleSend finally block executing, resetting loading states');
         setIsSending(false);
         setLoading(false);
-        isCreatingRef.current = false; // Reset creating flag
+        setCreatingSession(false); // Reset creating flag
       }
     },
     [
