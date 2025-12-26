@@ -20,8 +20,8 @@ import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/
 import { ChatService } from '@/lib/services/chat-service';
 
 /**
- * Helper to create a stream response for fixed string content
- * Emulates the Vercel AI SDK protocol: 0:"text"\nd:{...}\n
+ * 辅助函数：创建固定字符串内容的流式响应
+ * 模拟 Vercel AI SDK 协议: 0:"text"\nd:{...}\n
  */
 function createFixedStreamResponse(content: string, data: StreamData): NextResponse {
   const stream = new ReadableStream({
@@ -54,7 +54,7 @@ function createFixedStreamResponse(content: string, data: StreamData): NextRespo
 // =================================================================================
 // 预设技能卡配置 - 用于直接技能请求的快速响应
 // =================================================================================
-// Export for testing
+// 导出用于测试
 export const SKILL_CARDS = {
   breathing: {
     title: '4-7-8呼吸法',
@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
     const memoryPromise = (userId && history.length > 0)
       ? (async () => {
         try {
-          // Phase 3: Get full memory object including raw memories array
+          // 阶段3：获取包含原始记忆数组的完整记忆对象
           return await memoryManager.getMemoriesForContext(userId, message);
         } catch (e) {
           console.error('[Memory] Failed:', e);
@@ -372,7 +372,7 @@ export async function POST(request: NextRequest) {
       memoryContext = retrievalResult;
     } else if (retrievalResult && typeof retrievalResult === 'object') {
       memoryContext = retrievalResult.contextString || '';
-      // Phase 3 Active Push: Inject relevant memories into data stream
+      // 阶段3 主动推送：将相关记忆注入数据流
       if (retrievalResult.memories?.length > 0) {
         data.append({
           timestamp: new Date().toISOString(),
@@ -484,7 +484,7 @@ export async function POST(request: NextRequest) {
 
 
     // =================================================================================
-    // 1. Crisis Handler (Highest Priority)
+    // 1. 危机处理 (Crisis Handler) - 最高优先级
     // =================================================================================
     console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
@@ -575,7 +575,7 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 2. Support Handler (Positive / Venting / Neutral)
+    // 2. 支持处理 (Support Handler) - 积极/倾诉/中性
     // =================================================================================
     if (routeType === 'support') {
       // SFBT Logic Detection
@@ -628,7 +628,7 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 3. Assessment Handler (Intake Loop -> Conclusion)
+    // 3. 评估处理 (Assessment Handler) - 收集循环 -> 结论
     // =================================================================================
     if (routeType === 'assessment') {
       // 移除 assessment 路由下的硬编码技能快捷路径

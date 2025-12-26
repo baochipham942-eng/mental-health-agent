@@ -5,7 +5,7 @@ import { IDENTITY_PROMPT, SAFETY_PROMPT, INTERACTIVE_RULES_PROMPT } from './prom
 /**
  * 危机干预系统提示词 - 整合版
  */
-const CRISIS_PROMPT = `${IDENTITY_PROMPT}
+export const CRISIS_PROMPT = `${IDENTITY_PROMPT}
 
 ${SAFETY_PROMPT}
 

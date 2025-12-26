@@ -1,0 +1,27 @@
+# Project Constitution (项目宪法)
+
+> 本文件是 AI Agent 的最高行为准则。在任何时候，都必须优先遵循以下规则。
+
+## 1. 语言与沟通 (Language & Communication)
+- **强制语言**: 中文 (Chinese)。
+- **适用范围**: 
+  - 所有回复 (User Responses)
+  - 代码注释 (Code Comments)
+  - 文档 (Documentation)
+  - **实施计划 (Implementation Plans)**
+  - **思维链 (Thinking Process / Task Status)**
+
+## 2. 工作流程 (Workflow: Verify Before Notify)
+- **核心原则**: 禁止在未进行验证的情况下通知用户"已完成"。
+- **执行流程**: `修改代码` -> `运行脚本/测试验证` -> `确认成功` -> `通知用户`。
+
+## 3. 开发规范 (Development Standards)
+- **路由真实性**: 提及路由时必须与 `app/` 目录下的实际文件严格对应。
+- **安全**: 所有敏感密钥 (API Keys) 必须通过环境变量 (`process.env`) 获取，严禁硬编码。
+- **环境**: 
+  - 运行时: Vercel / Next.js Edge
+  - 数据库: Prisma + PostgreSQL
+
+## 4. 架构 (Architecture)
+- **Skill 模式**: `SKILL_MODE=steps_and_cards` 是默认推荐模式。
+- **核心模型**: DeepSeek V3 (Chat), Groq Llama 3 (Analysis).

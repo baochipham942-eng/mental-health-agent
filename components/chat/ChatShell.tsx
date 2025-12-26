@@ -22,11 +22,11 @@ import { Session } from 'next-auth';
 const SESSION_DURATION_SECONDS = 45 * 60; // 45 minutes
 
 interface ChatShellProps {
-  sessionId?: string;  // Optional - undefined for new chat
+  sessionId?: string;  // 可选 - 未定义表示新会话
   initialMessages: Message[];
   isReadOnly?: boolean;
-  initialTimeRemaining?: number; // Server-computed remaining time in seconds
-  user?: Session['user']; // Pass entire user object for permission checks
+  initialTimeRemaining?: number; // 服务端计算的剩余时间（秒）
+  user?: Session['user']; // 传入完整用户对象用于权限检查
 }
 
 export function ChatShell({ sessionId, initialMessages, isReadOnly = false, initialTimeRemaining, user }: ChatShellProps) {
@@ -77,10 +77,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
 
 
-  // Internal session ID state - allows lazy creation
+  // 内部会话ID状态 - 允许懒加载创建
   const [internalSessionId, setInternalSessionId] = useState<string | undefined>(sessionId);
 
-  // Sync internal ID to global store for persistence across remounts
+  // 同步内部ID到全局Store，确保重新挂载时持久化
   useEffect(() => {
     if (internalSessionId) {
       setCurrentSessionId(internalSessionId);
@@ -114,10 +114,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
       const currentStore = useChatStore.getState();
 
-      // ★ SIMPLIFIED LOGIC to prevent cross-session contamination:
-      // 1. If sessionId (prop) is defined AND initialMessages has content → ALWAYS use server data
-      // 2. If sessionId is undefined (New Chat) → Check if we're in SPA mode with URL having ID
-      // 3. Only preserve local data if we're in a genuine SPA race condition
+      // ★ 简化逻辑：防止跨会话数据污染：
+      // 1. 如果 sessionId (prop) 存在 且 initialMessages 有内容 → 始终使用服务端数据
+      // 2. 如果 sessionId 未定义 (新会话) → 检查是否处于 SPA 模式（URL已有ID）
+      // 3. 仅在真正的 SPA 竞态条件下保留本地数据
 
       if (sessionId && initialMessages && initialMessages.length > 0) {
         // Case 1: Existing session with messages - use server data
@@ -176,16 +176,16 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ★ Safe Message Display Logic:
-  // prevent "Flash of Old Content" when store has messages from previous session but props are new (or undefined)
+  // ★ 安全消息显示逻辑：
+  // 防止当 Store 包含旧会话消息但 Props 为新（或未定义）时出现“闪烁旧内容”
   // 
-  // Show store messages when:
-  // 1. Session IDs match (normal case)
-  // 2. Both undefined (new chat, no session yet)
-  // 3. Creating session (transient state during creation)
-  // 4. ★ NEW: internalSessionId exists but sessionId prop is undefined AND store has messages
-  //    This handles the SPA case where we created a session locally via window.history.replaceState
-  //    but the React props haven't updated (and won't, since replaceState doesn't trigger navigation)
+  // 显示 Store 消息的条件：
+  // 1. Session ID 匹配（正常情况）
+  // 2. 都未定义（新会话，尚无 ID）
+  // 3. 正在创建会话（创建过程中的瞬态）
+  // 4. ★ 新增：internalSessionId 存在但 sessionId prop 未定义 且 Store 有消息
+  //    处理 SPA 场景：我们通过 window.history.replaceState 本地创建了会话
+  //    但 React props 尚未更新（也不会更新，因为 replaceState 不触发导航）
   const shouldShowStoreMessages =
     (sessionId === internalSessionId) ||
     (!sessionId && !internalSessionId) ||
