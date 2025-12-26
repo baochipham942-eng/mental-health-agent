@@ -12,7 +12,8 @@
     "verify:config": "ts-node --project tsconfig.scripts.json scripts/verify-smoke-config.ts",
     "test:strip": "ts-node --project tsconfig.scripts.json scripts/conclusion-strip-smoke.ts",
     "test:unit": "ts-node --project tsconfig.scripts.json lib/ai/assessment/sanitize.test.ts",
-    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run test:unit && cross-env SKILL_MODE=steps_and_cards npm run smoke"
+    "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run test:unit && cross-env SKILL_MODE=steps_and_cards npm run smoke",
+    "deploy:build": "npx prisma generate && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.54",

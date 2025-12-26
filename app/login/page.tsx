@@ -1,12 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFormState } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { authenticate } from '@/lib/actions/auth';
 import { registerUser } from '@/lib/actions/register';
 import { Button, Input, Checkbox, Message, Avatar } from '@arco-design/web-react';
 import { IconUser, IconLock, IconPhone, IconSafe } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
+
+// Submit Button with pending state
+function LoginButton() {
+    const { pending } = useFormStatus();
+    return (
+        <Button type="primary" long size="large" htmlType="submit" loading={pending} disabled={pending} className="rounded-xl h-12 text-base mt-2">
+            {pending ? '登录中...' : '登录'}
+        </Button>
+    );
+}
 
 export default function LoginPage() {
     const router = useRouter();
@@ -94,14 +104,19 @@ export default function LoginPage() {
                 };
                 localStorage.setItem('quick_login_info', JSON.stringify(userInfo));
 
-                // Auto Login
+                // Auto Login - authenticate will throw NEXT_REDIRECT on success
                 const loginData = new FormData();
                 loginData.append('quickLoginToken', result.user.quickLoginToken);
                 await authenticate(undefined, loginData);
             } else {
                 Message.error(result.error || '注册失败');
             }
-        } catch (error) {
+        } catch (error: any) {
+            // NEXT_REDIRECT is expected on successful login, rethrow it
+            if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+                throw error;
+            }
+            console.error('Registration error:', error);
             Message.error('注册发生错误');
         } finally {
             setIsRegistering(false);
@@ -173,9 +188,7 @@ export default function LoginPage() {
                                     }}
                                 />
 
-                                <Button type="primary" long size="large" htmlType="submit" className="rounded-xl h-12 text-base mt-2">
-                                    登录
-                                </Button>
+                                <LoginButton />
                             </form>
 
                             <div className="mt-6 flex items-center justify-between text-sm">

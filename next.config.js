@@ -9,6 +9,7 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  output: 'standalone',
   // 旧路由重定向：/dashboard/[id] -> /c/[id]
   async redirects() {
     return [
@@ -19,6 +20,7 @@ const nextConfig = {
       },
     ];
   },
+
   // 确保 API 路由正确配置
   async headers() {
     return [

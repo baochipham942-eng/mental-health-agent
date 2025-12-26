@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
-const AVATAR_DIR = '/Users/linchen/Downloads/心理疗愈agent/public/avatars';
+const AVATAR_DIR = '/Users/linchen/Downloads/ai/心理疗愈agent/public/avatars';
 const TARGET_SIZE = 1024;
 const PADDING = 0.15; // 15% padding on each side -> 70% content size (716px)
 

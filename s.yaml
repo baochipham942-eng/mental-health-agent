@@ -1,0 +1,52 @@
+edition: 3.0.0
+name: mental-health-agent-app
+
+vars:
+  region: "cn-hongkong"
+
+resources:
+  framework:
+    component: fc3
+    props:
+      region: ${vars.region}
+      functionName: "mind"
+      description: '心理疗愈 Agent - Next.js Standalone 部署 (Custom Domain)'
+      runtime: custom.debian10
+      cpu: 1
+      memorySize: 1024
+      diskSize: 512
+      timeout: 180
+      instanceConcurrency: 5
+      code: ./.next/standalone
+      customRuntimeConfig:
+        command:
+          - /var/fc/lang/nodejs20/bin/node
+          - server.js
+        port: 3000
+      triggers:
+        - triggerName: http-trigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+      environmentVariables:
+        PORT: "3000"
+        NODE_ENV: "production"
+        NEXTAUTH_URL: "https://mental.llmxy.xyz"
+        NEXTAUTH_SECRET: "random_string_for_nextauth_signing"
+        AUTH_SECRET: "random_string_for_nextauth_signing"
+        AUTH_TRUST_HOST: "true"
+        DATABASE_URL: "postgresql://neondb_owner:npg_i4wXSFkBIW6x@ep-snowy-bird-ahi67rrf-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
+        DATABASE_URL_UNPOOLED: "postgresql://neondb_owner:npg_i4wXSFkBIW6x@ep-snowy-bird-ahi67rrf.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
+        DEEPSEEK_API_KEY: "sk-eec5139c6cad416388f4b9ac0b083a10"
+      customDomains:
+        - domainName: mental.llmxy.xyz
+          protocol: HTTPS
+          certId: "cert-15340472"
+          routeConfigs:
+            - path: /*
+              functionName: "mind"

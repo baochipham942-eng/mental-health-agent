@@ -13,7 +13,7 @@ export async function authenticate(
 ) {
     try {
         await signIn('credentials', formData, { redirectTo: '/' });
-    } catch (error) {
+    } catch (error: any) {
         if (error instanceof AuthError) {
             switch (error.type) {
                 case 'CredentialsSignin':
@@ -22,7 +22,14 @@ export async function authenticate(
                     return 'Something went wrong.';
             }
         }
-        throw error;
+        // Rethrow redirect errors so Next.js can handle navigation
+        if (error.digest?.startsWith('NEXT_REDIRECT')) {
+            throw error;
+        }
+
+        console.error('Login Error:', error);
+        // Temporarily expose error message for debugging
+        return `Login failed: ${error.message}`;
     }
 }
 
