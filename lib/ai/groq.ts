@@ -31,7 +31,8 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
   "stateReasoning": "简要说明用户的意图和当前对话状态，1句话",
   "emotion": { "label": "焦虑|抑郁|悲伤|愤怒|恐惧|平静|快乐", "score": 1-10 },
   "route": "crisis" | "support" | "assessment",
-  "needsValidation": boolean
+  "needsValidation": boolean,
+  "adaptiveMode": "guardian" | "companion" | "guide" | "coach"
 }
 
 安全等级规则（必须严格遵守，不要过度解读）：
@@ -40,6 +41,12 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
 - normal: 其他所有情况，包括焦虑发作、惊恐、失眠、情绪低落、自我否定、想逃避工作/社交等。
 
 **重要**：务必区分“逃避情境”（如不想开会、想逃跑）与“逃离世界”。前者是 Safety=normal。除非有明确的自伤表述，否则默认 normal。
+
+**适性模式 (adaptiveMode) 选择指南**：
+- guardian: 安全为先。用户处于高危、极度痛苦、应激或退行状态。策略：抱持、安抚。
+- companion: 默认模式。用户情绪且需要倾听，或状态平稳。策略：共情、建立关系。
+- guide: 行为激活。用户表达“不想动”、“起不来”、“没动力”。策略：推动微小行动。
+- coach: 认知挑战。用户处于恢复期，或理性寻找原因。策略：苏格拉底提问、认知重构。
 
 **推理规则**：
 - reasoning 字段必须与 safety 字段逻辑一致。

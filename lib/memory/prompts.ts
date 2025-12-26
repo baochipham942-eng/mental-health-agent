@@ -17,7 +17,7 @@ export const MEMORY_EXTRACTION_PROMPT = `你是一位心理咨询记录整理专
 - **精简**: 每条 content 不得超过 30 字。
 
 **提取规则：**
-1. **记忆点 (Memories)**: 只提取有长期价值的信息。必须包含字段 \`topic\`，取值范围：emotional_pattern, coping_preference, personal_context, therapy_progress, trigger_warning。
+1. **记忆点 (Memories)**: 只提取有长期价值的信息。必须包含字段 \`topic\`，取值范围：emotional_pattern, coping_preference, personal_context, therapy_progress, trigger_warning, communication_style。
 2. **实体 (Entities)**: 识别关键实体。必须包含字段 \`name\` 和 \`type\` (取值：person, event, object, emotion, belief)。
 3. **关系 (Relationships)**: 建立实体间关联。必须包含 \`source\`, \`target\`, \`type\` (取值：trigger, cause, correlate, prevent)。
 

@@ -2,6 +2,7 @@ import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
 import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsageCount } from './golden-examples';
+import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -109,6 +110,8 @@ export async function streamSupportReply(
     traceMetadata?: Record<string, any>;
     memoryContext?: string;
     systemInstructionInjection?: string;
+    adaptiveMode?: AdaptiveMode;
+    userPreferences?: string[];
   }
 ) {
   // 关键词相似度检索相关黄金样本（带内存缓存）
@@ -123,10 +126,18 @@ export async function streamSupportReply(
     console.error('[GoldenCache] Retrieval failed:', e);
   }
 
+  // Build the base prompt with adaptive modifier
+  let finalSystemPrompt = options?.adaptiveMode
+    ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.userPreferences)
+    : SUPPORT_PROMPT;
+
+  // Append context layers
+  finalSystemPrompt += `${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
+
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
+      content: finalSystemPrompt,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',

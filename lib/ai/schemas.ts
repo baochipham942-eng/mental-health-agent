@@ -58,7 +58,7 @@ export const RelationshipSchema = z.object({
 });
 
 export const ExtractedMemorySchema = z.object({
-    topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning']),
+    topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning', 'communication_style']),
     content: z.string(),
     confidence: z.number().min(0).max(1),
     entities: z.array(EntitySchema).optional(),

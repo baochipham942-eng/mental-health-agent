@@ -16,7 +16,8 @@ export type MemoryTopic =
     | 'coping_preference'
     | 'personal_context'
     | 'therapy_progress'
-    | 'trigger_warning';
+    | 'trigger_warning'
+    | 'communication_style';
 
 export const MEMORY_TOPIC_LABELS: Record<MemoryTopic, string> = {
     emotional_pattern: '情绪模式',
@@ -24,6 +25,7 @@ export const MEMORY_TOPIC_LABELS: Record<MemoryTopic, string> = {
     personal_context: '个人背景',
     therapy_progress: '疗愈进展',
     trigger_warning: '敏感话题',
+    communication_style: '沟通偏好',
 };
 
 export const ALL_MEMORY_TOPICS: MemoryTopic[] = [
@@ -32,6 +34,7 @@ export const ALL_MEMORY_TOPICS: MemoryTopic[] = [
     'personal_context',
     'therapy_progress',
     'trigger_warning',
+    'communication_style',
 ];
 
 /**

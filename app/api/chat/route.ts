@@ -18,6 +18,7 @@ import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
 import { ChatService } from '@/lib/services/chat-service';
+import { determinePersonaMode, AdaptiveMode } from '@/lib/ai/persona-manager';
 
 /**
  * 辅助函数：创建固定字符串内容的流式响应
@@ -365,7 +366,39 @@ export async function POST(request: NextRequest) {
       : Promise.resolve({ contextString: '', memories: [] });
 
     // 同时等待两个结果 (Groq 现在包含 safety reasoning)
-    const [analysis, retrievalResult] = await Promise.all([groqPromise, memoryPromise]);
+    // Add Promise for Assessment History logic
+    const assessmentPromise = (userId)
+      ? prisma.assessmentReport.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      }).catch(e => [])
+      : Promise.resolve([]);
+
+    // Add Promise for Global Preferences
+    const preferencePromise = (userId)
+      ? prisma.userMemory.findMany({
+        where: {
+          userId,
+          topic: { in: ['communication_style', 'coping_preference'] }
+        },
+        orderBy: { accessedAt: 'desc' },
+        take: 5
+      }).catch(e => [])
+      : Promise.resolve([]);
+
+    const [analysis, retrievalResult, assessmentHistory, preferenceMemories] = await Promise.all([groqPromise, memoryPromise, assessmentPromise, preferencePromise]);
+
+    const userPreferences = preferenceMemories.map((m: any) => m.content);
+
+    // 计算 Adaptive Persona Mode
+    const adaptiveMode = determinePersonaMode({
+      safety: analysis.safety,
+      emotionScore: analysis.emotion.score,
+      intent: analysis.stateReasoning // Using reasoning or mapping route? Groq intent logic.
+    }, assessmentHistory);
+
+    console.log('[Persona] Adaptive Mode:', adaptiveMode);
 
     // Check if retrievalResult is string (old return) or object
     if (typeof retrievalResult === 'string') {
@@ -474,6 +507,7 @@ export async function POST(request: NextRequest) {
         phase: dialoguePhase,
         riskLevel: riskSignals.level,
       },
+      adaptiveMode,
     } as any);
 
     // Fix: Sticky Logic Removed
@@ -606,7 +640,8 @@ export async function POST(request: NextRequest) {
         saveAssistantMessage(text, {
           toolCalls,
           safety: safetyData,
-          state: stateData
+          state: stateData,
+          adaptiveMode, // Persist mode for Feedback Loop
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
 
         data.append({
@@ -621,7 +656,9 @@ export async function POST(request: NextRequest) {
         onFinish: onFinishWithMeta,
         traceMetadata,
         memoryContext,
-        systemInstructionInjection: sfbtInstruction
+        systemInstructionInjection: sfbtInstruction,
+        adaptiveMode,
+        userPreferences // Pass extracted preferences
       });
       // data.close() moved to onFinish
       return result.toDataStreamResponse({ data });

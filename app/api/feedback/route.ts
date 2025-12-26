@@ -65,10 +65,12 @@ export async function POST(request: NextRequest) {
             try {
                 const message = await prisma.message.findUnique({
                     where: { id: messageId },
-                    select: { conversationId: true, content: true },
+                    select: { conversationId: true, content: true, meta: true },
                 });
 
                 if (message) {
+                    const adaptiveMode = (message.meta as any)?.adaptiveMode;
+
                     // 1. 创建快照 (现有逻辑)
                     await saveConversationAsSnapshot(
                         message.conversationId,
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
                             summary: reason
                                 ? `用户反馈: ${reason}`
                                 : `用户对回复点踩: "${message.content?.substring(0, 50)}..."`,
-                            details: { reason, comment, messageId },
+                            details: { reason, comment, messageId, adaptiveMode },
                             status: 'PENDING'
                         }
                     });
