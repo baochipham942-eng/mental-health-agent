@@ -160,21 +160,21 @@ export function detectDirectSkillRequest(message: string): SkillType | null {
   const lowerMsg = message.toLowerCase();
 
   // 呼吸法
-  if (/(进行|开始|我要|做个|练习).*(呼吸|4.?7.?8|深呼吸)/.test(lowerMsg)) return 'breathing';
+  if (/(进行|开始|我要|做个|练习|试试).*(呼吸|4.?7.?8|深呼吸)/.test(lowerMsg)) return 'breathing';
   // 冥想
-  if (/(进行|开始|我要|做个|练习).*(冥想|正念|静心)/.test(lowerMsg)) return 'meditation';
+  if (/(进行|开始|我要|做个|练习|试试).*(冥想|正念|静心)/.test(lowerMsg)) return 'meditation';
   // 着陆
-  if (/(进行|开始|我要|做个|练习).*(着陆|5.?4.?3.?2.?1)/.test(lowerMsg)) return 'grounding';
+  if (/(进行|开始|我要|做个|练习|试试).*(着陆|5.?4.?3.?2.?1)/.test(lowerMsg)) return 'grounding';
   // 重构
-  if (/(进行|开始|我要|做个|练习).*(认知重构|想法挑战)/.test(lowerMsg)) return 'reframing';
+  if (/(进行|开始|我要|做个|练习|试试).*(认知重构|想法挑战)/.test(lowerMsg)) return 'reframing';
   // 行为激活
-  if (/(进行|开始|我要|做个|练习).*(行为激活|行动任务)/.test(lowerMsg)) return 'activation';
+  if (/(进行|开始|我要|做个|练习|试试).*(行为激活|行动任务)/.test(lowerMsg)) return 'activation';
   // 空椅子
-  if (/(进行|开始|我要|做个|练习).*(空椅子|对话练习)/.test(lowerMsg)) return 'empty_chair';
+  if (/(进行|开始|我要|做个|练习|试试).*(空椅子|对话练习)/.test(lowerMsg)) return 'empty_chair';
   // 情绪记录 - 必须带有"记录"或"打卡"等动作词
-  if (/(进行|开始|我要|做个|练习|打卡).*(情绪记录|记录心情|心情记录|心情打卡)/.test(lowerMsg)) return 'mood_tracker';
+  if (/(进行|开始|我要|做个|练习|打卡|试试).*(情绪记录|记录心情|心情记录|心情打卡)/.test(lowerMsg)) return 'mood_tracker';
   // 脱钩
-  if (/(进行|开始|我要|做个|练习).*(想法脱钩|溪流落叶|落叶练习)/.test(lowerMsg)) return 'leaves_stream';
+  if (/(进行|开始|我要|做个|练习|试试).*(想法脱钩|溪流落叶|落叶练习)/.test(lowerMsg)) return 'leaves_stream';
 
   // 极度具体的指令
   if (/^4.?7.?8$/.test(lowerMsg)) return 'breathing';

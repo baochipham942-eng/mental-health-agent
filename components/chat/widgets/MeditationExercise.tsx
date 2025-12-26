@@ -9,6 +9,41 @@ interface MeditationExerciseProps {
     onStart?: () => void;
 }
 
+/**
+ * 使用 Web Audio API 播放柔和的颂钵/钟声提示音
+ */
+function playCompletionSound() {
+    try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        // 创建振荡器 - 颂钵基音
+        const oscillator = audioContext.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(528, audioContext.currentTime); // 528Hz - 愈合频率
+
+        // 创建包络增益节点
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1); // 淡入
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2); // 缓慢淡出
+
+        // 连接节点
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // 播放
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 2);
+
+        // 清理
+        oscillator.onended = () => {
+            audioContext.close();
+        };
+    } catch (e) {
+        console.warn('[Meditation] Could not play completion sound:', e);
+    }
+}
+
 export function MeditationExercise({ onComplete, setHeaderControl, onStart }: MeditationExerciseProps) {
     const [isRunning, setIsRunning] = useState(false);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -41,6 +76,8 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
 
     const handleStop = () => {
         setIsRunning(false);
+        // 播放结束提示音，让闭眼的用户知道练习结束
+        playCompletionSound();
         if (onComplete && startTimeRef.current) {
             const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
             onComplete(duration);
