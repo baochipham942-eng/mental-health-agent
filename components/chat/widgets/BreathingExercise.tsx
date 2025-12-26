@@ -1,12 +1,85 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BreathingExerciseProps {
     onComplete?: (duration: number) => void;
     setHeaderControl?: (node: React.ReactNode) => void;
     onStart?: () => void;
+}
+
+/**
+ * 环境音管理器 - 持续播放柔和的背景音
+ */
+class AmbientSound {
+    private audioContext: AudioContext | null = null;
+    private oscillator: OscillatorNode | null = null;
+    private gainNode: GainNode | null = null;
+    private lfoGain: GainNode | null = null;
+    private isPlaying = false;
+
+    start() {
+        if (this.isPlaying) return;
+
+        try {
+            this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+            // 主音：低沉的 396Hz（解放频率）
+            this.oscillator = this.audioContext.createOscillator();
+            this.oscillator.type = 'sine';
+            this.oscillator.frequency.setValueAtTime(396, this.audioContext.currentTime);
+
+            // LFO 调制 - 模拟自然的起伏
+            const lfo = this.audioContext.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(0.1, this.audioContext.currentTime); // 很慢的调制
+
+            this.lfoGain = this.audioContext.createGain();
+            this.lfoGain.gain.setValueAtTime(10, this.audioContext.currentTime); // 调制深度
+
+            lfo.connect(this.lfoGain);
+            this.lfoGain.connect(this.oscillator.frequency);
+
+            // 主增益 - 淡入
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+            this.gainNode.gain.linearRampToValueAtTime(0.08, this.audioContext.currentTime + 2); // 柔和音量
+
+            this.oscillator.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+
+            lfo.start();
+            this.oscillator.start();
+            this.isPlaying = true;
+        } catch (e) {
+            console.warn('[Ambient] Could not start ambient sound:', e);
+        }
+    }
+
+    stop() {
+        if (!this.isPlaying || !this.audioContext || !this.gainNode || !this.oscillator) return;
+
+        try {
+            // 淡出
+            this.gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 1);
+
+            // 延迟停止
+            setTimeout(() => {
+                try {
+                    this.oscillator?.stop();
+                    this.audioContext?.close();
+                } catch (e) { }
+                this.audioContext = null;
+                this.oscillator = null;
+                this.gainNode = null;
+                this.lfoGain = null;
+                this.isPlaying = false;
+            }, 1100);
+        } catch (e) {
+            console.warn('[Ambient] Could not stop ambient sound:', e);
+        }
+    }
 }
 
 /**
@@ -49,12 +122,30 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
     const [cycleCount, setCycleCount] = useState(0);
     const [isRunning, setIsRunning] = useState(false);
     const [startTime, setStartTime] = useState<number | null>(null);
+    const ambientRef = useRef<AmbientSound | null>(null);
 
     // 4-7-8 呼吸法节奏 (毫秒)
     // 为了初学者体验，稍微缩短 Hold 时间：吸气 4s - 屏气 4s - 呼气 6s
     const DURATION_INHALE = 4000;
     const DURATION_HOLD = 4000;
     const DURATION_EXHALE = 6000;
+
+    // 背景音与 isRunning 状态同步
+    useEffect(() => {
+        if (isRunning) {
+            if (!ambientRef.current) {
+                ambientRef.current = new AmbientSound();
+            }
+            ambientRef.current.start();
+        } else {
+            ambientRef.current?.stop();
+        }
+
+        // 组件卸载时清理
+        return () => {
+            ambientRef.current?.stop();
+        };
+    }, [isRunning]);
 
     const handleStart = () => {
         setIsRunning(true);
