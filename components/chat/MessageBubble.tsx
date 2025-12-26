@@ -243,6 +243,15 @@ export function MessageBubble({
     }
   };
 
+  // 决定是否显示 CoT 按钮：仅当有实质性思考内容时显示
+  // 如果安全评估为 normal 且没有其他内容，则隐藏按钮，避免打扰用户
+  const hasThinkingContent = !isUser && !isPlaceholderMessage && message.metadata && (
+    (message.metadata.safety?.reasoning && message.metadata.safety.label !== 'normal') ||
+    message.emotion ||
+    message.metadata.state?.reasoning ||
+    message.metadata.routeType
+  );
+
   return (
     <div
       className={cn(
@@ -263,7 +272,7 @@ export function MessageBubble({
         )}
       >
         {/* Logic Chain Visualization (CoT) */}
-        {!isUser && !isPlaceholderMessage && message.metadata?.safety?.reasoning && (
+        {hasThinkingContent && (
           <div className="mb-3 border-b border-indigo-50 pb-2">
             <button
               onClick={() => setShowReasoning(!showReasoning)}
@@ -274,10 +283,15 @@ export function MessageBubble({
             </button>
             {showReasoning && (
               <div className="mt-2 text-[11px] leading-relaxed text-gray-500 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="flex items-center gap-1.5 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                  🛡️ 安全评估
-                </div>
-                <p className="pl-1 italic border-l-2 border-indigo-100">{message.metadata.safety.reasoning}</p>
+                {/* 仅当有实际风险时才展示安全评估详情 (避免在正常对话中出现"自杀"等字眼) */}
+                {message.metadata?.safety && message.metadata?.safety?.label !== 'normal' && (
+                  <>
+                    <div className="flex items-center gap-1.5 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
+                      🛡️ 安全评估
+                    </div>
+                    <p className="pl-1 italic border-l-2 border-indigo-100">{message.metadata?.safety?.reasoning}</p>
+                  </>
+                )}
 
                 {message.emotion && (
                   <>
@@ -291,12 +305,12 @@ export function MessageBubble({
                   </>
                 )}
 
-                {message.metadata.state?.reasoning && (
+                {message.metadata?.state?.reasoning && (
                   <>
                     <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
                       🎯 对话状态
                     </div>
-                    <p className="pl-1 italic border-l-2 border-purple-100">{message.metadata.state.reasoning}</p>
+                    <p className="pl-1 italic border-l-2 border-purple-100">{message.metadata?.state?.reasoning}</p>
                   </>
                 )}
 
@@ -306,8 +320,8 @@ export function MessageBubble({
                       🛣️ 专家路由
                     </div>
                     <p className="pl-1 italic border-l-2 border-blue-100 font-mono text-xs">
-                      {message.metadata.routeType === 'crisis' ? '🚨 危机干预专家' :
-                        message.metadata.routeType === 'assessment' ? '📋 心理评估专家' : '❤️ 情感支持专家'}
+                      {message.metadata?.routeType === 'crisis' ? '🚨 危机干预专家' :
+                        message.metadata?.routeType === 'assessment' ? '📋 心理评估专家' : '❤️ 情感支持专家'}
                     </p>
                   </>
                 )}
