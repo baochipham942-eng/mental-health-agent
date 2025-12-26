@@ -5,6 +5,7 @@ import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/db/prisma';
 import { getRandomProfile, getProfileById } from '@/lib/constants/userProfiles';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import crypto from 'crypto';
 
 export async function authenticate(
@@ -12,25 +13,31 @@ export async function authenticate(
     formData: FormData,
 ) {
     try {
-        await signIn('credentials', formData, { redirectTo: '/' });
+        // Don't use redirectTo here - we'll handle redirect explicitly
+        await signIn('credentials', formData);
     } catch (error: any) {
-        if (error instanceof AuthError) {
-            switch (error.type) {
-                case 'CredentialsSignin':
-                    return 'Invalid credentials.';
-                default:
-                    return 'Something went wrong.';
-            }
-        }
-        // Rethrow redirect errors so Next.js can handle navigation
+        // FIRST: Handle redirect (signIn throws NEXT_REDIRECT on success)
         if (error.digest?.startsWith('NEXT_REDIRECT')) {
             throw error;
         }
 
+        // THEN: Handle auth errors (with unique timestamp to force UI update)
+        if (error instanceof AuthError) {
+            const ts = Date.now();
+            switch (error.type) {
+                case 'CredentialsSignin':
+                    return `密码错误 [${ts}]`;
+                default:
+                    return `登录失败 [${ts}]`;
+            }
+        }
+
         console.error('Login Error:', error);
-        // Temporarily expose error message for debugging
-        return `Login failed: ${error.message}`;
+        return `登录失败: ${error.message} [${Date.now()}]`;
     }
+
+    // If signIn didn't throw (success without redirect), redirect explicitly
+    redirect('/');
 }
 
 /**

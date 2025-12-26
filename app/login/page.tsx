@@ -50,7 +50,9 @@ export default function LoginPage() {
     // Effect to handle server-side login error
     useEffect(() => {
         if (loginError) {
-            Message.error(loginError);
+            // Strip timestamp suffix (e.g., "密码错误 [1703663000000]" -> "密码错误")
+            const cleanError = loginError.replace(/\s*\[\d+\]$/, '');
+            Message.error(cleanError);
         }
     }, [loginError]);
 
