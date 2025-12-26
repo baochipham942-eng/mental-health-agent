@@ -47,8 +47,9 @@ export async function POST(request: NextRequest) {
         const updated = await prisma.conversationEvaluation.update({
             where: { id: evaluationId },
             data: {
-                adoptedAt: new Date(),
-                adoptedBy: session?.user?.name || 'admin',
+                reviewStatus: 'ADOPTED',
+                reviewedAt: new Date(),
+                reviewedBy: session?.user?.name || 'admin',
             },
         });
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            adoptedAt: updated.adoptedAt?.toISOString(),
+            adoptedAt: updated.reviewedAt?.toISOString(),
         });
 
     } catch (error) {

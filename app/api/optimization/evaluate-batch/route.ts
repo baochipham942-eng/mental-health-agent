@@ -120,10 +120,6 @@ export async function POST(request: NextRequest) {
                             where: { conversationId: conv.id },
                             data: {
                                 overallGrade: 'FAILED',
-                                legalGrade: 'FAILED',
-                                ethicalGrade: 'FAILED',
-                                professionalGrade: 'FAILED',
-                                uxGrade: 'FAILED',
                             },
                         });
                     } catch (updateError) {

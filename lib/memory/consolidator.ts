@@ -141,6 +141,9 @@ export async function consolidateMemories(
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 accessedAt: new Date(),
+                accessCount: 1,
+                stabilityFactor: 1.0,
+                memoryStrength: 1.0,
             };
             existingForTopic.push(fakeMemory);
             existingMemoriesMap.set(newMemory.topic, existingForTopic);

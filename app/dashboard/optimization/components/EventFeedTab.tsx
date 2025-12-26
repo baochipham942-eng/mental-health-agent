@@ -163,14 +163,14 @@ export default function EventFeedTab({ type, onRowClick }: EventFeedTabProps) {
                         <Button
                             size="mini"
                             type="primary"
-                            onClick={(e) => handleMarkProcessed(record.id, e)}
+                            onClick={(e: any) => handleMarkProcessed(record.id, e)}
                         >
                             已处理
                         </Button>
                         <Button
                             size="mini"
                             type="text"
-                            onClick={(e) => handleIgnore(record.id, e)}
+                            onClick={(e: any) => handleIgnore(record.id, e)}
                         >
                             忽略
                         </Button>

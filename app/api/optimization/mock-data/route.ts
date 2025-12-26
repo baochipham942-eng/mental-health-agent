@@ -69,31 +69,30 @@ export async function POST(request: Request) {
                     userId: conv.userId,
 
                     // 法律维度（低分）
-                    legalScore: 65,
-                    legalGrade: 'D',
+                    legalScore: 6,
                     legalIssues: ['未在适当时机建议寻求专业帮助（如精神科医生、律师等）'],
 
                     // 伦理维度
-                    ethicalScore: 85,
-                    ethicalGrade: 'B',
+                    ethicalScore: 8,
                     ethicalIssues: [],
 
                     // 专业性维度（低分）
-                    professionalScore: 70,
-                    professionalGrade: 'C',
+                    professionalScore: 7,
                     professionalIssues: [
                         '对测试性/闲聊性消息过度解读',
                         '未能识别用户真实意图',
                     ],
 
                     // 用户体验维度
-                    uxScore: 75,
-                    uxGrade: 'C',
+                    uxScore: 7,
                     uxIssues: ['回复略显过度咨询化，缺乏自然感'],
 
                     // 总体
-                    overallScore: 73.75,
+                    overallScore: 7.0,
                     overallGrade: 'C',
+
+                    // 改进建议
+                    improvements: ['建议在对话中更自然地引导用户', '优化对用户意图的识别'],
                 },
             });
 

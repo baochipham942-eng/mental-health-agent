@@ -63,6 +63,9 @@ export class MemoryManager {
                     createdAt: m.createdAt,
                     updatedAt: m.updatedAt,
                     accessedAt: m.accessedAt,
+                    accessCount: m.accessCount,
+                    stabilityFactor: m.stabilityFactor,
+                    memoryStrength: m.memoryStrength,
                 });
             }
 

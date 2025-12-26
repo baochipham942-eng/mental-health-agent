@@ -13,26 +13,26 @@ export interface SkillStats {
 export async function getEffectiveSkills(userId: string, limit: number = 2): Promise<SkillStats[]> {
     try {
         const logs = await prisma.exerciseLog.groupBy({
-            by: ['cardId'],
+            by: ['type'],
             where: {
                 userId: userId,
-                postMoodScore: { gt: 0 }, // Ensure valid post score
+                postMood: { gt: 0 }, // Ensure valid post score
             },
             _count: {
-                cardId: true,
+                type: true,
             },
             _avg: {
-                preMoodScore: true,
-                postMoodScore: true,
+                preMood: true,
+                postMood: true,
             },
         });
 
         // Calculate improvement delta
         const stats: SkillStats[] = logs.map(log => ({
-            cardId: log.cardId,
-            count: log._count.cardId,
+            cardId: log.type, // 'type' field stores the card/skill type
+            count: log._count?.type || 0,
             // Improvement = Post - Pre. (If Pre is null, assume default 5)
-            avgImprovement: (log._avg.postMoodScore || 0) - (log._avg.preMoodScore || 5),
+            avgImprovement: (log._avg?.postMood || 0) - (log._avg?.preMood || 5),
         }));
 
         // Filter positive improvement and sort by improvement desc
@@ -45,3 +45,4 @@ export async function getEffectiveSkills(userId: string, limit: number = 2): Pro
         return [];
     }
 }
+
