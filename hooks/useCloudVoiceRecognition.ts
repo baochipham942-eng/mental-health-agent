@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { bufferToWav } from '@/lib/utils/audio';
+// Static imports to ensure reliability
+import { bufferToWav, bufferToPCM, downsampleBuffer, floatTo16BitPCM } from '@/lib/utils/audio';
 
 export type CloudVoiceStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
@@ -22,8 +23,8 @@ interface UseCloudVoiceRecognitionReturn {
 
 /**
  * 云端语音识别 Hook (使用 Baidu Speech API)
- * 使用 MediaRecorder 录音，客户端重采样为 16000Hz WAV 上传
- * 使用纯 JS 转换，确保兼容性和格式准确性
+ * 使用 MediaRecorder 录音，客户端重采样为 16000Hz PCM 上传
+ * 强制使用 PCM 格式，避免 WAV 头部信息导致百度采样率校验失败
  */
 export function useCloudVoiceRecognition(
     options: UseCloudVoiceRecognitionOptions = {}
@@ -105,28 +106,24 @@ export function useCloudVoiceRecognition(
                         const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
                         // 2. Manual Downsample to 16000Hz (Pure JS)
-                        // Dynamic import utils
-                        const { downsampleBuffer, bufferToWav } = await import('@/lib/utils/audio');
+                        // Use static imported utils
                         const targetRate = 16000;
                         const downsampledFloat = downsampleBuffer(decodedBuffer, targetRate);
+                        const pcmBuffer = floatTo16BitPCM(downsampledFloat);
 
-                        // 3. Create 16kHz AudioBuffer
-                        // Warning: createBuffer requires a context. We reuse the existing one.
-                        const newBuffer = audioContext.createBuffer(1, downsampledFloat.length, targetRate);
-                        newBuffer.copyToChannel(downsampledFloat, 0);
+                        // 3. Create PCM Blob
+                        const pcmBlob = new Blob([pcmBuffer], { type: 'application/octet-stream' });
 
-                        // 4. Encode as WAV
-                        const wavBlob = bufferToWav(newBuffer);
-
-                        console.log('[CloudVoice] Audio processed to WAV:', {
+                        console.log('[CloudVoice] Audio processed to PCM:', {
                             originalRate: decodedBuffer.sampleRate,
                             targetRate: targetRate,
-                            wavSize: wavBlob.size
+                            pcmSize: pcmBlob.size
                         });
 
-                        // 5. Upload WAV
+                        // 5. Upload PCM
                         const formData = new FormData();
-                        formData.append('audio', wavBlob, 'recording.wav');
+                        // 强制文件名后缀为 .pcm
+                        formData.append('audio', pcmBlob, 'recording.pcm');
 
                         const response = await fetch('/api/speech/transcribe', {
                             method: 'POST',

@@ -88,11 +88,13 @@ export async function POST(request: NextRequest) {
         }
 
         // 调用百度语音识别 API
-        const baiduUrl = `https://vop.baidu.com/server_api?dev_pid=1537&cuid=mental_health_app&token=${token}`;
+        // 参数全部放入 JSON body 中
+        const baiduUrl = `https://vop.baidu.com/server_api`;
 
         const payload = {
             format: format,
             rate: 16000,
+            dev_pid: 1537,
             channel: 1,
             cuid: 'mental_health_app_' + Date.now(),
             token: token,
