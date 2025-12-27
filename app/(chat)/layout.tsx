@@ -86,6 +86,7 @@ export default async function ChatLayout({
                     />
                 }
                 user={session?.user}
+                isAdmin={isAdmin}
             />
 
             {/* 主内容区域 - children 会在路由变化时平滑替换 */}

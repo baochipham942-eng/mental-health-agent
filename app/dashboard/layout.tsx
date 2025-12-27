@@ -70,7 +70,7 @@ export default async function DashboardLayout({
                         hideSessionAction={hideSession}
                     />
                 }
-                userMenu={
+                usermenu={
                     <UserMenuWrapper
                         userName={userName}
                         nickname={(session?.user as any)?.nickname}
@@ -80,6 +80,7 @@ export default async function DashboardLayout({
                     />
                 }
                 user={session?.user}
+                isAdmin={isAdmin}
             />
 
             {/* 主内容区域 */}
