@@ -37,11 +37,26 @@ export default function LoginPage() {
     // 标准登录处理
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setIsLoggingIn(true);
 
         const formData = new FormData(e.currentTarget);
-        const username = formData.get('username') as string;
+        const username = (formData.get('username') as string)?.trim();
         const password = formData.get('password') as string;
+
+        // 前端验证
+        if (!username) {
+            Message.warning('请输入手机号或账号');
+            return;
+        }
+        if (!password) {
+            Message.warning('请输入密码');
+            return;
+        }
+        if (password.length < 6) {
+            Message.warning('密码至少需要6位');
+            return;
+        }
+
+        setIsLoggingIn(true);
 
         try {
             const result = await signIn('credentials', {
@@ -98,8 +113,34 @@ export default function LoginPage() {
     // 注册处理
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setIsRegistering(true);
         const formData = new FormData(e.currentTarget);
+        const phone = (formData.get('phone') as string)?.trim();
+        const password = formData.get('password') as string;
+        const inviteCode = (formData.get('inviteCode') as string)?.trim();
+
+        // 前端验证
+        if (!phone) {
+            Message.warning('请输入手机号');
+            return;
+        }
+        if (!/^1[3-9]\d{9}$/.test(phone)) {
+            Message.warning('请输入有效的11位手机号');
+            return;
+        }
+        if (!password) {
+            Message.warning('请设置密码');
+            return;
+        }
+        if (password.length < 6) {
+            Message.warning('密码至少需要6位');
+            return;
+        }
+        if (!inviteCode) {
+            Message.warning('请输入邀请码');
+            return;
+        }
+
+        setIsRegistering(true);
 
         try {
             const result: any = await registerUser(undefined, formData);
