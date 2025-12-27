@@ -100,46 +100,46 @@ export function useCloudVoiceRecognition(
                             type: audioBlob.type,
                         });
 
-                        // 重采样到 16000Hz (百度语音要求)
-                        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                        const arrayBuffer = await audioBlob.arrayBuffer();
-                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        mediaRecorder.onstop = async () => {
+                            const mimeType = mediaRecorder.mimeType;
+                            const audioBlob = new Blob(chunksRef.current, { type: mimeType });
 
-                        const offlineContext = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
-                        const source = offlineContext.createBufferSource();
-                        source.buffer = audioBuffer;
-                        source.connect(offlineContext.destination);
-                        source.start();
+                            console.log('[CloudVoice] Original audio:', {
+                                type: mimeType,
+                                size: audioBlob.size,
+                            });
 
+                            const formData = new FormData();
+                            // 传原始文件，让服务端判断格式
+                            formData.append('audio', audioBlob, `recording.${mimeType.includes('webm') ? 'webm' : 'm4a'}`);
 
-                        const renderedBuffer = await offlineContext.startRendering();
+                            try {
+                                console.log('[CloudVoice] Sending to API...');
+                                const response = await fetch('/api/speech/transcribe', {
+                                    method: 'POST',
+                                    body: formData,
+                                });
 
-                        // 转换为 PCM 格式 (无头) - 避免百度报错 3311 (WAV头采样率问题)
-                        const pcmBlob = bufferToPCM(renderedBuffer);
+                                console.log('[CloudVoice] Response status:', response.status);
 
-                        const formData = new FormData();
-                        formData.append('audio', pcmBlob, 'recording.pcm');
+                                const responseData = await response.json();
+                                console.log('[CloudVoice] Response data:', responseData);
 
-                        console.log('[CloudVoice] Sending 16kHz PCM to API...', pcmBlob.size);
-                        const response = await fetch('/api/speech/transcribe', {
-                            method: 'POST',
-                            body: formData,
-                        });
+                                if (!response.ok) {
+                                    throw new Error(responseData.error || '转写失败');
+                                }
 
-                        console.log('[CloudVoice] Response status:', response.status);
-
-                        const responseData = await response.json();
-                        console.log('[CloudVoice] Response data:', responseData);
-
-                        if (!response.ok) {
-                            throw new Error(responseData.error || '转写失败');
-                        }
-
-                        const { text } = responseData;
-                        if (text && onTranscript) {
-                            onTranscript(text);
-                        }
-                        setStatus('idle');
+                                const { text } = responseData;
+                                if (text && onTranscript) {
+                                    onTranscript(text);
+                                }
+                                setStatus('idle');
+                            } catch (err) {
+                                console.error('[CloudVoice] Upload error:', err);
+                                setError(err instanceof Error ? err.message : '上传失败');
+                                setStatus('error');
+                            }
+                        };
                     } catch (err) {
                         console.error('[CloudVoice] Transcription or audio processing error:', err);
                         setError(err instanceof Error ? err.message : '转写失败');
