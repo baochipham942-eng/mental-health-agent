@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { Message } from '@/types/chat';
 import { Message as Toast } from '@arco-design/web-react';
 import { IconThumbUp, IconThumbDown, IconThumbUpFill, IconThumbDownFill } from '@arco-design/web-react/icon';
@@ -337,7 +338,7 @@ export function MessageBubble({
             {/* Generative UI Tool Calling Logic */}
             {toolCalls && toolCalls.length > 0 ? (
               <div className="space-y-4">
-                {displayContent && <ReactMarkdown className="prose prose-sm max-w-none">{displayContent}</ReactMarkdown>}
+                {displayContent && <ReactMarkdown className="prose prose-sm max-w-none" remarkPlugins={[remarkBreaks]}>{displayContent}</ReactMarkdown>}
                 {toolCalls.map((tc: any) => {
                   try {
                     if (!tc?.function?.arguments) return null;
@@ -407,7 +408,7 @@ export function MessageBubble({
                     {/* intake 阶段：普通气泡样式，不突出 - 移除numbered list，保持一致性 */}
                     <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                       {displayContent && <p className="mb-2">{displayContent}</p>}
-                      <ReactMarkdown>{assistantQuestions.join('\n\n')}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkBreaks]}>{assistantQuestions.join('\n\n')}</ReactMarkdown>
                     </div>
                     {/* intake 阶段已渲染问题，不再渲染 message.content（已去重） */}
                   </>
@@ -434,7 +435,7 @@ export function MessageBubble({
                             })()}
                           </p>
                           <div className="prose prose-sm max-w-none text-gray-700 space-y-2 leading-relaxed">
-                            <ReactMarkdown>{assistantQuestions[0]}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkBreaks]}>{assistantQuestions[0]}</ReactMarkdown>
                           </div>
                           {/* 修复：在 gap_followup 阶段，如果问题明确要求用0-10评分，显示可点击选项 */}
                           {/* 更严格的检测：需要明确的评分请求模式，避免误触发 */}
@@ -457,14 +458,14 @@ export function MessageBubble({
                       </>
                     ) : (
                       // 如果没有 assistantQuestions，降级为普通 markdown 渲染
-                      <ReactMarkdown>{displayContent}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkBreaks]}>{displayContent}</ReactMarkdown>
                     )}
                   </>
                 ) : (
                   <>
                     {/* 其他阶段：正常渲染 message.content */}
                     <div style={{ color: '#111827' }}>
-                      <ReactMarkdown>{displayContent || ''}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkBreaks]}>{displayContent || ''}</ReactMarkdown>
                     </div>
                     {/* Debug: 如果没内容，显示提示 */}
                     {(!displayContent && !isLoading) && (
