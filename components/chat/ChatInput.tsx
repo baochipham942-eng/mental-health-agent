@@ -286,7 +286,7 @@ export function ChatInput({
             style={{
               minHeight: '24px',
               maxHeight: '144px',
-              padding: '0 12px',
+              padding: '10px 12px 0 12px', // 10px top padding 推动文字居中
               margin: 0,
               lineHeight: '24px',
             }}
