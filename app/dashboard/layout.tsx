@@ -62,37 +62,24 @@ export default async function DashboardLayout({
         <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
             <AuthSync />
             {/* 侧边栏 (响应式：Mobile Drawer / Desktop Sidebar) */}
-            <SidebarMobileWrapper>
-                <div className="flex h-full flex-col px-3 py-4 md:px-3">
-                    <SidebarHeaderClient createNewSessionAction={createNewSession} />
-
-                    <div className="flex grow flex-col min-h-0 space-y-2 overflow-hidden">
-                        <div className="flex flex-col min-h-0 grow">
-                            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mt-5 mb-2 px-1">
-                                历史记录
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin">
-                                <SidebarListClient
-                                    sessions={formattedSessions}
-                                    hideSessionAction={hideSession}
-                                />
-                            </div>
-                        </div>
-
-                        {/* 用户菜单（整合记忆 + 退出登录） */}
-                        <div className="flex-shrink-0 mt-auto pt-3 border-t border-slate-100">
-                            <UserMenuWrapper
-                                userName={userName}
-                                nickname={(session?.user as any)?.nickname}
-                                avatar={(session?.user as any)?.avatar}
-                                isAdmin={isAdmin}
-                                signOutAction={handleSignOut}
-                            />
-                        </div>
-                    </div>
-                </div>
-            </SidebarMobileWrapper>
+            <SidebarMobileWrapper
+                header={<SidebarHeaderClient createNewSessionAction={createNewSession} />}
+                history={
+                    <SidebarListClient
+                        sessions={formattedSessions}
+                        hideSessionAction={hideSession}
+                    />
+                }
+                userMenu={
+                    <UserMenuWrapper
+                        userName={userName}
+                        nickname={(session?.user as any)?.nickname}
+                        avatar={(session?.user as any)?.avatar}
+                        isAdmin={isAdmin}
+                        signOutAction={handleSignOut}
+                    />
+                }
+            />
 
             {/* 主内容区域 */}
             <div className="flex-grow overflow-y-auto flex flex-col min-h-0">

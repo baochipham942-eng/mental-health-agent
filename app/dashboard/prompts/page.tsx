@@ -12,6 +12,12 @@ import { EFT_VALIDATION_PROMPT } from '@/lib/ai/prompts-eft';
 import { MENTORS } from '@/lib/ai/mentors/personas';
 import { MBTI_PERSONAS } from '@/lib/ai/mbti/personas';
 
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: '系统 Prompt 看板',
+};
+
 export const dynamic = 'force-dynamic';
 
 export default async function PromptsDashboardPage() {
@@ -37,7 +43,7 @@ export default async function PromptsDashboardPage() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50">
-            <header className="flex-none px-6 py-4 bg-white border-b border-slate-200">
+            <header className="flex-none px-6 py-4 bg-white border-b border-slate-200 hidden md:block">
                 <div className="flex items-center justify-between max-w-5xl mx-auto">
                     <div>
                         <h1 className="text-xl font-bold text-slate-800">系统 Prompt 看板</h1>

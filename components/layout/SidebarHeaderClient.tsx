@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useChatStore } from '@/store/chatStore';
 import { Modal } from '@arco-design/web-react';
 import { IconPlus, IconStop } from '@arco-design/web-react/icon';
@@ -68,7 +69,9 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
         <>
             {/* Sidebar Header - Logo as a whole unit */}
             <div className="mb-6 px-1">
-                <Logo />
+                <Link href="/" className="block cursor-pointer">
+                    <Logo />
+                </Link>
             </div>
 
             <button

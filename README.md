@@ -1,5 +1,7 @@
 # 心灵树洞
 
+> **🔴 重要提示**：在部署前，请务必阅读 [PROJECT_CONSTITUTION.md](./PROJECT_CONSTITUTION.md) 以了解核心部署规则 (The Dual Deployment Rule) 和开发原则。
+
 基于认知行为疗法（CBT）的AI心理咨询聊天机器人，使用DeepSeek模型提供专业的心理健康支持。
 
 ## 功能特性

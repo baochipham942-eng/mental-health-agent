@@ -1,7 +1,7 @@
 'use client';
 
-import { KeyboardEvent, useRef, useEffect, useCallback } from 'react';
-import { Button, Dropdown, Menu } from '@arco-design/web-react';
+import { KeyboardEvent, useRef, useEffect, useCallback, useState } from 'react';
+import { Button, Dropdown, Menu, Drawer } from '@arco-design/web-react';
 import { IconSend, IconLoading, IconApps } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
@@ -28,6 +28,7 @@ export function ChatInput({
   autoFocus = true,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [skillsOpen, setSkillsOpen] = useState(false);
 
   // 自适应高度：1-6行，超出内部滚动
   // 修复：避免设置 height=auto 导致的视觉跳变
@@ -167,37 +168,97 @@ export function ChatInput({
     <div className="w-full">
       {/* 输入框容器 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-end">
-        {/* 工具箱 (Magic Wand / Toolkit) - New Phase 2.5 Feature */}
-        <Dropdown
-          position="tl"
-          triggerProps={{
-            popupStyle: { zIndex: 2000 }, // Ensure menu is above everything else
-          }}
-          droplist={
-            <Menu onClickMenuItem={(key) => onSend(`我想试试${key}`)}>
-              <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (缓解焦虑)</Menu.Item>
-              <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
-              <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
-              <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
-              <Menu.Item key="溪流落叶">🍃 溪流落叶 (改善纠结)</Menu.Item>
-              <Menu.Item key="认知重构">🧠 认知重构 (转换视角)</Menu.Item>
-              <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
-              <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
-            </Menu>
-          }
-        >
+        {/* Tool Kit Trigger - Responsive */}
+        {/* Desktop: Dropdown Menu */}
+        <div className="hidden md:block">
+          <Dropdown
+            position="tl"
+            triggerProps={{
+              popupStyle: { zIndex: 2000 },
+            }}
+            droplist={
+              <Menu onClickMenuItem={(key) => onSend(`我想试试${key}`)}>
+                <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (缓解焦虑)</Menu.Item>
+                <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
+                <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
+                <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
+                <Menu.Item key="溪流落叶">🍃 溪流落叶 (改善纠结)</Menu.Item>
+                <Menu.Item key="认知重构">🧠 认知重构 (转换视角)</Menu.Item>
+                <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
+                <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
+              </Menu>
+            }
+          >
+            <Button
+              type="text"
+              shape="circle"
+              className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
+              style={{ width: 44, height: 44, flexShrink: 0, marginBottom: '4px' }}
+            >
+              <IconApps style={{ fontSize: 20 }} />
+            </Button>
+          </Dropdown>
+        </div>
+
+        {/* Mobile: Bottom ActionSheet (Drawer) */}
+        <div className="md:hidden">
           <Button
             type="text"
             shape="circle"
+            onClick={() => setSkillsOpen(true)}
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
-            style={{ width: 36, height: 36, flexShrink: 0, alignSelf: 'center' }}
+            style={{ width: 44, height: 44, flexShrink: 0, marginBottom: '4px' }}
           >
-            <IconApps style={{ fontSize: 20 }} />
+            <IconApps style={{ fontSize: 22 }} />
           </Button>
-        </Dropdown>
 
-        {/* 输入框包装器 - 使用 flex 实现真正的垂直居中 */}
-        <div className="flex-1 flex items-center min-h-[44px]">
+          <Drawer
+            visible={skillsOpen}
+            onCancel={() => setSkillsOpen(false)}
+            placement="bottom"
+            height="auto"
+            footer={null}
+            title={
+              <div className="text-center w-full relative">
+                <span className="text-gray-900 font-semibold">心理技能工具箱</span>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 rounded-full"></div>
+              </div>
+            }
+            className="rounded-t-2xl [&_.arco-drawer-header]:border-none [&_.arco-drawer-header]:pt-4"
+          >
+            <div className="grid grid-cols-4 gap-3 pb-6 px-1">
+              {[
+                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习" },
+                { key: "正念冥想", emoji: "🧘", label: "正念冥想" },
+                { key: "空椅子", emoji: "🪑", label: "空椅子" },
+                { key: "着陆技术", emoji: "🦶", label: "五感着陆" },
+                { key: "溪流落叶", emoji: "🍃", label: "溪流落叶" },
+                { key: "认知重构", emoji: "🧠", label: "认知重构" },
+                { key: "行为激活", emoji: "⚡️", label: "行为激活" },
+                { key: "情绪记录", emoji: "🌡️", label: "情绪记录" },
+              ].map((skill) => (
+                <div
+                  key={skill.key}
+                  onClick={() => {
+                    onSend(`我想试试${skill.key}`);
+                    setSkillsOpen(false);
+                  }}
+                  className="flex flex-col items-center gap-2 p-2 active:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-gray-100">
+                    {skill.emoji}
+                  </div>
+                  <span className="text-[11px] font-medium text-gray-600 text-center leading-tight">
+                    {skill.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Drawer>
+        </div>
+
+        {/* 输入框包装器 - 使用 flex 实现真正的垂直居中, min-w-0 防止溢出 */}
+        <div className="flex-1 flex items-center min-h-[44px] min-w-0">
           <textarea
             ref={textareaRef}
             value={value}
@@ -263,7 +324,8 @@ export function ChatInput({
           style={{
             fontSize: 18,
             flexShrink: 0,
-            alignSelf: 'center',
+            // 移除 alignSelf: center，让 items-end 生效，确保多行时与底部对齐
+            marginBottom: '0px',
           }}
         />
       </div>

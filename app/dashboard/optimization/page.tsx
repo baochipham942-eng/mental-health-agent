@@ -208,7 +208,7 @@ export default function OptimizationPage() {
         <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 to-indigo-50">
             <div className="max-w-7xl mx-auto p-6 space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between hidden md:flex">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Prompt 优化审批</h1>
                         <p className="text-sm text-gray-500 mt-1">基于 AI 评估的自动化 Prompt 改进建议</p>

@@ -248,3 +248,42 @@ export async function streamAssessmentConclusion(
     }
   });
 }
+
+/**
+ * 剥离 Action Cards JSON 和 【下一步清单】
+ * 用于确保回复中只包含【初筛总结】和【风险与分流】
+ */
+export function removeActionCardsFromReply(reply: string): string {
+  if (!reply) return '';
+
+  let clean = reply;
+
+  // 1. 移除 Markdown JSON 代码块
+  clean = clean.replace(/```json[\s\S]*?```/gi, '');
+
+  // 2. 移除裸露的 JSON 对象 (包含 "actionCards" 键的)
+  clean = clean.replace(/\{[\s\S]*?"actionCards"[\s\S]*?\}/gi, '');
+
+  // 3. 移除 【下一步清单】及其后续内容
+  // 匹配策略：从 【下一步清单】 开始，直到下一个 【...】 标题或文件结束
+  // 但通常 【下一步清单】 是最后一部分，所以简单起见：
+  const nextStepsIndex = clean.indexOf('【下一步清单】');
+  if (nextStepsIndex !== -1) {
+    // 检查是否有后续的其他标题（如 【其他】），如果有，只删除到下一个标题前
+    // 这里简单假设它是末尾，或者是需要被移除的段落
+    const afterNextSteps = clean.substring(nextStepsIndex + '【下一步清单】'.length);
+    // 查找下一个标题
+    const nextHeaderMatch = afterNextSteps.match(/\n\n【/);
+    if (nextHeaderMatch && nextHeaderMatch.index !== undefined) {
+      clean = clean.substring(0, nextStepsIndex) + afterNextSteps.substring(nextHeaderMatch.index);
+    } else {
+      // 后面没有标题了，直接截断
+      clean = clean.substring(0, nextStepsIndex);
+    }
+  }
+
+  // 4. 清理残留空行
+  clean = clean.replace(/\n{3,}/g, '\n\n').trim();
+
+  return clean;
+}

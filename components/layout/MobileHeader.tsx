@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Button } from '@arco-design/web-react';
 import { IconMenu } from '@arco-design/web-react/icon';
 import { Logo } from '@/components/logo/Logo';
@@ -12,13 +13,14 @@ interface MobileHeaderProps {
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
     return (
         <header className="flex md:hidden items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-40">
-            <div className="scale-75 origin-left">
+            <Link href="/" className="scale-75 origin-left block cursor-pointer">
                 <Logo />
-            </div>
+            </Link>
             <Button
                 shape="circle"
                 type="text"
-                icon={<IconMenu className="text-gray-600 text-lg" />}
+                className="!w-[44px] !h-[44px] !flex !items-center !justify-center"
+                icon={<IconMenu className="text-gray-600 text-xl" />}
                 onClick={onMenuClick}
             />
         </header>

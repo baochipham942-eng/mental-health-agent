@@ -1,10 +1,20 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#f8fafc',
+};
 import './globals.css';
 // Arco Design 样式
 import '@arco-design/web-react/dist/css/arco.css';
 import { ArcoConfigProvider } from '@/components/providers/ArcoConfigProvider';
 
 import { NextAuthSessionProvider } from '@/components/providers/NextAuthSessionProvider';
+import { WeChatFontHandler } from '@/components/layout/WeChatFontHandler';
 
 export const metadata: Metadata = {
   title: '心灵树洞 - AI心理咨询',
@@ -25,6 +35,7 @@ export default function RootLayout({
     <html lang="zh-CN" className="h-full">
       <body className="h-full min-h-dvh bg-slate-50 text-slate-900 antialiased">
         <NextAuthSessionProvider>
+          <WeChatFontHandler />
           <ArcoConfigProvider>
             {children}
           </ArcoConfigProvider>
