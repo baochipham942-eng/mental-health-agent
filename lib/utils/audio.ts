@@ -2,7 +2,7 @@
 /**
  * Convert AudioBuffer to WAV Blob
  */
-function bufferToWav(abuffer: AudioBuffer) {
+export function bufferToWav(abuffer: AudioBuffer) {
     const numOfChan = abuffer.numberOfChannels;
     const length = abuffer.length * numOfChan * 2 + 44;
     const buffer = new ArrayBuffer(length);
