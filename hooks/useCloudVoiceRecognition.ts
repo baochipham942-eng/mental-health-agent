@@ -38,8 +38,7 @@ export function useCloudVoiceRecognition(
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
-    const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const startTimeRef = useRef<number>(0);
+    const isStartingRef = useRef(false);
 
     // 检测 MediaRecorder 支持
     const checkSupport = useCallback(() => {
@@ -51,6 +50,8 @@ export function useCloudVoiceRecognition(
 
     // 开始录音
     const start = useCallback(async () => {
+        if (isStartingRef.current || status === 'recording' || status === 'transcribing') return;
+
         if (!checkSupport()) {
             setIsSupported(false);
             setError('您的浏览器不支持录音功能');
@@ -58,11 +59,16 @@ export function useCloudVoiceRecognition(
         }
 
         try {
+            isStartingRef.current = true;
             setError(null);
-            setStatus('recording');
-            chunksRef.current = [];
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Re-check status in case it changed while waiting for permission
+            // Actually, we locked it, so it shouldn't have changed via this function.
+
+            setStatus('recording');
+            chunksRef.current = [];
 
             // 选择最佳格式
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -88,6 +94,17 @@ export function useCloudVoiceRecognition(
                 if (durationIntervalRef.current) {
                     clearInterval(durationIntervalRef.current);
                     durationIntervalRef.current = null;
+                }
+
+                // Get current duration from ref to be sure
+                const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+
+                // 如果录音时间太短 (< 1秒)，不进行处理
+                if (finalDuration < 1 || chunksRef.current.length === 0) {
+                    console.warn('[CloudVoice] Audio too short, skipping upload');
+                    setStatus('idle');
+                    setDuration(0);
+                    return;
                 }
 
                 // 如果有录音数据，上传转写
@@ -188,6 +205,8 @@ export function useCloudVoiceRecognition(
                 setError('无法访问麦克风');
             }
             setStatus('error');
+        } finally {
+            isStartingRef.current = false;
         }
     }, [checkSupport, maxDuration, onTranscript]);
 
@@ -204,6 +223,8 @@ export function useCloudVoiceRecognition(
 
     // 切换状态
     const toggle = useCallback(() => {
+        if (isStartingRef.current) return;
+
         if (status === 'recording') {
             stop();
         } else if (status === 'idle' || status === 'error') {
