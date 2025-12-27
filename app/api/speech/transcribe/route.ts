@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
             fileName: `audio.${extension}`,
             mimeType,
             size: audioBuffer.length,
+            apiKeyPrefix: groqApiKey?.substring(0, 10) + '...',
         });
 
         // 调用 Groq Whisper API
@@ -92,6 +93,10 @@ export async function POST(request: NextRequest) {
 
             if (groqResponse.status === 429) {
                 return NextResponse.json({ error: '语音服务繁忙，请稍后再试' }, { status: 429 });
+            }
+
+            if (groqResponse.status === 403) {
+                return NextResponse.json({ error: `认证失败(key:${groqApiKey?.substring(0, 8)}...)` }, { status: 403 });
             }
 
             if (groqResponse.status === 400) {
