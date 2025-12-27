@@ -166,7 +166,7 @@ export function ChatInput({
 
   return (
     <div className="w-full">
-      {/* 输入框容器 */}
+      {/* 输入框容器 - items-end 让按钮在底部对齐 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-end">
         {/* Tool Kit Trigger - Responsive */}
         {/* Desktop: Dropdown Menu */}
@@ -257,8 +257,8 @@ export function ChatInput({
           </Drawer>
         </div>
 
-        {/* 输入框包装器 - 使用 flex 实现真正的垂直居中, min-w-0 防止溢出 */}
-        <div className="flex-1 flex items-center min-h-[44px] min-w-0">
+        {/* 输入框包装器 - self-center 使输入框在 items-end 容器中居中 */}
+        <div className="flex-1 flex items-center min-h-[44px] min-w-0 self-center">
           <textarea
             ref={textareaRef}
             value={value}
