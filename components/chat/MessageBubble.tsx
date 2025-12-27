@@ -317,7 +317,7 @@ export function MessageBubble({
                 {message.metadata?.routeType && (
                   <>
                     <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                      🛣️ 专家路由
+                      👤 专家路由
                     </div>
                     <p className="pl-1 italic border-l-2 border-blue-100 font-mono text-xs">
                       {message.metadata?.routeType === 'crisis' ? '🚨 危机干预专家' :
