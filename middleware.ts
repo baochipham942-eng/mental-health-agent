@@ -23,5 +23,10 @@ export default function middleware(request: NextRequest) {
 
 export const config = {
     // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
-    matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+    matcher: [
+        // 包含 .txt 验证文件
+        '/:path*.txt',
+        // 排除静态资源和图片
+        '/((?!api|_next/static|_next/image|.*\\.png$).*)',
+    ],
 };
