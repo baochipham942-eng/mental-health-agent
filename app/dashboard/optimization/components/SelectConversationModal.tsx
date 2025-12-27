@@ -85,7 +85,8 @@ export default function SelectConversationModal({
             visible={visible}
             onCancel={onClose}
             onOk={handleConfirm}
-            style={{ width: 800 }}
+            className="w-[95vw] md:w-[800px] max-w-[95vw] md:max-w-[800px]"
+            style={{ maxWidth: '95vw' }}
             okText={`添加到列表 (${selectedRowKeys.length})`}
             cancelText="取消"
         >

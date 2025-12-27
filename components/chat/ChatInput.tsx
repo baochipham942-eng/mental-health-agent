@@ -284,11 +284,11 @@ export function ChatInput({
               disabled && !isLoading && 'cursor-not-allowed opacity-60'
             )}
             style={{
-              minHeight: '22px', // 单行文字高度
+              minHeight: '20px', // 单行文字高度
               maxHeight: '144px', // 6行
-              padding: '11px 12px', // 11px top/bottom + 22px line-height = 44px
+              padding: '12px', // 12px * 2 + 20px line-height = 44px
               margin: 0,
-              lineHeight: '22px',
+              lineHeight: '20px',
               alignSelf: 'center',
             }}
           />

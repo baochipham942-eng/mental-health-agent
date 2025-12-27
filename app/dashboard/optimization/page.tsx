@@ -215,9 +215,9 @@ export default function OptimizationPage() {
                     </div>
                 </div>
 
-                {/* Stats */}
-                <Row gutter={16}>
-                    <Col span={6}>
+                {/* Stats - Responsive Grid */}
+                <Row gutter={[16, 16]}>
+                    <Col xs={12} md={6}>
                         <Card>
                             <Statistic
                                 title="全部会话"
@@ -227,7 +227,7 @@ export default function OptimizationPage() {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} md={6}>
                         <Card>
                             <Statistic
                                 title="待评估"
@@ -237,7 +237,7 @@ export default function OptimizationPage() {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} md={6}>
                         <Card>
                             <Statistic
                                 title="已评估"
@@ -247,7 +247,7 @@ export default function OptimizationPage() {
                             />
                         </Card>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={12} md={6}>
                         <Card>
                             <Statistic
                                 title="低分会话"

@@ -20,6 +20,23 @@
 2.  **完整性优先**：由于 Agent 记忆有限，文档是唯一的真理来源。丢失细节等于丢失项目上下文。
 3.  **弹性设计**：始终考虑不同设备（小屏/大屏/微信字号）的适配性，不写死像素值。
 
+### 0.3 文档结构规范 (Documentation Structure)
+为保持项目根目录整洁，仅保留核心身份文件，其他文档归档至 `docs/`。
+
+**1. 根目录文件 (Root Identity)**
+仅保留为项目提供“身份证明”或“最高纲领”的文件：
+- `README.md`: 项目入口与快速开始。
+- `PROJECT_CONSTITUTION.md`: 项目宪法与核心原则。
+- `PROJECT_SUMMARY.md`: 项目全貌与当前状态概览。
+- `ARCHITECTURE.md`: 核心架构设计。
+
+**2. `docs/` 归档文件**
+其他所有类型的文档一律放入 `docs/` 目录：
+- **变更日志**: `CHANGELOG.md`, `SKILL_SYSTEM_CHANGELOG.md` 等。
+- **操作手册**: `DEPLOY_CHECKLIST.md`, `VERCEL_DEPLOY.md` 等。
+- **设计文档**: `DESIGN_GUIDE.md`, `API.md` 等。
+- **临时记录**: 会议纪要、临时笔记等。
+
 ## 1. 架构真相 (Architecture Truth)
 
 本项目采用双重环境架构，必须明确区分：

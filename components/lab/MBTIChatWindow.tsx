@@ -192,11 +192,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             className="px-4 py-3 h-12 rounded-xl bg-gray-50 border-transparent hover:bg-white hover:border-indigo-300 focus:bg-white focus:border-indigo-500 transition-all text-base"
                             autoFocus
                         />
-                        <VoiceInputButton
-                            onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
-                            disabled={isLoading}
-                            size={48}
-                        />
+                        {/* VoiceInputButton removed for Lab chat - not needed here */}
                         <Button
                             type="primary"
                             htmlType="submit"
