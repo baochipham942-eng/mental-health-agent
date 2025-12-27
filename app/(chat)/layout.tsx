@@ -85,6 +85,7 @@ export default async function ChatLayout({
                         signOutAction={handleSignOut}
                     />
                 }
+                user={session?.user}
             />
 
             {/* 主内容区域 - children 会在路由变化时平滑替换 */}

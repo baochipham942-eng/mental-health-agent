@@ -876,7 +876,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* 顶部栏 */}
         <header
-          className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
+          className="hidden md:flex w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
           style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">

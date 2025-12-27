@@ -33,10 +33,10 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const session = await auth();
     // 确保用户拥有人格特质（昵称/头像）
     await ensureUserProfile();
 
-    const session = await auth();
     const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
 
     // 检查是否是管理员（username === 'demo'）
@@ -79,6 +79,7 @@ export default async function DashboardLayout({
                         signOutAction={handleSignOut}
                     />
                 }
+                user={session?.user}
             />
 
             {/* 主内容区域 */}

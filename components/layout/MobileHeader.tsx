@@ -16,13 +16,12 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
             <Link href="/" className="scale-75 origin-left block cursor-pointer">
                 <Logo />
             </Link>
-            <Button
-                shape="circle"
-                type="text"
-                className="!w-[44px] !h-[44px] !flex !items-center !justify-center"
-                icon={<IconMenu className="text-gray-600 text-xl" />}
+            <button
                 onClick={onMenuClick}
-            />
+                className="w-[44px] h-[44px] flex items-center justify-center rounded-full active:bg-gray-100 transition-colors"
+            >
+                <IconMenu className="text-gray-600 text-xl" />
+            </button>
         </header>
     );
 }
