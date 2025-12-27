@@ -94,7 +94,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
         <Dropdown
             droplist={dropdownMenu}
             position="top"
-            trigger="hover"
+            trigger="click"
         >
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-50 hover:bg-indigo-50 transition-colors group cursor-pointer shadow-sm border border-slate-100">
                 <div className="relative flex-shrink-0">
