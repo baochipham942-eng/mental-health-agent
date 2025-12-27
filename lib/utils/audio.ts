@@ -92,3 +92,43 @@ export function bufferToPCM(abuffer: AudioBuffer) {
     // create Blob
     return new Blob([buffer], { type: "application/octet-stream" });
 }
+
+/**
+ * Downsample AudioBuffer to target sample rate (e.g. 16000)
+ */
+export function downsampleBuffer(buffer: AudioBuffer, targetRate: number = 16000): Float32Array {
+    if (buffer.sampleRate === targetRate) {
+        return buffer.getChannelData(0);
+    }
+
+    const sampleRateRatio = buffer.sampleRate / targetRate;
+    const newLength = Math.round(buffer.length / sampleRateRatio);
+    const result = new Float32Array(newLength);
+    const offsetResult = 0;
+    const offsetBuffer = 0;
+
+    const channelData = buffer.getChannelData(0); // Only use first channel (mono)
+
+    for (let i = 0; i < newLength; i++) {
+        const nextOffsetBuffer = Math.round((i + 1) * sampleRateRatio);
+        // Simple linear interpolation could be better, but dropping samples is usually fine for speech API
+        // actually, averaging is better to prevent aliasing, but let's stick to simple first
+        // Or just nearest neighbor:
+        const srcIndex = Math.round(i * sampleRateRatio);
+        result[i] = channelData[Math.min(srcIndex, channelData.length - 1)];
+    }
+
+    return result;
+}
+
+/**
+ * Encode Float32Array PCM to 16-bit PCM ArrayBuffer
+ */
+export function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
+    const output = new DataView(new ArrayBuffer(input.length * 2));
+    for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        output.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return output.buffer;
+}
