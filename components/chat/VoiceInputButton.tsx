@@ -102,7 +102,7 @@ export function VoiceInputButton({
         if (error) return `错误: ${error}`;
         if (isTranscribing) return '正在识别...';
         if (isRecording) return `录音中 ${formatDuration(duration)}，点击停止`;
-        return useWebSpeech ? '语音输入(浏览器)' : '语音输入(云端)';
+        return '语音输入';
     };
 
     const isActive = isRecording || isTranscribing;
