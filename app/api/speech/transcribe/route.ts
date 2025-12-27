@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
-import { toFile } from 'groq-sdk/uploads';
+
+// Cloudflare Worker 代理地址
+const GROQ_PROXY_URL = process.env.GROQ_PROXY_URL || 'https://falling-thunder-114b.baochipham942.workers.dev/';
 
 /**
  * 语音转文字 API
- * 使用 Groq Whisper API 进行转写 (官方 SDK)
+ * 通过 Cloudflare Worker 代理调用 Groq Whisper API
  */
 export async function POST(request: NextRequest) {
     try {
@@ -33,68 +34,42 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '录音时间太短，请说话后再松手' }, { status: 400 });
         }
 
-        const groqApiKey = process.env.GROQ_API_KEY;
-        if (!groqApiKey) {
-            console.error('[Speech API] GROQ_API_KEY not configured');
-            return NextResponse.json({ error: '语音服务未配置' }, { status: 500 });
-        }
+        // 准备发送到代理的 FormData
+        const proxyFormData = new FormData();
+        proxyFormData.append('file', audioFile);
+        proxyFormData.append('model', 'whisper-large-v3');
+        proxyFormData.append('language', 'zh');
+        proxyFormData.append('response_format', 'json');
 
-        console.log('[Speech API] Using Groq SDK with key:', groqApiKey.substring(0, 10) + '...');
+        console.log('[Speech API] Sending to proxy:', GROQ_PROXY_URL);
 
-        // 创建 Groq 客户端
-        const groq = new Groq({ apiKey: groqApiKey });
-
-        // 将 File 转换为 Groq SDK 可接受的格式
-        const arrayBuffer = await audioFile.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // 确定正确的文件名和类型
-        let fileName = audioFile.name || 'audio.webm';
-        if (!fileName.includes('.')) {
-            const ext = audioFile.type?.includes('mp4') ? 'm4a' :
-                audioFile.type?.includes('wav') ? 'wav' : 'webm';
-            fileName = `audio.${ext}`;
-        }
-
-        console.log('[Speech API] Sending to Groq SDK:', { fileName, size: buffer.length });
-
-        // 调用 Groq Whisper API
-        const transcription = await groq.audio.transcriptions.create({
-            file: await toFile(buffer, fileName),
-            model: 'whisper-large-v3',
-            language: 'zh',
-            response_format: 'json',
+        // 调用 Cloudflare Worker 代理
+        const proxyResponse = await fetch(GROQ_PROXY_URL, {
+            method: 'POST',
+            body: proxyFormData,
         });
 
-        const text = transcription.text?.trim() || '';
-        console.log('[Speech API] Transcribed:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
+        const responseData = await proxyResponse.json();
+        console.log('[Speech API] Proxy response:', proxyResponse.status, JSON.stringify(responseData).substring(0, 100));
+
+        if (!proxyResponse.ok) {
+            const errorMessage = responseData.error?.message || responseData.error || '转写失败';
+            return NextResponse.json({ error: `代理: ${errorMessage}` }, { status: proxyResponse.status });
+        }
+
+        const text = responseData.text?.trim() || '';
 
         if (!text) {
             return NextResponse.json({ error: '未识别到语音内容' }, { status: 200 });
         }
 
+        console.log('[Speech API] Transcribed:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
         return NextResponse.json({ text });
 
     } catch (error) {
         console.error('[Speech API] Error:', error);
-
-        // 提取错误信息
-        let errorMessage = '服务器错误';
-        if (error instanceof Error) {
-            errorMessage = error.message;
-            // Groq SDK 错误通常有 status 属性
-            if ('status' in error) {
-                const status = (error as any).status;
-                if (status === 403) {
-                    errorMessage = `认证失败(403)`;
-                } else if (status === 400) {
-                    errorMessage = `格式错误: ${error.message.substring(0, 50)}`;
-                } else if (status === 429) {
-                    errorMessage = '语音服务繁忙，请稍后再试';
-                }
-            }
-        }
-
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return NextResponse.json({
+            error: error instanceof Error ? error.message : '服务器错误'
+        }, { status: 500 });
     }
 }
