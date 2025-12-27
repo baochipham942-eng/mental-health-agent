@@ -117,15 +117,16 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                 height="auto"
                 footer={null}
                 closable={false}
+                headerStyle={{ display: 'none' }}
                 maskClosable={true}
                 unmountOnExit={true}
                 className="block md:hidden rounded-t-[24px] overflow-hidden"
                 style={{ borderRadius: '24px 24px 0 0', maxHeight: '90%' }}
             >
                 <div className="flex flex-col bg-white pb-safe">
-                    {/* 1. Header: Compact User Info (No subtitle, less padding) */}
-                    <div className="px-6 pt-5 pb-2 flex items-center justify-center">
-                        <div className="flex flex-col items-center gap-2">
+                    {/* 1. Header: Compact User Info - reduced top padding */}
+                    <div className="px-6 pt-3 pb-2 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-1.5">
                             <Avatar size={56} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
                                 {user?.avatar ? (
                                     <img src={user.avatar} alt={user.name || 'User'} />
