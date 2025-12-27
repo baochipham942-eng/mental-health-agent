@@ -210,8 +210,8 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
                 )}
             </div>
 
-            {/* 内容区 */}
-            <div className="flex-1 overflow-y-auto p-6">
+            {/* 内容区 - min-h-0 is critical for flex child scrolling */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-6" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {loading ? (
                     <div className="flex items-center justify-center h-64">
                         <Spin size={32} tip="加载中..." />

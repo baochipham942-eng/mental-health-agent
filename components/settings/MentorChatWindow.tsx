@@ -119,10 +119,11 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                     />
                 </div>
 
-                {/* Chat Area */}
+                {/* Chat Area - min-h-0 is critical for flex child scrolling */}
                 <div
                     ref={scrollRef}
-                    className="flex-1 overflow-y-auto p-6 space-y-6 bg-white scroll-smooth"
+                    className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 bg-white scroll-smooth"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
                 >
                     <div className="text-center pb-4">
                         <span className="inline-block px-3 py-1 bg-gray-100 rounded-full text-[10px] text-gray-400">
