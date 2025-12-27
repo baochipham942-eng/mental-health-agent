@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { bufferToWav } from '@/lib/utils/audio';
 
 export type CloudVoiceStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
@@ -99,10 +100,26 @@ export function useCloudVoiceRecognition(
                             type: audioBlob.type,
                         });
 
-                        const formData = new FormData();
-                        formData.append('audio', audioBlob, `recording.${mimeType.includes('webm') ? 'webm' : 'm4a'}`);
+                        // 重采样到 16000Hz (百度语音要求)
+                        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-                        console.log('[CloudVoice] Sending to API...');
+                        const offlineContext = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+                        const source = offlineContext.createBufferSource();
+                        source.buffer = audioBuffer;
+                        source.connect(offlineContext.destination);
+                        source.start();
+
+                        const renderedBuffer = await offlineContext.startRendering();
+
+                        // 转换为 WAV 格式
+                        const wavBlob = bufferToWav(renderedBuffer);
+
+                        const formData = new FormData();
+                        formData.append('audio', wavBlob, 'recording.wav');
+
+                        console.log('[CloudVoice] Sending 16kHz WAV to API...', wavBlob.size);
                         const response = await fetch('/api/speech/transcribe', {
                             method: 'POST',
                             body: formData,
@@ -123,7 +140,7 @@ export function useCloudVoiceRecognition(
                         }
                         setStatus('idle');
                     } catch (err) {
-                        console.error('[CloudVoice] Transcription error:', err);
+                        console.error('[CloudVoice] Transcription or audio processing error:', err);
                         setError(err instanceof Error ? err.message : '转写失败');
                         setStatus('error');
                     }
