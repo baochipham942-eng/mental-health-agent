@@ -29,7 +29,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 hidden md:block">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-gray-700 transition-colors"
