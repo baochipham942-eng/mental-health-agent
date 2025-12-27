@@ -1,23 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
-import { authenticate } from '@/lib/actions/auth';
 import { registerUser } from '@/lib/actions/register';
 import { signIn } from 'next-auth/react';
-import { Button, Input, Checkbox, Message, Avatar } from '@arco-design/web-react';
+import { Button, Input, Message, Avatar } from '@arco-design/web-react';
 import { IconUser, IconLock, IconPhone, IconSafe } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
-
-// Submit Button with pending state
-function LoginButton() {
-    const { pending } = useFormStatus();
-    return (
-        <Button type="primary" long size="large" htmlType="submit" loading={pending} disabled={pending} className="rounded-xl h-12 text-base mt-2">
-            {pending ? '登录中...' : '登录'}
-        </Button>
-    );
-}
 
 export default function LoginPage() {
     const router = useRouter();
@@ -26,10 +14,8 @@ export default function LoginPage() {
     // Quick Login State
     const [quickUser, setQuickUser] = useState<{ nickname: string; avatar: string; phone: string; token: string } | null>(null);
 
-    // Form States
-    const [loginError, dispatchLogin] = useFormState(authenticate, undefined);
-
-    // Registration State
+    // Loading States
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
 
     // Load Quick Login Info on Mount
@@ -48,46 +34,68 @@ export default function LoginPage() {
         }
     }, []);
 
-    // Effect to handle server-side login error
-    useEffect(() => {
-        if (loginError) {
-            // Strip timestamp suffix (e.g., "密码错误 [1703663000000]" -> "密码错误")
-            const cleanError = loginError.replace(/\s*\[\d+\]$/, '');
-            Message.error(cleanError);
-        }
-    }, [loginError]);
+    // 标准登录处理
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsLoggingIn(true);
 
+        const formData = new FormData(e.currentTarget);
+        const username = formData.get('username') as string;
+        const password = formData.get('password') as string;
+
+        try {
+            const result = await signIn('credentials', {
+                username,
+                password,
+                redirect: false,
+            });
+
+            if (result?.ok) {
+                Message.success('登录成功！');
+                router.push('/');
+            } else {
+                Message.error(result?.error === 'CredentialsSignin' ? '账号或密码错误' : '登录失败，请重试');
+            }
+        } catch (error: any) {
+            console.error('Login error:', error);
+            Message.error('登录发生错误，请稍后重试');
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
+    // 快捷登录处理
     const handleQuickLogin = async () => {
         if (!quickUser) return;
+        setIsLoggingIn(true);
+
         try {
-            // Using the existing authenticate action but we need to pass token.
-            // But authenticate checks form data. 
-            // We need to inject the token into a FormData to reuse the action?
-            // Auth.ts authorize handles credentials.
-            // So we can use signIn('credentials', { quickLoginToken: ... }) via server action?
-            // Actually `authenticate` action just calls `signIn`.
+            const result = await signIn('credentials', {
+                quickLoginToken: quickUser.token,
+                redirect: false,
+            });
 
-            const formData = new FormData();
-            formData.append('quickLoginToken', quickUser.token);
-            // We need a separate server action that calls signIn with token? 
-            // Or just update `authenticate` to handle token if present in FormData.
-            // Let's assume we updated `authenticate` or `lib/actions/auth.ts` to forward all data.
-            // Wait, existing `authenticate` takes `formData`. 
-            // `signIn` will take `Object.fromEntries(formData)`.
-            // So if we append `quickLoginToken`, it should work if we update `authenticate` slightly or verify it passes everything.
-            // Checked `lib/actions/auth.ts`: `await signIn('credentials', formData);` 
-            // Yes, next-auth v5 signIn(..., formData) passes it through.
-
-            await authenticate(undefined, formData);
+            if (result?.ok) {
+                Message.success('登录成功！');
+                router.push('/');
+            } else {
+                Message.error('快捷登录已过期，请重新登录');
+                setQuickUser(null);
+                localStorage.removeItem('quick_login_info');
+                setView('LOGIN');
+            }
         } catch (e) {
-            console.error(e);
+            console.error('Quick login error:', e);
             Message.error('快捷登录已过期，请重新登录');
             setQuickUser(null);
             localStorage.removeItem('quick_login_info');
             setView('LOGIN');
+        } finally {
+            setIsLoggingIn(false);
         }
     };
 
+    // 注册处理
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsRegistering(true);
@@ -102,7 +110,7 @@ export default function LoginPage() {
                 const userInfo = {
                     nickname: result.user.nickname,
                     avatar: result.user.avatar,
-                    phone: result.user.username, // phone is username
+                    phone: result.user.username,
                     token: result.user.quickLoginToken
                 };
                 localStorage.setItem('quick_login_info', JSON.stringify(userInfo));
@@ -110,14 +118,13 @@ export default function LoginPage() {
                 // Auto Login using client-side signIn
                 const loginResult = await signIn('credentials', {
                     quickLoginToken: result.user.quickLoginToken,
-                    redirect: false, // Handle redirect manually
+                    redirect: false,
                 });
 
                 if (loginResult?.ok) {
-                    // Login successful, redirect to home
+                    Message.success('自动登录成功！');
                     router.push('/');
                 } else {
-                    // Login failed, but registration succeeded
                     console.error('Auto login failed:', loginResult?.error);
                     Message.warning('注册成功，请手动登录');
                     setView('LOGIN');
@@ -127,7 +134,6 @@ export default function LoginPage() {
             }
         } catch (error: any) {
             console.error('Registration error:', error);
-            // 显示具体的错误信息
             const errorMessage = error?.message || error?.error || '注册发生错误，请稍后重试';
             Message.error(errorMessage);
         } finally {
@@ -162,8 +168,15 @@ export default function LoginPage() {
                                 <p className="text-gray-500 text-sm mt-1">{maskPhone(quickUser.phone)}</p>
                             </div>
 
-                            <Button type="primary" long size="large" onClick={handleQuickLogin} className="rounded-xl h-12 text-base">
-                                一键登录
+                            <Button
+                                type="primary"
+                                long
+                                size="large"
+                                onClick={handleQuickLogin}
+                                loading={isLoggingIn}
+                                className="rounded-xl h-12 text-base"
+                            >
+                                {isLoggingIn ? '登录中...' : '一键登录'}
                             </Button>
 
                             <div className="pt-2">
@@ -178,15 +191,15 @@ export default function LoginPage() {
                     {view === 'LOGIN' && (
                         <div className="animate-fade-in">
                             <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">账号登录</h2>
-                            <form action={dispatchLogin} className="space-y-4" id="loginForm">
+                            <form onSubmit={handleLogin} className="space-y-4" id="loginForm">
                                 <Input
                                     name="username"
                                     prefix={<IconUser />}
                                     placeholder="手机号 / 账号"
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     onPressEnter={() => {
-                                        const form = document.getElementById('loginForm') as HTMLFormElement;
-                                        form?.requestSubmit();
+                                        const passwordInput = document.querySelector('#loginForm input[name="password"]') as HTMLInputElement;
+                                        passwordInput?.focus();
                                     }}
                                 />
                                 <Input.Password
@@ -200,7 +213,17 @@ export default function LoginPage() {
                                     }}
                                 />
 
-                                <LoginButton />
+                                <Button
+                                    type="primary"
+                                    long
+                                    size="large"
+                                    htmlType="submit"
+                                    loading={isLoggingIn}
+                                    disabled={isLoggingIn}
+                                    className="rounded-xl h-12 text-base mt-2"
+                                >
+                                    {isLoggingIn ? '登录中...' : '登录'}
+                                </Button>
                             </form>
 
                             <div className="mt-6 flex items-center justify-between text-sm">
@@ -224,8 +247,7 @@ export default function LoginPage() {
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     maxLength={11}
                                     onPressEnter={() => {
-                                        // 聚焦到下一个输入框
-                                        const passwordInput = document.querySelector('input[name="password"]') as HTMLInputElement;
+                                        const passwordInput = document.querySelector('#registerForm input[name="password"]') as HTMLInputElement;
                                         passwordInput?.focus();
                                     }}
                                 />
@@ -236,8 +258,7 @@ export default function LoginPage() {
                                     className="h-12 rounded-xl bg-gray-50 border-gray-200"
                                     minLength={6}
                                     onPressEnter={() => {
-                                        // 聚焦到邀请码输入框
-                                        const inviteInput = document.querySelector('input[name="inviteCode"]') as HTMLInputElement;
+                                        const inviteInput = document.querySelector('#registerForm input[name="inviteCode"]') as HTMLInputElement;
                                         inviteInput?.focus();
                                     }}
                                 />
@@ -262,7 +283,7 @@ export default function LoginPage() {
                                     loading={isRegistering}
                                     className="rounded-xl h-12 text-base mt-2"
                                 >
-                                    注册并登录
+                                    {isRegistering ? '注册中...' : '注册并登录'}
                                 </Button>
                             </form>
                             <div className="mt-6 text-center">
