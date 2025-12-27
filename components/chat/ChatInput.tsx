@@ -166,8 +166,8 @@ export function ChatInput({
 
   return (
     <div className="w-full">
-      {/* 输入框容器 - items-end 让按钮在底部对齐 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-end">
+      {/* 输入框容器 - items-center 让所有元素垂直居中 */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
         {/* Tool Kit Trigger - Responsive */}
         {/* Desktop: Dropdown Menu */}
         <div className="hidden md:block">
@@ -284,11 +284,10 @@ export function ChatInput({
               disabled && !isLoading && 'cursor-not-allowed opacity-60'
             )}
             style={{
-              minHeight: '24px', // 单行文字高度 = line-height
-              maxHeight: '144px', // 6行
-              padding: '0 12px', // 只保留水平 padding，垂直方向由 flex 居中
+              minHeight: '24px',
+              maxHeight: '144px',
+              padding: '0 12px',
               margin: 0,
-              marginTop: '-2px', // 微调：向上移动 2px
               lineHeight: '24px',
             }}
           />
