@@ -95,7 +95,7 @@ export default async function DashboardLayout({
             </SidebarMobileWrapper>
 
             {/* 主内容区域 */}
-            <div className="flex-grow md:overflow-y-auto flex flex-col min-h-0">
+            <div className="flex-grow overflow-y-auto flex flex-col min-h-0">
                 {children}
             </div>
         </div>
