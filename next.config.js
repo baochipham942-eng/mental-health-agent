@@ -10,6 +10,15 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   output: 'standalone',
+  // 确保验证文件可以被访问
+  async rewrites() {
+    return [
+      {
+        source: '/:filename*.txt',
+        destination: '/:filename*.txt',
+      },
+    ];
+  },
   // 旧路由重定向：/dashboard/[id] -> /c/[id]
   async redirects() {
     return [
