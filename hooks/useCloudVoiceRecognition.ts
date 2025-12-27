@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { bufferToWav } from '@/lib/utils/audio';
+import { bufferToWav, bufferToPCM } from '@/lib/utils/audio';
 
 export type CloudVoiceStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
@@ -111,15 +111,16 @@ export function useCloudVoiceRecognition(
                         source.connect(offlineContext.destination);
                         source.start();
 
+
                         const renderedBuffer = await offlineContext.startRendering();
 
-                        // 转换为 WAV 格式
-                        const wavBlob = bufferToWav(renderedBuffer);
+                        // 转换为 PCM 格式 (无头) - 避免百度报错 3311 (WAV头采样率问题)
+                        const pcmBlob = bufferToPCM(renderedBuffer);
 
                         const formData = new FormData();
-                        formData.append('audio', wavBlob, 'recording.wav');
+                        formData.append('audio', pcmBlob, 'recording.pcm');
 
-                        console.log('[CloudVoice] Sending 16kHz WAV to API...', wavBlob.size);
+                        console.log('[CloudVoice] Sending 16kHz PCM to API...', pcmBlob.size);
                         const response = await fetch('/api/speech/transcribe', {
                             method: 'POST',
                             body: formData,

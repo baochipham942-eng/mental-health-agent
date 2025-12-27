@@ -58,3 +58,37 @@ export function bufferToWav(abuffer: AudioBuffer) {
         pos += 4;
     }
 }
+
+/**
+ * Convert AudioBuffer to raw PCM Blob (16-bit, Little Endian)
+ * No WAV header, just raw samples.
+ */
+export function bufferToPCM(abuffer: AudioBuffer) {
+    const numOfChan = abuffer.numberOfChannels;
+    const length = abuffer.length * numOfChan * 2;
+    const buffer = new ArrayBuffer(length);
+    const view = new DataView(buffer);
+    const channels = [];
+    let i;
+    let sample;
+    let offset = 0;
+    let pos = 0;
+
+    // write interleaved data
+    for (i = 0; i < abuffer.numberOfChannels; i++)
+        channels.push(abuffer.getChannelData(i));
+
+    while (pos < length) {
+        for (i = 0; i < numOfChan; i++) {
+            // interleave channels
+            sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
+            sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; // scale to 16-bit signed int
+            view.setInt16(pos, sample, true); // write 16-bit sample
+            pos += 2;
+        }
+        offset++; // next source sample
+    }
+
+    // create Blob
+    return new Blob([buffer], { type: "application/octet-stream" });
+}
