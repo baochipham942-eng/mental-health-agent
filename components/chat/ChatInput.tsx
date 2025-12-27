@@ -36,7 +36,7 @@ export function ChatInput({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const minHeight = 44;  // 单行最小高度
+    const minHeight = 24;  // 单行最小高度 (line-height)
     const maxHeight = 144; // 6行最大高度
 
     // 保存当前 overflow 状态
@@ -284,12 +284,11 @@ export function ChatInput({
               disabled && !isLoading && 'cursor-not-allowed opacity-60'
             )}
             style={{
-              minHeight: '20px', // 单行文字高度
+              minHeight: '24px', // 单行文字高度 = line-height
               maxHeight: '144px', // 6行
-              padding: '12px', // 12px * 2 + 20px line-height = 44px
+              padding: '0 12px', // 只保留水平 padding，垂直方向由 flex 居中
               margin: 0,
-              lineHeight: '20px',
-              alignSelf: 'center',
+              lineHeight: '24px',
             }}
           />
         </div>
