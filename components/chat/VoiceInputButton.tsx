@@ -45,8 +45,8 @@ export function VoiceInputButton({
 }: VoiceInputButtonProps) {
     const [localTranscript, setLocalTranscript] = useState('');
 
-    // 判断使用哪种识别方式
-    const useWebSpeech = useMemo(() => isWebSpeechSupported(), []);
+    // 强制使用云端识别 (DeepSeek/Baidu) 以避免国内 Chrome 原生语音的网络问题
+    const useWebSpeech = useMemo(() => false, []);
 
     // Web Speech API hook
     const webSpeech = useVoiceRecognition({

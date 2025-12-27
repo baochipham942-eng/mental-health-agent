@@ -38,6 +38,8 @@ export function useCloudVoiceRecognition(
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const startTimeRef = useRef<number>(0);
     const isStartingRef = useRef(false);
 
     // 检测 MediaRecorder 支持

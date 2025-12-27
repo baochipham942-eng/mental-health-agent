@@ -142,7 +142,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
         <>
             {/* Desktop: Dropdown */}
             <div className="hidden md:block w-full">
-                <Dropdown droplist={dropdownMenu} position="top" trigger="click">
+                <Dropdown droplist={dropdownMenu} position="top" trigger="hover">
                     <div><UserButton /></div>
                 </Dropdown>
             </div>

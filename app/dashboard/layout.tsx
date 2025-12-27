@@ -70,7 +70,7 @@ export default async function DashboardLayout({
                         hideSessionAction={hideSession}
                     />
                 }
-                usermenu={
+                userMenu={
                     <UserMenuWrapper
                         userName={userName}
                         nickname={(session?.user as any)?.nickname}
