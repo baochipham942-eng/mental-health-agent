@@ -288,6 +288,7 @@ export function ChatInput({
               maxHeight: '144px', // 6行
               padding: '0 12px', // 只保留水平 padding，垂直方向由 flex 居中
               margin: 0,
+              marginTop: '-2px', // 微调：向上移动 2px
               lineHeight: '24px',
             }}
           />
