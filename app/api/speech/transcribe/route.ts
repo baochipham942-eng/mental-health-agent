@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
+            const payload = {
                 format: format,
                 rate: 16000,
                 channel: 1,
@@ -103,45 +103,57 @@ export async function POST(request: NextRequest) {
                 token: token,
                 speech: audioBase64,
                 len: arrayBuffer.byteLength,
-            }),
-        });
-
-        const result = await baiduResponse.json();
-        console.log('[Speech API] Baidu response:', JSON.stringify(result).substring(0, 200));
-
-        // 百度返回格式: { err_no: 0, result: ["识别结果"] }
-        if (result.err_no !== 0) {
-            const errorMessages: Record<number, string> = {
-                3300: '输入参数不正确',
-                3301: '音频质量过差',
-                3302: '鉴权失败',
-                3303: '语音服务器后端问题',
-                3304: '用户的请求 QPS 超限',
-                3305: '用户的日 pv 超限',
-                3307: '语音服务器后端识别出错问题',
-                3308: '音频过长',
-                3309: '音频数据问题',
-                3310: '输入的音频文件过大',
-                3311: '采样率 rate 参数不在选项里',
-                3312: '音频格式 format 参数不在选项里',
             };
-            const errorMsg = errorMessages[result.err_no] || `百度错误 ${result.err_no}`;
-            return NextResponse.json({ error: errorMsg }, { status: 400 });
-        }
+
+            const baiduResponse = await fetch(baiduUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await baiduResponse.json();
+            console.log('[Speech API] Baidu response:', JSON.stringify(result).substring(0, 200));
+
+            // 百度返回格式: { err_no: 0, result: ["识别结果"] }
+            if(result.err_no !== 0) {
+                const errorMessages: Record<number, string > = {
+            3300: '输入参数不正确',
+                3301: '音频质量过差',
+                    3302: '鉴权失败',
+                        3303: '语音服务器后端问题',
+                            3304: '用户的请求 QPS 超限',
+                                3305: '用户的日 pv 超限',
+                                    3307: '语音服务器后端识别出错问题',
+                                        3308: '音频过长',
+                                            3309: '音频数据问题',
+                                                3310: '输入的音频文件过大',
+                                                    3311: '采样率 rate 参数不在选项里',
+                                                        3312: '音频格式 format 参数不在选项里',
+            };
+        const errorMsg = errorMessages[result.err_no] || `百度错误 ${result.err_no}`;
+
+        // Debug info
+        const debugInfo = `[Format:${format}, Mime:${mimeType}, Rate:${payload.rate}]`;
+        console.error(`[Speech API] Baidu Error: ${result.err_no} ${debugInfo}`);
+
+        return NextResponse.json({ error: `${errorMsg} ${debugInfo}` }, { status: 400 });
+    }
 
         const text = result.result?.[0]?.trim() || '';
 
-        if (!text) {
-            return NextResponse.json({ error: '未识别到语音内容' }, { status: 200 });
-        }
-
-        console.log('[Speech API] Transcribed:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
-        return NextResponse.json({ text });
-
-    } catch (error) {
-        console.error('[Speech API] Error:', error);
-        return NextResponse.json({
-            error: error instanceof Error ? error.message : '服务器错误'
-        }, { status: 500 });
+    if (!text) {
+        return NextResponse.json({ error: '未识别到语音内容' }, { status: 200 });
     }
+
+    console.log('[Speech API] Transcribed:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+    return NextResponse.json({ text });
+
+} catch (error) {
+    console.error('[Speech API] Error:', error);
+    return NextResponse.json({
+        error: error instanceof Error ? error.message : '服务器错误'
+    }, { status: 500 });
+}
 }
