@@ -24,7 +24,7 @@ export async function registerUser(prevState: string | undefined, formData: Form
     const validatedFields = RegisterSchema.safeParse({ phone, password, inviteCode });
 
     if (!validatedFields.success) {
-        return validatedFields.error.errors[0].message;
+        return { success: false, error: validatedFields.error.errors[0].message };
     }
 
     try {
@@ -39,7 +39,7 @@ export async function registerUser(prevState: string | undefined, formData: Form
         });
 
         if (existingUser) {
-            return '该手机号已注册';
+            return { success: false, error: '该手机号已注册' };
         }
 
         // 3. Verify Invitation Code

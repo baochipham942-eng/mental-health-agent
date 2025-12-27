@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { authenticate } from '@/lib/actions/auth';
 import { registerUser } from '@/lib/actions/register';
+import { signIn } from 'next-auth/react';
 import { Button, Input, Checkbox, Message, Avatar } from '@arco-design/web-react';
 import { IconUser, IconLock, IconPhone, IconSafe } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
@@ -106,20 +107,29 @@ export default function LoginPage() {
                 };
                 localStorage.setItem('quick_login_info', JSON.stringify(userInfo));
 
-                // Auto Login - authenticate will throw NEXT_REDIRECT on success
-                const loginData = new FormData();
-                loginData.append('quickLoginToken', result.user.quickLoginToken);
-                await authenticate(undefined, loginData);
+                // Auto Login using client-side signIn
+                const loginResult = await signIn('credentials', {
+                    quickLoginToken: result.user.quickLoginToken,
+                    redirect: false, // Handle redirect manually
+                });
+
+                if (loginResult?.ok) {
+                    // Login successful, redirect to home
+                    router.push('/');
+                } else {
+                    // Login failed, but registration succeeded
+                    console.error('Auto login failed:', loginResult?.error);
+                    Message.warning('注册成功，请手动登录');
+                    setView('LOGIN');
+                }
             } else {
                 Message.error(result.error || '注册失败');
             }
         } catch (error: any) {
-            // NEXT_REDIRECT is expected on successful login, rethrow it
-            if (error?.digest?.startsWith('NEXT_REDIRECT')) {
-                throw error;
-            }
             console.error('Registration error:', error);
-            Message.error('注册发生错误');
+            // 显示具体的错误信息
+            const errorMessage = error?.message || error?.error || '注册发生错误，请稍后重试';
+            Message.error(errorMessage);
         } finally {
             setIsRegistering(false);
         }
