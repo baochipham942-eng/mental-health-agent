@@ -21,8 +21,8 @@ interface UseCloudVoiceRecognitionReturn {
 }
 
 /**
- * 云端语音识别 Hook (使用 Groq Whisper API)
- * 使用 MediaRecorder 录音，上传到服务端转写
+ * 云端语音识别 Hook (使用 Baidu Speech API)
+ * 使用 MediaRecorder 录音，客户端重采样为 16000Hz PCM 上传
  * 兼容性更好，支持微信浏览器
  */
 export function useCloudVoiceRecognition(
@@ -93,53 +93,51 @@ export function useCloudVoiceRecognition(
                 if (chunksRef.current.length > 0) {
                     setStatus('transcribing');
                     try {
-                        const audioBlob = new Blob(chunksRef.current, { type: mimeType });
-                        console.log('[CloudVoice] Audio blob:', {
-                            chunks: chunksRef.current.length,
-                            size: audioBlob.size,
-                            type: audioBlob.type,
+                        console.log('[CloudVoice] Processing audio...');
+                        const originalMimeType = mediaRecorder.mimeType;
+                        const audioBlob = new Blob(chunksRef.current, { type: originalMimeType });
+
+                        // 1. Decode Audio
+                        // Use AudioContext to decode (decoding doesn't require playing, so usually works)
+                        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                        const audioContext = new AudioContextClass();
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                        // 2. Manual Downsample to 16000Hz (Pure JS)
+                        // Dynamic import to avoid SSR issues or ensure it's loaded
+                        const { downsampleBuffer, floatTo16BitPCM } = await import('@/lib/utils/audio');
+                        const downsampledFloat = downsampleBuffer(audioBuffer, 16000);
+                        const pcmBuffer = floatTo16BitPCM(downsampledFloat);
+
+                        const pcmBlob = new Blob([pcmBuffer], { type: 'application/octet-stream' });
+
+                        console.log('[CloudVoice] Audio processed:', {
+                            originalRate: audioBuffer.sampleRate,
+                            targetRate: 16000,
+                            pcmSize: pcmBlob.size
                         });
 
-                        mediaRecorder.onstop = async () => {
-                            const mimeType = mediaRecorder.mimeType;
-                            const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+                        // 3. Upload PCM
+                        const formData = new FormData();
+                        formData.append('audio', pcmBlob, 'recording.pcm');
 
-                            console.log('[CloudVoice] Original audio:', {
-                                type: mimeType,
-                                size: audioBlob.size,
-                            });
+                        const response = await fetch('/api/speech/transcribe', {
+                            method: 'POST',
+                            body: formData,
+                        });
 
-                            const formData = new FormData();
-                            // 传原始文件，让服务端判断格式
-                            formData.append('audio', audioBlob, `recording.${mimeType.includes('webm') ? 'webm' : 'm4a'}`);
+                        const responseData = await response.json();
 
-                            try {
-                                console.log('[CloudVoice] Sending to API...');
-                                const response = await fetch('/api/speech/transcribe', {
-                                    method: 'POST',
-                                    body: formData,
-                                });
+                        if (!response.ok) {
+                            throw new Error(responseData.error || '转写失败');
+                        }
 
-                                console.log('[CloudVoice] Response status:', response.status);
-
-                                const responseData = await response.json();
-                                console.log('[CloudVoice] Response data:', responseData);
-
-                                if (!response.ok) {
-                                    throw new Error(responseData.error || '转写失败');
-                                }
-
-                                const { text } = responseData;
-                                if (text && onTranscript) {
-                                    onTranscript(text);
-                                }
-                                setStatus('idle');
-                            } catch (err) {
-                                console.error('[CloudVoice] Upload error:', err);
-                                setError(err instanceof Error ? err.message : '上传失败');
-                                setStatus('error');
-                            }
-                        };
+                        const { text } = responseData;
+                        if (text && onTranscript) {
+                            onTranscript(text);
+                        }
+                        setStatus('idle');
                     } catch (err) {
                         console.error('[CloudVoice] Transcription or audio processing error:', err);
                         setError(err instanceof Error ? err.message : '转写失败');
