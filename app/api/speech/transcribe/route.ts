@@ -83,15 +83,22 @@ export async function POST(request: NextRequest) {
             const errorText = await groqResponse.text();
             console.error('[Speech API] Groq error:', groqResponse.status, errorText);
 
+            // 解析 Groq 的错误信息
+            let groqError = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                groqError = errorJson.error?.message || errorJson.error || errorText;
+            } catch { }
+
             if (groqResponse.status === 429) {
                 return NextResponse.json({ error: '语音服务繁忙，请稍后再试' }, { status: 429 });
             }
 
             if (groqResponse.status === 400) {
-                return NextResponse.json({ error: '音频格式不支持，请重试' }, { status: 400 });
+                return NextResponse.json({ error: `格式: ${groqError.substring(0, 50)}` }, { status: 400 });
             }
 
-            return NextResponse.json({ error: '语音转写失败' }, { status: 500 });
+            return NextResponse.json({ error: `Groq(${groqResponse.status}): ${groqError.substring(0, 50)}` }, { status: 500 });
         }
 
         const result = await groqResponse.json();
