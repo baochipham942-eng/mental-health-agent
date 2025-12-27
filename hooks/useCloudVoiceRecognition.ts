@@ -93,20 +93,31 @@ export function useCloudVoiceRecognition(
                     setStatus('transcribing');
                     try {
                         const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+                        console.log('[CloudVoice] Audio blob:', {
+                            chunks: chunksRef.current.length,
+                            size: audioBlob.size,
+                            type: audioBlob.type,
+                        });
+
                         const formData = new FormData();
                         formData.append('audio', audioBlob, `recording.${mimeType.includes('webm') ? 'webm' : 'm4a'}`);
 
+                        console.log('[CloudVoice] Sending to API...');
                         const response = await fetch('/api/speech/transcribe', {
                             method: 'POST',
                             body: formData,
                         });
 
+                        console.log('[CloudVoice] Response status:', response.status);
+
+                        const responseData = await response.json();
+                        console.log('[CloudVoice] Response data:', responseData);
+
                         if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.error || '转写失败');
+                            throw new Error(responseData.error || '转写失败');
                         }
 
-                        const { text } = await response.json();
+                        const { text } = responseData;
                         if (text && onTranscript) {
                             onTranscript(text);
                         }
@@ -117,6 +128,7 @@ export function useCloudVoiceRecognition(
                         setStatus('error');
                     }
                 } else {
+                    console.warn('[CloudVoice] No audio chunks recorded');
                     setStatus('idle');
                 }
 

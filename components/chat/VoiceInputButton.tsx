@@ -127,11 +127,12 @@ export function VoiceInputButton({
                 {/* 转写中显示加载动画 */}
                 {isTranscribing ? (
                     <svg
-                        className="animate-spin"
+                        className="animate-spin mx-auto"
                         width={size * 0.45}
                         height={size * 0.45}
                         viewBox="0 0 24 24"
                         fill="none"
+                        style={{ display: 'block', margin: '0 auto' }}
                     >
                         <circle
                             className="opacity-25"
