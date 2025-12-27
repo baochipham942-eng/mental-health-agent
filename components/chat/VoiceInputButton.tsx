@@ -99,10 +99,10 @@ export function VoiceInputButton({
     };
 
     const getTooltipContent = () => {
-        if (error) return error;
+        if (error) return `错误: ${error}`;
         if (isTranscribing) return '正在识别...';
         if (isRecording) return `录音中 ${formatDuration(duration)}，点击停止`;
-        return '点击开始语音输入';
+        return useWebSpeech ? '语音输入(浏览器)' : '语音输入(云端)';
     };
 
     const isActive = isRecording || isTranscribing;
