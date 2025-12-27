@@ -74,10 +74,13 @@ export async function POST(request: NextRequest) {
         // 确定音频格式 - 百度支持 pcm, wav, amr, m4a
         let format = 'wav';
         const mimeType = audioFile.type || audioFile.name;
-        if (mimeType.includes('pcm')) {
+
+        if (audioFile.name.endsWith('.pcm') || mimeType.includes('octet-stream')) {
+            format = 'pcm';
+        } else if (mimeType.includes('pcm')) {
             format = 'pcm';
         } else if (mimeType.includes('webm')) {
-            format = 'wav'; // webm 需要转换，但百度可能支持
+            format = 'wav';
         } else if (mimeType.includes('mp4') || mimeType.includes('m4a')) {
             format = 'm4a';
         } else if (mimeType.includes('amr')) {
