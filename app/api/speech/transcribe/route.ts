@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Groq from 'groq-sdk';
+import { toFile } from 'groq-sdk/uploads';
 
 /**
  * 语音转文字 API
- * 使用 Groq Whisper API 进行转写
+ * 使用 Groq Whisper API 进行转写 (官方 SDK)
  */
 export async function POST(request: NextRequest) {
     try {
@@ -37,90 +39,62 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '语音服务未配置' }, { status: 500 });
         }
 
-        // 将 File 转换为 Blob 并确保有正确的 MIME 类型
+        console.log('[Speech API] Using Groq SDK with key:', groqApiKey.substring(0, 10) + '...');
+
+        // 创建 Groq 客户端
+        const groq = new Groq({ apiKey: groqApiKey });
+
+        // 将 File 转换为 Groq SDK 可接受的格式
         const arrayBuffer = await audioFile.arrayBuffer();
-        const audioBuffer = Buffer.from(arrayBuffer);
+        const buffer = Buffer.from(arrayBuffer);
 
-        // 确定正确的文件扩展名
-        let extension = 'webm';
-        let mimeType = audioFile.type || 'audio/webm';
-
-        if (mimeType.includes('mp4') || mimeType.includes('m4a')) {
-            extension = 'm4a';
-        } else if (mimeType.includes('wav')) {
-            extension = 'wav';
-        } else if (mimeType.includes('ogg')) {
-            extension = 'ogg';
+        // 确定正确的文件名和类型
+        let fileName = audioFile.name || 'audio.webm';
+        if (!fileName.includes('.')) {
+            const ext = audioFile.type?.includes('mp4') ? 'm4a' :
+                audioFile.type?.includes('wav') ? 'wav' : 'webm';
+            fileName = `audio.${ext}`;
         }
 
-        // 创建新的 Blob 和 File 对象
-        const audioBlob = new Blob([audioBuffer], { type: mimeType });
-        const newAudioFile = new File([audioBlob], `audio.${extension}`, { type: mimeType });
-
-        // 准备发送到 Groq 的 FormData
-        const groqFormData = new FormData();
-        groqFormData.append('file', newAudioFile);
-        groqFormData.append('model', 'whisper-large-v3');
-        groqFormData.append('language', 'zh'); // 中文优化
-        groqFormData.append('response_format', 'json');
-
-        console.log('[Speech API] Sending to Groq:', {
-            fileName: `audio.${extension}`,
-            mimeType,
-            size: audioBuffer.length,
-            apiKeyPrefix: groqApiKey?.substring(0, 10) + '...',
-        });
+        console.log('[Speech API] Sending to Groq SDK:', { fileName, size: buffer.length });
 
         // 调用 Groq Whisper API
-        const groqResponse = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${groqApiKey}`,
-            },
-            body: groqFormData,
+        const transcription = await groq.audio.transcriptions.create({
+            file: await toFile(buffer, fileName),
+            model: 'whisper-large-v3',
+            language: 'zh',
+            response_format: 'json',
         });
 
-        if (!groqResponse.ok) {
-            const errorText = await groqResponse.text();
-            console.error('[Speech API] Groq error:', groqResponse.status, errorText);
-
-            // 解析 Groq 的错误信息
-            let groqError = errorText;
-            try {
-                const errorJson = JSON.parse(errorText);
-                groqError = errorJson.error?.message || errorJson.error || errorText;
-            } catch { }
-
-            if (groqResponse.status === 429) {
-                return NextResponse.json({ error: '语音服务繁忙，请稍后再试' }, { status: 429 });
-            }
-
-            if (groqResponse.status === 403) {
-                return NextResponse.json({ error: `认证失败(key:${groqApiKey?.substring(0, 8)}...)` }, { status: 403 });
-            }
-
-            if (groqResponse.status === 400) {
-                return NextResponse.json({ error: `格式: ${groqError.substring(0, 50)}` }, { status: 400 });
-            }
-
-            return NextResponse.json({ error: `Groq(${groqResponse.status}): ${groqError.substring(0, 50)}` }, { status: 500 });
-        }
-
-        const result = await groqResponse.json();
-        const text = result.text?.trim() || '';
-
+        const text = transcription.text?.trim() || '';
         console.log('[Speech API] Transcribed:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
 
         if (!text) {
-            return NextResponse.json({ error: '未识别到语音内容' }, { status: 200, });
+            return NextResponse.json({ error: '未识别到语音内容' }, { status: 200 });
         }
 
         return NextResponse.json({ text });
 
     } catch (error) {
         console.error('[Speech API] Error:', error);
-        return NextResponse.json({
-            error: error instanceof Error ? error.message : '服务器错误'
-        }, { status: 500 });
+
+        // 提取错误信息
+        let errorMessage = '服务器错误';
+        if (error instanceof Error) {
+            errorMessage = error.message;
+            // Groq SDK 错误通常有 status 属性
+            if ('status' in error) {
+                const status = (error as any).status;
+                if (status === 403) {
+                    errorMessage = `认证失败(403)`;
+                } else if (status === 400) {
+                    errorMessage = `格式错误: ${error.message.substring(0, 50)}`;
+                } else if (status === 429) {
+                    errorMessage = '语音服务繁忙，请稍后再试';
+                }
+            }
+        }
+
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
