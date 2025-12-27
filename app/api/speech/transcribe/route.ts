@@ -1,11 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Cloudflare Worker 代理地址
-const GROQ_PROXY_URL = process.env.GROQ_PROXY_URL || 'https://falling-thunder-114b.baochipham942.workers.dev/';
+// 百度语音识别凭证
+const BAIDU_APP_ID = process.env.BAIDU_SPEECH_APP_ID;
+const BAIDU_API_KEY = process.env.BAIDU_SPEECH_API_KEY;
+const BAIDU_SECRET_KEY = process.env.BAIDU_SPEECH_SECRET_KEY;
+
+// Access Token 缓存
+let accessToken: string | null = null;
+let tokenExpiry: number = 0;
+
+/**
+ * 获取百度 Access Token
+ */
+async function getBaiduAccessToken(): Promise<string> {
+    // 如果 token 未过期，直接返回
+    if (accessToken && Date.now() < tokenExpiry) {
+        return accessToken;
+    }
+
+    const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_API_KEY}&client_secret=${BAIDU_SECRET_KEY}`;
+
+    const response = await fetch(url, { method: 'POST' });
+
+    if (!response.ok) {
+        throw new Error('获取百度 Token 失败');
+    }
+
+    const data = await response.json();
+    accessToken = data.access_token;
+    // Token 有效期约 30 天，这里设置为 29 天自动刷新
+    tokenExpiry = Date.now() + (29 * 24 * 60 * 60 * 1000);
+
+    return accessToken!;
+}
 
 /**
  * 语音转文字 API
- * 通过 Cloudflare Worker 代理调用 Groq Whisper API
+ * 使用百度短语音识别 API
  */
 export async function POST(request: NextRequest) {
     try {
@@ -23,60 +54,77 @@ export async function POST(request: NextRequest) {
             size: audioFile.size,
         });
 
-        // 检查文件大小 (限制 25MB)
-        if (audioFile.size > 25 * 1024 * 1024) {
-            return NextResponse.json({ error: '音频文件过大（最大 25MB）' }, { status: 400 });
+        // 检查文件大小 (百度限制约 10MB)
+        if (audioFile.size > 10 * 1024 * 1024) {
+            return NextResponse.json({ error: '音频文件过大（最大 10MB）' }, { status: 400 });
         }
 
-        // 检查文件是否太小 (小于 500 bytes 可能是空录音)
+        // 检查文件是否太小
         if (audioFile.size < 500) {
-            console.warn('[Speech API] Audio file too small:', audioFile.size);
             return NextResponse.json({ error: '录音时间太短，请说话后再松手' }, { status: 400 });
         }
 
-        // 将 File 转换为 Blob 确保兼容性
-        const arrayBuffer = await audioFile.arrayBuffer();
-        const audioBlob = new Blob([arrayBuffer], { type: audioFile.type || 'audio/webm' });
+        // 获取 Access Token
+        const token = await getBaiduAccessToken();
 
-        // 确定文件名
-        let fileName = audioFile.name;
-        if (!fileName || fileName === 'blob') {
-            const ext = audioFile.type?.includes('mp4') ? 'm4a' :
-                audioFile.type?.includes('wav') ? 'wav' : 'webm';
-            fileName = `audio.${ext}`;
+        // 读取音频数据并转为 Base64
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const audioBase64 = Buffer.from(arrayBuffer).toString('base64');
+
+        // 确定音频格式 - 百度支持 pcm, wav, amr, m4a
+        let format = 'wav';
+        const mimeType = audioFile.type || audioFile.name;
+        if (mimeType.includes('webm')) {
+            format = 'wav'; // webm 需要转换，但百度可能支持
+        } else if (mimeType.includes('mp4') || mimeType.includes('m4a')) {
+            format = 'm4a';
+        } else if (mimeType.includes('amr')) {
+            format = 'amr';
         }
 
-        // 准备发送到代理的 FormData
-        const proxyFormData = new FormData();
-        proxyFormData.append('file', audioBlob, fileName);
-        proxyFormData.append('model', 'whisper-large-v3');
-        proxyFormData.append('language', 'zh');
-        proxyFormData.append('response_format', 'json');
+        // 调用百度语音识别 API
+        const baiduUrl = `https://vop.baidu.com/server_api?dev_pid=1537&cuid=mental_health_app&token=${token}`;
 
-        console.log('[Speech API] Sending to proxy:', GROQ_PROXY_URL, { fileName, size: audioBlob.size });
-
-        // 调用 Cloudflare Worker 代理
-        const proxyResponse = await fetch(GROQ_PROXY_URL, {
+        const baiduResponse = await fetch(baiduUrl, {
             method: 'POST',
-            body: proxyFormData,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                format: format,
+                rate: 16000,
+                channel: 1,
+                cuid: 'mental_health_app_' + Date.now(),
+                token: token,
+                speech: audioBase64,
+                len: arrayBuffer.byteLength,
+            }),
         });
 
-        const responseText = await proxyResponse.text();
-        console.log('[Speech API] Proxy response:', proxyResponse.status, responseText.substring(0, 200));
+        const result = await baiduResponse.json();
+        console.log('[Speech API] Baidu response:', JSON.stringify(result).substring(0, 200));
 
-        let responseData;
-        try {
-            responseData = JSON.parse(responseText);
-        } catch {
-            return NextResponse.json({ error: `代理响应无效: ${responseText.substring(0, 50)}` }, { status: 500 });
+        // 百度返回格式: { err_no: 0, result: ["识别结果"] }
+        if (result.err_no !== 0) {
+            const errorMessages: Record<number, string> = {
+                3300: '输入参数不正确',
+                3301: '音频质量过差',
+                3302: '鉴权失败',
+                3303: '语音服务器后端问题',
+                3304: '用户的请求 QPS 超限',
+                3305: '用户的日 pv 超限',
+                3307: '语音服务器后端识别出错问题',
+                3308: '音频过长',
+                3309: '音频数据问题',
+                3310: '输入的音频文件过大',
+                3311: '采样率 rate 参数不在选项里',
+                3312: '音频格式 format 参数不在选项里',
+            };
+            const errorMsg = errorMessages[result.err_no] || `百度错误 ${result.err_no}`;
+            return NextResponse.json({ error: errorMsg }, { status: 400 });
         }
 
-        if (!proxyResponse.ok) {
-            const errorMessage = responseData.error?.message || responseData.error || 'unknown error';
-            return NextResponse.json({ error: `代理(${proxyResponse.status}): ${errorMessage}` }, { status: proxyResponse.status });
-        }
-
-        const text = responseData.text?.trim() || '';
+        const text = result.result?.[0]?.trim() || '';
 
         if (!text) {
             return NextResponse.json({ error: '未识别到语音内容' }, { status: 200 });

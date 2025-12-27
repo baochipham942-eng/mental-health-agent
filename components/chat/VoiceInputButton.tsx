@@ -87,13 +87,6 @@ export function VoiceInputButton({
         }
     }, [webSpeech.status, localTranscript, onTranscript, useWebSpeech]);
 
-    // 微信浏览器暂时不支持语音（Groq 代理方案有问题）
-    // TODO: 找到可用的 STT 服务后移除此限制
-    const isWeChat = useMemo(() => isWeChatBrowser(), []);
-    if (isWeChat) {
-        return null;
-    }
-
     // 不支持任何语音识别时不渲染
     if (!isSupported) {
         return null;
