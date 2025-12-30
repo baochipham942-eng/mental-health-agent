@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     try {
         // 验证管理员权限
         const session = await auth();
-        const isAdmin = session?.user?.name === 'demo';
+        const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706';
 
         if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
