@@ -18,10 +18,32 @@ const ChatResponseSchema = z.object({
   }).optional(),
   timestamp: z.string(),
   routeType: z.enum(['crisis', 'assessment', 'support']),
-  state: z.enum(['normal', 'awaiting_followup', 'in_crisis']).optional(),
+  // state can be either a string (legacy) or an object (new format with reasoning)
+  state: z.union([
+    z.enum(['normal', 'awaiting_followup', 'in_crisis']),
+    z.object({
+      reasoning: z.string().optional(),
+      overallProgress: z.number().optional(),
+    }),
+  ]).optional(),
   assessmentStage: z.enum(['intake', 'gap_followup', 'conclusion']).optional(),
   assistantQuestions: z.array(z.string()).optional(),
   actionCards: z.array(ActionCardSchema).optional(),
+  // New COT fields
+  safety: z.object({
+    label: z.enum(['crisis', 'urgent', 'normal']).optional(),
+    score: z.number().optional(),
+    reasoning: z.string().optional(),
+  }).optional(),
+  persona: z.object({
+    mode: z.string().optional(),
+    reasoning: z.string().optional(),
+  }).optional(),
+  memory: z.object({
+    check: z.string().optional(),
+    retrieved: z.string().optional(),
+  }).optional(),
+  adaptiveMode: z.string().optional(),
   gate: z.object({
     pass: z.boolean(),
     fixed: z.boolean().optional(),

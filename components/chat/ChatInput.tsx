@@ -193,7 +193,7 @@ export function ChatInput({
               type="text"
               shape="circle"
               className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
-              style={{ width: 44, height: 44, flexShrink: 0, marginBottom: '4px' }}
+              style={{ width: 44, height: 44, flexShrink: 0 }}
             >
               <IconApps style={{ fontSize: 20 }} />
             </Button>
@@ -207,7 +207,7 @@ export function ChatInput({
             shape="circle"
             onClick={() => setSkillsOpen(true)}
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
-            style={{ width: 44, height: 44, flexShrink: 0, marginBottom: '4px' }}
+            style={{ width: 44, height: 44, flexShrink: 0 }}
           >
             <IconApps style={{ fontSize: 22 }} />
           </Button>
@@ -286,20 +286,24 @@ export function ChatInput({
             style={{
               minHeight: '24px',
               maxHeight: '144px',
-              padding: '0 12px',
+              paddingLeft: '4px',  // 减少左边距，使工具包左右留白一致
+              paddingRight: '12px',
               margin: 0,
-              marginTop: '-4px', // 将文字向上移动
               lineHeight: '24px',
             }}
           />
         </div>
 
-        {/* 语音输入按钮 */}
-        <VoiceInputButton
-          onTranscript={handleVoiceTranscript}
-          disabled={disabled || isLoading}
-          size={44}
-        />
+        {/* 语音输入按钮 - 会话结束/禁用时隐藏 */}
+        {!disabled && (
+          <div style={{ width: 44, height: 44, flexShrink: 0, flexGrow: 0 }}>
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={isLoading}
+              size={44}
+            />
+          </div>
+        )}
 
         {/* 发送按钮 - 不使用loading属性以避免布局抖动 */}
         <Button

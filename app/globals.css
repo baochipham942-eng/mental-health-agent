@@ -26,6 +26,17 @@
   }
 }
 
+/* Spin animation for loading spinners */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 防止欢迎界面闪烁 - 使用 CSS 动画延迟显示 */
 .welcome-content {
   opacity: 0;
@@ -262,7 +273,7 @@ main {
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
-  
+
   .pb-safe-enhanced {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
   }
@@ -274,12 +285,13 @@ main {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
-  
+
   /* 防止页面 bounce 干扰聊天滚动 */
-  html, body {
+  html,
+  body {
     overscroll-behavior-y: none;
   }
-  
+
   /* 移动端消息列表优化滚动 */
   .flex-1.overflow-y-auto {
     -webkit-overflow-scrolling: touch;
@@ -288,10 +300,13 @@ main {
 
 /* 移动端输入框 focus 时防止页面缩放 */
 @media (max-width: 768px) {
-  input, textarea {
-    font-size: 16px !important; /* 防止 iOS 自动缩放 */
+
+  input,
+  textarea {
+    font-size: 16px !important;
+    /* 防止 iOS 自动缩放 */
   }
-  
+
   /* 优化移动端输入体验 */
   textarea {
     touch-action: manipulation;
@@ -304,11 +319,68 @@ main {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
-  
+
   /* 增加触摸目标大小 */
   button[type="submit"],
   button.send-button {
     min-width: 44px;
     min-height: 44px;
   }
+}
+
+/* ========================================
+   Arco Design Modal 样式优化 - 更紧凑
+   ======================================== */
+
+/* 减少 Modal 内边距 */
+.arco-modal {
+  border-radius: 12px !important;
+}
+
+.arco-modal-header {
+  padding: 16px 16px 8px !important;
+  border-bottom: none !important;
+}
+
+.arco-modal-content {
+  padding: 0 16px 8px !important;
+}
+
+.arco-modal-footer {
+  padding: 8px 16px 16px !important;
+  border-top: none !important;
+}
+
+/* 确认弹窗专用 - 极度紧凑 */
+/* 直接针对 .arco-modal-simple 设置 padding */
+.arco-modal-simple {
+  padding: 0 16px !important;
+  /* 上下0，左右减半(原32px) */
+}
+
+.arco-modal-confirm .arco-modal-confirm-wrapper,
+.arco-modal .arco-modal-confirm-wrapper,
+.arco-modal-confirm-wrapper {
+  padding: 0 !important;
+}
+
+.arco-modal-confirm .arco-modal-confirm-title,
+.arco-modal-confirm-title {
+  margin-bottom: 6px !important;
+  padding-top: 0 !important;
+}
+
+.arco-modal-confirm .arco-modal-confirm-content,
+.arco-modal-confirm-content {
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  /* 减少与按钮的间距 */
+  padding: 0 !important;
+}
+
+.arco-modal-confirm .arco-modal-confirm-btns,
+.arco-modal-confirm-btns {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }

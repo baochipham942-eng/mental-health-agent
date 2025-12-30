@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI People Wiki（静态原型预览）</title>
+  <style>
+    :root{
+      --bg:#070b10;
+      --panel:#0e1623;
+      --panel2:#0b1220;
+      --text:#eaf1ff;
+      --muted:#a7b3ca;
+      --line:#1b2636;
+      --accent:#7aa2ff;
+      --accent2:#3ddc97;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+      --shadow: 0 14px 36px rgba(0,0,0,.45);
+      --r:18px;
+      --r2:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC","Hiragino Sans GB","Microsoft Yahei", Arial, "Noto Sans CJK SC", sans-serif;
+      background:
+        radial-gradient(900px 520px at 15% -10%, rgba(122,162,255,.20), transparent 60%),
+        radial-gradient(880px 520px at 90% 10%, rgba(61,220,151,.16), transparent 55%),
+        radial-gradient(700px 420px at 60% 110%, rgba(255,204,102,.10), transparent 65%),
+        var(--bg);
+      color:var(--text);
+      line-height:1.5;
+    }
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .app{height:100%;display:flex;flex-direction:column}
+    header{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(14,22,35,.88), rgba(14,22,35,.55));
+      backdrop-filter: blur(8px);
+      position:sticky; top:0; z-index:20;
+    }
+    .topbar{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{
+      width:34px;height:34px;border-radius:12px;
+      background: linear-gradient(135deg, rgba(122,162,255,.92), rgba(61,220,151,.72));
+      box-shadow:0 0 0 4px rgba(122,162,255,.12);
+    }
+    .brand h1{margin:0;font-size:15px;letter-spacing:.2px}
+    .brand p{margin:0;color:var(--muted);font-size:12px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color:var(--text);
+      padding:8px 10px;border-radius:12px;
+      cursor:pointer;font-size:12px;
+      display:inline-flex;gap:8px;align-items:center;
+    }
+    .btn:hover{background:rgba(255,255,255,.06)}
+    .btn.primary{
+      border-color: rgba(122,162,255,.35);
+      background: rgba(122,162,255,.14);
+    }
+    .btn.ok{
+      border-color: rgba(61,220,151,.35);
+      background: rgba(61,220,151,.12);
+    }
+    .pill{
+      font-size:11px;color:var(--muted);
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.15);
+      padding:4px 8px;border-radius:999px;
+    }
+
+    .layout{max-width:1200px;margin:14px auto 40px;padding:0 16px;display:grid;grid-template-columns: 320px 1fr;gap:14px;align-items:start}
+    @media (max-width: 980px){
+      .layout{grid-template-columns:1fr}
+      .side{position:relative;top:auto}
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      background: rgba(14,22,35,.62);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panel .hd{
+      padding:12px 12px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      background: linear-gradient(180deg, rgba(11,18,32,.80), rgba(14,22,35,.35));
+    }
+    .panel .hd h2{margin:0;font-size:13px}
+    .panel .hd .sub{margin:0;color:var(--muted);font-size:12px}
+    .panel .bd{padding:12px}
+    .side{position:sticky;top:82px}
+
+    .search{
+      display:flex;align-items:center;gap:8px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      padding:10px 10px;border-radius:14px;
+    }
+    .search input{
+      width:100%;
+      border:none;outline:none;background:transparent;
+      color:var(--text);font-size:13px;
+    }
+    .seg{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .chip{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      color:var(--muted);
+      font-size:12px;
+      padding:6px 10px;border-radius:999px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip:hover{background:rgba(255,255,255,.06)}
+    .chip.active{border-color:rgba(122,162,255,.35);background:rgba(122,162,255,.14);color:#dbe6ff}
+    .chip.good.active{border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.12);color:#c7f6e4}
+    .chip.warn.active{border-color:rgba(255,204,102,.35);background:rgba(255,204,102,.12);color:#ffe5b8}
+
+    .list{display:flex;flex-direction:column;gap:10px}
+    .person{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(11,18,32,.55);
+      border-radius: var(--r);
+      padding:12px;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .08s ease, background .08s ease;
+    }
+    .person:hover{transform: translateY(-1px);border-color: rgba(122,162,255,.28);background: rgba(15,23,36,.58)}
+    .person.active{border-color: rgba(122,162,255,.45);background: rgba(122,162,255,.10)}
+    .row{display:flex;gap:10px;align-items:flex-start}
+    .avatar{
+      width:42px;height:42px;border-radius:14px;
+      background: rgba(122,162,255,.18);
+      border:1px solid rgba(255,255,255,.10);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;color:#d9e6ff;
+      flex:0 0 auto;
+    }
+    .info{flex:1 1 auto;min-width:0}
+    .name{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .name b{font-size:13.5px}
+    .mini{color:var(--muted);font-size:12px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .tag{
+      font-size:11px;
+      padding:4px 8px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      color:var(--muted);
+    }
+    .score{
+      margin-left:auto;
+      display:flex;gap:6px;align-items:center;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .bar{
+      width:68px;height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.10)
+    }
+    .bar > i{
+      display:block;height:100%;width:50%;
+      background: linear-gradient(90deg, rgba(122,162,255,.85), rgba(61,220,151,.75));
+    }
+
+    /* Main content */
+    .hero{
+      display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
+      padding:12px 12px 10px;border-bottom:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(11,18,32,.80), rgba(14,22,35,.35));
+    }
+    .hero .left{display:flex;gap:12px;align-items:flex-start}
+    .hero .bigA{
+      width:56px;height:56px;border-radius:20px;
+      background: rgba(61,220,151,.14);
+      border:1px solid rgba(255,255,255,.10);
+      display:flex;align-items:center;justify-content:center;
+      font-size:22px;font-weight:900;color:#d4ffee;
+      flex:0 0 auto;
+    }
+    .hero h2{margin:0;font-size:16px}
+    .hero .desc{margin:4px 0 0;color:var(--muted);font-size:12.5px;max-width:760px}
+    .hero .right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .toast{
+      position:fixed;right:16px;bottom:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(14,22,35,.85);
+      color:var(--text);
+      padding:10px 12px;border-radius:14px;
+      box-shadow: var(--shadow);
+      display:none;
+      max-width: 320px;
+      font-size:12px;
+    }
+
+    .tabs{
+      display:flex;gap:8px;flex-wrap:wrap;
+      padding:10px 12px;border-bottom:1px solid var(--line);
+      background: rgba(14,22,35,.40);
+    }
+    .tab{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      color:var(--muted);
+      padding:7px 10px;border-radius:999px;
+      cursor:pointer;font-size:12px;
+      user-select:none;
+    }
+    .tab.active{border-color:rgba(122,162,255,.35);background:rgba(122,162,255,.14);color:#dbe6ff}
+
+    .gridCards{
+      padding:12px;
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:12px;
+      align-items:start;
+    }
+    .card{
+      grid-column: span 6;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(11,18,32,.55);
+      border-radius: var(--r);
+      padding:12px;
+      overflow:hidden;
+    }
+    @media (max-width: 980px){ .card{grid-column: span 12;} }
+    .card h3{margin:0 0 8px;font-size:13.5px}
+    .card p{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+    .kv{display:grid;grid-template-columns: 110px 1fr;gap:8px 10px;margin-top:10px}
+    .k{color:var(--muted);font-size:12px}
+    .v{font-size:12.8px}
+    .list2{margin:0;padding-left:18px}
+    .list2 li{margin:7px 0}
+    .badge{
+      display:inline-flex;gap:6px;align-items:center;
+      font-size:11px;
+      padding:3px 8px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color:var(--muted);
+      vertical-align:middle;
+    }
+    .badge.ok{border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.12);color:#c7f6e4}
+    .badge.warn{border-color:rgba(255,204,102,.35);background:rgba(255,204,102,.12);color:#ffe5b8}
+    .badge.bad{border-color:rgba(255,107,107,.35);background:rgba(255,107,107,.12);color:#ffd0d0}
+
+    .claim{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.14);
+      border-radius: 16px;
+      padding:10px 10px 8px;
+      margin:10px 0;
+    }
+    .claim b{font-size:12.8px}
+    .claim .why{margin:6px 0 8px;color:var(--muted);font-size:12px}
+    .ev{display:flex;flex-direction:column;gap:6px}
+    .ev a{
+      display:flex;gap:8px;align-items:center;
+      padding:6px 8px;border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      font-size:12px;
+      color:#dbe6ff;
+    }
+    .ev a span{color:var(--muted);font-size:11px;margin-left:auto}
+    .empty{
+      padding:12px;color:var(--muted);font-size:12.5px;
+      border:1px dashed rgba(255,255,255,.18);
+      border-radius: var(--r);
+      background: rgba(0,0,0,.12);
+    }
+
+    /* Compare drawer */
+    .drawer{
+      position:fixed; left:0; right:0; bottom:0;
+      background: rgba(14,22,35,.92);
+      border-top:1px solid rgba(255,255,255,.12);
+      box-shadow: 0 -18px 44px rgba(0,0,0,.50);
+      transform: translateY(110%);
+      transition: transform .18s ease;
+      z-index: 40;
+    }
+    .drawer.open{transform: translateY(0)}
+    .drawer .in{max-width:1200px;margin:0 auto;padding:12px 16px}
+    .drawer .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .drawer h3{margin:0;font-size:13px}
+    .drawer .sel{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .sel .box{
+      flex:1 1 280px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(11,18,32,.55);
+      border-radius: var(--r);
+      padding:10px;
+      min-height:120px;
+    }
+    .box .t{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .box .t b{font-size:12.5px}
+    .box .t .x{cursor:pointer;color:var(--muted)}
+    .box .t .x:hover{color:var(--text)}
+    .box .line{height:1px;background:rgba(255,255,255,.10);margin:8px 0}
+    .box .small{color:var(--muted);font-size:12px}
+    .cols{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;margin-top:10px}
+    .cols .col{
+      grid-column: span 4;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.10);
+      border-radius: var(--r2);
+      padding:10px;
+    }
+    @media (max-width: 980px){ .cols .col{grid-column: span 12;} }
+    .col h4{margin:0 0 8px;font-size:12.8px}
+    .col ul{margin:0;padding-left:18px;color:var(--text);font-size:12.5px}
+    .col li{margin:6px 0}
+    .muted{color:var(--muted)}
+    .kbd{font-size:11px;color:var(--muted);border:1px solid rgba(255,255,255,.14);padding:2px 6px;border-radius:8px}
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <header>
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>AI People Wiki</h1>
+          <p>把人物变成学习任务：观点卡（带证据） · 取舍复盘 · 学习路径</p>
+        </div>
+      </div>
+      <div class="actions">
+        <span class="pill">边界：不做 YouTube 深挖</span>
+        <button class="btn" id="openCompare">🧩 对比（<span id="cmpCount">0</span>/3）</button>
+        <button class="btn primary" id="weekly">🗓️ 生成每周学习清单</button>
+        <button class="btn ok" id="subscribe">🔔 订阅更新</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel side">
+      <div class="hd">
+        <div>
+          <h2>人物库</h2>
+          <p class="sub"><span id="resultCount">0</span> 位人物 · 可按角色/主题过滤</p>
+        </div>
+        <span class="kbd">Ctrl/⌘ K</span>
+      </div>
+      <div class="bd">
+        <div class="search">
+          <span>🔎</span>
+          <input id="search" placeholder="搜索人物/主题/公司，如 Agent / Eval / OpenAI" />
+        </div>
+
+        <div class="seg" style="margin-top:12px">
+          <div class="pill">角色</div>
+          <div id="roleChips" class="seg"></div>
+        </div>
+
+        <div class="seg" style="margin-top:10px">
+          <div class="pill">主题</div>
+          <div id="topicChips" class="seg"></div>
+        </div>
+
+        <div class="seg" style="margin-top:10px">
+          <div class="pill">质量门禁</div>
+          <div class="seg">
+            <span class="chip good" data-qgate="pass">✅ 可直接发布</span>
+            <span class="chip warn" data-qgate="review">⚠️ 需人工复核</span>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+        <div class="list" id="peopleList"></div>
+      </div>
+    </aside>
+
+    <main class="panel" id="mainPanel">
+      <div class="hero" id="hero">
+        <div class="left">
+          <div class="bigA" id="heroAvatar">A</div>
+          <div>
+            <h2 id="heroName">选择一个人物</h2>
+            <div class="desc" id="heroDesc">左侧点击人物卡片，查看“学习任务型人物页”：Who / Timeline / Why / Follow / What / So what。</div>
+          </div>
+        </div>
+        <div class="right">
+          <button class="btn" id="addToCompare">➕ 加入对比</button>
+          <button class="btn" id="copyLink">🔗 复制分享链接</button>
+          <button class="btn primary" id="startTasks">▶︎ 开始学习任务</button>
+        </div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <span class="tab active" data-tab="who">Who</span>
+        <span class="tab" data-tab="timeline">Timeline</span>
+        <span class="tab" data-tab="why">Why important</span>
+        <span class="tab" data-tab="follow">Where to follow</span>
+        <span class="tab" data-tab="what">What they say</span>
+        <span class="tab" data-tab="sowhat">So what</span>
+        <span class="tab" data-tab="tasks">Learning tasks</span>
+      </div>
+
+      <div class="gridCards" id="content"></div>
+    </main>
+  </div>
+
+  <div class="drawer" id="drawer">
+    <div class="in">
+      <div class="top">
+        <h3>人物对比（同主题分歧 & 取舍）</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="muted">选择 2~3 人效果最好</span>
+          <button class="btn" id="closeCompare">关闭</button>
+          <button class="btn primary" id="runCompare">生成对比视图</button>
+        </div>
+      </div>
+      <div class="sel" id="cmpSlots"></div>
+      <div class="cols" id="cmpView" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  const PEOPLE = [
+    {
+      id:"sam_altman",
+      name:"Sam Altman",
+      oneLiner:"OpenAI CEO · AI 商业化与战略",
+      roles:["Founder","Product"],
+      orgs:["OpenAI","Y Combinator"],
+      topics:["AGI","AI Strategy","Commercialization","AI Product","Safety"],
+      gate:"review",
+      score:88,
+      who:{
+        company:"OpenAI",
+        function:"产品/创业/战略",
+        activeYears:"2014–至今",
+        aliases:["Samuel Altman"],
+        disambiguation:"同名风险低，但需确认账号与采访来源一致。"
+      },
+      timeline:[
+        {period:"2014–2019", org:"Y Combinator", role:"President", what:"推动创业生态与投资布局（示例）", ev:[{label:"YC profile", url:"#", date:"2018-05-01"}]},
+        {period:"2019–至今", org:"OpenAI", role:"CEO", what:"推动 ChatGPT 产品化与商业化（示例）", ev:[{label:"OpenAI leadership", url:"#", date:"2024-11-01"}]}
+      ],
+      why:{
+        contributions:[
+          {type:"Product", name:"ChatGPT", impact:"让大众首次大规模体验生成式AI产品化形态（示例）", ev:[{label:"Product announcement", url:"#", date:"2022-11-30"}]},
+          {type:"Org/Strategy", name:"AI platform strategy", impact:"围绕模型/应用/生态的战略叙事与资源配置（示例）", ev:[{label:"Interview", url:"#", date:"2024-03-12"}]}
+        ],
+        influence:[
+          "强行业提及度；与政策/资本/研究多圈层共现（示例）",
+          "争议点集中在速度 vs 安全、开放 vs 闭源"
+        ]
+      },
+      follow:[
+        {platform:"X", handle:"@sama", verify:"verified", ev:"Profile verified（示例）", url:"#"},
+        {platform:"Blog/Interviews", handle:"Collected posts", verify:"strong", ev:"官方/主流媒体采访链接集合（示例）", url:"#"},
+        {platform:"YouTube", handle:"Talks (link-only)", verify:"strong", ev:"不做深挖，仅收录链接/标题/简介", url:"#", note:"视频待外部团队摘要"}
+      ],
+      what:{
+        clusters:[
+          {topic:"AI Strategy", claims:[
+            {c:"AI 竞争的关键会从“模型本身”逐步转向“产品化与分发能力”。", why:"帮助PM理解路线：模型能力只是前提，体验/渠道/生态决定规模化。", ev:[{t:"Interview excerpt", url:"#", d:"2024-03-12"}]},
+            {c:"对开发者而言，平台化能力（API/工具链）将持续降低应用门槛。", why:"工程侧可对照：工具链/评测/安全/成本的系统能力更重要。", ev:[{t:"Dev keynote", url:"#", d:"2023-11-06"}]}
+          ]},
+          {topic:"Safety / Governance", claims:[
+            {c:"安全与速度之间需要持续权衡，并建立可迭代的治理机制。", why:"把“安全”从口号变成可执行的流程与门禁。", ev:[{t:"Policy statement", url:"#", d:"2024-05-22"}]}
+          ]}
+        ]
+      },
+      sowhat:{
+        longTerm:["把大模型变成可用、可规模化的产品与平台（示例）"],
+        tradeoffs:[
+          {stage:"2023–2024", t:"speed_vs_safety", decision:"快速迭代产品体验，同时增加安全/对齐投入（示例）", result:"产品增长 + 监管关注提升（示例）", ev:[{t:"Press coverage", url:"#", d:"2024-04-01"}]},
+          {stage:"2024–", t:"open_vs_closed", decision:"更偏平台化与商业化策略（示例）", result:"生态更大但透明度争议（示例）", ev:[{t:"Industry analysis", url:"#", d:"2024-09-10"}]}
+        ],
+        outcomes:["ChatGPT/平台化API生态（示例）","推动行业对AGI与治理的公共讨论（示例）"]
+      },
+      tasks:[
+        {level:"Intro · 15m", task:"读两张观点卡并写 5 句总结：‘他关心的长期问题是什么？’", output:"一页笔记", inputs:["AI Strategy #1","Safety #1"]},
+        {level:"Intermediate · 45m", task:"把‘速度 vs 安全’拆成可执行门禁：数据→评测→发布→回滚", output:"一页流程图", inputs:["Tradeoff 2023–2024"]},
+        {level:"Advanced · 2h", task:"基于一个你们的产品场景，做一份‘平台化能力清单’（API/评测/成本/安全）", output:"清单+优先级", inputs:["AI Strategy #2"]}
+      ]
+    },
+    {
+      id:"fei_fei_li",
+      name:"Fei-Fei Li",
+      oneLiner:"研究者 · 计算机视觉与AI教育推动者",
+      roles:["Research","Academic"],
+      orgs:["Stanford","AI4ALL"],
+      topics:["Computer Vision","AI Education","Embodied AI","Human-centered AI"],
+      gate:"pass",
+      score:84,
+      who:{
+        company:"Stanford",
+        function:"研究/教育/组织",
+        activeYears:"2000s–至今",
+        aliases:["李飞飞"],
+        disambiguation:"中文译名常见，注意同名但风险低。"
+      },
+      timeline:[
+        {period:"2010–2018", org:"Stanford", role:"Professor", what:"推动 ImageNet 等视觉数据与研究（示例）", ev:[{label:"Lab page", url:"#", date:"2012-01-01"}]},
+        {period:"2017–至今", org:"AI4ALL", role:"Co-founder", what:"推动AI教育与多样性（示例）", ev:[{label:"AI4ALL", url:"#", date:"2017-07-01"}]}
+      ],
+      why:{
+        contributions:[
+          {type:"Research", name:"ImageNet", impact:"推动深度学习在视觉的突破与基准体系（示例）", ev:[{label:"Paper/Project", url:"#", date:"2009-09-10"}]},
+          {type:"Org", name:"AI4ALL", impact:"扩大AI教育可及性与人才多样性（示例）", ev:[{label:"Org announcement", url:"#", date:"2017-07-01"}]}
+        ],
+        influence:["学术引用与教育影响显著（示例）","对‘以人为本’与‘可及性’议题持续发声"]
+      },
+      follow:[
+        {platform:"University", handle:"Profile", verify:"verified", ev:"官方简介页面（示例）", url:"#"},
+        {platform:"X", handle:"@drfeifei", verify:"strong", ev:"与官网互链（示例）", url:"#"}
+      ],
+      what:{
+        clusters:[
+          {topic:"Human-centered AI", claims:[
+            {c:"AI 系统的设计必须关注人的体验、安全与公平。", why:"把‘以人为本’落实到产品与评测指标。", ev:[{t:"Talk notes", url:"#", d:"2023-02-18"}]}
+          ]},
+          {topic:"Embodied AI", claims:[
+            {c:"具身智能需要把感知、行动与环境交互作为一体系统来训练与评测。", why:"工程侧可转化为‘闭环评测’与‘环境基准’建设。", ev:[{t:"Research overview", url:"#", d:"2022-10-05"}]}
+          ]}
+        ]
+      },
+      sowhat:{
+        longTerm:["让AI更可靠、更可及、更贴近真实世界（示例）"],
+        tradeoffs:[
+          {stage:"长期", t:"accuracy_vs_fairness", decision:"在性能追求之外引入公平与安全约束（示例）", result:"研究与公共讨论并进（示例）", ev:[{t:"Essay", url:"#", d:"2021-06-12"}]}
+        ],
+        outcomes:["视觉基准与教育组织化产出（示例）"]
+      },
+      tasks:[
+        {level:"Intro · 15m", task:"读一条观点卡，写下‘以人为本’对应的3个可量化指标", output:"三指标列表", inputs:["Human-centered AI #1"]},
+        {level:"Intermediate · 45m", task:"为你的产品设计一个‘闭环评测’：环境→任务→指标→回放", output:"评测草案", inputs:["Embodied AI #1"]}
+      ]
+    },
+    {
+      id:"joanne_jang",
+      name:"Joanne Jang",
+      oneLiner:"AI 产品与个性化 · 对齐与体验的桥梁（示例）",
+      roles:["Product","Research"],
+      orgs:["OpenAI"],
+      topics:["Personalization","AI Personality","Alignment","Product Management"],
+      gate:"review",
+      score:79,
+      who:{company:"OpenAI",function:"产品/对齐/体验",activeYears:"2020s–至今",aliases:["(示例)"],disambiguation:"同名风险中等：需绑定正确岗位与账号。"},
+      timeline:[
+        {period:"2022–至今", org:"OpenAI", role:"Product/Alignment", what:"参与个性化与对齐相关方向（示例）", ev:[{label:"Interview", url:"#", date:"2024-01-15"}]}
+      ],
+      why:{
+        contributions:[
+          {type:"Product", name:"Personalization framing", impact:"把个性化从‘风格’扩展到‘偏好/记忆/边界’（示例）", ev:[{label:"Talk", url:"#", date:"2024-01-15"}]}
+        ],
+        influence:["连接 PM 语言与对齐/安全语言（示例）"]
+      },
+      follow:[
+        {platform:"X", handle:"(to be verified)", verify:"weak", ev:"缺强证据，默认隐藏展示（示例）", url:"#"}
+      ],
+      what:{clusters:[
+        {topic:"AI Personality", claims:[
+          {c:"个性化不是‘更会聊天’，而是‘更可控地满足偏好并保持边界’。", why:"产品层面要有‘控制面板/可解释/可回滚’而非只做风格。", ev:[{t:"Talk transcript (non-YouTube)", url:"#", d:"2024-01-15"}]}
+        ]}
+      ]},
+      sowhat:{
+        longTerm:["让模型更像一个可控的产品，而不是不可预测的黑盒（示例）"],
+        tradeoffs:[
+          {stage:"产品化", t:"ux_vs_control", decision:"引入可控性与透明度机制（示例）", result:"体验更稳定但交互更复杂（示例）", ev:[{t:"Discussion notes", url:"#", d:"2024-02-02"}]}
+        ],
+        outcomes:["个性化与对齐的产品化表达（示例）"]
+      },
+      tasks:[
+        {level:"Intro · 15m", task:"把‘偏好/记忆/边界’拆成3个UI控制项", output:"控制项草图", inputs:["AI Personality #1"]},
+        {level:"Intermediate · 45m", task:"为‘个性化’定义一套评测：满意度/越界率/可恢复率", output:"三指标+测法", inputs:["AI Personality #1"]}
+      ]
+    },
+    {
+      id:"boris_cherny",
+      name:"Boris Cherny",
+      oneLiner:"工程视角 · Agent / RAG / AI coding 讲解者（示例）",
+      roles:["Engineering","Educator"],
+      orgs:["Independent"],
+      topics:["Agent","RAG","AI Coding","Agentic RAG"],
+      gate:"pass",
+      score:75,
+      who:{company:"Independent",function:"工程/内容",activeYears:"2023–至今",aliases:["Boris C."],disambiguation:"同名风险中：需用官网/社媒互链验证。"},
+      timeline:[
+        {period:"2023–至今", org:"Independent", role:"Engineer/Educator", what:"输出短内容解释 Agentic RAG 等概念（示例）", ev:[{label:"Blog", url:"#", date:"2024-08-09"}]}
+      ],
+      why:{
+        contributions:[
+          {type:"Idea", name:"Agentic RAG explanation", impact:"用工程语言解释为何要‘检索-规划-工具调用-评测闭环’（示例）", ev:[{label:"Blog post", url:"#", date:"2024-08-09"}]}
+        ],
+        influence:["对工程团队落地有直接帮助（示例）"]
+      },
+      follow:[
+        {platform:"Blog", handle:"Site", verify:"strong", ev:"主站与社媒互链（示例）", url:"#"},
+        {platform:"YouTube", handle:"Short videos", verify:"strong", ev:"只收链接/标题/简介（不深挖）", url:"#", note:"视频待外部团队摘要"}
+      ],
+      what:{clusters:[
+        {topic:"Agentic RAG", claims:[
+          {c:"RAG 不是‘搜一下再答’，而是‘检索→计划→工具→验证’的循环。", why:"工程落地重点在：工具接口、状态机、评测与回放。", ev:[{t:"Blog excerpt", url:"#", d:"2024-08-09"}]}
+        ]}
+      ]},
+      sowhat:{
+        longTerm:["把 LLM 变成可调试、可评测的工程系统（示例）"],
+        tradeoffs:[
+          {stage:"落地", t:"simplicity_vs_control", decision:"引入状态与日志提高可控性（示例）", result:"复杂度↑但可维护性↑（示例）", ev:[{t:"Blog excerpt", url:"#", d:"2024-08-09"}]}
+        ],
+        outcomes:["Agentic RAG 实践清单（示例）"]
+      },
+      tasks:[
+        {level:"Intro · 15m", task:"画出一个 Agentic RAG 的 5 步状态机", output:"状态机草图", inputs:["Agentic RAG #1"]},
+        {level:"Advanced · 2h", task:"为你们的 Data Agent 设计：日志字段 + 回放 + 评测用例", output:"一页设计文档", inputs:["Agentic RAG #1"]}
+      ]
+    },
+    {
+      id:"kevin_weil",
+      name:"Kevin Weil",
+      oneLiner:"产品/平台 · Evaluations 与工程化实践（示例）",
+      roles:["Product","Engineering"],
+      orgs:["OpenAI (示例)"],
+      topics:["Evaluations","Tooling","Developer Platform"],
+      gate:"review",
+      score:77,
+      who:{company:"OpenAI (示例)",function:"产品/平台",activeYears:"2024–至今",aliases:["K. Weil"],disambiguation:"同名风险中：需绑定正确的公开履历与账号。"},
+      timeline:[
+        {period:"2024–至今", org:"OpenAI (示例)", role:"Platform/Product", what:"推动评测体系与开发者平台（示例）", ev:[{label:"Talk", url:"#", date:"2024-10-10"}]}
+      ],
+      why:{
+        contributions:[
+          {type:"Method", name:"Eval-first mindset", impact:"把‘评测’上升为产品迭代与发布门禁（示例）", ev:[{label:"Talk", url:"#", date:"2024-10-10"}]}
+        ],
+        influence:["对工程团队‘可重复’与‘可回归’影响显著（示例）"]
+      },
+      follow:[
+        {platform:"LinkedIn", handle:"Profile", verify:"strong", ev:"职业履历可验证（示例）", url:"#"}
+      ],
+      what:{clusters:[
+        {topic:"Evaluations", claims:[
+          {c:"没有可回归的评测，就没有可持续的模型迭代。", why:"把评测做成‘持续集成’：数据/指标/门禁/回放。", ev:[{t:"Talk notes", url:"#", d:"2024-10-10"}]}
+        ]}
+      ]},
+      sowhat:{
+        longTerm:["让模型迭代变得可控、可重复、可审计（示例）"],
+        tradeoffs:[
+          {stage:"平台化", t:"velocity_vs_rigor", decision:"牺牲一点速度换取评测严谨度（示例）", result:"发布更稳定但前期成本↑（示例）", ev:[{t:"Talk notes", url:"#", d:"2024-10-10"}]}
+        ],
+        outcomes:["评测门禁/评测资产化（示例）"]
+      },
+      tasks:[
+        {level:"Intermediate · 45m", task:"写一份你们产品的 Eval Spec：数据集/指标/阈值/回放", output:"Eval Spec 草案", inputs:["Evaluations #1"]}
+      ]
+    },
+    {
+      id:"dai_yusen",
+      name:"戴雨森",
+      oneLiner:"国内话题人物（示例）· 需先做强消歧与证据聚合",
+      roles:["Founder","Media"],
+      orgs:["(待验证)"],
+      topics:["AI Trends","Entrepreneurship"],
+      gate:"review",
+      score:63,
+      who:{company:"(待验证)",function:"创业/媒体",activeYears:"(待验证)",aliases:["Dai Yusen"],disambiguation:"高风险：同名与账号混淆概率高，必须人工复核后发布。"},
+      timeline:[],
+      why:{contributions:[], influence:["目前缺可验证证据，建议先做账号绑定与来源聚合。"]},
+      follow:[
+        {platform:"X/WeChat/Podcast", handle:"(pending)", verify:"weak", ev:"缺强证据；默认不展示", url:"#"}
+      ],
+      what:{clusters:[]},
+      sowhat:{longTerm:["(待证据)"], tradeoffs:[], outcomes:[]},
+      tasks:[
+        {level:"Intro · 15m", task:"先完成‘身份确认’：找到 2 条强证据互链（官网/权威采访/LinkedIn）", output:"证据链接列表", inputs:["账号候选"]}
+      ]
+    }
+  ];
+
+  const state = { query:"", role:null, topic:null, gate:null, selectedId:null, tab:"who", compare:[] };
+
+  const $ = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+  const uniq = arr => Array.from(new Set(arr));
+  const initials = (name) => {
+    const n = (name||"").trim();
+    if(!n) return "A";
+    const isCJK = /[\u4e00-\u9fff]/.test(n[0]);
+    if(isCJK) return n[0];
+    const parts = n.split(/\s+/).filter(Boolean);
+    return (parts[0]?.[0]||"A").toUpperCase() + (parts[1]?.[0]||"").toUpperCase();
+  };
+  const toast = (msg) => {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(window.__t);
+    window.__t = setTimeout(()=> t.style.display="none", 1800);
+  };
+
+  function renderChips(){
+    const roles = uniq(PEOPLE.flatMap(p=>p.roles)).sort();
+    const topics = uniq(PEOPLE.flatMap(p=>p.topics)).sort();
+    $("#roleChips").innerHTML = roles.map(r => `<span class="chip ${state.role===r?'active':''}" data-role="${r}">${r}</span>`).join("");
+    $("#topicChips").innerHTML = topics.map(t => `<span class="chip ${state.topic===t?'active':''}" data-topic="${t}">${t}</span>`).join("");
+
+    $("#roleChips").addEventListener("click", (e)=>{
+      const c = e.target.closest(".chip[data-role]");
+      if(!c) return;
+      state.role = (state.role===c.dataset.role) ? null : c.dataset.role;
+      sync();
+    });
+
+    $("#topicChips").addEventListener("click", (e)=>{
+      const c = e.target.closest(".chip[data-topic]");
+      if(!c) return;
+      state.topic = (state.topic===c.dataset.topic) ? null : c.dataset.topic;
+      sync();
+    });
+
+    $$(".chip[data-qgate]").forEach(ch=>{
+      ch.addEventListener("click", ()=>{
+        state.gate = (state.gate===ch.dataset.qgate) ? null : ch.dataset.qgate;
+        sync();
+      });
+    });
+  }
+
+  function filteredPeople(){
+    const q = state.query.toLowerCase().trim();
+    return PEOPLE.filter(p=>{
+      if(state.role && !p.roles.includes(state.role)) return false;
+      if(state.topic && !p.topics.includes(state.topic)) return false;
+      if(state.gate){
+        if(state.gate==="pass" && p.gate!=="pass") return false;
+        if(state.gate==="review" && p.gate!=="review") return false;
+      }
+      if(q){
+        const hay = [p.name, p.oneLiner, ...(p.roles||[]), ...(p.orgs||[]), ...(p.topics||[])].join(" ").toLowerCase();
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    }).sort((a,b)=>b.score-a.score);
+  }
+
+  function renderList(){
+    const list = $("#peopleList");
+    const ppl = filteredPeople();
+    $("#resultCount").textContent = String(ppl.length);
+    list.innerHTML = ppl.map(p=>{
+      const active = p.id===state.selectedId ? "active" : "";
+      const gateBadge = p.gate==="pass" ? `<span class="badge ok">可发布</span>` : `<span class="badge warn">需复核</span>`;
+      const w = Math.max(8, Math.min(100, p.score));
+      return `
+        <div class="person ${active}" data-id="${p.id}">
+          <div class="row">
+            <div class="avatar">${initials(p.name)}</div>
+            <div class="info">
+              <div class="name">
+                <b>${p.name}</b>
+                ${gateBadge}
+                <span class="score">
+                  <span>Value</span>
+                  <span class="bar"><i style="width:${w}%"></i></span>
+                  <span>${p.score}</span>
+                </span>
+              </div>
+              <div class="mini">${p.oneLiner}</div>
+              <div class="tags">
+                ${(p.topics||[]).slice(0,4).map(t=>`<span class="tag">${t}</span>`).join("")}
+                ${p.topics.length>4 ? `<span class="tag">+${p.topics.length-4}</span>` : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    list.onclick = (e)=>{
+      const item = e.target.closest(".person[data-id]");
+      if(!item) return;
+      state.selectedId = item.dataset.id;
+      state.tab = "who";
+      setHash();
+      sync();
+    };
+  }
+
+  function current(){ return PEOPLE.find(p=>p.id===state.selectedId) || null; }
+
+  function setHero(p){
+    if(!p){
+      $("#heroAvatar").textContent = "A";
+      $("#heroName").textContent = "选择一个人物";
+      $("#heroDesc").textContent = "左侧点击人物卡片，查看“学习任务型人物页”：Who / Timeline / Why / Follow / What / So what。";
+      return;
+    }
+    $("#heroAvatar").textContent = initials(p.name);
+    $("#heroName").textContent = p.name;
+    $("#heroDesc").textContent = `${p.oneLiner}  ·  主题：${(p.topics||[]).slice(0,5).join(" / ")}${p.topics.length>5?" …":""}`;
+  }
+
+  function renderTabs(){
+    $$("#tabs .tab").forEach(t=> t.classList.toggle("active", t.dataset.tab===state.tab));
+  }
+
+  function evLink(e){
+    const label = e.t || e.label || "Source";
+    const date = e.d || e.date || "";
+    const url = e.url || "#";
+    return `<a href="${url}" target="_blank" rel="noreferrer">🔗 ${label}<span>${date}</span></a>`;
+  }
+
+  function renderWho(p){
+    const w = p.who || {};
+    return `
+      <div class="card">
+        <h3>Who（身份与角色）</h3>
+        <p>标准化身份用于过滤/对比；同名消歧是质量门禁的第一关。</p>
+        <div class="kv">
+          <div class="k">公司/组织</div><div class="v">${w.company||"—"}</div>
+          <div class="k">职能</div><div class="v">${w.function||"—"}</div>
+          <div class="k">活跃时期</div><div class="v">${w.activeYears||"—"}</div>
+          <div class="k">别名</div><div class="v">${(w.aliases||[]).join(" / ") || "—"}</div>
+          <div class="k">消歧备注</div><div class="v">${w.disambiguation||"—"}</div>
+        </div>
+        <div class="tags" style="margin-top:12px">
+          ${(p.roles||[]).map(r=>`<span class="tag">${r}</span>`).join("")}
+          ${(p.orgs||[]).map(o=>`<span class="tag">${o}</span>`).join("")}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>质量状态</h3>
+        <p>这会影响是否可直接发布，或进入人工审核队列。</p>
+        <ul class="list2">
+          <li>质量门禁：${p.gate==="pass" ? `<span class="badge ok">可直接发布</span>` : `<span class="badge warn">需人工复核</span>`}</li>
+          <li>Value Score：<b>${p.score}</b>（示例：影响力/贡献/可学习性/时效 - 风险）</li>
+          <li>边界：YouTube 只收录链接/标题/简介；深挖由外部团队产出摘要再接入。</li>
+        </ul>
+        <div class="empty" style="margin-top:10px">
+          这里可以放：<b>更新监控</b>（最近7天新增内容）、<b>风险标记</b>（同名/弱账号/缺证据）与<b>待办</b>（Curator actions）。
+        </div>
+      </div>
+    `;
+  }
+
+  function renderTimeline(p){
+    const items = p.timeline || [];
+    return `
+      <div class="card" style="grid-column: span 12;">
+        <h3>Career Timeline（可验证时间线）</h3>
+        <p>每段经历都要绑定证据来源（LinkedIn / 官方简介 / 采访自述等）。</p>
+        ${items.length ? items.map(it=>`
+          <div class="claim">
+            <b>${it.period} · ${it.org} · ${it.role}</b>
+            <div class="why">${it.what}</div>
+            <div class="ev">${(it.ev||[]).map(evLink).join("")}</div>
+          </div>
+        `).join("") : `<div class="empty">暂无可验证时间线：建议先做账号绑定与权威来源聚合。</div>`}
+      </div>
+    `;
+  }
+
+  function renderWhy(p){
+    const c = (p.why && p.why.contributions) || [];
+    const infl = (p.why && p.why.influence) || [];
+    return `
+      <div class="card">
+        <h3>贡献类型（产品/论文/开源/组织/思想）</h3>
+        <p>不是“头衔”，而是“对行业/工程产生了什么可验证的影响”。</p>
+        ${c.length ? c.map(x=>`
+          <div class="claim">
+            <b>${x.type} · ${x.name}</b>
+            <div class="why">${x.impact}</div>
+            <div class="ev">${(x.ev||[]).map(evLink).join("")}</div>
+          </div>
+        `).join("") : `<div class="empty">贡献条目不足：先补证据来源与关键产出。</div>`}
+      </div>
+
+      <div class="card">
+        <h3>影响力信号（Why it matters）</h3>
+        <p>用于“高价值判定”与选题排序：共现网络、行业提及、引用与讨论焦点。</p>
+        ${infl.length ? `<ul class="list2">${infl.map(s=>`<li>${s}</li>`).join("")}</ul>` : `<div class="empty">暂无影响力信号：建议补充提及与共现证据。</div>`}
+        <div class="tags" style="margin-top:10px">
+          ${(p.topics||[]).slice(0,8).map(t=>`<span class="tag">${t}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderFollow(p){
+    const f = p.follow || [];
+    return `
+      <div class="card" style="grid-column: span 12;">
+        <h3>Where to follow（账号与可信度）</h3>
+        <p>账号必须标注可信等级：<span class="badge ok">verified</span> / <span class="badge warn">strong</span> / <span class="badge bad">weak</span>。弱关联默认隐藏或降权。</p>
+        ${f.length ? f.map(a=>{
+          const b = a.verify==="verified" ? "ok" : (a.verify==="strong" ? "warn" : "bad");
+          const note = a.note ? ` · <span class="muted">${a.note}</span>` : "";
+          return `
+            <div class="claim">
+              <b>${a.platform} · ${a.handle}</b>
+              <div class="why"><span class="badge ${b}">${a.verify}</span> ${a.ev || ""}${note}</div>
+              <div class="ev">${evLink({t:"Open", url:a.url||"#", d:""})}</div>
+            </div>
+          `;
+        }).join("") : `<div class="empty">暂无账号信息：先完成强证据互链验证。</div>`}
+      </div>
+    `;
+  }
+
+  function renderWhat(p){
+    const clusters = (p.what && p.what.clusters) || [];
+    if(!clusters.length){
+      return `<div class="card" style="grid-column: span 12;">
+        <h3>What they say（内容与观点库）</h3>
+        <p>每条观点必须挂 1~3 条出处；按主题聚类。</p>
+        <div class="empty">暂无观点卡：建议先做 RAG 索引与可引用片段抽取。</div>
+      </div>`;
+    }
+    return clusters.map(cl=>{
+      const claims = cl.claims || [];
+      return `
+        <div class="card" style="grid-column: span 12;">
+          <h3>主题：${cl.topic}</h3>
+          <p>代表性观点卡（每条都挂证据）；用于学习与对比。</p>
+          ${claims.map((x, idx)=>`
+            <div class="claim">
+              <b>${idx+1}. ${x.c}</b>
+              <div class="why">${x.why}</div>
+              <div class="ev">${(x.ev||[]).map(e=>evLink({t:e.t,url:e.url,d:e.d})).join("")}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderSoWhat(p){
+    const sw = p.sowhat || {};
+    const lt = sw.longTerm || [];
+    const tr = sw.tradeoffs || [];
+    const out = sw.outcomes || [];
+    return `
+      <div class="card">
+        <h3>长期问题（Long-term questions）</h3>
+        <p>这个人持续在解决什么？用于“学习主线”。</p>
+        ${lt.length ? `<ul class="list2">${lt.map(x=>`<li>${x}</li>`).join("")}</ul>` : `<div class="empty">(待证据)</div>`}
+      </div>
+
+      <div class="card">
+        <h3>结果（Outcomes）</h3>
+        <p>形成了哪些产品/方法/组织/影响？</p>
+        ${out.length ? `<ul class="list2">${out.map(x=>`<li>${x}</li>`).join("")}</ul>` : `<div class="empty">暂无结果项：建议补充可验证产出。</div>`}
+      </div>
+
+      <div class="card" style="grid-column: span 12;">
+        <h3>阶段取舍（Tradeoffs）</h3>
+        <p>用统一模板表达：长期问题 → 阶段权衡 → 决策 → 结果（带证据）。</p>
+        ${tr.length ? tr.map(x=>`
+          <div class="claim">
+            <b>${x.stage} · ${x.t.replaceAll("_"," ")}</b>
+            <div class="why"><b>取舍：</b>${x.decision}<br/><b>结果：</b>${x.result}</div>
+            <div class="ev">${(x.ev||[]).map(e=>evLink({t:e.t,url:e.url,d:e.d})).join("")}</div>
+          </div>
+        `).join("") : `<div class="empty">暂无取舍条目：建议从时间线 + 观点中抽取并补证据。</div>`}
+      </div>
+    `;
+  }
+
+  function renderTasks(p){
+    const t = p.tasks || [];
+    return `
+      <div class="card" style="grid-column: span 12;">
+        <h3>Learning tasks（学习任务）</h3>
+        <p>把“看懂”变成“能用”：每条任务都有输入、产出与时间盒。</p>
+        ${t.length ? t.map(x=>`
+          <div class="claim">
+            <b>${x.level}</b>
+            <div class="why">${x.task}</div>
+            <div class="ev"><a href="#" onclick="return false">🧩 预期产出：${x.output}<span>${(x.inputs||[]).join(" · ")}</span></a></div>
+          </div>
+        `).join("") : `<div class="empty">暂无学习任务：建议用“任务设计师”机器人生成并人工挑选。</div>`}
+      </div>
+    `;
+  }
+
+  function renderMain(){
+    const p = current();
+    setHero(p);
+    renderTabs();
+    const box = $("#content");
+    if(!p){
+      box.innerHTML = `
+        <div class="card" style="grid-column: span 12;">
+          <h3>欢迎来到 AI People Wiki</h3>
+          <p>这里不是人物生平，而是“学习任务页”。你可以：</p>
+          <ul class="list2">
+            <li>按主题筛选：Agent / RAG / Evaluations / Personalization / Safety …</li>
+            <li>查看每条观点的证据来源（避免张冠李戴）</li>
+            <li>把人物加入对比，比较同主题下的分歧与取舍</li>
+            <li>一键生成每周学习清单（供团队共学）</li>
+          </ul>
+          <div class="empty">提示：本页面是静态原型（示例数据），用于展示“预期长什么样”。</div>
+        </div>
+      `;
+      return;
+    }
+    let html = "";
+    if(state.tab==="who") html = renderWho(p);
+    if(state.tab==="timeline") html = renderTimeline(p);
+    if(state.tab==="why") html = renderWhy(p);
+    if(state.tab==="follow") html = renderFollow(p);
+    if(state.tab==="what") html = renderWhat(p);
+    if(state.tab==="sowhat") html = renderSoWhat(p);
+    if(state.tab==="tasks") html = renderTasks(p);
+    box.innerHTML = html;
+  }
+
+  function renderCompareSlots(){
+    const slots = $("#cmpSlots");
+    const picks = state.compare.map(id => PEOPLE.find(p=>p.id===id)).filter(Boolean);
+    slots.innerHTML = [0,1,2].map(i=>{
+      const p = picks[i];
+      if(!p){
+        return `
+          <div class="box">
+            <div class="t"><b>空位 ${i+1}</b><span class="small">从人物页点击“加入对比”</span></div>
+            <div class="line"></div>
+            <div class="small">建议选择同一主题的 2~3 人，便于对比“取舍”。</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="box" data-id="${p.id}">
+          <div class="t"><b>${p.name}</b><span class="x" data-remove="${p.id}">移除</span></div>
+          <div class="line"></div>
+          <div class="small">${p.oneLiner}</div>
+          <div class="tags" style="margin-top:10px">${(p.topics||[]).slice(0,5).map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        </div>
+      `;
+    }).join("");
+
+    slots.onclick = (e)=>{
+      const rm = e.target.closest("[data-remove]");
+      if(!rm) return;
+      state.compare = state.compare.filter(x=>x!==rm.dataset.remove);
+      syncCompare();
+    };
+  }
+
+  function syncCompare(){
+    $("#cmpCount").textContent = String(state.compare.length);
+    renderCompareSlots();
+    $("#cmpView").style.display = "none";
+    $("#cmpView").innerHTML = "";
+  }
+
+  function runCompare(){
+    const picks = state.compare.map(id => PEOPLE.find(p=>p.id===id)).filter(Boolean);
+    if(picks.length < 2){ toast("至少选择两位人物进行对比"); return; }
+    const view = $("#cmpView");
+    view.style.display = "grid";
+    view.innerHTML = picks.map(p=>{
+      const lt = (p.sowhat && p.sowhat.longTerm) || [];
+      const tr = (p.sowhat && p.sowhat.tradeoffs) || [];
+      const top = (p.topics||[]).slice(0,6);
+      return `
+        <div class="col">
+          <h4>${p.name} <span class="muted">· Value ${p.score}</span></h4>
+          <div class="muted" style="font-size:12px;margin:-4px 0 8px">${p.oneLiner}</div>
+          <div class="muted" style="font-size:12px;margin:10px 0 6px">长期问题</div>
+          <ul>${(lt.length?lt:["(待证据)"]).slice(0,3).map(x=>`<li>${x}</li>`).join("")}</ul>
+          <div class="muted" style="font-size:12px;margin:10px 0 6px">关键取舍（Top）</div>
+          <ul>${(tr.length?tr:[{stage:"—",t:"(none)",decision:"—"}]).slice(0,2).map(x=>`<li><b>${x.stage}</b>：${x.t.replaceAll("_"," ")} → ${x.decision}</li>`).join("")}</ul>
+          <div class="muted" style="font-size:12px;margin:10px 0 6px">主题标签</div>
+          <div class="tags">${top.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function setHash(){
+    const p = state.selectedId ? `p=${state.selectedId}` : "";
+    const t = state.tab ? `t=${state.tab}` : "";
+    const parts = [p,t].filter(Boolean).join("&");
+    location.hash = parts ? `#${parts}` : "";
+  }
+  function readHash(){
+    const h = (location.hash||"").replace(/^#/,"");
+    if(!h) return;
+    const params = Object.fromEntries(h.split("&").map(kv=>kv.split("=")).filter(x=>x.length===2));
+    if(params.p && PEOPLE.some(p=>p.id===params.p)) state.selectedId = params.p;
+    if(params.t) state.tab = params.t;
+  }
+
+  function sync(){
+    $$("#roleChips .chip").forEach(c=> c.classList.toggle("active", state.role===c.dataset.role));
+    $$("#topicChips .chip").forEach(c=> c.classList.toggle("active", state.topic===c.dataset.topic));
+    $$(".chip[data-qgate]").forEach(c=> c.classList.toggle("active", state.gate===c.dataset.qgate));
+    renderList();
+    renderMain();
+    syncCompare();
+  }
+
+  $("#search").addEventListener("input", (e)=>{ state.query = e.target.value || ""; sync(); });
+
+  $$("#tabs .tab").forEach(t=>{
+    t.addEventListener("click", ()=>{
+      state.tab = t.dataset.tab;
+      setHash();
+      sync();
+    });
+  });
+
+  $("#addToCompare").addEventListener("click", ()=>{
+    const p = current();
+    if(!p) return toast("先选择一个人物");
+    if(state.compare.includes(p.id)) return toast("已在对比列表");
+    if(state.compare.length>=3) return toast("最多对比 3 人");
+    state.compare.push(p.id);
+    toast("已加入对比");
+    syncCompare();
+  });
+
+  $("#openCompare").addEventListener("click", ()=>{ $("#drawer").classList.add("open"); renderCompareSlots(); });
+  $("#closeCompare").addEventListener("click", ()=>{ $("#drawer").classList.remove("open"); });
+  $("#runCompare").addEventListener("click", ()=> runCompare());
+
+  $("#copyLink").addEventListener("click", async ()=>{
+    setHash();
+    const url = location.href;
+    try{ await navigator.clipboard.writeText(url); toast("已复制分享链接（当前人物/Tab）"); }
+    catch(e){ toast("复制失败（浏览器限制），可手动复制地址栏"); }
+  });
+
+  $("#startTasks").addEventListener("click", ()=>{
+    const p = current();
+    if(!p) return toast("先选择一个人物");
+    state.tab = "tasks"; setHash(); sync();
+    toast("已跳转到 Learning tasks");
+  });
+
+  $("#weekly").addEventListener("click", ()=> toast("（原型）会根据订阅主题/人物生成每周学习清单"));
+  $("#subscribe").addEventListener("click", ()=> toast("（原型）已订阅：新内容触发增量刷新与提醒"));
+
+  window.addEventListener("keydown", (e)=>{
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="k"){
+      e.preventDefault(); $("#search").focus();
+    }
+  });
+
+  renderChips();
+  readHash();
+  sync();
+</script>
+</body>
+</html>

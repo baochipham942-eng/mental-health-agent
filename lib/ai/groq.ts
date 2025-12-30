@@ -20,7 +20,10 @@ export interface QuickAnalysis {
     stateReasoning: string; // 对话状态/意图分析
     emotion: { label: string; score: number };
     route: 'crisis' | 'support' | 'assessment';
-    needsValidation?: boolean; // 新增：是否需要优先进行情绪共情（EFT模式）
+    needsValidation: boolean; // EFT 共情判断
+    adaptiveMode: 'guardian' | 'companion' | 'guide' | 'coach';
+    personaReasoning: string; // 角色选择理由
+    memoryCheck: string; // 记忆检查结果：是否值得记录？关键词是什么？
 }
 
 export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析用户消息，直接输出 JSON（不要任何其他文字）：
@@ -28,19 +31,26 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
 {
   "safety": "crisis" | "urgent" | "normal",
   "safetyReasoning": "实事求是地说明用户消息内容与安全等级判断，1句话",
-  "stateReasoning": "简要说明用户的意图和当前对话状态，1句话",
-  "emotion": { "label": "压力|疲惫|情绪低落|焦虑|悲伤|愤怒|恐惧|抑郁|平静|快乐", "score": 1-10 },
+  "stateReasoning": "分析用户的深层意图、潜台词及当前对话阶段，并简述接下来的应对策略（2-3句）",
+  "emotion": { "label": "未表达|压力|疲惫|情绪低落|焦虑|悲伤|愤怒|恐惧|抑郁|平静|快乐", "score": 1-10 },
   "route": "crisis" | "support" | "assessment",
   "needsValidation": boolean,
-  "adaptiveMode": "guardian" | "companion" | "guide" | "coach"
+  "adaptiveMode": "guardian" | "companion" | "guide" | "coach",
+  "personaReasoning": "选择该角色的理由（1句话）",
+  "memoryCheck": "是否有值得长期记忆的关键信息（如偏好、重大事件）？若无则填'无'，若有请简述关键词"
 }
 
-情绪标签规则（严格遵守，不要过度病理化）：
-- **压力**: 用户提及"压力大"、"忙"、"累"、"赶deadline"等。这是最常见的情绪，不要跳过它直接用"抑郁"。
+情绪标签规则（严格遵守，不要过度推断）：
+- **未表达**: ⚠️ 优先使用！当用户只是打招呼、提问、表达想聊天、或未明确表达任何情绪状态时。例如："想和你聊聊"、"最近怎么样"、"有个问题想问你"。此时 score 设为 0。
+- **平静**: 用户情绪平稳，表达积极或中性的状态。
+- **快乐**: 用户表达开心、高兴、兴奋等正面情绪。
+- **压力**: 用户提及"压力大"、"忙"、"累"、"赶deadline"等。这是最常见的负面情绪，不要跳过它直接用"抑郁"。
 - **疲惫**: 用户提及身心疲惫、睡眠不好、精力不足。
-- **情绪低落**: 用户表达心情不好、郁闷、不开心，但未达到"什么都不想做"。
+- **情绪低落**: 用户明确表达心情不好、郁闷、不开心。注意："想聊聊心情"不等于情绪低落，需要用户明确说"心情不好"。
 - **焦虑**: 用户对未来担忧、紧张、坐立不安。
 - **悲伤**: 用户因具体事件（如失恋、丧亲）感到难过。
+- **愤怒**: 用户表达生气、愤怒、不满。
+- **恐惧**: 用户表达害怕、恐惧、担心某事发生。
 - **抑郁**: ⚠️ 仅当用户**明确表达**以下信号之一时使用：
   1. "什么都不想做"、"没有动力"、"对什么都没兴趣"
   2. "活着没意思"、"觉得自己很没用"、"是个累赘"
@@ -48,7 +58,7 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
   **单纯说"压力大"绝对不能标记为抑郁！**
 
 安全等级规则（必须严格遵守，不要过度解读）：
-- crisis: 用户**明确表达**结束生命、自杀计划、严重自伤行为。⚠️注意：仅表达“想逃离现场”、“不想面对”、“想找个地缝钻进去”属于社交回避，是 normal 等级，绝非 crisis。
+- crisis: 用户**明确表达**结束生命、自杀计划、严重自伤行为。⚠️注意：仅表达“想逃离现场”、“不想面对”、“想找个地缝钻出来”属于社交回避，是 normal 等级，绝非 crisis。
 - urgent: 用户表达**活着没意思**、**想要解脱**但无具体计划。⚠️注意：仅仅表达“累”、“什么都不想做”、“觉得自己废”属于抑郁症状（normal），除非明确提及“活着没意思”或“想结束”，否则不属于 urgent。
 - normal: 其他所有情况，包括焦虑发作、惊恐、失眠、情绪低落、自我否定、想逃避工作/社交等。
 
@@ -78,10 +88,14 @@ EFT共情判断 (needsValidation):
 
 const DEFAULT_ANALYSIS: QuickAnalysis = {
     safety: 'normal',
-    safetyReasoning: 'Default fallback - no analysis performed',
-    stateReasoning: 'Default fallback - no analysis performed',
+    safetyReasoning: '默认模式 - 未执行智能分析（网络或服务暂时不可用）',
+    stateReasoning: '默认模式 - 直接进入支持性对话',
     emotion: { label: '平静', score: 5 },
-    route: 'support'
+    route: 'support',
+    needsValidation: false,
+    adaptiveMode: 'companion',
+    personaReasoning: '默认模式 - 情感支持与陪伴',
+    memoryCheck: '无'
 };
 
 /**
@@ -113,7 +127,7 @@ export async function quickAnalyze(message: string, recentHistory: { role: strin
                 { role: 'user', content: message }
             ],
             temperature: 0,
-            maxTokens: 150,
+            maxTokens: 450,
         });
 
         const duration = Date.now() - startTime;

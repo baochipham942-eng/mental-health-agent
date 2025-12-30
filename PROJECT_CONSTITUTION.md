@@ -51,6 +51,35 @@
     - 状态：**必须手动触发部署**。
     - 域名：`mental.llmxy.xyz` 指向此处。
 
+### 1.1 包管理器规范 (Package Manager)
+
+> **必须使用 pnpm**：本项目使用 pnpm 作为包管理器，不使用 npm 或 yarn。
+
+**优势**：
+- 硬链接机制，节省磁盘空间
+- 多项目共享依赖包
+- 更快的安装速度
+
+**常用命令**：
+```bash
+# 安装依赖（替代 npm install）
+pnpm install
+
+# 添加新包（替代 npm install xxx）
+pnpm add xxx
+
+# 运行脚本（替代 npm run xxx）
+pnpm dev
+pnpm build
+
+# 清理无用缓存
+pnpm store prune
+```
+
+**严禁行为**：
+- 禁止使用 `npm install` 安装依赖
+- 禁止删除 `pnpm-lock.yaml` 文件
+
 ## 2. 双重部署原则 (The Dual Deployment Rule)
 
 您必须理解：**Vercel 是"自动挡"，阿里云 FC 是"手动挡"。**

@@ -10,7 +10,7 @@ import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
 import { DebugDrawer } from './DebugDrawer';
 import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
-import { IconStop, IconInfoCircle } from '@arco-design/web-react/icon';
+import { IconStop, IconInfoCircle, IconArrowRight } from '@arco-design/web-react/icon';
 import { generateSummaryForSession } from '@/lib/actions/summary';
 
 function generateId(): string {
@@ -195,21 +195,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
   const displayMessages = shouldShowStoreMessages ? messages : (initialMessages || []);
 
-  // Debug: log message display decision
-  console.log('[ChatShell] displayMessages decision:', {
-    shouldShowStoreMessages,
-    sessionId,
-    internalSessionId,
-    isCreatingSession,
-    storeMessagesCount: messages.length,
-    initialMessagesCount: initialMessages?.length || 0,
-    displayMessagesCount: displayMessages.length,
-    condition1_idMatch: sessionId === internalSessionId,
-    condition2_bothUndefined: !sessionId && !internalSessionId,
-    condition3_creating: isCreatingSession && internalSessionId && !sessionId,
-    condition4_spaCreated: !sessionId && internalSessionId && messages.length > 0,
-  });
-
   // 组件挂载时，强制重置isLoading和isSending为false（防止状态卡住）
   useEffect(() => {
     // 立即重置所有可能卡住的状态
@@ -238,6 +223,13 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   useEffect(() => {
     // 跳过首次挂载（已由 useMemo 处理）
     if (initializedThisRender) {
+      return;
+    }
+
+    // ★ CRITICAL GUARD: 如果正在发送消息或 loading，不要执行任何会话切换逻辑
+    // 这防止了流式响应期间 URL 更新导致消息被清空的问题
+    if (isSending || isLoading) {
+      console.log('[ChatShell] Skipping session switch - message in progress', { isSending, isLoading });
       return;
     }
 
@@ -417,33 +409,32 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
       okText: '确定结束',
       cancelText: '继续咨询',
       icon: null, // 不显示图标
-      style: { width: 400, borderRadius: '12px' }, // 这里也可以加上圆角
+      style: { width: 320, borderRadius: '12px' }, // 减小宽度保持一致
       onOk: async () => {
         // 1. Trigger summary generation (if session has messages)
         if (internalSessionId && messages.length > 0) {
           console.log('[ChatShell] Triggering summary generation for session:', internalSessionId);
           try {
-            await generateSummaryForSession(internalSessionId);
+            const generatedSummary = await generateSummaryForSession(internalSessionId);
             console.log('[ChatShell] Summary generated successfully');
+            if (generatedSummary) {
+              setSummary(generatedSummary);
+            }
           } catch (error) {
             console.error('[ChatShell] Summary generation failed:', error);
-            // Don't block user flow if summary fails
           }
         }
 
-        // 2. Clear local store
-        resetConversation();
-        setDraft('');
-        setIsSending(false);
-        setLoading(false);
-        setError(null);
+        // 2. Force session to end state (UI changes to ended view)
+        setTimeLeft(0);
 
-        // 3. Reset session ID state and ref
-        setInternalSessionId(undefined);
-        sessionIdRef.current = undefined;
+        // 3. Do NOT reset conversation or redirect immediately
+        // Allow user to read the summary
+        // resetConversation();
+        // router.push('/');
 
-        // 4. Redirect to home
-        router.push('/');
+        // Optional: Show a toast?
+        ArcoMessage.success('咨询已结束');
       },
     });
   }, [resetConversation, setLoading, setError, router]);
@@ -530,6 +521,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
     return () => clearInterval(timer);
   }, [timeLeft]);
+
+  // ★ 摘要获取逻辑
+  const [summary, setSummary] = useState<any>(null);
+  useEffect(() => {
+    // 只有当会话结束且有会话ID且本地无摘要时才获取
+    if (isSessionEnded && internalSessionId && !summary) {
+      console.log('[ChatShell] Fetching summary for ended session:', internalSessionId);
+      generateSummaryForSession(internalSessionId)
+        .then(data => {
+          if (data) {
+            console.log('[ChatShell] Summary fetched successfully');
+            setSummary(data);
+          }
+        })
+        .catch(err => console.error('[ChatShell] Failed to fetch summary:', err));
+    }
+  }, [isSessionEnded, internalSessionId]);
 
   // 同步会话状态到全局 Store (用于导航拦截)
   // Note: sessionStatus and isConsulting are INTENTIONALLY excluded from deps to prevent infinite loops.
@@ -733,6 +741,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                 assistantQuestions: data.assistantQuestions,
                 validationError: data.validationError,
                 toolCalls: data.toolCalls,
+                persona: data.persona,
+                memory: data.memory,
+                adaptiveMode: data.adaptiveMode,
               }
             } as any);
           },
@@ -801,6 +812,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             // MERGE: Ensure we don't lose safety/state if responseData misses them
             safety: responseData.safety || capturedSafety,
             state: responseData.state || capturedState,
+            // MERGE: Preserve persona/memory data from stream
+            persona: responseData.persona,
+            memory: responseData.memory,
+            adaptiveMode: responseData.adaptiveMode,
           }
         } as any);
 
@@ -933,15 +948,110 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             sessionId={internalSessionId || sessionIdRef.current || ''}
           />
           {isSessionEnded && (
-            <div className="p-6 mx-4 mb-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-              <div className="text-center">
-                <div className="text-3xl mb-3">🌿</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">本次咨询已结束</h3>
-                <p className="text-sm text-gray-600 mb-4">感谢你的信任与分享，每一次倾诉都是勇敢的一步。</p>
-                <div className="bg-white rounded-xl p-3 text-left text-sm text-gray-700">
-                  <p className="font-medium mb-1">小结：</p>
-                  <p>本次对话共 {messages.length} 条消息，时长约 45 分钟。</p>
-                  <p className="mt-1 text-gray-500">你的历史记录已安全保存，可以随时回顾。</p>
+            <div className="mx-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-indigo-50/50 relative overflow-hidden">
+                {/* Background Decoration */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-green-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-50/50 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
+
+                <div className="relative z-10">
+                  {/* Header */}
+                  <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transform rotate-3">
+                      <span className="text-3xl">🌱</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">本次咨询已完成</h3>
+                    <p className="text-gray-500 text-sm">感谢你的信任，希望这次对话对你有所帮助</p>
+                  </div>
+
+                  {/* Summary Content */}
+                  {summary ? (
+                    <div className="space-y-6">
+                      {/* Emotion Change */}
+                      {(summary.emotionInitial && summary.emotionFinal) && (
+                        <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-between border border-slate-100">
+                          <div className="text-center flex-1">
+                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">开始心情</div>
+                            <div className="font-semibold text-gray-700 text-lg">
+                              {summary.emotionInitial.label}
+                              <span className="text-xs text-gray-400 ml-1 font-normal">({summary.emotionInitial.score})</span>
+                            </div>
+                          </div>
+                          <div className="text-gray-300 px-2">
+                            <IconArrowRight />
+                          </div>
+                          <div className="text-center flex-1">
+                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">结束心情</div>
+                            <div className="font-semibold text-gray-700 text-lg">
+                              {summary.emotionFinal.label}
+                              <span className="text-xs text-gray-400 ml-1 font-normal">({summary.emotionFinal.score})</span>
+                            </div>
+                          </div>
+                          <div className="text-center flex-1 border-l border-gray-200 pl-4">
+                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">变化</div>
+                            <div className={`font-bold text-lg ${summary.moodChange > 0 ? 'text-green-500' : summary.moodChange < 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+                              {summary.moodChange > 0 ? `+${summary.moodChange}` : summary.moodChange}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid md:grid-cols-2 gap-6">
+                        {/* Key Insights */}
+                        {summary.keyInsights && summary.keyInsights.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                              <span className="w-1 h-4 bg-amber-400 rounded-full"></span>
+                              核心洞察
+                            </h4>
+                            <ul className="space-y-3">
+                              {summary.keyInsights.map((insight: string, idx: number) => (
+                                <li key={idx} className="text-sm text-gray-600 flex items-start gap-2.5 leading-relaxed bg-amber-50/30 p-2.5 rounded-lg border border-amber-50">
+                                  <span className="text-amber-500 mt-0.5 text-xs">●</span>
+                                  <span>{insight}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Action Items */}
+                        {summary.actionItems && summary.actionItems.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                              <span className="w-1 h-4 bg-green-500 rounded-full"></span>
+                              行动建议
+                            </h4>
+                            <div className="space-y-3">
+                              {summary.actionItems.map((item: string, idx: number) => (
+                                <div key={idx} className="text-sm text-gray-600 bg-green-50/30 p-2.5 rounded-lg border border-green-50 flex items-start gap-2.5 leading-relaxed">
+                                  <span className="text-green-600 mt-0.5">✓</span>
+                                  <span>{item}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Therapist Note */}
+                      {summary.therapistNote && (
+                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 text-sm text-gray-600 leading-relaxed shadow-sm">
+                          <span className="font-bold text-indigo-700 block mb-2 flex items-center gap-2">
+                            👩‍⚕️ 咨询师寄语
+                          </span>
+                          {summary.therapistNote}
+                        </div>
+                      )}
+
+                    </div>
+                  ) : (
+                    // Loading State
+                    <div className="py-8 text-center space-y-3">
+                      <div className="mx-auto w-8 h-8 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <p className="text-sm text-gray-400 animate-pulse">正在为你生成专属咨询总结...</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

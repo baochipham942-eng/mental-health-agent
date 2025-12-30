@@ -26,6 +26,15 @@ export interface Message {
       reasoning: string;
       overallProgress: number;
     };
+    adaptiveMode?: string;
+    persona?: {
+      mode: string;
+      reasoning: string;
+    };
+    memory?: {
+      check: string;
+      retrieved?: string;
+    };
   };
 }
 
@@ -102,6 +111,16 @@ export interface ChatResponse {
     label: string;
     score: number;
   };
+  // New COT fields
+  persona?: {
+    mode: string;
+    reasoning: string;
+  };
+  memory?: {
+    check: string;
+    retrieved?: string;
+  };
+  adaptiveMode?: string;
   // Simplified debug/meta
   debugPrompts?: {
     systemPrompt: string;

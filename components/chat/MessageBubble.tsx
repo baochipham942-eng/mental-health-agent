@@ -244,13 +244,14 @@ export function MessageBubble({
     }
   };
 
-  // 决定是否显示 CoT 按钮：仅当有实质性思考内容时显示
-  // 如果安全评估为 normal 且没有其他内容，则隐藏按钮，避免打扰用户
+  // 决定是否显示 CoT 按钮：只要有任何分析数据就显示
+  // 修改：检查 safety 对象存在（而非 reasoning），确保始终显示 COT
   const hasThinkingContent = !isUser && !isPlaceholderMessage && message.metadata && (
-    (message.metadata.safety?.reasoning && message.metadata.safety.label !== 'normal') ||
-    message.emotion ||
-    message.metadata.state?.reasoning ||
-    message.metadata.routeType
+    message.metadata.safety || // 只要有安全评估就显示
+    message.metadata.routeType || // 有接待专家就显示
+    (message.emotion && message.emotion.label !== '未表达') || // 有明确情绪就显示
+    message.metadata.memory?.check !== '无' || // 有记忆操作就显示
+    message.metadata.memory?.retrieved
   );
 
   return (
@@ -283,49 +284,77 @@ export function MessageBubble({
               {showReasoning ? '收起思考过程' : '查看思考过程'}
             </button>
             {showReasoning && (
-              <div className="mt-2 text-[11px] leading-relaxed text-gray-500 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300">
-                {/* 仅当有实际风险时才展示安全评估详情 (避免在正常对话中出现"自杀"等字眼) */}
-                {message.metadata?.safety && message.metadata?.safety?.label !== 'normal' && (
-                  <>
-                    <div className="flex items-center gap-1.5 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                      🛡️ 安全评估
+              <div className="mt-2 text-[11px] leading-relaxed text-gray-600 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300 space-y-2">
+                {/* 1. 安全评估 - 安全时不使用负面语言 */}
+                {message.metadata?.safety && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0">🛡️</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-700">安全评估：</span>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-1",
+                        message.metadata.safety.label === 'crisis' ? "bg-red-100 text-red-600" :
+                          message.metadata.safety.label === 'urgent' ? "bg-orange-100 text-orange-600" :
+                            "bg-green-100 text-green-600"
+                      )}>
+                        {message.metadata.safety.label === 'normal' ? '安全' :
+                          message.metadata.safety.label === 'urgent' ? '需关注' : '危机'}
+                      </span>
+                      {/* 只在非安全时显示详细原因，安全时用简短描述 */}
+                      {message.metadata.safety.label !== 'normal' && message.metadata.safety.reasoning && (
+                        <span className="text-gray-500 ml-1">— {message.metadata.safety.reasoning}</span>
+                      )}
                     </div>
-                    <p className="pl-1 italic border-l-2 border-indigo-100">{message.metadata?.safety?.reasoning}</p>
-                  </>
+                  </div>
                 )}
 
-                {message.emotion && (
-                  <>
-                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                      🎨 情绪感知
+                {/* 2. 情绪感知 - 仅在明确识别情绪时显示 */}
+                {message.emotion && message.emotion.label !== '未表达' && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0">🎨</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-700">情绪感知：</span>
+                      <span className="text-gray-800 font-medium">{message.emotion.label}</span>
+                      <span className="text-gray-400 text-[10px] bg-gray-100 px-1 py-0.5 rounded ml-1">强度 {message.emotion.score}</span>
                     </div>
-                    <div className="pl-1 border-l-2 border-pink-100 flex items-center gap-2">
-                      <span className="font-medium text-gray-800">{message.emotion.label}</span>
-                      <span className="text-gray-400 text-[10px] bg-gray-100 px-1.5 py-0.5 rounded-full">强度 {message.emotion.score}</span>
-                    </div>
-                  </>
+                  </div>
                 )}
 
-                {message.metadata?.state?.reasoning && (
-                  <>
-                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                      🎯 对话状态
-                    </div>
-                    <p className="pl-1 italic border-l-2 border-purple-100">{message.metadata?.state?.reasoning}</p>
-                  </>
-                )}
-
+                {/* 3. 接待专家 (合并角色策略和专家路由) */}
                 {message.metadata?.routeType && (
-                  <>
-                    <div className="flex items-center gap-1.5 mt-3 mb-1.5 font-bold text-gray-600 uppercase tracking-tight scale-90 origin-left">
-                      👤 专家路由
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0">👤</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-700">接待专家：</span>
+                      <span className="text-indigo-600 font-medium">
+                        {message.metadata.routeType === 'crisis' ? '🚨 危机支持' :
+                          message.metadata.routeType === 'assessment' ? '📋 心理评估' : '❤️ 情感陪伴'}
+                      </span>
+                      {/* 如果有 persona reasoning，显示策略说明 */}
+                      {message.metadata?.persona?.reasoning && (
+                        <span className="text-gray-500 ml-1">— {message.metadata.persona.reasoning}</span>
+                      )}
                     </div>
-                    <p className="pl-1 italic border-l-2 border-blue-100 font-mono text-xs">
-                      {message.metadata?.routeType === 'crisis' ? '🚨 危机干预专家' :
-                        message.metadata?.routeType === 'assessment' ? '📋 心理评估专家' : '❤️ 情感支持专家'}
-                    </p>
-                  </>
+                  </div>
                 )}
+
+                {/* 4. 记忆上下文 - 仅在有实际记忆操作时显示（渐进式披露） */}
+                {message.metadata?.memory && (
+                  message.metadata.memory.check !== '无' || message.metadata.memory.retrieved
+                ) && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 shrink-0">🧠</span>
+                      <div className="flex-1">
+                        <span className="font-medium text-gray-700">记忆上下文：</span>
+                        {message.metadata?.memory?.check && message.metadata.memory.check !== '无' && (
+                          <span className="text-blue-600">[存储] {message.metadata.memory.check}</span>
+                        )}
+                        {message.metadata?.memory?.retrieved && (
+                          <span className="text-green-600 ml-1">[提取] {message.metadata.memory.retrieved}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
           </div>

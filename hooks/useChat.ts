@@ -75,8 +75,8 @@ export function useChat() {
         dataItems.forEach(item => {
           if (item?.emotion) emotion = item.emotion;
           if (item?.resources) resources = item.resources;
-          // 提取 safety, state, routeType, assessmentStage, actionCards
-          if (item?.safety || item?.state || item?.routeType || item?.assessmentStage || item?.actionCards) {
+          // 提取 safety, state, routeType, assessmentStage, actionCards, persona, memory, adaptiveMode
+          if (item?.safety || item?.state || item?.routeType || item?.assessmentStage || item?.actionCards || item?.persona || item?.memory || item?.adaptiveMode) {
             metadata = {
               ...metadata,
               safety: item.safety || metadata?.safety,
@@ -84,6 +84,9 @@ export function useChat() {
               routeType: item.routeType || metadata?.routeType,
               assessmentStage: item.assessmentStage || metadata?.assessmentStage,
               actionCards: item.actionCards || metadata?.actionCards,
+              persona: item.persona || metadata?.persona,
+              memory: item.memory || metadata?.memory,
+              adaptiveMode: item.adaptiveMode || metadata?.adaptiveMode,
             };
           }
         });

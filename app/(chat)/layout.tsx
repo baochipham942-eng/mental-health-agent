@@ -46,7 +46,7 @@ export default async function ChatLayout({
     await ensureUserProfile();
 
     const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
-    const isAdmin = session?.user?.name === 'demo';
+    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706';
 
     const handleSignOut = async () => {
         'use server';

@@ -113,36 +113,25 @@ export function useCloudVoiceRecognition(
                 if (chunksRef.current.length > 0) {
                     setStatus('transcribing');
                     try {
-                        console.log('[CloudVoice] Processing audio...');
+                        // Groq Whisper 支持 WebM/MP4 格式，直接上传原始录音即可
+                        // 如果需要 PCM (百度降级)，服务端会处理
                         const originalMimeType = mediaRecorder.mimeType;
                         const audioBlob = new Blob(chunksRef.current, { type: originalMimeType });
 
-                        // 1. Decode Audio
-                        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                        // Use a new context for processing
-                        const audioContext = new AudioContextClass();
-                        const arrayBuffer = await audioBlob.arrayBuffer();
-                        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        // 确定文件扩展名
+                        let ext = '.webm';
+                        if (originalMimeType.includes('mp4') || originalMimeType.includes('m4a')) {
+                            ext = '.m4a';
+                        }
 
-                        // 2. Manual Downsample to 16000Hz (Pure JS)
-                        // Use static imported utils
-                        const targetRate = 16000;
-                        const downsampledFloat = downsampleBuffer(decodedBuffer, targetRate);
-                        const pcmBuffer = floatTo16BitPCM(downsampledFloat);
-
-                        // 3. Create PCM Blob
-                        const pcmBlob = new Blob([pcmBuffer], { type: 'application/octet-stream' });
-
-                        console.log('[CloudVoice] Audio processed to PCM:', {
-                            originalRate: decodedBuffer.sampleRate,
-                            targetRate: targetRate,
-                            pcmSize: pcmBlob.size
+                        console.log('[CloudVoice] Uploading audio:', {
+                            mimeType: originalMimeType,
+                            size: audioBlob.size
                         });
 
-                        // 5. Upload PCM
+                        // 5. Upload
                         const formData = new FormData();
-                        // 强制文件名后缀为 .pcm
-                        formData.append('audio', pcmBlob, 'recording.pcm');
+                        formData.append('audio', audioBlob, `recording${ext}`);
 
                         const response = await fetch('/api/speech/transcribe', {
                             method: 'POST',

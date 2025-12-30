@@ -270,6 +270,13 @@ export async function POST(request: NextRequest) {
 
     const userPreferences = preferenceMemories.map((m: any) => m.content);
 
+    // 构建统一的 safety 对象 (从 Groq 分析结果中提取)
+    const safetyData = {
+      label: analysis.safety,
+      score: analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1,
+      reasoning: analysis.safetyReasoning,
+    };
+
     // 计算 Adaptive Persona Mode
     const adaptiveMode = determinePersonaMode({
       safety: analysis.safety,
@@ -298,12 +305,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 构建统一的 safety 对象 (从 Groq 分析结果中提取)
-    const safetyData = {
-      label: analysis.safety,
-      score: analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1,
-      reasoning: analysis.safetyReasoning,
-    };
+    // =================================================================================
+    // 0.6 Dialogue State Tracking - 对话状态追踪 (Moved Up)
+    // =================================================================================
+    const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
+    const conversationTurn = calculateTurn(history);
+    const riskSignals = analyzeRiskSignals(message);
+    const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
+    const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
+
+    logInfo('dialogue-state', {
+      turn: conversationTurn,
+      phase: dialoguePhase,
+      riskLevel: riskSignals.level,
+      triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
+      shouldTriggerSafety: safetyCheck.shouldTrigger,
+    });
 
     // 构建对话状态对象
     const stateData = {
@@ -311,8 +328,36 @@ export async function POST(request: NextRequest) {
       route: analysis.route,
     };
 
+    // 构建角色与记忆元数据
+    const personaData = {
+      mode: analysis.adaptiveMode || adaptiveMode,
+      reasoning: analysis.personaReasoning || '根据对话上下文动态调整',
+    };
+
+    const memoryData = {
+      check: analysis.memoryCheck || '无',
+      retrieved: typeof retrievalResult !== 'string' && retrievalResult.memories?.length > 0
+        ? retrievalResult.memories.map((m: any) => m.topic).join(', ')
+        : undefined
+    };
+
     console.log('[Groq] Quick analysis result:', analysis);
     console.log('[Safety] Assessment:', safetyData);
+
+    // Append analysis and dialogue metadata to stream
+    data.append({
+      timestamp: new Date().toISOString(),
+      safety: safetyData,
+      state: stateData, // 对话状态推理
+      persona: personaData, // P2: Role Assignment
+      memory: memoryData, // P3: Memory Ops
+      dialogue: {
+        turn: conversationTurn,
+        phase: dialoguePhase,
+        riskLevel: riskSignals.level,
+      },
+      adaptiveMode,
+    } as any);
 
     // 如果 Groq 检测到危机，强制切换到危机路由
     if (analysis.safety === 'crisis') {
@@ -349,7 +394,6 @@ export async function POST(request: NextRequest) {
     // const data = new StreamData(); // Moved up
     const traceMetadata = { sessionId, userId };
 
-    const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
     routeType = analysis.route;
 
     // 后备：关键词检测危机（防止小模型漏检）
@@ -360,34 +404,7 @@ export async function POST(request: NextRequest) {
 
     // 移除原有硬编码的关键词强制路由逻辑，改由 Groq 分析意图
 
-    // =================================================================================
-    // 0.6 Dialogue State Tracking - 对话状态追踪
-    // =================================================================================
-    const conversationTurn = calculateTurn(history);
-    const riskSignals = analyzeRiskSignals(message);
-    const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
-    const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
 
-    logInfo('dialogue-state', {
-      turn: conversationTurn,
-      phase: dialoguePhase,
-      riskLevel: riskSignals.level,
-      triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
-      shouldTriggerSafety: safetyCheck.shouldTrigger,
-    });
-
-    // Append analysis and dialogue metadata to stream
-    data.append({
-      timestamp: new Date().toISOString(),
-      safety: safetyData,
-      state: stateData, // 对话状态推理
-      dialogue: {
-        turn: conversationTurn,
-        phase: dialoguePhase,
-        riskLevel: riskSignals.level,
-      },
-      adaptiveMode,
-    } as any);
 
     // Fix: Sticky Logic Removed
     // Previously we forced 'assessment' if state was 'awaiting_followup'.

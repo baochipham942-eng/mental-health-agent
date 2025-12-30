@@ -87,6 +87,15 @@ export function VoiceInputButton({
         }
     }, [webSpeech.status, localTranscript, onTranscript, useWebSpeech]);
 
+    // 错误处理反馈
+    useEffect(() => {
+        if (error) {
+            import('@arco-design/web-react').then(({ Message }) => {
+                Message.error(error);
+            });
+        }
+    }, [error]);
+
     // 不支持任何语音识别时不渲染
     if (!isSupported) {
         return null;
@@ -114,46 +123,51 @@ export function VoiceInputButton({
                 onClick={currentHook.toggle}
                 disabled={disabled || isTranscribing}
                 className={cn(
-                    'relative flex items-center justify-center rounded-full transition-all duration-200',
-                    'focus:outline-none',
+                    'relative flex items-center justify-center rounded-full transition-colors duration-200',
+                    'focus:outline-none focus:ring-0 border-none',
                     isRecording && 'bg-red-500 text-white shadow-md',
                     isTranscribing && 'bg-blue-500 text-white shadow-md',
-                    !isActive && 'text-gray-400 hover:text-gray-600',
+                    !isActive && !disabled && 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',
+                    !isActive && disabled && 'text-gray-300 cursor-not-allowed',
                     (disabled || isTranscribing) && 'opacity-50 cursor-not-allowed'
                 )}
-                style={{ width: size, height: size, flexShrink: 0, alignSelf: 'center' }}
+                style={{
+                    width: 44,
+                    height: 44,
+                    minWidth: 44,
+                    minHeight: 44,
+                    maxWidth: 44,
+                    maxHeight: 44,
+                    flexShrink: 0,
+                    flexGrow: 0,
+                    boxSizing: 'border-box',
+                    // 强制圆形
+                    aspectRatio: '1 / 1',
+                    borderRadius: '50%',
+                    // 确保 disabled 和非活动状态下无背景
+                    backgroundColor: isRecording ? undefined : isTranscribing ? undefined : 'transparent',
+                    boxShadow: isActive ? undefined : 'none',
+                }}
                 aria-label={isRecording ? '停止录音' : '开始语音输入'}
             >
-                {/* 转写中显示加载动画 */}
+                {/* 转写中显示圆形加载动画 */}
                 {isTranscribing ? (
-                    <svg
-                        className="animate-spin mx-auto"
-                        width={size * 0.45}
-                        height={size * 0.45}
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        style={{ display: 'block', margin: '0 auto' }}
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                    </svg>
+                    <div
+                        style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            border: '2px solid rgba(255,255,255,0.3)',
+                            borderTopColor: 'white',
+                            animation: 'spin 1s linear infinite',
+                        }}
+                    />
                 ) : (
                     /* 麦克风图标 */
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        width={size * 0.45}
-                        height={size * 0.45}
+                        width={20}
+                        height={20}
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -161,6 +175,7 @@ export function VoiceInputButton({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         className={cn(isRecording && 'animate-pulse')}
+                        style={{ flexShrink: 0 }}
                     >
                         <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2" />

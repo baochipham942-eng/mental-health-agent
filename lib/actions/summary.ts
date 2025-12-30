@@ -49,15 +49,57 @@ export async function generateSummaryForSession(conversationId: string) {
         // 3. 检查消息数量（至少需要 2 条消息）
         if (conversation.messages.length < 2) {
             console.warn('[Server Action] Not enough messages for summary, need at least 2');
-            return null;
+            // 返回一个简单的 fallback 摘要（包含 UI 必需字段）
+            return {
+                id: 'fallback',
+                conversationId,
+                mainTopic: '简短对话',
+                emotionInitial: { label: '待观察', score: 5 },
+                emotionFinal: { label: '待观察', score: 5 },
+                moodChange: 0,
+                keyInsights: ['对话较短，暂无深入洞察'],
+                actionItems: [],
+                keyTopics: ['对话'],
+                therapistNote: '这次对话时间较短，期待下次更深入的交流。',
+            };
         }
 
-        // 4. 调用 AI 生成摘要
-        const summaryData = await generateSessionSummary({
+        // 4. 调用 AI 生成摘要（带超时）
+        const TIMEOUT_MS = 30000; // 30 秒超时
+
+        const summaryDataPromise = generateSessionSummary({
             id: conversation.id,
             userId: conversation.userId,
             messages: conversation.messages,
         });
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Summary generation timeout after 30s')), TIMEOUT_MS)
+        );
+
+        let summaryData;
+        try {
+            summaryData = await Promise.race([summaryDataPromise, timeoutPromise]);
+        } catch (aiError: any) {
+            console.error('[Server Action] AI summary generation failed:', aiError.message);
+            // 返回一个 fallback 摘要
+            const firstMessage = conversation.messages[0];
+            const lastMessage = conversation.messages[conversation.messages.length - 1];
+            return {
+                id: 'fallback-' + Date.now(),
+                conversationId,
+                mainTopic: '心理咨询对话',
+                startTime: firstMessage.createdAt,
+                endTime: lastMessage.createdAt,
+                emotionInitial: { label: '待分析', score: 5 },
+                emotionFinal: { label: '待分析', score: 5 },
+                moodChange: 0,
+                keyInsights: ['本次咨询摘要生成超时，请稍后重试'],
+                actionItems: [],
+                keyTopics: ['咨询'],
+                therapistNote: '感谢你的信任和分享。由于技术原因，详细摘要暂时无法生成，但你今天的付出是有意义的。',
+            };
+        }
 
         // 5. 保存到数据库
         const savedSummary = await prisma.sessionSummary.create({
@@ -88,7 +130,19 @@ export async function generateSummaryForSession(conversationId: string) {
         return savedSummary;
     } catch (error) {
         console.error('[Server Action] Failed to generate summary:', error);
-        return null;
+        // 返回一个最小化的 fallback 摘要，避免 UI 卡住（包含 UI 必需字段）
+        return {
+            id: 'error-fallback',
+            conversationId,
+            mainTopic: '咨询记录',
+            emotionInitial: { label: '待分析', score: 5 },
+            emotionFinal: { label: '待分析', score: 5 },
+            moodChange: 0,
+            keyInsights: ['摘要生成遇到问题'],
+            actionItems: [],
+            keyTopics: ['咨询'],
+            therapistNote: '感谢你的信任。由于技术原因，本次摘要暂时无法生成。你的对话内容已安全保存。',
+        };
     }
 }
 
