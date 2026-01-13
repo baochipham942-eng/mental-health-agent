@@ -52,10 +52,11 @@ export async function GET(request: NextRequest) {
         const total = await prisma.user.count({ where: whereCondition });
 
         // 查询用户列表（包含会话数和实验室会话数统计）
-        // 当按 lastLoginAt 排序时，让有值的排在前面（NULLS LAST 效果）
+        // 当按 lastLoginAt 排序时：有登录记录的按登录时间排序，没有的按注册时间排序
         const orderByClause = sortBy === 'lastLoginAt'
             ? [
-                { lastLoginAt: { sort: sortOrder, nulls: 'last' as const } }
+                { lastLoginAt: { sort: sortOrder, nulls: 'last' as const } },
+                { createdAt: sortOrder as 'asc' | 'desc' }  // 没有登录记录的按注册时间排序
               ]
             : { [sortBy]: sortOrder };
 
