@@ -5,10 +5,20 @@ import { MentorSection } from '@/components/settings/MentorSection';
 import { MBTISection } from '@/components/lab/MBTISection';
 import { cn } from '@/lib/utils/cn';
 
-type Tab = 'wisdom' | 'mirrors';
+import { CustomMasterSection } from '@/components/lab/CustomMasterSection';
+
+type Tab = 'wisdom' | 'mirrors' | 'custom';
 
 export function LabContent() {
     const [activeTab, setActiveTab] = useState<Tab>('wisdom');
+
+    const getPillPosition = () => {
+        switch (activeTab) {
+            case 'wisdom': return "left-1.5 w-[140px]";
+            case 'mirrors': return "left-[146px] w-[140px]";
+            case 'custom': return "left-[290px] w-[140px]";
+        }
+    };
 
     return (
         <div className="w-full">
@@ -19,7 +29,7 @@ export function LabContent() {
                     <div
                         className={cn(
                             "absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-sm transition-all duration-300 ease-in-out",
-                            activeTab === 'wisdom' ? "left-1.5 w-[140px]" : "left-[146px] w-[140px]" // 140px width + gap
+                            getPillPosition()
                         )}
                     />
 
@@ -48,16 +58,27 @@ export function LabContent() {
                     >
                         <span>🪞 镜像回廊</span>
                     </button>
+
+                    {/* Tab 3: Custom Master */}
+                    <button
+                        onClick={() => setActiveTab('custom')}
+                        className={cn(
+                            "relative z-10 w-[140px] py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-300 flex items-center justify-center gap-2",
+                            activeTab === 'custom'
+                                ? "text-indigo-700"
+                                : "text-gray-500 hover:text-gray-700"
+                        )}
+                    >
+                        <span>✨ 自定义大师</span>
+                    </button>
                 </div>
             </div>
 
             {/* Content Area - Full Width */}
             <div className="w-full min-h-[600px]">
-                {activeTab === 'wisdom' ? (
-                    <MentorSection />
-                ) : (
-                    <MBTISection />
-                )}
+                {activeTab === 'wisdom' && <MentorSection />}
+                {activeTab === 'mirrors' && <MBTISection />}
+                {activeTab === 'custom' && <CustomMasterSection />}
             </div>
         </div>
     );

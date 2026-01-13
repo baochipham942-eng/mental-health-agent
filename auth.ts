@@ -58,6 +58,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
         }),
     ],
+    events: {
+        async signIn({ user }) {
+            // 异步更新最后登录时间，不阻塞登录流程
+            if (user?.id) {
+                prisma.user.update({
+                    where: { id: user.id },
+                    data: { lastLoginAt: new Date() }
+                }).catch(err => console.error('Failed to update lastLoginAt:', err));
+            }
+        }
+    },
     callbacks: {
         async jwt({ token, user, trigger, session }) {
             // Initial sign in

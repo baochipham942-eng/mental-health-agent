@@ -38,6 +38,8 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
             router.push('/dashboard/optimization');
         } else if (key === 'prompts') {
             router.push('/dashboard/prompts');
+        } else if (key === 'users') {
+            router.push('/dashboard/users');
         } else if (key === 'logout') {
             onSignOut();
         }
@@ -81,6 +83,14 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                     <span className="text-gray-700 font-medium">系统 Prompts</span>
                 </div>
             )}
+            {isAdmin && (
+                <div onClick={() => handleMenuClick('users')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors">
+                    <div className="p-2 bg-blue-50 rounded-lg text-blue-500">
+                        <IconUser style={{ fontSize: 18 }} />
+                    </div>
+                    <span className="text-gray-700 font-medium">用户管理</span>
+                </div>
+            )}
 
             <Divider style={{ margin: '8px 0' }} />
 
@@ -98,6 +108,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
             <Menu.Item key="lab"><div className="flex gap-2 items-center"><IconExperiment className="text-cyan-600" /> 实验室</div></Menu.Item>
             {isAdmin && <Menu.Item key="optimization"><div className="flex gap-2 items-center"><span className="text-amber-500 text-xs">🚀</span> Prompt 优化</div></Menu.Item>}
             {isAdmin && <Menu.Item key="prompts"><div className="flex gap-2 items-center"><span className="text-emerald-500 text-xs">📝</span> 系统 Prompts</div></Menu.Item>}
+            {isAdmin && <Menu.Item key="users"><div className="flex gap-2 items-center"><IconUser className="text-blue-500" /> 用户管理</div></Menu.Item>}
             <Divider style={{ margin: '4px 0' }} />
             <Menu.Item key="logout"><div className="flex gap-2 items-center text-red-600"><IconExport /> 退出登录</div></Menu.Item>
         </Menu>

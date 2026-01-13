@@ -18,12 +18,14 @@ model User {
   avatar          String?
   phone           String?            @unique
   quickLoginToken String?
+  lastLoginAt     DateTime?          // 上次登录时间
   reports         AssessmentReport[]
   conversations   Conversation[]
   exerciseLogs    ExerciseLog[]
   memories        UserMemory[]
   sessionSummaries SessionSummary[]
   evaluations     ConversationEvaluation[]
+  labSessions     LabSession[]       // 实验室会话
 }
 
 model InvitationCode {
@@ -265,30 +267,74 @@ model OptimizationEvent {
 
 model GoldenExample {
   id              String   @id @default(cuid())
-  
+
   // 来源关联
   conversationId  String
   messageId       String   @unique  // 确保同一消息不会被多次纳入
   feedbackId      String?  // 关联的用户反馈ID
-  
+
   // 对话内容快照（避免联表查询）
   userMessage     String   // 用户的问题/输入
   assistantMessage String  // AI 的优质回复
   context         String?  // 可选的上下文摘要
-  
+
   // 状态
   status          String   @default("ACTIVE") // 'ACTIVE', 'ARCHIVED'
-  
+
   // 元数据
   approvedBy      String   // 审批人 ID
   approvedAt      DateTime @default(now())
   userReason      String?  // 用户点赞原因
   adminNote       String?  // 管理员备注
-  
+
   // 使用统计
   usageCount      Int      @default(0)  // 被注入的次数
   lastUsedAt      DateTime?
-  
+
   @@index([status])
   @@index([approvedAt])
+}
+
+// 实验室会话记录
+// 记录用户在实验室中的对话（智慧殿堂、镜像回廊、自定义大师等）
+model LabSession {
+  id           String   @id @default(cuid())
+  userId       String
+
+  // 会话类型
+  labType      String   // 'wisdom' (智慧殿堂), 'mirrors' (镜像回廊), 'custom' (自定义大师)
+
+  // 对话对象标识
+  mentorId     String?  // 智慧殿堂: 大师ID (socrates, jung, adler, etc.)
+  mbtiType     String?  // 镜像回廊: MBTI类型 (INTJ, ENFP, etc.)
+  customName   String?  // 自定义大师: 自定义名称
+
+  // 会话元数据
+  title        String?  // 会话标题（可由首条消息生成）
+  messageCount Int      @default(0) // 消息数量
+
+  // 时间戳
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // 关联
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     LabMessage[]
+
+  @@index([userId])
+  @@index([userId, labType])
+  @@index([createdAt])
+}
+
+// 实验室会话消息
+model LabMessage {
+  id           String     @id @default(cuid())
+  sessionId    String
+  role         String     // 'user' | 'assistant'
+  content      String
+  createdAt    DateTime   @default(now())
+
+  session      LabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
 }
