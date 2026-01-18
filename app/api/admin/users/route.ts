@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { auth } from '@/auth';
+import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,12 +54,12 @@ export async function GET(request: NextRequest) {
 
         // 查询用户列表（包含会话数和实验室会话数统计）
         // 当按 lastLoginAt 排序时：有登录记录的按登录时间排序，没有的按注册时间排序
-        const orderByClause = sortBy === 'lastLoginAt'
+        const orderByClause: Prisma.UserOrderByWithRelationInput[] = sortBy === 'lastLoginAt'
             ? [
-                { lastLoginAt: { sort: sortOrder, nulls: 'last' as const } },
-                { createdAt: sortOrder as 'asc' | 'desc' }  // 没有登录记录的按注册时间排序
+                { lastLoginAt: { sort: sortOrder as Prisma.SortOrder, nulls: 'last' } },
+                { createdAt: sortOrder as Prisma.SortOrder }
               ]
-            : { [sortBy]: sortOrder };
+            : [{ [sortBy]: sortOrder as Prisma.SortOrder }];
 
         const users = await prisma.user.findMany({
             where: whereCondition,

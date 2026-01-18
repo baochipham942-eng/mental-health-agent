@@ -40,6 +40,8 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
             router.push('/dashboard/prompts');
         } else if (key === 'users') {
             router.push('/dashboard/users');
+        } else if (key === 'invites') {
+            router.push('/dashboard/invites');
         } else if (key === 'logout') {
             onSignOut();
         }
@@ -91,6 +93,16 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                     <span className="text-gray-700 font-medium">用户管理</span>
                 </div>
             )}
+            {isAdmin && (
+                <div onClick={() => handleMenuClick('invites')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors">
+                    <div className="p-2 bg-pink-50 rounded-lg text-pink-500">
+                        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                        </svg>
+                    </div>
+                    <span className="text-gray-700 font-medium">邀请码管理</span>
+                </div>
+            )}
 
             <Divider style={{ margin: '8px 0' }} />
 
@@ -109,6 +121,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
             {isAdmin && <Menu.Item key="optimization"><div className="flex gap-2 items-center"><span className="text-amber-500 text-xs">🚀</span> Prompt 优化</div></Menu.Item>}
             {isAdmin && <Menu.Item key="prompts"><div className="flex gap-2 items-center"><span className="text-emerald-500 text-xs">📝</span> 系统 Prompts</div></Menu.Item>}
             {isAdmin && <Menu.Item key="users"><div className="flex gap-2 items-center"><IconUser className="text-blue-500" /> 用户管理</div></Menu.Item>}
+            {isAdmin && <Menu.Item key="invites"><div className="flex gap-2 items-center"><span className="text-pink-500 text-xs">🎟️</span> 邀请码管理</div></Menu.Item>}
             <Divider style={{ margin: '4px 0' }} />
             <Menu.Item key="logout"><div className="flex gap-2 items-center text-red-600"><IconExport /> 退出登录</div></Menu.Item>
         </Menu>

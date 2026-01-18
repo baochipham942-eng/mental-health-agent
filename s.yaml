@@ -42,8 +42,11 @@ resources:
         AUTH_TRUST_HOST: "true"
         DATABASE_URL: "postgresql://neondb_owner:npg_i4wXSFkBIW6x@ep-snowy-bird-ahi67rrf-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
         DATABASE_URL_UNPOOLED: "postgresql://neondb_owner:npg_i4wXSFkBIW6x@ep-snowy-bird-ahi67rrf.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
-        DEEPSEEK_API_KEY: "sk-eec5139c6cad416388f4b9ac0b083a10"
+        DEEPSEEK_API_KEY: ${env(DEEPSEEK_API_KEY)}
         GROQ_API_KEY: ${env(GROQ_API_KEY)}
+        BAIDU_SPEECH_APP_ID: ${env(BAIDU_SPEECH_APP_ID)}
+        BAIDU_SPEECH_API_KEY: ${env(BAIDU_SPEECH_API_KEY)}
+        BAIDU_SPEECH_SECRET_KEY: ${env(BAIDU_SPEECH_SECRET_KEY)}
       customDomains:
         - domainName: mental.llmxy.xyz
           protocol: HTTPS

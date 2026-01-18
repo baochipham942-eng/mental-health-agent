@@ -29,7 +29,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
         }
 
-        const mentor = getMentor(mentorId);
+        let mentor = getMentor(mentorId);
+
+        // Allow custom mentor/persona injection
+        if (!mentor && body.customMentor) {
+            mentor = body.customMentor;
+        }
+
         if (!mentor) {
             return NextResponse.json({ error: 'Mentor not found' }, { status: 400 });
         }

@@ -32,6 +32,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         api: '/api/chat/mentor',
         body: {
             mentorId: mentor.id,
+            customMentor: mentor, // Pass full mentor object for custom personas
         },
         initialMessages: [
             {
@@ -77,17 +78,19 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const themeClass = colorMap[mentor.themeColor] || 'bg-gray-50';
 
     const handleClose = () => {
-        // Trigger background extraction
+        // Trigger background extraction and session recording
         if (messages.length >= 2) {
+            // 检查是否为自定义大师（内置大师有固定ID如 socrates, jung 等）
+            const isCustom = !['socrates', 'jung', 'adler', 'nietzsche', 'laozi', 'buddha'].includes(mentor.id);
             fetch('/api/memory/lab-extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages,
                     contextType: 'mentor',
-                    contextId: mentor.id
+                    contextId: mentor.id,
+                    customName: isCustom ? mentor.name : undefined,
                 }),
-                // keepalive: true // Optional for component unmount, critical for page unload
             }).catch(e => console.error('Background extraction failed:', e));
         }
         onClose();

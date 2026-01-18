@@ -24,7 +24,7 @@ export async function POST(
             where: { id: logId },
             data: {
                 appliedAt: new Date(),
-                appliedBy: session.user?.name || 'admin',
+                appliedBy: session?.user?.name || 'admin',
             },
         });
 

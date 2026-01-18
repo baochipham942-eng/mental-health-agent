@@ -41,7 +41,6 @@ describe('VoiceInputButton Style & Logic', () => {
             start: vi.fn(),
             stop: vi.fn(),
             error: null,
-            isStarting: false,
         });
 
         render(<VoiceInputButton onTranscript={() => { }} />);
@@ -62,7 +61,6 @@ describe('VoiceInputButton Style & Logic', () => {
             start: vi.fn(),
             stop: vi.fn(),
             error: null,
-            isStarting: false,
         });
 
         render(<VoiceInputButton onTranscript={() => { }} />);
@@ -81,7 +79,6 @@ describe('VoiceInputButton Style & Logic', () => {
             start: vi.fn(),
             stop: vi.fn(),
             error: null,
-            isStarting: false,
         });
 
         render(<VoiceInputButton onTranscript={() => { }} />);

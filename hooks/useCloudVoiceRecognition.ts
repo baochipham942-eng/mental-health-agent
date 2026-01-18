@@ -6,6 +6,21 @@ import { bufferToWav, bufferToPCM, downsampleBuffer, floatTo16BitPCM } from '@/l
 
 export type CloudVoiceStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
+/**
+ * 获取语音转写 API 的 URL
+ * 阿里云 FC 环境无法直接访问 Groq API，需要代理到 Vercel
+ */
+function getTranscribeApiUrl(): string {
+    if (typeof window === 'undefined') return '/api/speech/transcribe';
+    // 检查是否在阿里云 FC 生产环境（通过域名判断）
+    if (window.location.hostname === 'mental.llmxy.xyz') {
+        // 阿里云 FC 生产环境 -> 代理到 Vercel
+        return 'https://mental-health-agent.vercel.app/api/speech/transcribe';
+    }
+    // 本地开发或 Vercel 环境 -> 使用相对路径
+    return '/api/speech/transcribe';
+}
+
 interface UseCloudVoiceRecognitionOptions {
     onTranscript?: (text: string) => void;
     maxDuration?: number; // 最大录音时长（秒）
@@ -133,7 +148,7 @@ export function useCloudVoiceRecognition(
                         const formData = new FormData();
                         formData.append('audio', audioBlob, `recording${ext}`);
 
-                        const response = await fetch('/api/speech/transcribe', {
+                        const response = await fetch(getTranscribeApiUrl(), {
                             method: 'POST',
                             body: formData,
                         });

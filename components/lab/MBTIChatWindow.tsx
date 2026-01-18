@@ -79,7 +79,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
     const headerClass = themeColors[targetPersona.color] || 'bg-gray-50';
 
     const handleClose = () => {
-        // Trigger background extraction
+        // Trigger background extraction and session recording
         if (messages.length >= 2) {
             fetch('/api/memory/lab-extract', {
                 method: 'POST',
@@ -87,7 +87,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                 body: JSON.stringify({
                     messages,
                     contextType: 'mbti',
-                    contextId: targetPersona.id
+                    contextId: targetPersona.type, // 使用 MBTI 类型（如 INTJ）
                 }),
             }).catch(e => console.error('Background extraction failed:', e));
         }
