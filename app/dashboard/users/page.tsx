@@ -156,43 +156,27 @@ export default function UsersPage() {
         {
             title: '咨询会话',
             dataIndex: 'conversationCount',
-            width: 100,
+            width: 140,
             sorter: true,
-            render: (count: number) => (
+            render: (_: number, record: User) => (
                 <div className="flex items-center gap-1">
                     <IconMessage className="text-blue-500" />
-                    <span className="font-medium">{count}</span>
+                    <span className="font-medium">{record.conversationCount}</span>
+                    <span className="text-gray-400 text-xs">({record.conversationMessageCount}次对话)</span>
                 </div>
-            ),
-        },
-        {
-            title: '对话次数',
-            dataIndex: 'conversationMessageCount',
-            width: 100,
-            sorter: true,
-            render: (count: number) => (
-                <span className="font-medium text-gray-600">{count}</span>
             ),
         },
         {
             title: '实验室',
             dataIndex: 'labSessionCount',
-            width: 100,
+            width: 140,
             sorter: true,
-            render: (count: number) => (
+            render: (_: number, record: User) => (
                 <div className="flex items-center gap-1">
                     <IconExperiment className="text-purple-500" />
-                    <span className="font-medium">{count}</span>
+                    <span className="font-medium">{record.labSessionCount}</span>
+                    <span className="text-gray-400 text-xs">({record.labMessageCount}次对话)</span>
                 </div>
-            ),
-        },
-        {
-            title: '对话次数',
-            dataIndex: 'labMessageCount',
-            width: 100,
-            sorter: true,
-            render: (count: number) => (
-                <span className="font-medium text-gray-600">{count}</span>
             ),
         },
         {
@@ -299,7 +283,7 @@ export default function UsersPage() {
                                 rowKey="id"
                                 pagination={false}
                                 onChange={handleTableChange}
-                                scroll={{ x: 1160 }}
+                                scroll={{ x: 1040 }}
                             />
                         ) : (
                             <Empty description="暂无用户数据" />
