@@ -27,7 +27,9 @@ interface User {
     createdAt: string;
     lastLoginAt: string | null;
     conversationCount: number;
+    conversationMessageCount: number;
     labSessionCount: number;
+    labMessageCount: number;
     isAdmin: boolean;
 }
 
@@ -152,7 +154,7 @@ export default function UsersPage() {
             ),
         },
         {
-            title: '会话数',
+            title: '咨询会话',
             dataIndex: 'conversationCount',
             width: 100,
             sorter: true,
@@ -161,6 +163,15 @@ export default function UsersPage() {
                     <IconMessage className="text-blue-500" />
                     <span className="font-medium">{count}</span>
                 </div>
+            ),
+        },
+        {
+            title: '对话次数',
+            dataIndex: 'conversationMessageCount',
+            width: 100,
+            sorter: true,
+            render: (count: number) => (
+                <span className="font-medium text-gray-600">{count}</span>
             ),
         },
         {
@@ -173,6 +184,15 @@ export default function UsersPage() {
                     <IconExperiment className="text-purple-500" />
                     <span className="font-medium">{count}</span>
                 </div>
+            ),
+        },
+        {
+            title: '对话次数',
+            dataIndex: 'labMessageCount',
+            width: 100,
+            sorter: true,
+            render: (count: number) => (
+                <span className="font-medium text-gray-600">{count}</span>
             ),
         },
         {
@@ -279,7 +299,7 @@ export default function UsersPage() {
                                 rowKey="id"
                                 pagination={false}
                                 onChange={handleTableChange}
-                                scroll={{ x: 960 }}
+                                scroll={{ x: 1160 }}
                             />
                         ) : (
                             <Empty description="暂无用户数据" />

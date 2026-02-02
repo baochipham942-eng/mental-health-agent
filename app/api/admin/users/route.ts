@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         const userPhone = (session?.user as any)?.phone;
         const isAdmin = session?.user?.name === 'demo' ||
                        userPhone === '15110203706' ||
+                       userPhone === '18717878760' ||
                        session?.user?.name === '15110203706';
 
         if (!isAdmin) {
@@ -80,26 +81,54 @@ export async function GET(request: NextRequest) {
                         labSessions: true,
                     },
                 },
+                // 包含会话和实验室数据用于计算对话次数
+                conversations: {
+                    select: {
+                        _count: {
+                            select: { messages: true }
+                        }
+                    }
+                },
+                labSessions: {
+                    select: {
+                        messageCount: true
+                    }
+                }
             },
         });
 
         // 管理员手机号列表
-        const adminPhones = ['15110203706'];
-        const adminUsernames = ['demo', '15110203706'];
+        const adminPhones = ['15110203706', '18717878760'];
+        const adminUsernames = ['demo', '15110203706', '18717878760'];
 
         // 格式化响应，脱敏手机号，标记管理员
-        const formattedUsers = users.map((user) => ({
-            id: user.id,
-            username: user.username,
-            nickname: user.nickname || user.username,
-            avatar: user.avatar,
-            phone: maskPhone(user.phone),
-            createdAt: user.createdAt.toISOString(),
-            lastLoginAt: user.lastLoginAt?.toISOString() || null,
-            conversationCount: user._count.conversations,
-            labSessionCount: user._count.labSessions,
-            isAdmin: adminUsernames.includes(user.username) || (user.phone && adminPhones.includes(user.phone)),
-        }));
+        const formattedUsers = users.map((user) => {
+            // 计算咨询会话的总对话次数
+            const conversationMessageCount = user.conversations.reduce(
+                (sum, conv) => sum + conv._count.messages,
+                0
+            );
+            // 计算实验室的总对话次数
+            const labMessageCount = user.labSessions.reduce(
+                (sum, lab) => sum + (lab.messageCount || 0),
+                0
+            );
+
+            return {
+                id: user.id,
+                username: user.username,
+                nickname: user.nickname || user.username,
+                avatar: user.avatar,
+                phone: maskPhone(user.phone),
+                createdAt: user.createdAt.toISOString(),
+                lastLoginAt: user.lastLoginAt?.toISOString() || null,
+                conversationCount: user._count.conversations,
+                conversationMessageCount, // 咨询会话对话次数
+                labSessionCount: user._count.labSessions,
+                labMessageCount, // 实验室对话次数
+                isAdmin: adminUsernames.includes(user.username) || (user.phone && adminPhones.includes(user.phone)),
+            };
+        });
 
         // 统计数据
         const todayStart = new Date();
