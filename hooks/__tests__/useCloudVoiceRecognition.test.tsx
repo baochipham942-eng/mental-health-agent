@@ -159,10 +159,10 @@ describe('useCloudVoiceRecognition', () => {
             }));
         });
 
-        // Verify PCM format
+        // Verify audio file format (hook now uploads original webm format for Groq Whisper)
         const formData = mockFetch.mock.calls[0][1].body as FormData;
         const file = formData.get('audio') as File;
-        expect(file.name).toBe('recording.pcm');
+        expect(file.name).toBe('recording.webm');
     });
 
     // Test 3: Rapid Toggle

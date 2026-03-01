@@ -87,8 +87,9 @@ describe('VoiceInputButton Style & Logic', () => {
         expect(button).toBeDisabled();
         expect(button).toHaveClass('bg-blue-500');
 
-        // Check for spinner
-        const spinner = button.querySelector('.animate-spin');
+        // Check for spinner (uses inline style, not Tailwind class)
+        const spinner = button.querySelector('div');
         expect(spinner).toBeInTheDocument();
+        expect(spinner!.style.animation).toContain('spin');
     });
 });

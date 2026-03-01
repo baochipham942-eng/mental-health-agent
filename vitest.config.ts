@@ -11,5 +11,12 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './'),
         },
+        include: ['**/*.test.ts', '**/*.test.tsx'],
+        exclude: ['node_modules', '.next', 'dist'],
+        coverage: {
+            provider: 'v8',
+            include: ['lib/**/*.ts'],
+            exclude: ['lib/**/*.test.ts', 'lib/**/*.d.ts', 'lib/**/prompts*.ts'],
+        },
     },
 });
