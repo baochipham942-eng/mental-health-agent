@@ -16,7 +16,7 @@ type ReviewAction = 'adopt' | 'reject' | 'revoke';
 export async function POST(request: NextRequest) {
     try {
         const session = await auth();
-        const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706';
+        const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
 
         if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

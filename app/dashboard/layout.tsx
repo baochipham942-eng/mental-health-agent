@@ -40,7 +40,7 @@ export default async function DashboardLayout({
     const userName = session?.user?.name || session?.user?.email?.split('@')[0] || '用户';
 
     // 检查是否是管理员（username === 'demo'）
-    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706';
+    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
 
     // 创建一个 server action 用于登出
     const handleSignOut = async () => {

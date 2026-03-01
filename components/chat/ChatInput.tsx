@@ -296,13 +296,11 @@ export function ChatInput({
 
         {/* 语音输入按钮 - 会话结束/禁用时隐藏 */}
         {!disabled && (
-          <div style={{ width: 44, height: 44, flexShrink: 0, flexGrow: 0 }}>
-            <VoiceInputButton
-              onTranscript={handleVoiceTranscript}
-              disabled={isLoading}
-              size={44}
-            />
-          </div>
+          <VoiceInputButton
+            onTranscript={handleVoiceTranscript}
+            disabled={isLoading}
+            size={44}
+          />
         )}
 
         {/* 发送按钮 - 不使用loading属性以避免布局抖动 */}

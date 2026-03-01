@@ -13,6 +13,7 @@ async function checkAdminAuth() {
     const userPhone = (session?.user as any)?.phone;
     const isAdmin = session?.user?.name === 'demo' ||
                    userPhone === '15110203706' ||
+                   userPhone === '18717878760' ||
                    session?.user?.name === '15110203706';
     return isAdmin;
 }

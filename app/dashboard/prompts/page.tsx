@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PromptsDashboardPage() {
     const session = await auth();
-    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706';
+    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
 
     if (!isAdmin) {
         redirect('/dashboard');

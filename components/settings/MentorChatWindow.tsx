@@ -74,6 +74,13 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         slate: 'bg-slate-100 text-slate-900 border-slate-200',
         indigo: 'bg-indigo-50 text-indigo-900 border-indigo-100',
         orange: 'bg-orange-50 text-orange-900 border-orange-100',
+        yellow: 'bg-yellow-50 text-yellow-900 border-yellow-100',
+        rose: 'bg-rose-50 text-rose-900 border-rose-100',
+        cyan: 'bg-cyan-50 text-cyan-900 border-cyan-100',
+        emerald: 'bg-emerald-50 text-emerald-900 border-emerald-100',
+        zinc: 'bg-zinc-100 text-zinc-900 border-zinc-200',
+        sky: 'bg-sky-50 text-sky-900 border-sky-100',
+        amber: 'bg-amber-50 text-amber-900 border-amber-100',
     };
     const themeClass = colorMap[mentor.themeColor] || 'bg-gray-50';
 
@@ -81,7 +88,8 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         // Trigger background extraction and session recording
         if (messages.length >= 2) {
             // 检查是否为自定义大师（内置大师有固定ID如 socrates, jung 等）
-            const isCustom = !['socrates', 'jung', 'adler', 'nietzsche', 'laozi', 'buddha'].includes(mentor.id);
+            const builtinMentorIds = ['socrates', 'jung', 'adler', 'seligman', 'satir', 'kahneman', 'wittgenstein', 'sartre', 'naval', 'hayek'];
+            const isCustom = !builtinMentorIds.includes(mentor.id);
             fetch('/api/memory/lab-extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

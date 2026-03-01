@@ -39,3 +39,6 @@ next-env.d.ts
 
 
 .env.local.bak
+.env.production
+cookies.txt
+.playwright-mcp/

@@ -42,9 +42,7 @@ async function transcribeWithGroq(audioFile: File): Promise<string> {
         model: 'whisper-large-v3-turbo',
         language: 'zh',
         response_format: 'text',
-        // 添加 prompt 来引导模型，减少幻觉
-        // 这是 OpenAI 官方推荐的解决幻觉问题的方法
-        prompt: '这是一段中文心理咨询对话录音。用户正在表达自己的感受和想法。',
+        // 不使用 prompt，避免嘈杂环境下 Whisper 输出 prompt 内容
     });
 
     return typeof transcription === 'string' ? transcription : (transcription as any).text || '';

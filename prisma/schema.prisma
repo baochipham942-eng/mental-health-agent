@@ -296,18 +296,19 @@ model GoldenExample {
 }
 
 // 实验室会话记录
-// 记录用户在实验室中的对话（智慧殿堂、镜像回廊、自定义大师等）
+// 记录用户在实验室中的对话（智慧殿堂、镜像回廊、自定义大师、圆桌论道等）
 model LabSession {
   id           String   @id @default(cuid())
   userId       String
 
   // 会话类型
-  labType      String   // 'wisdom' (智慧殿堂), 'mirrors' (镜像回廊), 'custom' (自定义大师)
+  labType      String   // 'wisdom' | 'mirrors' | 'custom' | 'group'
 
   // 对话对象标识
   mentorId     String?  // 智慧殿堂: 大师ID (socrates, jung, adler, etc.)
   mbtiType     String?  // 镜像回廊: MBTI类型 (INTJ, ENFP, etc.)
   customName   String?  // 自定义大师: 自定义名称
+  groupConfig  Json?    // 圆桌论道: {"mentorIds":["socrates","jung"],"mode":"discuss"|"debate"}
 
   // 会话元数据
   title        String?  // 会话标题（可由首条消息生成）
@@ -332,6 +333,8 @@ model LabMessage {
   sessionId    String
   role         String     // 'user' | 'assistant'
   content      String
+  mentorId     String?    // 群聊中标识哪位大师发言
+  round        Int?       // 群聊中第几轮对话
   createdAt    DateTime   @default(now())
 
   session      LabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

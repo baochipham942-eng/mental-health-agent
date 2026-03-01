@@ -47,12 +47,16 @@ export function MentorSection() {
                                 </div>
                                 <div className={cn(
                                     "px-2 py-1 rounded text-xs font-medium",
-                                    mentor.id === 'socrates' && "bg-slate-100 text-slate-600",
-                                    mentor.id === 'jung' && "bg-indigo-100 text-indigo-600",
-                                    mentor.id === 'adler' && "bg-orange-100 text-orange-600",
-                                    mentor.id === 'seligman' && "bg-yellow-100 text-yellow-700",
-                                    mentor.id === 'satir' && "bg-rose-100 text-rose-600",
-                                    mentor.id === 'kahneman' && "bg-cyan-100 text-cyan-700",
+                                    mentor.themeColor === 'slate' && "bg-slate-100 text-slate-600",
+                                    mentor.themeColor === 'indigo' && "bg-indigo-100 text-indigo-600",
+                                    mentor.themeColor === 'orange' && "bg-orange-100 text-orange-600",
+                                    mentor.themeColor === 'yellow' && "bg-yellow-100 text-yellow-700",
+                                    mentor.themeColor === 'rose' && "bg-rose-100 text-rose-600",
+                                    mentor.themeColor === 'cyan' && "bg-cyan-100 text-cyan-700",
+                                    mentor.themeColor === 'emerald' && "bg-emerald-100 text-emerald-700",
+                                    mentor.themeColor === 'zinc' && "bg-zinc-100 text-zinc-600",
+                                    mentor.themeColor === 'sky' && "bg-sky-100 text-sky-700",
+                                    mentor.themeColor === 'amber' && "bg-amber-100 text-amber-700",
                                 )}>
                                     {mentor.title}
                                 </div>

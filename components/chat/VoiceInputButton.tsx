@@ -116,40 +116,24 @@ export function VoiceInputButton({
 
     const isActive = isRecording || isTranscribing;
 
-    return (
-        <Tooltip content={getTooltipContent()} position="top">
-            <button
-                type="button"
-                onClick={currentHook.toggle}
-                disabled={disabled || isTranscribing}
-                className={cn(
-                    'relative flex items-center justify-center rounded-full transition-colors duration-200',
-                    'focus:outline-none focus:ring-0 border-none',
-                    isRecording && 'bg-red-500 text-white shadow-md',
-                    isTranscribing && 'bg-blue-500 text-white shadow-md',
-                    !isActive && !disabled && 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',
-                    !isActive && disabled && 'text-gray-300 cursor-not-allowed',
-                    (disabled || isTranscribing) && 'opacity-50 cursor-not-allowed'
-                )}
-                style={{
-                    width: 44,
-                    height: 44,
-                    minWidth: 44,
-                    minHeight: 44,
-                    maxWidth: 44,
-                    maxHeight: 44,
-                    flexShrink: 0,
-                    flexGrow: 0,
-                    boxSizing: 'border-box',
-                    // 强制圆形
-                    aspectRatio: '1 / 1',
-                    borderRadius: '50%',
-                    // 确保 disabled 和非活动状态下无背景
-                    backgroundColor: isRecording ? undefined : isTranscribing ? undefined : 'transparent',
-                    boxShadow: isActive ? undefined : 'none',
-                }}
-                aria-label={isRecording ? '停止录音' : '开始语音输入'}
-            >
+    // 转写中不显示 Tooltip，用固定提示代替
+    const button = (
+        <button
+            type="button"
+            onClick={currentHook.toggle}
+            disabled={disabled || isTranscribing}
+            className={cn(
+                'w-11 h-11 flex items-center justify-center rounded-full transition-colors duration-200',
+                'focus:outline-none focus:ring-0 border-none',
+                isRecording && 'relative bg-red-500 text-white shadow-md',
+                isTranscribing && 'bg-blue-500 text-white shadow-md',
+                !isActive && !disabled && 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',
+                !isActive && disabled && 'text-gray-300 cursor-not-allowed',
+                (disabled || isTranscribing) && 'opacity-50 cursor-not-allowed'
+            )}
+            style={{ flexShrink: 0 }}
+            aria-label={isRecording ? '停止录音' : '开始语音输入'}
+        >
                 {/* 转写中显示圆形加载动画 */}
                 {isTranscribing ? (
                     <div
@@ -193,7 +177,18 @@ export function VoiceInputButton({
                         </span>
                     </>
                 )}
-            </button>
+        </button>
+    );
+
+    // 转写中不用 Tooltip（避免定位问题），直接返回按钮
+    if (isTranscribing) {
+        return button;
+    }
+
+    // 其他状态用 Tooltip
+    return (
+        <Tooltip content={getTooltipContent()} position="top" mini>
+            {button}
         </Tooltip>
     );
 }

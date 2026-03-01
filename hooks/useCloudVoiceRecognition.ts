@@ -8,16 +8,10 @@ export type CloudVoiceStatus = 'idle' | 'recording' | 'transcribing' | 'error';
 
 /**
  * 获取语音转写 API 的 URL
- * 阿里云 FC 环境无法直接访问 Groq API，需要代理到 Vercel
+ * 统一使用相对路径，由服务端处理 Groq API 调用
+ * 注意：阿里云 FC 新加坡区可以直接访问 Groq API
  */
 function getTranscribeApiUrl(): string {
-    if (typeof window === 'undefined') return '/api/speech/transcribe';
-    // 检查是否在阿里云 FC 生产环境（通过域名判断）
-    if (window.location.hostname === 'mental.llmxy.xyz') {
-        // 阿里云 FC 生产环境 -> 代理到 Vercel
-        return 'https://mental-health-agent.vercel.app/api/speech/transcribe';
-    }
-    // 本地开发或 Vercel 环境 -> 使用相对路径
     return '/api/speech/transcribe';
 }
 
@@ -139,21 +133,25 @@ export function useCloudVoiceRecognition(
                             ext = '.m4a';
                         }
 
+                        const apiUrl = getTranscribeApiUrl();
                         console.log('[CloudVoice] Uploading audio:', {
                             mimeType: originalMimeType,
-                            size: audioBlob.size
+                            size: audioBlob.size,
+                            apiUrl,
                         });
 
                         // 5. Upload
                         const formData = new FormData();
                         formData.append('audio', audioBlob, `recording${ext}`);
 
-                        const response = await fetch(getTranscribeApiUrl(), {
+                        const response = await fetch(apiUrl, {
                             method: 'POST',
                             body: formData,
                         });
 
+                        console.log('[CloudVoice] Response status:', response.status);
                         const responseData = await response.json();
+                        console.log('[CloudVoice] Response data:', responseData);
 
                         if (!response.ok) {
                             throw new Error(responseData.error || '转写失败');

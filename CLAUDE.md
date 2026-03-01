@@ -146,6 +146,8 @@ Identifies 7 emotion types with 0-10 intensity scoring:
    - Triggers on every git push
    - Preview environments
    - Code validation
+   - **Domain: `mental-health-agent-tawny.vercel.app`**
+   - 阿里云 FC 的语音识别 API 会代理到此域名（因为 FC 无法直接访问 Groq）
 
 2. **Alibaba Cloud FC** (Production)
    - Manual deployment only

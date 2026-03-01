@@ -90,6 +90,28 @@ export interface ActionCard {
   widget?: 'breathing' | 'meditation' | 'mood_tracker' | 'empty_chair';
 }
 
+// 群组对话（圆桌论道）消息
+export interface GroupMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  mentorId?: string;
+  mentorName?: string;
+  mentorAvatar?: string;
+  mentorColor?: string;
+  round?: number;
+  timestamp: string;
+}
+
+// 群组对话 SSE 事件类型
+export type GroupSSEEvent =
+  | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
+  | { type: 'mentor_chunk'; content: string }
+  | { type: 'mentor_end'; mentorId: string }
+  | { type: 'round_end'; round: number }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
+
 export interface ChatResponse {
   reply: string;
   emotion?: Emotion;
