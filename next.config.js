@@ -27,7 +27,7 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/dashboard/:sessionId((?!memory|lab|optimization|prompts|users|invites)[^/]+)',
+        source: '/dashboard/:sessionId((?!memory|lab|optimization|prompts|users|invites|progress|crisis)[^/]+)',
         destination: '/c/:sessionId',
         permanent: true,
       },
