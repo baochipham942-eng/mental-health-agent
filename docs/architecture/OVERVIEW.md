@@ -1,10 +1,17 @@
-# 心理疗愈产品架构总览
+# 心灵树洞 — 产品架构总览
 
 > 本文档提供系统端到端架构的单页总览，涵盖请求链路、Skill 系统、Contract/Gate、配置与 CI 可追溯性。用于团队对齐与后续迭代参考。
 
+## 产品定位（2026-03 重定位）
+
+**对外**：职场解压搭子 — 轻松陪伴式聊天体验，无医疗化标签。
+**对内**：基于 CBT 的专业心理支持系统，具备完整的评估、干预、危机检测能力。
+
+**设计原则**：专业能力按需渐进暴露（Layer 0-3），用户界面去医疗化，后台保留全部专业术语。
+
 ## 系统边界与核心目标
 
-**一句话**：基于 LLM 的心理评估与干预系统，通过 Skill 系统提供结构化的自助干预建议，支持 assessment/crisis/support 三种路由模式。
+**一句话**：基于 LLM 的陪伴式对话系统，底层支持 assessment/crisis/support 三种路由，表层呈现为轻松聊天体验。
 
 **核心目标**：
 - **结构化输出**：通过 Skill 系统确保 `nextStepsLines` 和 `actionCards` 的结构一致性
@@ -233,6 +240,43 @@ Contract 边界用例测试的集成验收报告已归档：
   - 包含 `test:contract:edge` 10/10 测试通过结果
   - 包含 `ci:check` 全链路通过的关键输出片段
   - 作为可追溯的验收证据（含 Git Hash、工作区状态等元信息）
+
+## Phase 5 新增架构组件（2026-01）
+
+### 评估系统
+- **问卷引擎** (`lib/ai/assessment/questionnaire.ts`): PHQ-9（情绪健康度）+ GAD-7（压力指数）标准化问卷
+- **触发机制**: 用户主动（"了解一下自己"/"测一下"）或系统建议（连续同类情绪话题）
+- **评分反馈**: 去医疗化措辞，用"状态"替代"症状"，用"专业支持"替代"心理咨询师"
+
+### 对话状态机
+- **状态机** (`lib/ai/dialogue/state-machine.ts`): SCEB 要素收集（Situation/Cognition/Emotion/Behavior）
+- **状态分类器** (`lib/ai/agents/state-classifier.ts`): 判断对话进展和要素收集完成度
+
+### 治疗师角色系统
+- **角色定义** (`lib/ai/persona/therapist-profiles.ts`): 小温（温暖细腻）、明远（理性清晰）、清和（平和宁静）
+- **Onboarding**: 首次对话随机分配，不弹选择器（去医疗化）
+- **动态切换**: 用户表达风格偏好时后台自动切换
+
+### 进度追踪
+- **追踪器** (`lib/ai/progress/tracker.ts`): 对话次数、情绪趋势、评估历史
+- **前端展示** (`app/dashboard/progress/`): "我的状态"页面，用"情绪健康度"/"压力指数"替代临床术语
+
+### Agent 编排
+- **Triage Agent** (`lib/ai/agents/triage-agent.ts`): 消息分流（Groq 快速分析）
+- **Counselor Agent** (`lib/ai/agents/counselor-agent.ts`): 主对话生成
+- **Safety Agent** (`lib/ai/agents/safety-agent.ts`): 安全检查
+- **Quality Agent** (`lib/ai/agents/quality-agent.ts`): 回复质量检查
+
+## 产品重定位架构影响（2026-03）
+
+### 双层文案策略
+- **用户层**: 所有 UI 文案去医疗化（components/ + app/）
+- **系统层**: AI 提示词保留专业术语（lib/ai/prompts.ts 等）
+- **原则**: 改表不改里，UI 是"解压搭子"，后台是"CBT 咨询师"
+
+### 功能渐进暴露
+- Layer 0-3 分层设计，评估功能不在首屏出现
+- 问卷由 AI 温和建议触发，而非用户主动寻找入口
 
 ## 下一步演进清单
 

@@ -1,9 +1,15 @@
-# 心灵树洞 (Mental Health Healing Agent)
+# 心灵树洞 - 你的解压搭子
 
 ## Project Overview
-An AI-powered psychological counseling chatbot based on Cognitive Behavioral Therapy (CBT) principles. Provides real-time emotional analysis, empathetic responses, cognitive restructuring guidance, and mental health support through a conversational interface.
+AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊天陪伴体验，底层保留完整的 CBT 专业能力（情绪分析、认知重构、危机检测）。
 
-**Important**: This is an AI support tool, NOT a replacement for professional mental health services.
+**产品定位**：用户厌恶医疗标签，偏好轻松陪伴式交互。产品表面去医疗化，专业能力按需渐进暴露。
+
+**功能分层**：
+- Layer 0（默认入口）: 自由聊天、情绪倾诉、日常解压
+- Layer 1（自然发现）: 呼吸练习、正念冥想、情绪记录、认知重构
+- Layer 2（主动探索）: 对话排练、深度自我了解、成长记录
+- Layer 3（专业评估）: 情绪健康度检查(PHQ-9)、压力指数检查(GAD-7)
 
 ## Tech Stack
 
@@ -38,7 +44,7 @@ app/
     memory/                 # Memory management APIs
     optimization/           # Prompt optimization APIs
     auth/[...nextauth]/     # Authentication
-  dashboard/                # Admin dashboards (memory, lab, prompts)
+  dashboard/                # Admin dashboards (memory, lab, prompts, progress, crisis)
   page.tsx                  # Home page (chat interface)
 
 components/
@@ -56,7 +62,12 @@ lib/
     emotion.ts              # Emotion analysis (7 types, 0-10 intensity)
     guardrails/             # Input/output safety
     crisis-classifier.ts    # Crisis detection
-    agents/                 # Agent orchestration
+    crisis-escalation.ts    # Crisis escalation flow
+    assessment/             # PHQ-9/GAD-7 questionnaire system
+    persona/                # Therapist profiles (xiaowarm/mingyuan/qinghe)
+    progress/               # Progress tracking
+    exercise-engine.ts      # Exercise engine (breathing, mindfulness, etc.)
+    agents/                 # Agent orchestration (triage/counselor/safety/quality)
   memory/
     manager.ts              # Memory lifecycle
     extractor.ts            # Information extraction
@@ -119,25 +130,52 @@ SKILL_MODE=                 # off/cards_only/steps_and_cards
 
 ## Core Features
 
-### Emotion Recognition
+### 对话体验
+- 轻松陪伴式聊天，无医疗化标签
+- 首次对话随机分配聊天风格（不弹选择器）
+- 用户可在设置中切换风格（延迟发现）
+
+### 情绪识别（后台）
 Identifies 7 emotion types with 0-10 intensity scoring:
 - Anxiety, Depression, Anger, Sadness, Fear, Happiness, Calm
 
-### CBT Intervention Techniques
+### CBT 能力（后台，用户不可见术语）
 - Empathetic understanding
-- Cognitive distortion identification (catastrophizing, over-generalization, black-and-white thinking)
+- Cognitive distortion identification
 - Cognitive restructuring guidance
 - Behavioral recommendations
 
+### 评估系统（Phase 5）
+- **情绪健康度检查**（PHQ-9）— 用户看到的名称
+- **压力指数检查**（GAD-7）— 用户看到的名称
+- 对话状态机（SCEB 要素收集）
+- 进度追踪与成长记录
+- 触发方式：用户说"了解一下自己"/"测一下" 或连续 3+ 次同类情绪话题时温和建议
+
 ### Safety Features
-- Crisis detection and classification
+- Crisis detection and classification（后台保持专业术语）
 - Input/output safety guardrails
 - Sensitive information redaction
+- 危机资源展示（保留热线号码，措辞去医疗化）
 
 ### Memory System
 - Multi-turn conversation support (last 10 turns)
 - Session memory management
 - Memory consolidation with forgetting curve
+
+## 用户可见文案规范
+
+**禁用词**（用户界面中不得出现）：
+- ❌ 咨询 → ✅ 对话 / 聊天
+- ❌ 心理咨询 → ✅ 聊聊
+- ❌ 咨询师 → ✅ 我（第一人称）
+- ❌ 疗愈 → ✅ 成长
+- ❌ PHQ-9 抑郁评分 → ✅ 情绪健康度
+- ❌ GAD-7 焦虑评分 → ✅ 压力指数
+- ❌ 心理评估 → ✅ 深度了解
+- ❌ 症状 → ✅ 状态
+
+**允许在后台/系统提示词中使用专业术语**（lib/ai/prompts.ts 等）。
 
 ## Deployment Architecture
 
@@ -157,6 +195,7 @@ Identifies 7 emotion types with 0-10 intensity scoring:
 ### Critical Notes
 - Build command: Use `bun run deploy:build` (not `next build`)
 - Package manager: Always use bun
+- **Lockfile 双更新**: 改 `package.json` 后必须同时运行 `pnpm install --lockfile-only` 更新 `pnpm-lock.yaml`（Vercel 用 pnpm 部署，lockfile 不同步会导致部署失败）
 - Middleware: Must exclude static assets to prevent FC 404s
 - Vercel Hobby: 10s timeout; Pro: 60s timeout
 
