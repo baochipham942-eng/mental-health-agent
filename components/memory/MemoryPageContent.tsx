@@ -36,7 +36,7 @@ const TOPIC_CONFIG: Record<string, {
         borderClass: 'border-blue-100',
     },
     therapy_progress: {
-        label: '疗愈进展',
+        label: '成长记录',
         emoji: '📈',
         color: 'orange',
         bgClass: 'bg-orange-50',
@@ -312,7 +312,7 @@ export function MemoryPageContent() {
                     {/* 页面说明 */}
                     <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                         <p className="text-sm text-indigo-700">
-                            💡 记忆帮助咨询师更好地了解你。这些信息来自你的对话，你可以随时编辑或删除。
+                            💡 记忆帮助我更好地了解你。这些信息来自你的对话，你可以随时编辑或删除。
                         </p>
                     </div>
 
@@ -337,7 +337,7 @@ export function MemoryPageContent() {
                             <div className="text-6xl mb-4">🌱</div>
                             <h3 className="text-lg font-medium text-gray-700 mb-2">还没有记忆</h3>
                             <p className="text-sm text-gray-500 text-center max-w-md mb-6">
-                                与咨询师对话后，系统会自动提取有价值的信息，帮助咨询师更好地了解你。
+                                聊天过程中，我会记住对你重要的信息，下次聊起来更默契
                             </p>
                             <Button
                                 type="primary"
@@ -350,7 +350,7 @@ export function MemoryPageContent() {
                         <div className="flex flex-col items-center justify-center py-16">
                             <div className="text-5xl mb-4">{currentConfig?.emoji || '📝'}</div>
                             <h3 className="text-base font-medium text-gray-600 mb-2">暂无{currentConfig?.label || '此类'}记忆</h3>
-                            <p className="text-sm text-gray-400">继续和咨询师对话，系统会自动记录</p>
+                            <p className="text-sm text-gray-400">继续聊天，系统会自动记录</p>
                         </div>
                     ) : (
                         /* 当前Tab的记忆列表 */

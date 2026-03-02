@@ -12,6 +12,7 @@ import { DebugDrawer } from './DebugDrawer';
 import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
 import { IconStop, IconInfoCircle, IconArrowRight } from '@arco-design/web-react/icon';
 import { generateSummaryForSession } from '@/lib/actions/summary';
+import { TherapistSelector } from './TherapistSelector';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -74,6 +75,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
   const router = useRouter();
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [showTherapistSelector, setShowTherapistSelector] = useState(false);
+  const [therapistChecked, setTherapistChecked] = useState(false);
 
 
 
@@ -205,6 +208,28 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount only
+
+  // P5: 首次新对话时，若用户无偏好治疗师则随机分配一个（不弹出选择器）
+  useEffect(() => {
+    if (!sessionId && !therapistChecked && user) {
+      setTherapistChecked(true);
+      fetch('/api/user/preferences')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.preferredTherapist) {
+            // 随机分配治疗师，不弹出选择器，让用户直接进入聊天
+            const therapistIds = ['xiaowarm', 'mingyuan', 'qinghe'];
+            const randomId = therapistIds[Math.floor(Math.random() * therapistIds.length)];
+            fetch('/api/user/preferences', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ preferredTherapist: randomId }),
+            }).catch(() => {}); // 静默失败
+          }
+        })
+        .catch(() => {}); // 静默失败
+    }
+  }, [sessionId, therapistChecked, user]);
 
   // Sync draft to store
   useEffect(() => {
@@ -404,10 +429,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
   const handleEndSession = useCallback(() => {
     Modal.confirm({
-      title: <div style={{ textAlign: 'center', width: '100%' }}>确定要结束当前咨询吗？</div>,
+      title: <div style={{ textAlign: 'center', width: '100%' }}>确定要结束当前对话吗？</div>,
       content: <div style={{ textAlign: 'center', color: '#4b5563' }}>结束后将返回列表页，当前对话记录会被保存。</div>,
       okText: '确定结束',
-      cancelText: '继续咨询',
+      cancelText: '继续聊天',
       icon: null, // 不显示图标
       style: { width: 320, borderRadius: '12px' }, // 减小宽度保持一致
       onOk: async () => {
@@ -434,7 +459,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         // router.push('/');
 
         // Optional: Show a toast?
-        ArcoMessage.success('咨询已结束');
+        ArcoMessage.success('对话已完成');
       },
     });
   }, [resetConversation, setLoading, setError, router]);
@@ -899,7 +924,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
               <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
                 <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
                 <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
-                  {isReadOnly || isSessionEnded ? '咨询已结束' : internalSessionId ? '咨询中' : '新咨询'}
+                  {isReadOnly || isSessionEnded ? '已完成' : internalSessionId ? '聊天中' : '新对话'}
                 </h1>
               </div>
               {/* 倒计时 */}
@@ -915,7 +940,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             </div>
             <div className="flex items-center gap-2 min-w-[80px] justify-end">
               {(isReadOnly || isSessionEnded) ? (
-                <Tag color="gray" size="small" className="!rounded-xl">咨询已结束</Tag>
+                <Tag color="gray" size="small" className="!rounded-xl">已完成</Tag>
               ) : (
                 <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                   <Button
@@ -924,13 +949,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                     onClick={handleEndSession}
                     className="!rounded-xl"
                   >
-                    结束咨询
+                    结束对话
                   </Button>
                 </div>
               )}
             </div>
           </div>
         </header>
+
+        {/* P5: 治疗师选择器（仅手动打开时显示，不再首次自动弹出） */}
+        {showTherapistSelector && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-50/95 backdrop-blur-sm">
+            <TherapistSelector
+              onSelect={() => setShowTherapistSelector(false)}
+              onSkip={() => setShowTherapistSelector(false)}
+            />
+          </div>
+        )}
 
         {/* 消息列表 */}
         <section
@@ -960,7 +995,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                     <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transform rotate-3">
                       <span className="text-3xl">🌱</span>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">本次咨询已完成</h3>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">本次对话已完成</h3>
                     <p className="text-gray-500 text-sm">感谢你的信任，希望这次对话对你有所帮助</p>
                   </div>
 
@@ -1038,7 +1073,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                       {summary.therapistNote && (
                         <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 text-sm text-gray-600 leading-relaxed shadow-sm">
                           <span className="font-bold text-indigo-700 block mb-2 flex items-center gap-2">
-                            👩‍⚕️ 咨询师寄语
+                            💌 小结
                           </span>
                           {summary.therapistNote}
                         </div>
@@ -1049,7 +1084,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                     // Loading State
                     <div className="py-8 text-center space-y-3">
                       <div className="mx-auto w-8 h-8 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin"></div>
-                      <p className="text-sm text-gray-400 animate-pulse">正在为你生成专属咨询总结...</p>
+                      <p className="text-sm text-gray-400 animate-pulse">正在为你生成对话小结...</p>
                     </div>
                   )}
                 </div>
@@ -1108,7 +1143,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           <div className="text-gray-600 space-y-2">
             <p>1. 本 AI 助手基于大语言模型，提供的回答仅供参考。</p>
             <p>2. AI 可能会产生错误或误导性的信息。</p>
-            <p>3. 如果您遇到严重的心理困扰或危机情况，请立即寻求专业医生的帮助或拨打急救电话。</p>
+            <p>3. 如果你感到非常难受或有紧急情况，请联系专业帮助或拨打急救电话。</p>
             <p>4. 您的对话记录会被加密保存，仅您本人可见。</p>
           </div>
         </Modal>

@@ -6,6 +6,9 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
+import { z } from 'zod';
+import { chatStructuredCompletion } from './deepseek';
+import { quickCrisisKeywordCheck } from './crisis-classifier';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
@@ -15,7 +18,7 @@ const groq = createOpenAI({
 });
 
 export interface QuickAnalysis {
-    safety: 'crisis' | 'urgent' | 'normal';
+    safety: 'crisis' | 'urgent' | 'self-care' | 'normal';
     safetyReasoning: string; // 安全评估理由
     stateReasoning: string; // 对话状态/意图分析
     emotion: { label: string; score: number };
@@ -24,6 +27,7 @@ export interface QuickAnalysis {
     adaptiveMode: 'guardian' | 'companion' | 'guide' | 'coach';
     personaReasoning: string; // 角色选择理由
     memoryCheck: string; // 记忆检查结果：是否值得记录？关键词是什么？
+    dialogueIntent?: 'opening' | 'sharing' | 'exploring' | 'seeking_solutions' | 'wrapping_up';
 }
 
 export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析用户消息，直接输出 JSON（不要任何其他文字）：
@@ -37,8 +41,16 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
   "needsValidation": boolean,
   "adaptiveMode": "guardian" | "companion" | "guide" | "coach",
   "personaReasoning": "选择该角色的理由（1句话）",
-  "memoryCheck": "是否有值得长期记忆的关键信息（如偏好、重大事件）？若无则填'无'，若有请简述关键词"
+  "memoryCheck": "是否有值得长期记忆的关键信息（如偏好、重大事件）？若无则填'无'，若有请简述关键词",
+  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up"
 }
+
+对话意图 (dialogueIntent) 分类：
+- opening: 打招呼、开场白、初次交流
+- sharing: 倾诉、分享经历、表达情感
+- exploring: 深入思考、探索原因、自我觉察
+- seeking_solutions: 寻求建议、想要改变、询问方法
+- wrapping_up: 表达感谢、告别、表示满足
 
 情绪标签规则（严格遵守，不要过度推断）：
 - **未表达**: ⚠️ 优先使用！当用户只是打招呼、提问、表达想聊天、或未明确表达任何情绪状态时。例如："想和你聊聊"、"最近怎么样"、"有个问题想问你"。此时 score 设为 0。
@@ -89,6 +101,18 @@ EFT共情判断 (needsValidation):
 const DEFAULT_ANALYSIS: QuickAnalysis = {
     safety: 'normal',
     safetyReasoning: '默认模式 - 未执行智能分析（网络或服务暂时不可用）',
+    stateReasoning: '默认模式 - 直接进入支持性对话',
+    emotion: { label: '平静', score: 5 },
+    route: 'support',
+    needsValidation: false,
+    adaptiveMode: 'companion',
+    personaReasoning: '默认模式 - 情感支持与陪伴',
+    memoryCheck: '无'
+};
+
+const CONSERVATIVE_DEFAULT_ANALYSIS: QuickAnalysis = {
+    safety: 'self-care',
+    safetyReasoning: '分析服务不可用，采用保守策略',
     stateReasoning: '默认模式 - 直接进入支持性对话',
     emotion: { label: '平静', score: 5 },
     route: 'support',
@@ -168,7 +192,51 @@ export async function quickAnalyze(message: string, recentHistory: { role: strin
 
         return result;
     } catch (error) {
-        console.error('[Groq] Analysis failed:', error);
-        return DEFAULT_ANALYSIS;
+        console.error('[Groq] Analysis failed, trying DeepSeek fallback:', error);
+
+        // Fallback 1: 尝试 DeepSeek 结构化输出
+        const DeepSeekFallbackSchema = z.object({
+            safety: z.enum(['crisis', 'urgent', 'normal']),
+            emotion: z.object({ label: z.string(), score: z.number() }),
+            route: z.enum(['crisis', 'support', 'assessment']),
+        });
+
+        try {
+            const fallbackResult = await chatStructuredCompletion(
+                [
+                    {
+                        role: 'system',
+                        content: '你是心理咨询预分析助手。快速判断用户消息的安全等级、情绪和路由。直接输出 JSON：{"safety":"crisis"|"urgent"|"normal","emotion":{"label":"情绪标签","score":1-10},"route":"crisis"|"support"|"assessment"}。crisis=明确自杀/自伤意图，urgent=活着没意思但无计划，normal=其他。',
+                    },
+                    { role: 'user', content: message },
+                ],
+                DeepSeekFallbackSchema,
+                { temperature: 0, max_tokens: 200 }
+            );
+
+            console.log('[Groq→DeepSeek] Fallback succeeded');
+            return {
+                ...DEFAULT_ANALYSIS,
+                safety: fallbackResult.safety,
+                safetyReasoning: 'DeepSeek 备用分析',
+                emotion: fallbackResult.emotion,
+                route: fallbackResult.route,
+            };
+        } catch (deepseekError) {
+            console.error('[Groq→DeepSeek] Fallback also failed:', deepseekError);
+        }
+
+        // Fallback 2: 关键词检测 + 保守策略
+        if (quickCrisisKeywordCheck(message)) {
+            console.warn('[Groq] Keyword crisis detected, returning crisis analysis');
+            return {
+                ...CONSERVATIVE_DEFAULT_ANALYSIS,
+                safety: 'crisis',
+                safetyReasoning: '关键词检测到危机信号（所有AI分析服务不可用）',
+                route: 'crisis',
+            };
+        }
+
+        return CONSERVATIVE_DEFAULT_ANALYSIS;
     }
 }

@@ -1,15 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { cn } from '@/lib/utils/cn';
 import { ChatActionProvider } from './ChatContext';
+import { CrisisBanner } from './CrisisBanner';
 
 export function ChatContainer() {
   const { messages, isLoading, error, sendMessage, clearHistory, sessionId } = useChat();
   const [draft, setDraft] = useState('');
+  const [crisisDismissed, setCrisisDismissed] = useState(false);
+
+  // 检测最近消息是否有危机状态
+  const showCrisisBanner = useMemo(() => {
+    if (crisisDismissed) return false;
+    // 检查最近 3 条消息
+    const recent = messages.slice(-3);
+    return recent.some(m =>
+      m.metadata?.safety?.label === 'crisis' ||
+      m.metadata?.routeType === 'crisis'
+    );
+  }, [messages, crisisDismissed]);
 
   const handleSend = async () => {
     const content = draft.trim();
@@ -25,8 +38,8 @@ export function ChatContainer() {
         {/* 头部 */}
         <header className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">心理疗愈助手</h1>
-            <p className="text-sm text-gray-700 font-medium">基于认知行为疗法的AI心理咨询</p>
+            <h1 className="text-xl font-bold text-gray-900">心灵树洞</h1>
+            <p className="text-sm text-gray-700 font-medium">随时陪你聊聊</p>
           </div>
           {messages.length > 0 && (
             <button
@@ -37,6 +50,12 @@ export function ChatContainer() {
             </button>
           )}
         </header>
+
+        {/* 危机资源横幅 */}
+        <CrisisBanner
+          isVisible={showCrisisBanner}
+          onDismiss={() => setCrisisDismissed(true)}
+        />
 
         {/* 错误提示 */}
         {error && (

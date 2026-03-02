@@ -9,6 +9,7 @@
 
 import { prisma } from '@/lib/db/prisma';
 import { calculateMemoryStrength, updateAfterAccess } from './forgetting-curve';
+import { generateEmbedding, cosineSimilarity, hybridScore } from './embedding';
 import type { Memory, MemoryTopic, MemoryRetrievalOptions, ALL_MEMORY_TOPICS } from './types';
 
 /**
@@ -74,7 +75,8 @@ export async function retrieveMemories(
 
 /**
  * 根据当前消息上下文检索相关记忆
- * 简化版：基于关键词匹配，未来可升级为向量检索
+ * 混合检索：向量相似度 × 0.5 + 遗忘曲线强度 × 0.3 + 置信度 × 0.2
+ * 降级策略：embedding 不可用时回退到关键词匹配
  */
 export async function retrieveRelevantMemories(
     userId: string,
@@ -83,37 +85,67 @@ export async function retrieveRelevantMemories(
 ): Promise<Memory[]> {
     const { limit = 10, minConfidence = 0.5 } = options;
 
-    // 提取关键词（简化版）
-    const keywords = extractKeywords(currentMessage);
-
-    if (keywords.length === 0) {
-        // 无关键词，返回最近的记忆
-        return retrieveMemories(userId, { limit: 5, minConfidence });
-    }
-
     // 获取所有记忆
     const allMemories = await retrieveMemories(userId, { limit: 50, minConfidence });
+    if (allMemories.length === 0) return [];
 
-    // 基于关键词相关性排序，使用艾宾浩斯记忆强度
+    // 尝试向量检索
+    const queryEmbedding = await generateEmbedding(currentMessage);
+
+    if (queryEmbedding) {
+        // 获取每条记忆的 embedding（通过 raw query）
+        try {
+            const memoryIds = allMemories.map(m => m.id);
+            const embeddingRows = await prisma.$queryRawUnsafe<Array<{ id: string; embedding: string }>>(
+                `SELECT id, embedding::text FROM "UserMemory" WHERE id = ANY($1) AND embedding IS NOT NULL`,
+                memoryIds
+            );
+
+            const embeddingMap = new Map<string, number[]>();
+            for (const row of embeddingRows) {
+                if (row.embedding) {
+                    const vec = JSON.parse(row.embedding.replace(/^\[/, '[').replace(/\]$/, ']'));
+                    embeddingMap.set(row.id, vec);
+                }
+            }
+
+            if (embeddingMap.size > 0) {
+                // 混合评分
+                const scored = allMemories.map(memory => {
+                    const memEmbedding = embeddingMap.get(memory.id);
+                    const vectorSim = memEmbedding ? cosineSimilarity(queryEmbedding, memEmbedding) : 0;
+                    const strength = calculateMemoryStrength(memory);
+                    const score = hybridScore(vectorSim, strength, memory.confidence);
+
+                    return { memory, score };
+                });
+
+                scored.sort((a, b) => b.score - a.score);
+                return scored.slice(0, limit).map(s => s.memory);
+            }
+        } catch (e) {
+            console.warn('[MemoryRetriever] Vector retrieval failed, falling back to keywords:', e);
+        }
+    }
+
+    // 降级：关键词匹配
+    const keywords = extractKeywords(currentMessage);
+    if (keywords.length === 0) {
+        return allMemories.slice(0, Math.min(5, limit));
+    }
+
     const scored = allMemories.map(memory => {
-        let score = 0;
+        let keywordScore = 0;
         for (const keyword of keywords) {
             if (memory.content.includes(keyword)) {
-                score += keyword.length > 2 ? 2 : 1;
+                keywordScore += keyword.length > 2 ? 2 : 1;
             }
         }
-        // 使用艾宾浩斯记忆强度替代简单的线性衰减
         const strength = calculateMemoryStrength(memory);
-
-        return {
-            memory,
-            score: score + strength + memory.confidence,
-        };
+        return { memory, score: keywordScore + strength + memory.confidence };
     });
 
-    // 排序并返回top N
     scored.sort((a, b) => b.score - a.score);
-
     return scored.slice(0, limit).map(s => s.memory);
 }
 
@@ -168,7 +200,7 @@ export const memoryToolDefinition = {
         properties: {
             topic: {
                 type: 'string',
-                enum: ['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning'],
+                enum: ['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning', 'communication_style', 'relationship_dynamics', 'core_belief', 'strength_resource', 'exercise_preference', 'crisis_history', 'life_event'],
                 description: '要查询的记忆类型',
             },
             query: {

@@ -22,10 +22,15 @@ model User {
   reports         AssessmentReport[]
   conversations   Conversation[]
   exerciseLogs    ExerciseLog[]
+  exerciseStates  ExerciseState[]
   memories        UserMemory[]
   sessionSummaries SessionSummary[]
   evaluations     ConversationEvaluation[]
   labSessions     LabSession[]       // 实验室会话
+  crisisEscalations CrisisEscalation[]
+  questionnaireScores QuestionnaireScore[]
+  progressMetrics  ProgressMetric[]
+  preferredTherapist String?           // 'xiaowarm' | 'mingyuan' | 'qinghe'
 }
 
 model InvitationCode {
@@ -59,6 +64,7 @@ model Message {
   role           String
   content        String
   meta           Json?
+  agentId        String?          // 生成该消息的 Agent 名称 (P1)
   createdAt      DateTime         @default(now())
   conversation   Conversation     @relation(fields: [conversationId], references: [id])
   feedback       MessageFeedback?
@@ -131,6 +137,8 @@ model UserMemory {
   accessCount     Int      @default(1)    // Number of times this memory was accessed
   stabilityFactor Float    @default(1.0)  // Memory stability (increases with each access)
   memoryStrength  Float    @default(1.0)  // Current memory strength (0-1, decays over time)
+  // P3: 向量嵌入 (pgvector)
+  embedding       Unsupported("vector(384)")?  // 384维嵌入向量
   user            User     @relation(fields: [userId], references: [id])
 
   @@index([userId, topic])
@@ -141,9 +149,12 @@ model MemoryExtractionLog {
   id             String   @id @default(cuid())
   conversationId String
   extractedCount Int
-  status         String
+  status         String   // 'success' | 'failed' | 'skipped' | 'pending_retry'
   error          String?
+  retryCount     Int      @default(0) // P3-C: 重试次数
   createdAt      DateTime @default(now())
+
+  @@index([status, retryCount])
 }
 
 model SessionSummary {
@@ -340,4 +351,108 @@ model LabMessage {
   session      LabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+}
+
+// =============================================================================
+// P0: 练习状态持久化
+// =============================================================================
+
+model ExerciseState {
+  id            String   @id @default(cuid())
+  userId        String
+  exerciseType  String   // 'grounding' | 'reframing' | 'activation' | 'empty_chair' | 'breathing' | 'meditation'
+  status        String   @default("pending") // 'pending' | 'in_progress' | 'completed' | 'abandoned'
+  currentStep   Int      @default(0)
+  totalSteps    Int      @default(1)
+  metadata      Json?    // 练习特定的状态数据（如用户回答、中间结果）
+  conversationId String?
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, exerciseType])
+}
+
+// =============================================================================
+// P1: Agent 执行日志
+// =============================================================================
+
+model AgentLog {
+  id             String   @id @default(cuid())
+  conversationId String?
+  agentName      String   // 'triage' | 'safety' | 'counselor' | 'quality'
+  model          String   // 'groq' | 'deepseek'
+  input          Json     // 输入摘要
+  output         Json     // 输出摘要
+  latency        Int      // 执行耗时 (ms)
+  status         String   // 'success' | 'timeout' | 'error'
+  error          String?
+  createdAt      DateTime @default(now())
+
+  @@index([agentName, status])
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// P2: 危机升级通道
+// =============================================================================
+
+model CrisisEscalation {
+  id              String    @id @default(cuid())
+  userId          String
+  conversationId  String
+  triggerMessage   String    // 触发危机的消息内容
+  riskLevel       String    // 'urgent' | 'crisis'
+  safetyScore     Int       // 安全评分 (0-10)
+  status          String    @default("PENDING") // 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED'
+  escalatedTo     String?   // 通知的管理员
+  resolution      String?   // 解决方案描述
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// P5: 标准化问卷评估（PHQ-9 / GAD-7）
+// =============================================================================
+
+model QuestionnaireScore {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String?
+  type           String   // 'phq9' | 'gad7'
+  responses      Json     // number[]
+  score          Int
+  severity       String   // 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe'
+  completedAt    DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, completedAt])
+}
+
+// =============================================================================
+// P5: 纵向进度追踪
+// =============================================================================
+
+model ProgressMetric {
+  id         String   @id @default(cuid())
+  userId     String
+  metricType String   // 'emotion' | 'phq9' | 'gad7' | 'session_mood_delta' | 'exercise_mood_delta'
+  value      Float
+  sessionId  String?
+  note       String?
+  recordedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, metricType, recordedAt])
 }

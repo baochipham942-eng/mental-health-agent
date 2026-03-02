@@ -32,7 +32,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
     // 基础菜单项
     const baseMenuItems = [
         { key: 'memory', label: '我的记忆', path: '/dashboard/memory', icon: <IconMindMapping /> },
-        { key: 'lab', label: '心理实验室', path: '/dashboard/lab', icon: <IconExperiment /> },
+        { key: 'lab', label: '探索工坊', path: '/dashboard/lab', icon: <IconExperiment /> },
     ];
 
     // 管理员菜单项
@@ -146,7 +146,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                         {/* New Chat - Unified Style */}
                         <MenuLink
                             item={{
-                                label: '新咨询',
+                                label: '新对话',
                                 icon: <IconPlus />,
                                 onClick: () => {
                                     if (pathname === '/') window.location.href = '/';

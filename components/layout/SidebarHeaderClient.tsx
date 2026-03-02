@@ -23,14 +23,14 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
 
         if (isConsulting && currentSessionId) {
             Modal.confirm({
-                title: <div className="text-center w-full font-semibold text-gray-800">正在咨询中</div>,
+                title: <div className="text-center w-full font-semibold text-gray-800">正在聊天中</div>,
                 content: (
                     <div className="text-center w-full pb-2 text-gray-500 text-sm">
-                        创建新咨询将结束当前对话并保存记录。<br />
+                        开始新对话将结束当前聊天并保存记录。<br />
                         确定继续吗？
                     </div>
                 ),
-                okText: '结束咨询',
+                okText: '结束对话',
                 cancelText: '取消',
                 icon: null,
                 okButtonProps: { status: 'default' },
@@ -79,7 +79,7 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
                 className="relative flex w-full items-center justify-center rounded-lg bg-indigo-50 px-4 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
             >
                 <IconPlus className="absolute left-[4.5rem]" style={{ fontSize: 14 }} />
-                <span>新咨询</span>
+                <span>新对话</span>
             </button>
         </>
     );

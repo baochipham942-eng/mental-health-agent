@@ -89,6 +89,13 @@ export function useChat() {
               adaptiveMode: item.adaptiveMode || metadata?.adaptiveMode,
             };
           }
+          // 提取 dialogue 和 guardBlocked
+          if (item?.dialogue) {
+            metadata = { ...metadata, dialogue: item.dialogue };
+          }
+          if (item?.guardBlocked) {
+            metadata = { ...metadata, guardBlocked: item.guardBlocked };
+          }
         });
       }
 

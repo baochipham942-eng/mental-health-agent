@@ -1,5 +1,6 @@
 
 import { AssessmentReport } from '@prisma/client';
+import { getTherapistVoice } from './persona/therapist-profiles';
 
 export type AdaptiveMode = 'guardian' | 'companion' | 'guide' | 'coach';
 
@@ -119,13 +120,19 @@ export function determinePersonaMode(
     return 'companion';
 }
 
-export function buildSystemPrompt(basePrompt: string, mode: AdaptiveMode, userPreferences: string[] = []): string {
+export function buildSystemPrompt(
+    basePrompt: string,
+    mode: AdaptiveMode,
+    therapistId?: string,
+    userPreferences: string[] = [],
+): string {
     const modifier = PERSONA_MODIFIERS[mode] || PERSONA_MODIFIERS.companion;
+    const therapist = therapistId ? getTherapistVoice(therapistId) : '';
 
     let preferencesBlock = '';
     if (userPreferences.length > 0) {
         preferencesBlock = `\n\n[USER PREFERENCES & CONSTRAINTS]\nThe user has the following communication preferences. YOU MUST COMPLY WITH THESE:\n${userPreferences.map(p => `- ${p}`).join('\n')}`;
     }
 
-    return `${basePrompt}\n\n${modifier}${preferencesBlock}`;
+    return `${basePrompt}\n\n${modifier}\n\n${therapist}${preferencesBlock}`;
 }

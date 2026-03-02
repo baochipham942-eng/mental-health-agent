@@ -91,15 +91,15 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                         if (!isActive && isConsulting && currentSessionId) {
                             e.preventDefault();
                             Modal.confirm({
-                                title: <div className="text-center w-full font-semibold text-gray-800">正在咨询中</div>,
+                                title: <div className="text-center w-full font-semibold text-gray-800">正在聊天中</div>,
                                 content: (
                                     <div className="text-center w-full pb-2 text-gray-500 text-sm">
-                                        离开当前页面将结束本次咨询并保存记录。<br />
+                                        离开当前页面将结束本次对话并保存记录。<br />
                                         确定继续吗？
                                     </div>
                                 ),
-                                okText: '结束咨询',
-                                cancelText: '继续咨询',
+                                okText: '结束对话',
+                                cancelText: '继续聊天',
                                 icon: null,
                                 okButtonProps: { status: 'default' },
                                 style: { width: 340, borderRadius: 12 },

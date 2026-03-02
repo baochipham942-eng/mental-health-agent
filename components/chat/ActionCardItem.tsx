@@ -1,16 +1,30 @@
-// ... imports
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ActionCard } from '@/types/chat';
 import { useChatStore } from '@/store/chatStore';
 import { BreathingExercise } from './widgets/BreathingExercise';
 import { MeditationExercise } from './widgets/MeditationExercise';
 import { MoodTracker } from './widgets/MoodTracker';
-import { BasicEmptyChair } from './widgets/BasicEmptyChair'; // Imported
-import { LeavesOnStream } from './widgets/LeavesOnStream'; // Imported
+import { BasicEmptyChair } from './widgets/BasicEmptyChair';
+import { LeavesOnStream } from './widgets/LeavesOnStream';
 import { InlineMoodRating } from './widgets/InlineMoodRating';
 import { logExercise } from '@/lib/actions/exercise';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatActions } from './ChatContext';
+
+/** AI 引导型练习类型 */
+const GUIDED_EXERCISES = ['grounding', 'reframing', 'activation', 'empty_chair'] as const;
+type GuidedType = typeof GUIDED_EXERCISES[number];
+
+function isGuidedExerciseType(widget?: string): widget is GuidedType {
+  return !!widget && (GUIDED_EXERCISES as readonly string[]).includes(widget);
+}
+
+const GUIDED_LABELS: Record<GuidedType, string> = {
+  grounding: '五感着陆',
+  reframing: '认知重构',
+  activation: '行为激活',
+  empty_chair: '空椅子技术',
+};
 
 interface ActionCardItemProps {
   card: ActionCard;
@@ -41,6 +55,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
   const [startTime, setStartTime] = useState<number | null>(null);
   const [headerControl, setHeaderControl] = useState<React.ReactNode>(null);
 
+  const { sendMessage } = useChatActions();
   const effort = effortLabels[card.effort] || effortLabels.medium;
   const stepsCount = card.steps?.length || 0;
   const completedSteps = progress?.completedSteps || [];
@@ -50,6 +65,10 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
 
   // 估算时间
   const estimatedMinutes = Math.max(1, Math.ceil(stepsCount * 0.5));
+
+  // 是否为 AI 引导型练习
+  const isGuided = card.guided || isGuidedExerciseType(card.widget);
+  const guidedType = isGuided ? (card.widget as GuidedType) : null;
 
   // 引用卡片元素以便滚动
   const cardRef = useRef<HTMLDivElement>(null);
@@ -63,22 +82,42 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
     }
   }, [isExpanded]);
 
+  // 启动 AI 引导练习（调用后端 API 创建状态 + 发消息触发引导）
+  const startGuidedExercise = useCallback(async () => {
+    if (!guidedType) return;
+    const label = GUIDED_LABELS[guidedType] || card.title;
+    try {
+      await fetch('/api/exercise/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exerciseType: guidedType,
+          totalSteps: card.totalSteps || 4,
+        }),
+      });
+    } catch (e) {
+      console.error('[GuidedExercise] Failed to create state:', e);
+    }
+    updateSkillProgress(cardId, { status: 'in_progress', completedSteps: [] });
+    setStartTime(Date.now());
+    sendMessage(`我想开始「${label}」练习`);
+  }, [guidedType, card, cardId, sendMessage, updateSkillProgress]);
+
   // 开始/继续/再次练习
   const handleMainAction = () => {
-    if (!isExpanded) {
-      setIsExpanded(true);
-      setShowRating(false); // 重置评分状态
-
-      // 如果是"再次练习"，重置进度
+    if (isGuided) {
       if (isCompleted) {
         updateSkillProgress(cardId, { status: 'not_started', completedSteps: [] });
       }
-
-      // 修复：点击展开时，不再自动设为"进行中"。
-      // 只有在 Widget 中点击"开始"时才更新状态。
-    } else {
-      // 如果已经展开，点击按钮可以收起（可选）
-      // setIsExpanded(false);
+      startGuidedExercise();
+      return;
+    }
+    if (!isExpanded) {
+      setIsExpanded(true);
+      setShowRating(false);
+      if (isCompleted) {
+        updateSkillProgress(cardId, { status: 'not_started', completedSteps: [] });
+      }
     }
   };
 
@@ -109,8 +148,6 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
 
   // UI 状态：showCompletionConfirm 用于显示完成确认信息
   const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
-
-  const { sendMessage } = useChatActions(); // Consume actions
 
   // 提交评分
   const handleRatingSubmit = async (score: number) => {
@@ -245,7 +282,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                   : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
                   }`}
               >
-                {isInProgress ? '继续' : '开始练习'}
+                {isInProgress ? '继续' : isGuided ? '开始引导' : '开始练习'}
               </button>
             )
           )}
@@ -290,7 +327,14 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
               ) : (
                 <>
                   {/* 如果有 specific component (Widget) */}
-                  {card.widget === 'breathing' ? (
+                  {/* AI 引导型练习：不展开 Widget，显示进行中提示 */}
+                  {isGuided && isInProgress ? (
+                    <div className="text-center py-6">
+                      <div className="text-3xl mb-2 animate-pulse">💬</div>
+                      <p className="text-sm text-gray-600 font-medium">AI 正在引导你完成「{GUIDED_LABELS[guidedType!] || card.title}」</p>
+                      <p className="text-xs text-gray-400 mt-1">请在对话中跟随指引</p>
+                    </div>
+                  ) : card.widget === 'breathing' ? (
                     <BreathingExercise
                       onComplete={handleWidgetComplete}
                       setHeaderControl={setHeaderControl}

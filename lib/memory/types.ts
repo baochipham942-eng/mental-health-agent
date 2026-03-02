@@ -10,6 +10,13 @@
  * - personal_context: 个人背景（重要的家庭、工作等信息）
  * - therapy_progress: 疗愈进展（改善或退步迹象）
  * - trigger_warning: 触发预警（敏感话题或需要避免的内容）
+ * - communication_style: 沟通风格（用户偏好的交流方式）
+ * - relationship_dynamics: 人际关系动态（重要人际关系及互动模式）
+ * - core_belief: 核心信念（深层价值观、自我认知）
+ * - strength_resource: 优势资源（用户的长处、支持系统）
+ * - exercise_preference: 练习偏好（喜欢/完成过的练习类型）
+ * - crisis_history: 危机历史（过往危机事件记录）
+ * - life_event: 生活事件（重大生活变化、里程碑）
  */
 export type MemoryTopic =
     | 'emotional_pattern'
@@ -17,7 +24,13 @@ export type MemoryTopic =
     | 'personal_context'
     | 'therapy_progress'
     | 'trigger_warning'
-    | 'communication_style';
+    | 'communication_style'
+    | 'relationship_dynamics'
+    | 'core_belief'
+    | 'strength_resource'
+    | 'exercise_preference'
+    | 'crisis_history'
+    | 'life_event';
 
 export const MEMORY_TOPIC_LABELS: Record<MemoryTopic, string> = {
     emotional_pattern: '情绪模式',
@@ -26,6 +39,12 @@ export const MEMORY_TOPIC_LABELS: Record<MemoryTopic, string> = {
     therapy_progress: '疗愈进展',
     trigger_warning: '敏感话题',
     communication_style: '沟通偏好',
+    relationship_dynamics: '人际关系',
+    core_belief: '核心信念',
+    strength_resource: '优势资源',
+    exercise_preference: '练习偏好',
+    crisis_history: '危机历史',
+    life_event: '生活事件',
 };
 
 export const ALL_MEMORY_TOPICS: MemoryTopic[] = [
@@ -35,6 +54,12 @@ export const ALL_MEMORY_TOPICS: MemoryTopic[] = [
     'therapy_progress',
     'trigger_warning',
     'communication_style',
+    'relationship_dynamics',
+    'core_belief',
+    'strength_resource',
+    'exercise_preference',
+    'crisis_history',
+    'life_event',
 ];
 
 /**

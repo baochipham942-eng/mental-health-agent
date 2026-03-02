@@ -169,6 +169,11 @@ export function ChatInput({
       {/* 输入框容器 - items-center 让所有元素垂直居中 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
         {/* Tool Kit Trigger - Responsive */}
+        {/* Feature Layers:
+           Layer 0（默认入口）: 自由聊天、情绪倾诉、日常解压
+           Layer 1（自然发现）: 呼吸练习、正念冥想、情绪记录、认知重构
+           Layer 2（主动探索）: 对话排练、深度自我了解、成长记录
+           Layer 3（专业评估）: 情绪健康度检查(PHQ-9)、压力指数检查(GAD-7) */}
         {/* Desktop: Dropdown Menu */}
         <div className="hidden md:block">
           <Dropdown
@@ -220,7 +225,7 @@ export function ChatInput({
             footer={null}
             title={
               <div className="text-center w-full relative">
-                <span className="text-gray-900 font-semibold">心理技能工具箱</span>
+                <span className="text-gray-900 font-semibold">解压工具箱</span>
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 rounded-full"></div>
               </div>
             }
@@ -335,7 +340,7 @@ export function ChatInput({
       {/* 免责声明 */}
       {showDisclaimer && (
         <p className="text-[11px] text-gray-400 mt-2 text-center">
-          内容由 AI 生成，不能替代专业心理咨询服务
+          内容由 AI 生成，仅供参考
         </p>
       )}
     </div>

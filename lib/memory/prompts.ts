@@ -17,13 +17,31 @@ export const MEMORY_EXTRACTION_PROMPT = `你是一位心理咨询记录整理专
 - **精简**: 每条 content 不得超过 30 字。
 
 **提取规则：**
-1. **记忆点 (Memories)**: 只提取有长期价值的信息。必须包含字段 \`topic\`，取值范围：emotional_pattern, coping_preference, personal_context, therapy_progress, trigger_warning, communication_style。
+1. **记忆点 (Memories)**: 只提取有长期价值的信息。必须包含字段 \`topic\`，取值范围：
+   - emotional_pattern: 情绪模式（触发因素、常见情绪反应）
+   - coping_preference: 应对偏好（用户认可的放松/应对策略）
+   - personal_context: 个人背景（重要的家庭、工作等信息）
+   - therapy_progress: 疗愈进展（改善或退步迹象）
+   - trigger_warning: 触发预警（敏感话题或需要避免的内容）
+   - communication_style: 沟通风格（用户偏好的交流方式）
+   - relationship_dynamics: 人际关系动态（重要人际关系及互动模式）
+   - core_belief: 核心信念（深层价值观、自我认知，如"我不够好"）
+   - strength_resource: 优势资源（用户的长处、支持系统、积极品质）
+   - exercise_preference: 练习偏好（喜欢/完成过的练习类型，匹配模式：/我完成了.*练习/）
+   - crisis_history: 危机历史（过往危机事件记录，如自伤、严重情绪崩溃）
+   - life_event: 生活事件（重大生活变化，如搬家、离职、分手、亲人离世）
 2. **实体 (Entities)**: 识别关键实体。必须包含字段 \`name\` 和 \`type\` (取值：person, event, object, emotion, belief)。
 3. **关系 (Relationships)**: 建立实体间关联。必须包含 \`source\`, \`target\`, \`type\` (取值：trigger, cause, correlate, prevent)。
 
 **示例 (Good):**
 - [personal_context] 用户因工作变动被老板冤枉，感到委屈。
 - [emotional_pattern] 面临未来不确定性时易触发深度焦虑和思绪纷乱。
+- [relationship_dynamics] 与母亲关系紧张，常因学业问题产生冲突。
+- [core_belief] 认为自己"不值得被爱"。
+- [strength_resource] 有稳定的好友圈，擅长绘画作为情绪出口。
+- [exercise_preference] 完成了正念呼吸练习，反馈感觉放松。
+- [crisis_history] 半年前曾有过自伤行为。
+- [life_event] 近期经历了分手，情绪波动较大。
 
 **输出格式要求：**
 - 必须返回纯 JSON 对象。
@@ -48,10 +66,12 @@ export const MEMORY_EXTRACTION_PROMPT = `你是一位心理咨询记录整理专
  */
 export const MEMORY_CONSOLIDATION_PROMPT = `你是记忆整合专家。比较新提取的语义记忆和现有记忆，决定如何处理它们的关联。
 
-**核心指令：语义去重、合并优先、保持纯净**
+**核心指令：语义去重、合并优先、冲突分类**
 - **语义去重**: 即使表述不同，只要意思相近（相似度 > 70%），必须判定为 skip 或 update，严禁重复创建。
 - **合并优先**: 如果新记忆对旧记忆有补充，合并为一条更完整的描述，而不是保留两条。
-- **冲突处理**: 如果新事实推翻了旧事实，使用 delete 删除旧记忆。
+- **冲突分类**（重要！区分两种冲突）:
+  1. **时间演变型**：用户状态随时间自然变化（如"和妈妈关系好" → "和妈妈吵架了"）。此时保留两条记忆，在 mergedContent 中标注时间关系（如"早期关系好，近期发生冲突"），action 为 update。
+  2. **事实矛盾型**：新信息直接推翻旧信息（如"用户是老师" → "用户是程序员"）。此时以最新为准，action 为 update，将 mergedContent 设为最新事实。
 
 **现有记忆：**
 {existingMemories}

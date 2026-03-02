@@ -3,6 +3,7 @@ import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsageCount } from './golden-examples';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
+import { getExerciseHistory } from '@/lib/actions/exercise';
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -93,7 +94,7 @@ export async function generateSupportReply(
   const result = await chatCompletion(messages, {
     temperature: 0.8,
     max_tokens: 400,
-    tools: UI_TOOLS,
+    tools: UI_TOOLS as unknown as any[],
   });
 
   return result.reply;
@@ -111,6 +112,7 @@ export async function streamSupportReply(
     memoryContext?: string;
     systemInstructionInjection?: string;
     adaptiveMode?: AdaptiveMode;
+    therapistId?: string;
     userPreferences?: string[];
   }
 ) {
@@ -126,13 +128,24 @@ export async function streamSupportReply(
     console.error('[GoldenCache] Retrieval failed:', e);
   }
 
-  // Build the base prompt with adaptive modifier
+  // Inject exercise history if userId is available
+  let exerciseHistoryContext = '';
+  try {
+    const userId = options?.traceMetadata?.userId;
+    if (userId) {
+      exerciseHistoryContext = await getExerciseHistory(userId);
+    }
+  } catch (e) {
+    console.error('[ExerciseHistory] Retrieval failed:', e);
+  }
+
+  // Build the base prompt with adaptive modifier + therapist persona
   let finalSystemPrompt = options?.adaptiveMode
-    ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.userPreferences)
+    ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.therapistId, options.userPreferences)
     : SUPPORT_PROMPT;
 
   // Append context layers
-  finalSystemPrompt += `${goldenExamplesContext}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
+  finalSystemPrompt += `${goldenExamplesContext}${exerciseHistoryContext ? `\n\n${exerciseHistoryContext}` : ''}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
 
   const messages: ChatMessage[] = [
     {

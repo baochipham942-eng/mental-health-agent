@@ -11,6 +11,7 @@ import type { Memory, MemoryTopic } from './types';
 export const FORGETTING_TOPICS: MemoryTopic[] = [
     'emotional_pattern',
     'coping_preference',
+    'exercise_preference',
 ];
 
 /**
@@ -18,6 +19,8 @@ export const FORGETTING_TOPICS: MemoryTopic[] = [
  */
 export const SLOW_DECAY_TOPICS: MemoryTopic[] = [
     'therapy_progress',
+    'relationship_dynamics',
+    'life_event',
 ];
 
 /**
@@ -26,6 +29,10 @@ export const SLOW_DECAY_TOPICS: MemoryTopic[] = [
 export const PERMANENT_TOPICS: MemoryTopic[] = [
     'personal_context',
     'trigger_warning',
+    'communication_style',
+    'core_belief',
+    'strength_resource',
+    'crisis_history',
 ];
 
 /**

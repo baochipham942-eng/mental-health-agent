@@ -295,10 +295,12 @@ export function MessageBubble({
                         "text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-1",
                         message.metadata.safety.label === 'crisis' ? "bg-red-100 text-red-600" :
                           message.metadata.safety.label === 'urgent' ? "bg-orange-100 text-orange-600" :
-                            "bg-green-100 text-green-600"
+                            message.metadata.safety.label === 'self-care' ? "bg-yellow-100 text-yellow-600" :
+                              "bg-green-100 text-green-600"
                       )}>
                         {message.metadata.safety.label === 'normal' ? '安全' :
-                          message.metadata.safety.label === 'urgent' ? '需关注' : '危机'}
+                          message.metadata.safety.label === 'self-care' ? '需自我关照' :
+                            message.metadata.safety.label === 'urgent' ? '需关注' : '危机'}
                       </span>
                       {/* 只在非安全时显示详细原因，安全时用简短描述 */}
                       {message.metadata.safety.label !== 'normal' && message.metadata.safety.reasoning && (
@@ -328,7 +330,7 @@ export function MessageBubble({
                       <span className="font-medium text-gray-700">接待专家：</span>
                       <span className="text-indigo-600 font-medium">
                         {message.metadata.routeType === 'crisis' ? '🚨 危机支持' :
-                          message.metadata.routeType === 'assessment' ? '📋 心理评估' : '❤️ 情感陪伴'}
+                          message.metadata.routeType === 'assessment' ? '📋 深度了解' : '❤️ 情感陪伴'}
                       </span>
                       {/* 如果有 persona reasoning，显示策略说明 */}
                       {message.metadata?.persona?.reasoning && (
@@ -355,6 +357,23 @@ export function MessageBubble({
                       </div>
                     </div>
                   )}
+
+                {/* 5. 安全约束 - 仅在有深度安全评估约束时显示 */}
+                {message.metadata?.safety?.constraints && message.metadata.safety.constraints.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0">🔒</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-700">安全约束：</span>
+                      <div className="mt-1 space-y-1">
+                        {message.metadata.safety.constraints.map((c: string, i: number) => (
+                          <div key={i} className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded inline-block mr-1">
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

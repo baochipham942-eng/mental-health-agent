@@ -189,7 +189,7 @@ export default function LoginPage() {
                 <div className="bg-indigo-600 px-8 py-10 text-center relative overflow-hidden">
                     <div className="relative z-10">
                         <h1 className="text-2xl font-bold text-white tracking-wider">心灵树洞</h1>
-                        <p className="text-indigo-100 text-sm mt-2 font-light">倾诉 · 疗愈 · 成长</p>
+                        <p className="text-indigo-100 text-sm mt-2 font-light">倾诉 · 解压 · 成长</p>
                     </div>
                 </div>
 

@@ -37,6 +37,70 @@ export async function logExercise(params: LogExerciseParams) {
     return log;
 }
 
+export async function recordExerciseCompletion(
+    userId: string,
+    exerciseType: string,
+    exerciseName: string,
+    postMood: number,
+    duration?: number,
+    feedback?: string
+): Promise<void> {
+    // Save to exercise_preference memory topic
+    const content = `完成「${exerciseName}」练习，效果评分${postMood}/10${feedback ? `，反馈：${feedback}` : ''}`;
+
+    await prisma.userMemory.create({
+        data: {
+            userId,
+            topic: 'exercise_preference',
+            content,
+            confidence: 0.9,
+        }
+    });
+
+    // Also update therapy_progress
+    await prisma.userMemory.create({
+        data: {
+            userId,
+            topic: 'therapy_progress',
+            content: `${exerciseName}练习${postMood >= 6 ? '效果良好' : '效果一般'}(${postMood}/10)`,
+            confidence: 0.8,
+        }
+    });
+}
+
+// Query exercise history for injection into support prompts
+export async function getExerciseHistory(userId: string): Promise<string> {
+    const recentLogs = await prisma.exerciseLog.findMany({
+        where: { userId },
+        orderBy: { completedAt: 'desc' },
+        take: 10,
+    });
+
+    if (recentLogs.length === 0) return '';
+
+    // Find most done exercise type
+    const typeCounts: Record<string, number> = {};
+    let bestType = '';
+    let bestScore = 0;
+
+    for (const log of recentLogs) {
+        typeCounts[log.type] = (typeCounts[log.type] || 0) + 1;
+        if (log.postMood && log.postMood > bestScore) {
+            bestScore = log.postMood;
+            bestType = log.type;
+        }
+    }
+
+    const mostFrequent = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0];
+
+    let summary = '### 练习历史摘要\n';
+    summary += `- 共完成 ${recentLogs.length} 次练习\n`;
+    if (mostFrequent) summary += `- 最常做的练习：${mostFrequent[0]}（${mostFrequent[1]}次）\n`;
+    if (bestType) summary += `- 效果最好的练习：${bestType}（${bestScore}/10分）\n`;
+
+    return summary;
+}
+
 export async function getExerciseStats() {
     const session = await auth();
     if (!session?.user?.id) return null;

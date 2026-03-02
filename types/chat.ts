@@ -21,6 +21,7 @@ export interface Message {
       reasoning: string;
       label: 'crisis' | 'urgent' | 'self-care' | 'normal';
       score: number;
+      constraints?: string[];
     };
     state?: {
       reasoning: string;
@@ -35,6 +36,12 @@ export interface Message {
       check: string;
       retrieved?: string;
     };
+    dialogue?: {
+      turn: number;
+      phase: string;
+      riskLevel: string;
+    };
+    guardBlocked?: string;
   };
 }
 
@@ -87,7 +94,11 @@ export interface ActionCard {
   steps: string[];
   when: string;
   effort: 'low' | 'medium' | 'high';
-  widget?: 'breathing' | 'meditation' | 'mood_tracker' | 'empty_chair';
+  widget?: 'breathing' | 'meditation' | 'mood_tracker' | 'empty_chair' | 'grounding' | 'reframing' | 'activation' | 'leaves_stream';
+  /** 是否为 AI 引导型练习（grounding/reframing/activation/empty_chair） */
+  guided?: boolean;
+  /** 引导练习总步数 */
+  totalSteps?: number;
 }
 
 // 群组对话（圆桌论道）消息

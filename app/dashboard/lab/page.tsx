@@ -2,7 +2,7 @@ import { LabContent } from '@/components/lab/LabContent';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: '心理实验室',
+    title: '探索工坊',
 };
 
 export const dynamic = 'force-dynamic';

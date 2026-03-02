@@ -56,7 +56,7 @@ function EducationCard({ resource, expanded, onToggle }: { resource: PsychoEduca
             <div className="flex items-start justify-between cursor-pointer" onClick={onToggle}>
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded-full font-medium">心理科普</span>
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded-full font-medium">知识卡片</span>
                         <span className="text-xs text-blue-500">阅读时间: {resource.readingTime}分钟</span>
                     </div>
                     <h3 className="font-bold text-gray-900">{resource.title}</h3>

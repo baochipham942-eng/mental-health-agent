@@ -9,7 +9,7 @@ const TOPIC_LABELS: Record<string, { label: string; emoji: string; color: 'purpl
     emotional_pattern: { label: '情绪模式', emoji: '📊', color: 'purple' },
     coping_preference: { label: '偏好策略', emoji: '💡', color: 'green' },
     personal_context: { label: '个人背景', emoji: '👤', color: 'blue' },
-    therapy_progress: { label: '疗愈进展', emoji: '📈', color: 'orange' },
+    therapy_progress: { label: '成长记录', emoji: '📈', color: 'orange' },
     trigger_warning: { label: '敏感话题', emoji: '⚠️', color: 'red' },
 };
 
@@ -234,7 +234,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
                             <div className="text-center">
                                 <p className="text-slate-500">还没有记忆</p>
                                 <p className="text-xs text-slate-400 mt-1">
-                                    与咨询师对话后，系统会自动提取有价值的信息
+                                    聊天过程中，我会记住对你重要的信息
                                 </p>
                             </div>
                         }
@@ -262,7 +262,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
             {/* 底部说明 */}
             <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex-shrink-0">
                 <p className="text-xs text-slate-500 text-center">
-                    💡 记忆帮助咨询师更好地了解你，你可以随时编辑或删除
+                    💡 记忆帮助我更好地了解你，你可以随时编辑或删除
                 </p>
             </div>
         </div>

@@ -6,6 +6,7 @@
 import { chatCompletion, type ChatMessage } from '@/lib/ai/deepseek';
 import { CONVERSATION_SUMMARIZATION_PROMPT } from './prompts';
 import { prisma } from '@/lib/db/prisma';
+import { recordSessionMetrics } from '@/lib/ai/progress/tracker';
 
 /**
  * 为一组消息生成摘要
@@ -56,15 +57,37 @@ export async function updateConversationSummary(conversationId: string, summary:
         // 考虑到当前 schema，我们先不修改数据库结构，而是在运行时动态计算或通过 RAG 存储
         // 建议增加一个专门的记忆 Topic: 'conversation_summary'
 
+        const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { userId: true } });
+        const userId = conv?.userId || '';
+
         await prisma.userMemory.create({
             data: {
-                userId: (await prisma.conversation.findUnique({ where: { id: conversationId }, select: { userId: true } }))?.userId || '',
+                userId,
                 topic: 'therapy_progress',
                 content: `[会话摘要 ${new Date().toLocaleDateString()}] ${summary}`,
                 confidence: 1.0,
                 sourceConvId: conversationId
             }
         });
+
+        // P5: 尝试从关联的 SessionSummary 提取情绪指标并记录
+        if (userId) {
+            try {
+                const sessionSummary = await prisma.sessionSummary.findUnique({
+                    where: { conversationId },
+                    select: { emotionFinal: true, moodChange: true },
+                });
+                if (sessionSummary) {
+                    const ef = sessionSummary.emotionFinal as any;
+                    if (ef && typeof ef.score === 'number') {
+                        recordSessionMetrics(userId, conversationId, ef, sessionSummary.moodChange)
+                            .catch(e => console.error('[ProgressTracker] Failed:', e));
+                    }
+                }
+            } catch (e) {
+                console.error('[ProgressTracker] Session metric extraction failed:', e);
+            }
+        }
     } catch (error) {
         console.error('[Summarizer] Failed to update summary:', error);
     }

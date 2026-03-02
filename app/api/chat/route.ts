@@ -1,24 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StreamData } from 'ai';
-import { auth } from '@/auth'; // Adjust path if needed
+import { auth } from '@/auth';
 import { prisma } from '@/lib/db/prisma';
-import { quickAnalyze } from '@/lib/ai/groq';
+import type { QuickAnalysis } from '@/lib/ai/groq';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
 import { continueAssessment, streamAssessmentReply } from '@/lib/ai/assessment';
-import { deepseek, streamEFTValidationReply } from '@/lib/ai/deepseek'; // Updated import
+import { deepseek, streamEFTValidationReply } from '@/lib/ai/deepseek';
 import { streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
-import { generateSFBTQuery } from '@/lib/ai/sfbt'; // SFBT logic
+import { generateSFBTQuery } from '@/lib/ai/sfbt';
 import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { memoryManager } from '@/lib/memory';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
+import {
+  createInitialContext,
+  restoreContext,
+  evaluateTransition,
+  updateSCEBProgress,
+  generateStateMachinePrompt,
+  type DialogueContext,
+} from '@/lib/ai/dialogue/state-machine';
+import { detectQuestionnaireRequest } from '@/lib/ai/assessment/questionnaire';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
 import { ChatService } from '@/lib/services/chat-service';
 import { determinePersonaMode, AdaptiveMode } from '@/lib/ai/persona-manager';
+// P1: Agent 编排升级
+import { orchestrate, triggerQualityCheck } from '@/lib/ai/agents/orchestrator';
+// P0-B: 练习引擎
+import { isGuidedExercise, buildExerciseSystemInjection } from '@/lib/ai/exercise-engine';
+// P2-B: 危机升级
+import { createCrisisEscalation } from '@/lib/ai/crisis-escalation';
 
 /**
  * 辅助函数：创建固定字符串内容的流式响应
@@ -227,10 +242,14 @@ export async function POST(request: NextRequest) {
     let memoryContext = '';
     let processedHistory = history;
 
-    // 并行执行：Groq 分析 + 记忆检索
-    // 传入最近2条历史记录作为上下文，帮助 Groq 判断意图（如回答评估问题 vs 切换话题）
+    // 并行执行：Agent 编排（Triage+Safety） + 记忆检索
+    // 传入最近2条历史记录作为上下文，帮助 Triage Agent 判断意图
     const recentContext = history.slice(-2);
-    const groqPromise = quickAnalyze(message, recentContext);
+    const orchestratePromise = orchestrate({
+      message,
+      history: history as any,
+      recentHistory: recentContext,
+    });
 
     const memoryPromise = (userId && history.length > 0)
       ? (async () => {
@@ -266,15 +285,29 @@ export async function POST(request: NextRequest) {
       }).catch(e => [])
       : Promise.resolve([]);
 
-    const [analysis, retrievalResult, assessmentHistory, preferenceMemories] = await Promise.all([groqPromise, memoryPromise, assessmentPromise, preferencePromise]);
+    // P5: 获取用户治疗师偏好
+    const therapistPromise = (userId)
+      ? prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferredTherapist: true }
+      }).catch(e => null)
+      : Promise.resolve(null);
+
+    const [orchestrationResult, retrievalResult, assessmentHistory, preferenceMemories, userTherapistPref] = await Promise.all([orchestratePromise, memoryPromise, assessmentPromise, preferencePromise, therapistPromise]);
+
+    // 从编排结果中解包 Triage + Safety
+    const analysis = orchestrationResult.triage.data;
+    const safetyAgentResult = orchestrationResult.safety;
 
     const userPreferences = preferenceMemories.map((m: any) => m.content);
 
-    // 构建统一的 safety 对象 (从 Groq 分析结果中提取)
+    // 构建统一的 safety 对象（优先使用 SafetyAgent 深度评估，回退到 Triage 快速评估）
+    const hasSafetyDeep = safetyAgentResult.success && safetyAgentResult.data.label !== 'normal';
     const safetyData = {
-      label: analysis.safety,
-      score: analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1,
-      reasoning: analysis.safetyReasoning,
+      label: hasSafetyDeep ? safetyAgentResult.data.label : analysis.safety,
+      score: hasSafetyDeep ? safetyAgentResult.data.score : (analysis.safety === 'crisis' ? 9 : analysis.safety === 'urgent' ? 6 : 1),
+      reasoning: hasSafetyDeep ? safetyAgentResult.data.reasoning : analysis.safetyReasoning,
+      constraints: hasSafetyDeep ? (safetyAgentResult.data.constraints || []) : [],
     };
 
     // 计算 Adaptive Persona Mode
@@ -314,9 +347,71 @@ export async function POST(request: NextRequest) {
     const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
     const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
 
+    // P5: 状态机驱动对话路由（优先使用，fallback 到轮次推断）
+    let dialogueCtx: DialogueContext | null = null;
+    let stateMachinePrompt = '';
+    if (sessionId) {
+      try {
+        // 尝试从 Conversation meta 恢复状态机上下文
+        const conv = await prisma.conversation.findUnique({
+          where: { id: sessionId },
+          select: { id: true },
+        });
+        if (conv) {
+          // 尝试从消息 meta 中恢复（存储在最后一条 assistant 消息的 meta 中）
+          const lastAssistantMsg = await prisma.message.findFirst({
+            where: { conversationId: sessionId, role: 'assistant' },
+            orderBy: { createdAt: 'desc' },
+            select: { meta: true },
+          });
+          dialogueCtx = restoreContext(lastAssistantMsg?.meta);
+        }
+      } catch (e) {
+        console.error('[StateMachine] Failed to restore context:', e);
+      }
+    }
+
+    if (!dialogueCtx) {
+      // 新会话或无法恢复 → 创建初始上下文，用 turn 调整初始状态
+      dialogueCtx = createInitialContext();
+      dialogueCtx.turn = conversationTurn;
+      if (conversationTurn > 2) dialogueCtx.state = 'exploration';
+    } else {
+      dialogueCtx.turn = conversationTurn;
+    }
+
+    // 更新 SCEB 进度
+    dialogueCtx.scebProgress = updateSCEBProgress(dialogueCtx.scebProgress, analysis, message);
+
+    // 追踪情绪轨迹
+    dialogueCtx.emotionTrajectory.push(analysis.emotion.score);
+    if (dialogueCtx.emotionTrajectory.length > 20) {
+      dialogueCtx.emotionTrajectory = dialogueCtx.emotionTrajectory.slice(-20);
+    }
+
+    // 评估状态转移
+    const transition = evaluateTransition(dialogueCtx, analysis);
+    if (transition.stateChanged) {
+      console.log(`[StateMachine] Transition: ${dialogueCtx.state} → ${transition.nextState} (${transition.reason})`);
+      dialogueCtx.state = transition.nextState;
+    }
+
+    // 生成状态机上下文注入
+    stateMachinePrompt = generateStateMachinePrompt(dialogueCtx);
+
+    // P5: 检测问卷触发请求
+    // TODO: 当检测到用户连续 3+ 次对话涉及同类情绪话题时，
+    // AI 温和建议"要不要花几分钟了解一下自己最近的状态？"
+    // 用户仍可主动触发（说"了解一下自己"/"测一下"）
+    const questionnaireType = detectQuestionnaireRequest(message);
+    if (questionnaireType) {
+      logInfo('questionnaire-trigger', { type: questionnaireType, source: 'user_request' });
+    }
+
     logInfo('dialogue-state', {
       turn: conversationTurn,
       phase: dialoguePhase,
+      machineState: dialogueCtx.state,
       riskLevel: riskSignals.level,
       triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
       shouldTriggerSafety: safetyCheck.shouldTrigger,
@@ -354,9 +449,11 @@ export async function POST(request: NextRequest) {
       dialogue: {
         turn: conversationTurn,
         phase: dialoguePhase,
+        machineState: dialogueCtx?.state,
         riskLevel: riskSignals.level,
       },
       adaptiveMode,
+      questionnaireDetected: questionnaireType || undefined,
     } as any);
 
     // 如果 Groq 检测到危机，强制切换到危机路由
@@ -395,6 +492,31 @@ export async function POST(request: NextRequest) {
     const traceMetadata = { sessionId, userId };
 
     routeType = analysis.route;
+
+    // =================================================================================
+    // 0.7 Exercise State Detection - 检测进行中的引导练习
+    // =================================================================================
+    let exerciseInjection = '';
+    if (userId) {
+      try {
+        const activeExercise = await prisma.exerciseState.findFirst({
+          where: { userId, status: 'in_progress' },
+          orderBy: { updatedAt: 'desc' },
+        });
+        if (activeExercise && isGuidedExercise(activeExercise.exerciseType)) {
+          exerciseInjection = buildExerciseSystemInjection(
+            activeExercise.exerciseType as any,
+            activeExercise.currentStep,
+            activeExercise.totalSteps,
+            activeExercise.metadata as Record<string, any> | undefined
+          );
+          routeType = 'support'; // 练习进行中强制走 support 路由
+          console.log('[Exercise] Active exercise detected:', activeExercise.exerciseType, `step ${activeExercise.currentStep}/${activeExercise.totalSteps}`);
+        }
+      } catch (e) {
+        console.error('[Exercise] Failed to check exercise state:', e);
+      }
+    }
 
     // 后备：关键词检测危机（防止小模型漏检）
     if (routeType !== 'crisis' && quickCrisisKeywordCheck(message)) {
@@ -452,6 +574,17 @@ export async function POST(request: NextRequest) {
 
       data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
 
+      // P2-B: 创建危机升级记录 + Telegram 通知（fire-and-forget）
+      if (userId && sessionId) {
+        createCrisisEscalation({
+          userId,
+          conversationId: sessionId,
+          triggerMessage: message,
+          riskLevel: analysis.safety === 'crisis' ? 'crisis' : 'urgent',
+          safetyScore: safetyData.score,
+        }).catch(e => console.error('[CrisisEscalation] Failed:', e));
+      }
+
       const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
         // Non-blocking save
         saveAssistantMessage(text, {
@@ -466,6 +599,18 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
         } as any);
         data.close();
+
+        // P1: 异步质检
+        if (sessionId) {
+          triggerQualityCheck({
+            conversationId: sessionId,
+            routeType: 'crisis',
+            adaptiveMode: 'guardian',
+            safetyLevel: safetyData.label,
+            reply: text,
+            userMessage: message,
+          });
+        }
       }
 
       const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
@@ -532,12 +677,13 @@ export async function POST(request: NextRequest) {
       });
 
       const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-        // Non-blocking save
+        // Non-blocking save (include dialogueContext for state machine persistence)
         saveAssistantMessage(text, {
           toolCalls,
           safety: safetyData,
           state: stateData,
           adaptiveMode, // Persist mode for Feedback Loop
+          dialogueContext: dialogueCtx, // P5: 状态机上下文持久化
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
 
         data.append({
@@ -546,14 +692,35 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
         } as any);
         data.close();
+
+        // P1: 异步质检（不阻塞）
+        if (sessionId) {
+          triggerQualityCheck({
+            conversationId: sessionId,
+            routeType: 'support',
+            adaptiveMode,
+            safetyLevel: safetyData.label,
+            reply: text,
+            userMessage: message,
+          });
+        }
       };
+
+      // 合并注入：SFBT + 练习引导 + 安全约束 + 状态机
+      let combinedInjection = sfbtInstruction || '';
+      if (exerciseInjection) combinedInjection += exerciseInjection;
+      if (stateMachinePrompt) combinedInjection += stateMachinePrompt;
+      if (safetyData.constraints && safetyData.constraints.length > 0) {
+        combinedInjection += `\n\n**安全约束（必须遵守）**：\n${safetyData.constraints.map((c: string) => `- ${c}`).join('\n')}`;
+      }
 
       const result = await streamSupportReply(message, processedHistory, {
         onFinish: onFinishWithMeta,
         traceMetadata,
         memoryContext,
-        systemInstructionInjection: sfbtInstruction,
+        systemInstructionInjection: combinedInjection || undefined,
         adaptiveMode,
+        therapistId: userTherapistPref?.preferredTherapist || undefined,
         userPreferences // Pass extracted preferences
       });
       // data.close() moved to onFinish
@@ -597,6 +764,18 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
         } as any);
         data.close();
+
+        // P1: 异步质检
+        if (sessionId) {
+          triggerQualityCheck({
+            conversationId: sessionId,
+            routeType: 'assessment',
+            adaptiveMode,
+            safetyLevel: safetyData.label,
+            reply: text,
+            userMessage: message,
+          });
+        }
       };
 
       // 🔄 Special Case: If we are already in conclusion stage OR the classifier says we should conclude

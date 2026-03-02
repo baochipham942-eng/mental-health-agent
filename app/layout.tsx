@@ -17,8 +17,8 @@ import { NextAuthSessionProvider } from '@/components/providers/NextAuthSessionP
 import { WeChatFontHandler } from '@/components/layout/WeChatFontHandler';
 
 export const metadata: Metadata = {
-  title: '心灵树洞 - AI心理咨询',
-  description: '基于认知行为疗法的AI心理咨询助手，帮助你识别情绪、调整认知、改善心理健康',
+  title: '心灵树洞 - 你的解压搭子',
+  description: '随时陪你聊聊的 AI 伙伴，帮你理清思路、释放压力、找回状态',
   icons: {
     icon: '/icon.png',
     shortcut: '/favicon.ico',
