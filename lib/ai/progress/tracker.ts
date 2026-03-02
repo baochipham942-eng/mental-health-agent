@@ -20,6 +20,8 @@ export interface ProgressTimeline {
   gad7Scores: { date: string; score: number; severity: string }[];
   exerciseCount: number;
   sessionCount: number;
+  labSessionCount: number;
+  labExplorations: { date: string; labType: string; title: string }[];
   trend: 'improving' | 'stable' | 'worsening';
   milestones: string[];
 }
@@ -96,7 +98,7 @@ export async function getProgressTimeline(
   since.setDate(since.getDate() - days);
 
   // 并行查询各项数据
-  const [metrics, questionnaireScores, exerciseLogs, sessionSummaries] = await Promise.all([
+  const [metrics, questionnaireScores, exerciseLogs, sessionSummaries, labSessions] = await Promise.all([
     prisma.progressMetric.findMany({
       where: { userId, recordedAt: { gte: since } },
       orderBy: { recordedAt: 'asc' },
@@ -111,6 +113,11 @@ export async function getProgressTimeline(
     prisma.sessionSummary.findMany({
       where: { userId, createdAt: { gte: since } },
       orderBy: { createdAt: 'asc' },
+    }),
+    prisma.labSession.findMany({
+      where: { userId, createdAt: { gte: since } },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true, labType: true, title: true },
     }),
   ]);
 
@@ -159,8 +166,15 @@ export async function getProgressTimeline(
   // 趋势计算
   const trend = calculateTrend(emotions);
 
+  // 实验室探索记录
+  const labExplorations = labSessions.map((s: any) => ({
+    date: s.createdAt.toISOString().split('T')[0],
+    labType: s.labType,
+    title: s.title || '未命名探索',
+  }));
+
   // 里程碑检测
-  const milestones = await detectMilestones(userId, emotions, questionnaireScores, exerciseLogs);
+  const milestones = await detectMilestones(userId, emotions, questionnaireScores, exerciseLogs, labSessions);
 
   return {
     emotions,
@@ -168,6 +182,8 @@ export async function getProgressTimeline(
     gad7Scores,
     exerciseCount: exerciseLogs.length,
     sessionCount: sessionSummaries.length,
+    labSessionCount: labSessions.length,
+    labExplorations,
     trend,
     milestones,
   };
@@ -212,6 +228,7 @@ async function detectMilestones(
   emotions: { date: string; value: number }[],
   questionnaireScores: any[],
   exerciseLogs: any[],
+  labSessions?: any[],
 ): Promise<string[]> {
   const milestones: string[] = [];
 
@@ -256,6 +273,14 @@ async function detectMilestones(
   const totalSessions = await prisma.sessionSummary.count({ where: { userId } });
   if (totalSessions >= 5) milestones.push('已完成 5 次咨询会话');
   if (totalSessions >= 10) milestones.push('已完成 10 次咨询会话');
+
+  // 实验室探索里程碑
+  if (labSessions) {
+    if (labSessions.length >= 1) milestones.push('首次踏入实验室探索');
+    if (labSessions.length >= 3) milestones.push('已完成 3 次实验室探索');
+    const hasGroup = labSessions.some((s: any) => s.labType === 'group');
+    if (hasGroup) milestones.push('尝试了圆桌论道');
+  }
 
   return milestones;
 }

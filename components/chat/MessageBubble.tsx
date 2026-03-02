@@ -11,6 +11,7 @@ import { formatTime } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { ConclusionSections } from './ConclusionSections';
 import { QuickReplies, detectQuickReplyMode } from './QuickReplies';
+import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/store/chatStore';
 import { ResourceCard } from './ResourceCard';
 import { ActionCardGrid } from './ActionCardGrid';
@@ -147,6 +148,7 @@ export function MessageBubble({
   toolCalls,
   sessionId,
 }: MessageBubbleProps) {
+  const router = useRouter();
   const { currentState, isLoading } = useChatStore();
   const [showReasoning, setShowReasoning] = useState(false);
   const isUser = message.role === 'user';
@@ -421,6 +423,27 @@ export function MessageBubble({
                           messageId={message.id}
                           sessionId={sessionId}
                         />
+                      );
+                    }
+                    if (tc.function.name === 'recommend_lab_exploration') {
+                      const labEmoji: Record<string, string> = { wisdom: '🏛️', mirrors: '🪞', group: '🎯' };
+                      const labLabel: Record<string, string> = { wisdom: '智慧殿堂', mirrors: '镜像回廊', group: '圆桌论道' };
+                      return (
+                        <button
+                          key={tc.id}
+                          onClick={() => router.push('/dashboard/lab')}
+                          className="mt-3 w-full text-left rounded-xl p-4 border border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-lg">{labEmoji[args.labType] || '🔬'}</span>
+                            <span className="text-sm font-semibold text-purple-800">{args.title}</span>
+                          </div>
+                          <p className="text-xs text-purple-600/80 leading-relaxed">{args.description}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] text-purple-400">{labLabel[args.labType] || '实验室'}</span>
+                            <span className="text-xs text-purple-500 group-hover:translate-x-0.5 transition-transform">去看看 →</span>
+                          </div>
+                        </button>
                       );
                     }
                   } catch (e) {

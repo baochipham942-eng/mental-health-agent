@@ -9,6 +9,7 @@ const LabInsightSchema = z.object({
         topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context']),
         content: z.string().describe("The deep psychological insight extracted, abstracting away roleplay details."),
         confidence: z.number().min(0).max(1).describe("Confidence score, typically 0.6-0.9 for lab insights."),
+        insightType: z.enum(['thinking_preference', 'trigger_topic', 'effective_intervention']).describe("洞察分类：thinking_preference(思维偏好/认知风格), trigger_topic(触发话题/敏感点), effective_intervention(有效干预/起作用的方法)"),
     })).describe("List of extracted psychological insights"),
 });
 
@@ -20,8 +21,12 @@ const LAB_EXTRACTOR_PROMPT = `
 1. **忽略皮毛**：忽略用户为了配合角色扮演而说的客套话、场景设定（如“我正在雅典广场上”）。
 2. **直击内核**：关注用户表达的**核心价值观、恐惧、渴望、认知扭曲**或**情感模式**。
 3. **抽象化**：将具体的对话内容抽象为心理学描述。
-   - 例子：用户对苏格拉底说“我怕输，不敢去比赛”，提取为“用户表现出对失败的强烈的灾难化思维，回避竞争场景”。
+   - 例子：用户对苏格拉底说”我怕输，不敢去比赛”，提取为”用户表现出对失败的强烈的灾难化思维，回避竞争场景”。
 4. **保守原则**：如果不确定，不要提取。只提取有价值的洞察。
+5. **分类**：每条洞察需标注 insightType：
+   - thinking_preference: 用户的思维偏好或认知风格（如”倾向二元思维”、”偏好感性决策”）
+   - trigger_topic: 能触发用户强烈情绪反应的话题或场景
+   - effective_intervention: 在对话中对用户明显起作用的方法或角度
 
 请输出 JSON 格式的 insight 列表。
 `;
@@ -72,14 +77,14 @@ export async function extractLabInsights(
             // Since we don't have a 'tags' field in UserMemory, we append it to content or rely on sourceConvId.
             // Let's prepend [实验室洞察].
 
-            const finalContent = `[实验室洞察] ${insight.content}`;
+            const finalContent = `[实验室洞察:${insight.insightType}] ${insight.content}`;
 
             await prisma.userMemory.create({
                 data: {
                     userId,
                     topic: insight.topic,
                     content: finalContent,
-                    confidence: insight.confidence * 0.8, // Apply a penalty factor to lab insights as planned (0.8)
+                    confidence: insight.confidence * 0.85, // Lab insight penalty factor (0.85)
                     sourceConvId: sourceId,
                 }
             });

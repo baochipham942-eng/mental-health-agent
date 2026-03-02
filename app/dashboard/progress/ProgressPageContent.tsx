@@ -61,9 +61,10 @@ export function ProgressPageContent() {
       </div>
 
       {/* 概览卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <StatCard label="对话次数" value={timeline.sessionCount} unit="次" />
         <StatCard label="练习次数" value={timeline.exerciseCount} unit="次" />
+        <StatCard label="探索次数" value={timeline.labSessionCount} unit="次" />
         <StatCard
           label="整体趋势"
           value={trendLabel[timeline.trend]}
@@ -78,6 +79,9 @@ export function ProgressPageContent() {
         </TabPane>
         <TabPane key="questionnaire" title="自我了解">
           <QuestionnaireChart phq9={timeline.phq9Scores} gad7={timeline.gad7Scores} />
+        </TabPane>
+        <TabPane key="explorations" title="探索足迹">
+          <ExplorationList explorations={timeline.labExplorations} />
         </TabPane>
         <TabPane key="milestones" title="里程碑">
           <MilestoneList milestones={timeline.milestones} />
@@ -211,6 +215,32 @@ function QuestionnaireChart({ phq9, gad7 }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExplorationList({ explorations }: { explorations: { date: string; labType: string; title: string }[] }) {
+  if (explorations.length === 0) {
+    return <Empty description="还没有探索记录，去实验室看看吧" className="py-12" />;
+  }
+
+  const labEmoji: Record<string, string> = { wisdom: '🏛️', mirrors: '🪞', custom: '🎭', group: '🎯' };
+  const labLabel: Record<string, string> = { wisdom: '智慧殿堂', mirrors: '镜像回廊', custom: '自定义大师', group: '圆桌论道' };
+
+  return (
+    <div className="py-4">
+      <div className="space-y-3">
+        {explorations.map((e, i) => (
+          <div key={i} className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
+            <span className="text-xl">{labEmoji[e.labType] || '🔬'}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-purple-800 block truncate">{e.title}</span>
+              <span className="text-xs text-purple-400">{labLabel[e.labType] || e.labType}</span>
+            </div>
+            <span className="text-xs text-gray-400 shrink-0">{e.date.slice(5)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

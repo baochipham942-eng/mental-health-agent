@@ -144,6 +144,36 @@ export const UI_TOOLS = [
                 required: ['exerciseId', 'userResponse', 'nextStep']
             }
         }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'recommend_lab_exploration',
+            description: '推荐用户前往实验室进行深度自我探索。当检测到用户话题匹配实验室模块（如认知僵化、自我认同困惑、决策困难）时，以"换个视角"的轻松话术推荐。每次对话最多调用 1 次，不与 recommend_skill_card 同时触发。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    labType: {
+                        type: 'string',
+                        enum: ['wisdom', 'mirrors', 'group'],
+                        description: '推荐的实验室模块：wisdom(智慧殿堂/大师对话), mirrors(镜像回廊/MBTI探索), group(圆桌论道/多视角讨论)'
+                    },
+                    title: {
+                        type: 'string',
+                        description: '推荐卡片标题，如"和苏格拉底聊聊？"'
+                    },
+                    description: {
+                        type: 'string',
+                        description: '推荐理由简述，1-2句话，如"你提到的思维困境，苏格拉底式追问可能帮你打开新视角"'
+                    },
+                    mentorId: {
+                        type: 'string',
+                        description: '推荐的具体大师ID（仅 wisdom 类型时使用），如 socrates, jung, adler'
+                    }
+                },
+                required: ['labType', 'title', 'description']
+            }
+        }
     }
 ] as const;
 

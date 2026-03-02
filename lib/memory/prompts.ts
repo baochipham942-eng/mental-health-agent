@@ -127,8 +127,15 @@ export function formatMemoriesForInjection(
   if (memories.length === 0) return '';
 
   const sections: Record<string, string[]> = {};
+  const labInsights: string[] = [];
 
   for (const m of memories) {
+    // 识别实验室洞察，单独分组
+    if (m.content.startsWith('[实验室洞察')) {
+      labInsights.push(`- ${m.content}`);
+      continue;
+    }
+
     const topic = MEMORY_TOPIC_LABELS[m.topic as MemoryTopic] || m.topic;
     if (!sections[topic]) sections[topic] = [];
 
@@ -143,17 +150,28 @@ export function formatMemoriesForInjection(
     sections[topic].push(entry);
   }
 
-  return `
+  let result = `
 ### 用户背景记忆
 
 以下是关于该用户的重要背景信息/模式，在回复时请参考。注意识别潜在的情感因果模式：
 
 ${Object.entries(sections)
       .map(([topic, items]) => `**${topic}:**\n${items.join('\n')}`)
-      .join('\n\n')}
+      .join('\n\n')}`;
+
+  if (labInsights.length > 0) {
+    result += `
+
+**探索发现（来自实验室深度对话）：**
+${labInsights.join('\n')}`;
+  }
+
+  result += `
 
 注意：自然地融入对话，不要显式提及"根据记录"或具体的"模式/关系"术语。
 `;
+
+  return result;
 }
 
 /**
