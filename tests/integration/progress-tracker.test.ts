@@ -97,31 +97,43 @@ describe('calculateTrend', () => {
 // =============================================================================
 
 describe('ProgressTimeline type', () => {
-  it('should accept valid timeline data', () => {
+  it('should accept valid timeline data with lab fields', () => {
     const timeline: ProgressTimeline = {
       emotions: [{ date: '2024-01-01', value: 5 }],
       phq9Scores: [{ date: '2024-01-01', score: 12, severity: 'moderate' }],
       gad7Scores: [],
       exerciseCount: 3,
       sessionCount: 5,
+      labSessionCount: 2,
+      labExplorations: [
+        { date: '2024-01-01', labType: 'wisdom', title: '与苏格拉底对话' },
+        { date: '2024-01-02', labType: 'group', title: '圆桌论道' },
+      ],
       trend: 'improving',
-      milestones: ['连续 3 次会话情绪改善'],
+      milestones: ['连续 3 次会话情绪改善', '首次踏入实验室探索'],
     };
     expect(timeline.trend).toBe('improving');
-    expect(timeline.milestones).toHaveLength(1);
+    expect(timeline.milestones).toHaveLength(2);
+    expect(timeline.labSessionCount).toBe(2);
+    expect(timeline.labExplorations).toHaveLength(2);
+    expect(timeline.labExplorations[0].labType).toBe('wisdom');
   });
 
-  it('should handle empty timeline', () => {
+  it('should handle empty timeline with zero lab data', () => {
     const timeline: ProgressTimeline = {
       emotions: [],
       phq9Scores: [],
       gad7Scores: [],
       exerciseCount: 0,
       sessionCount: 0,
+      labSessionCount: 0,
+      labExplorations: [],
       trend: 'stable',
       milestones: [],
     };
     expect(timeline.exerciseCount).toBe(0);
+    expect(timeline.labSessionCount).toBe(0);
+    expect(timeline.labExplorations).toHaveLength(0);
     expect(timeline.milestones).toHaveLength(0);
   });
 });
@@ -172,5 +184,38 @@ describe('milestone detection logic', () => {
     const latest = phq9s[phq9s.length - 1];
     const previous = phq9s[phq9s.length - 2];
     expect(latest.severity === 'minimal' && previous.severity !== 'minimal').toBe(true);
+  });
+
+  it('should detect lab exploration milestones', () => {
+    const labSessions = [
+      { labType: 'wisdom', title: '苏格拉底' },
+    ];
+    const milestones: string[] = [];
+    if (labSessions.length >= 1) milestones.push('首次踏入实验室探索');
+    if (labSessions.length >= 3) milestones.push('已完成 3 次实验室探索');
+    const hasGroup = labSessions.some((s: any) => s.labType === 'group');
+    if (hasGroup) milestones.push('尝试了圆桌论道');
+
+    expect(milestones).toContain('首次踏入实验室探索');
+    expect(milestones).not.toContain('已完成 3 次实验室探索');
+    expect(milestones).not.toContain('尝试了圆桌论道');
+  });
+
+  it('should detect all 3 lab milestones when conditions met', () => {
+    const labSessions = [
+      { labType: 'wisdom', title: '苏格拉底' },
+      { labType: 'mirrors', title: 'INTJ' },
+      { labType: 'group', title: '圆桌论道' },
+    ];
+    const milestones: string[] = [];
+    if (labSessions.length >= 1) milestones.push('首次踏入实验室探索');
+    if (labSessions.length >= 3) milestones.push('已完成 3 次实验室探索');
+    const hasGroup = labSessions.some((s: any) => s.labType === 'group');
+    if (hasGroup) milestones.push('尝试了圆桌论道');
+
+    expect(milestones).toHaveLength(3);
+    expect(milestones).toContain('首次踏入实验室探索');
+    expect(milestones).toContain('已完成 3 次实验室探索');
+    expect(milestones).toContain('尝试了圆桌论道');
   });
 });

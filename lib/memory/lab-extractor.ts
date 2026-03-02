@@ -9,7 +9,7 @@ const LabInsightSchema = z.object({
         topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context']),
         content: z.string().describe("The deep psychological insight extracted, abstracting away roleplay details."),
         confidence: z.number().min(0).max(1).describe("Confidence score, typically 0.6-0.9 for lab insights."),
-        insightType: z.enum(['thinking_preference', 'trigger_topic', 'effective_intervention']).describe("洞察分类：thinking_preference(思维偏好/认知风格), trigger_topic(触发话题/敏感点), effective_intervention(有效干预/起作用的方法)"),
+        insightType: z.enum(['thinking_preference', 'trigger_topic', 'effective_intervention']).optional().default('thinking_preference').describe("洞察分类：thinking_preference(思维偏好/认知风格), trigger_topic(触发话题/敏感点), effective_intervention(有效干预/起作用的方法)"),
     })).describe("List of extracted psychological insights"),
 });
 
