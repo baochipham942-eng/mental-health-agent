@@ -37,7 +37,7 @@ export const UI_TOOLS = [
         type: 'function',
         function: {
             name: 'render_assessment_report',
-            description: '生成并渲染完整的心理评估初筛报告。当已收集完 SCEB 要素并准备结束正式评估时调用。',
+            description: '生成并渲染深度了解报告。当已充分了解用户情况并准备给出总结时调用。',
             parameters: {
                 type: 'object',
                 properties: {
@@ -78,7 +78,7 @@ export const UI_TOOLS = [
         type: 'function',
         function: {
             name: 'recommend_skill_card',
-            description: '向用户推荐心理调节技能卡片（Action Card）。支持的技能类型：1.呼吸练习(breathing) 2.正念冥想(meditation) 3.空椅子技术(empty_chair, 用于处理未竟情感) 4.情绪记录(mood_tracker)。当用户症状匹配时主动调用。',
+            description: '向用户推荐解压小工具卡片。支持的类型：1.呼吸练习(breathing) 2.正念冥想(meditation) 3.空椅子技术(empty_chair, 用于处理未竟情感) 4.情绪记录(mood_tracker)。当用户需要时主动推荐。',
             parameters: {
                 type: 'object',
                 properties: {
