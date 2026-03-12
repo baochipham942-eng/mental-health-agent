@@ -4,17 +4,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import bcrypt from 'bcryptjs';
-import type { User } from '@prisma/client';
 
-async function getUser(username: string): Promise<User | null> {
-    try {
-        const user = await prisma.user.findUnique({ where: { username } });
-        return user;
-    } catch (error) {
-        console.error('Failed to fetch user:', error);
-        throw new Error('Failed to fetch user.');
-    }
-}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
@@ -70,7 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
     },
     callbacks: {
-        async jwt({ token, user, trigger, session }) {
+        async jwt({ token, user, trigger }) {
             // Initial sign in
             if (user && user.id) {
                 token.id = user.id;
@@ -82,20 +72,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.quickLoginToken = user.quickLoginToken;
             }
 
-            // Periodically refresh data from DB to ensure personality is synced
-            // or if we have a trigger (though trigger is client-side)
-            // Force refresh for 'demo' user for this task session
-            // Also refresh if we are missing key fields like phone or quickLoginToken (e.g. after schema update)
-            if (token.id && (!token.nickname || token.name === 'demo' || !token.phone || !token.quickLoginToken)) {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: token.id as string },
-                    select: { nickname: true, avatar: true, phone: true, quickLoginToken: true }
-                });
-                if (dbUser) {
-                    token.nickname = dbUser.nickname;
-                    token.avatar = dbUser.avatar;
-                    token.phone = dbUser.phone;
-                    token.quickLoginToken = dbUser.quickLoginToken;
+            // 仅在客户端主动触发 session update 时才查 DB（避免 Neon 冷启动阻塞 JWT 刷新）
+            if (trigger === 'update' && token.id) {
+                try {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: { nickname: true, avatar: true, phone: true, quickLoginToken: true }
+                    });
+                    if (dbUser) {
+                        token.nickname = dbUser.nickname;
+                        token.avatar = dbUser.avatar;
+                        token.phone = dbUser.phone;
+                        token.quickLoginToken = dbUser.quickLoginToken;
+                    }
+                } catch (err) {
+                    console.error('JWT refresh DB query failed:', err);
                 }
             }
 

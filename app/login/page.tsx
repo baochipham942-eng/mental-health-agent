@@ -65,7 +65,7 @@ export default function LoginPage() {
                 redirect: false,
             });
 
-            if (result?.ok) {
+            if (result?.ok && !result?.error) {
                 Message.success('登录成功！');
                 router.push('/');
             } else {
@@ -90,7 +90,7 @@ export default function LoginPage() {
                 redirect: false,
             });
 
-            if (result?.ok) {
+            if (result?.ok && !result?.error) {
                 Message.success('登录成功！');
                 router.push('/');
             } else {
@@ -162,7 +162,7 @@ export default function LoginPage() {
                     redirect: false,
                 });
 
-                if (loginResult?.ok) {
+                if (loginResult?.ok && !loginResult?.error) {
                     Message.success('自动登录成功！');
                     router.push('/');
                 } else {
