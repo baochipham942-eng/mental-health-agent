@@ -3,7 +3,6 @@ import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
 import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsageCount } from './golden-examples';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
-import { getExerciseHistory } from '@/lib/actions/exercise';
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -124,36 +123,13 @@ export async function streamSupportReply(
     userPreferences?: string[];
   }
 ) {
-  // 关键词相似度检索相关黄金样本（带内存缓存）
-  let goldenExamplesContext = '';
-  try {
-    const { retrieveRelevantExamples, formatExamplesForPrompt } = await import('./golden-cache');
-    const examples = await retrieveRelevantExamples(userMessage, 3);
-    if (examples.length > 0) {
-      goldenExamplesContext = formatExamplesForPrompt(examples);
-    }
-  } catch (e) {
-    console.error('[GoldenCache] Retrieval failed:', e);
-  }
-
-  // Inject exercise history if userId is available
-  let exerciseHistoryContext = '';
-  try {
-    const userId = options?.traceMetadata?.userId;
-    if (userId) {
-      exerciseHistoryContext = await getExerciseHistory(userId);
-    }
-  } catch (e) {
-    console.error('[ExerciseHistory] Retrieval failed:', e);
-  }
-
   // Build the base prompt with adaptive modifier + therapist persona
   let finalSystemPrompt = options?.adaptiveMode
     ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.therapistId, options.userPreferences)
     : SUPPORT_PROMPT;
 
   // Append context layers
-  finalSystemPrompt += `${goldenExamplesContext}${exerciseHistoryContext ? `\n\n${exerciseHistoryContext}` : ''}${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
+  finalSystemPrompt += `${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
 
   const messages: ChatMessage[] = [
     {

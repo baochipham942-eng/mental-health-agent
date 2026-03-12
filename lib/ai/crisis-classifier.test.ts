@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { quickCrisisKeywordCheck, classifyCrisisIntent } from './crisis-classifier';
 
 vi.mock('@/lib/ai/deepseek', () => ({

@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
   let finalUserId: string | undefined;
   let routeType: RouteType = 'support';
   const data = new StreamData();
+  const requestStartedAt = Date.now();
 
   try {
     const body: ChatRequest = await request.json();
@@ -206,7 +207,9 @@ export async function POST(request: NextRequest) {
     // =================================================================================
     // 0.2 Persistence Setup
     // =================================================================================
+    const authStartedAt = Date.now();
     const session = await auth();
+    const authDurationMs = Date.now() - authStartedAt;
     finalSessionId = body.sessionId;
     finalUserId = session?.user?.id;
     const sessionId = finalSessionId;
@@ -220,7 +223,8 @@ export async function POST(request: NextRequest) {
       hasSession: !!session,
       userId,
       sessionId: body.sessionId,
-      messageLen: message.length
+      messageLen: message.length,
+      authDurationMs,
     });
 
     // Save User Message - 异步执行，不阻塞响应
@@ -236,6 +240,31 @@ export async function POST(request: NextRequest) {
       }
     };
 
+    const scheduleConversationSummaryRefresh = (assistantReply: string) => {
+      if (!userId || !sessionId) return;
+
+      const summaryHistory = [
+        ...history,
+        { role: 'user', content: message },
+        { role: 'assistant', content: assistantReply },
+      ];
+
+      if (!shouldSummarize(summaryHistory.length)) return;
+
+      Promise.resolve().then(async () => {
+        try {
+          console.log('[Summarizer] Refreshing conversation summary asynchronously...');
+          const summary = await generateSummary(summaryHistory);
+          if (summary) {
+            await updateConversationSummary(sessionId, summary);
+            console.log('[Summarizer] Async summary refreshed.');
+          }
+        } catch (e) {
+          console.error('[Summarizer] Async refresh failed:', e);
+        }
+      });
+    };
+
     // =================================================================================
     // 0.5 Memory Retrieval + Groq Analysis (并行执行，节省 ~300ms)
     // =================================================================================
@@ -244,6 +273,7 @@ export async function POST(request: NextRequest) {
 
     // 并行执行：Agent 编排（Triage+Safety） + 记忆检索
     // 传入最近2条历史记录作为上下文，帮助 Triage Agent 判断意图
+    const prefetchStartedAt = Date.now();
     const recentContext = history.slice(-2);
     const orchestratePromise = orchestrate({
       message,
@@ -293,7 +323,24 @@ export async function POST(request: NextRequest) {
       }).catch(e => null)
       : Promise.resolve(null);
 
-    const [orchestrationResult, retrievalResult, assessmentHistory, preferenceMemories, userTherapistPref] = await Promise.all([orchestratePromise, memoryPromise, assessmentPromise, preferencePromise, therapistPromise]);
+    const activeExercisePromise = (userId)
+      ? prisma.exerciseState.findFirst({
+        where: { userId, status: 'in_progress' },
+        orderBy: { updatedAt: 'desc' },
+      }).catch(e => null)
+      : Promise.resolve(null);
+
+    const [orchestrationResult, retrievalResult, assessmentHistory, preferenceMemories, userTherapistPref, activeExercise] = await Promise.all([orchestratePromise, memoryPromise, assessmentPromise, preferencePromise, therapistPromise, activeExercisePromise]);
+    const prefetchDurationMs = Date.now() - prefetchStartedAt;
+    logInfo('chat-prefetch-complete', {
+      sessionId,
+      userId,
+      prefetchDurationMs,
+      historyLen: history.length,
+      hasActiveExercise: !!activeExercise,
+      preferenceCount: preferenceMemories.length,
+      assessmentCount: assessmentHistory.length,
+    });
 
     // 从编排结果中解包 Triage + Safety
     const analysis = orchestrationResult.triage.data;
@@ -351,23 +398,23 @@ export async function POST(request: NextRequest) {
     let dialogueCtx: DialogueContext | null = null;
     let stateMachinePrompt = '';
     if (sessionId) {
+      const stateRestoreStartedAt = Date.now();
       try {
-        // 尝试从 Conversation meta 恢复状态机上下文
-        const conv = await prisma.conversation.findUnique({
-          where: { id: sessionId },
-          select: { id: true },
+        // 尝试从最后一条 assistant 消息的 meta 中恢复状态机上下文
+        const lastAssistantMsg = await prisma.message.findFirst({
+          where: { conversationId: sessionId, role: 'assistant' },
+          orderBy: { createdAt: 'desc' },
+          select: { meta: true },
         });
-        if (conv) {
-          // 尝试从消息 meta 中恢复（存储在最后一条 assistant 消息的 meta 中）
-          const lastAssistantMsg = await prisma.message.findFirst({
-            where: { conversationId: sessionId, role: 'assistant' },
-            orderBy: { createdAt: 'desc' },
-            select: { meta: true },
-          });
-          dialogueCtx = restoreContext(lastAssistantMsg?.meta);
-        }
+        dialogueCtx = restoreContext(lastAssistantMsg?.meta);
       } catch (e) {
         console.error('[StateMachine] Failed to restore context:', e);
+      } finally {
+        logInfo('chat-state-restore-complete', {
+          sessionId,
+          userId,
+          stateRestoreDurationMs: Date.now() - stateRestoreStartedAt,
+        });
       }
     }
 
@@ -462,24 +509,6 @@ export async function POST(request: NextRequest) {
       routeType = 'crisis';
     }
 
-
-
-    // 检查是否需要生成对话摘要 (放在并行之后，因为依赖 history)
-    if (userId && sessionId && history.length > 0 && shouldSummarize(history.length)) {
-      try {
-        console.log('[Summarizer] History length exceeds threshold, generating summary...');
-        const summary = await generateSummary(history);
-        if (summary) {
-          await updateConversationSummary(sessionId, summary);
-          memoryContext += `\n\n### 对话背景摘要\n${summary}\n`;
-          processedHistory = history.slice(-8);
-          console.log('[Summarizer] Summary generated and history trimmed.');
-        }
-      } catch (e) {
-        console.error('[Summarizer] Failed:', e);
-      }
-    }
-
     // =================================================================================
     // 0.55 User Context Injection - 将用户昵称注入上下文，让 AI 可以自然使用
     // =================================================================================
@@ -497,25 +526,15 @@ export async function POST(request: NextRequest) {
     // 0.7 Exercise State Detection - 检测进行中的引导练习
     // =================================================================================
     let exerciseInjection = '';
-    if (userId) {
-      try {
-        const activeExercise = await prisma.exerciseState.findFirst({
-          where: { userId, status: 'in_progress' },
-          orderBy: { updatedAt: 'desc' },
-        });
-        if (activeExercise && isGuidedExercise(activeExercise.exerciseType)) {
-          exerciseInjection = buildExerciseSystemInjection(
-            activeExercise.exerciseType as any,
-            activeExercise.currentStep,
-            activeExercise.totalSteps,
-            activeExercise.metadata as Record<string, any> | undefined
-          );
-          routeType = 'support'; // 练习进行中强制走 support 路由
-          console.log('[Exercise] Active exercise detected:', activeExercise.exerciseType, `step ${activeExercise.currentStep}/${activeExercise.totalSteps}`);
-        }
-      } catch (e) {
-        console.error('[Exercise] Failed to check exercise state:', e);
-      }
+    if (activeExercise && isGuidedExercise(activeExercise.exerciseType)) {
+      exerciseInjection = buildExerciseSystemInjection(
+        activeExercise.exerciseType as any,
+        activeExercise.currentStep,
+        activeExercise.totalSteps,
+        activeExercise.metadata as Record<string, any> | undefined
+      );
+      routeType = 'support'; // 练习进行中强制走 support 路由
+      console.log('[Exercise] Active exercise detected:', activeExercise.exerciseType, `step ${activeExercise.currentStep}/${activeExercise.totalSteps}`);
     }
 
     // 后备：关键词检测危机（防止小模型漏检）
@@ -538,6 +557,15 @@ export async function POST(request: NextRequest) {
     // =================================================================================
     // 1. 危机处理 (Crisis Handler) - 最高优先级
     // =================================================================================
+    const preStreamDurationMs = Date.now() - requestStartedAt;
+    logInfo('chat-pre-stream-ready', {
+      sessionId,
+      userId,
+      routeType,
+      preStreamDurationMs,
+      authDurationMs,
+      prefetchDurationMs,
+    });
     console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
       // 退出机制：
@@ -558,6 +586,14 @@ export async function POST(request: NextRequest) {
             safety: safetyData,
             state: stateData,
           }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+          scheduleConversationSummaryRefresh(text);
+          logInfo('chat-response-finished', {
+            sessionId,
+            userId,
+            routeType: 'support',
+            totalDurationMs: Date.now() - requestStartedAt,
+            responseLength: text.length,
+          });
 
           // CRITICAL FIX: Ensure full reply is in the data stream final packet
           data.append({
@@ -592,6 +628,14 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
           state: stateData,
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+        scheduleConversationSummaryRefresh(text);
+        logInfo('chat-response-finished', {
+          sessionId,
+          userId,
+          routeType: 'crisis',
+          totalDurationMs: Date.now() - requestStartedAt,
+          responseLength: text.length,
+        });
 
         data.append({
           reply: text,
@@ -632,6 +676,15 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
           state: stateData
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+        scheduleConversationSummaryRefresh(text);
+        logInfo('chat-response-finished', {
+          sessionId,
+          userId,
+          routeType: 'support',
+          subRoute: 'eft_validation',
+          totalDurationMs: Date.now() - requestStartedAt,
+          responseLength: text.length,
+        });
 
         data.append({
           reply: text,
@@ -685,6 +738,14 @@ export async function POST(request: NextRequest) {
           adaptiveMode, // Persist mode for Feedback Loop
           dialogueContext: dialogueCtx, // P5: 状态机上下文持久化
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+        scheduleConversationSummaryRefresh(text);
+        logInfo('chat-response-finished', {
+          sessionId,
+          userId,
+          routeType: 'support',
+          totalDurationMs: Date.now() - requestStartedAt,
+          responseLength: text.length,
+        });
 
         data.append({
           reply: text,
@@ -746,6 +807,15 @@ export async function POST(request: NextRequest) {
           safety: safetyData,
           state: stateData,
         }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+        scheduleConversationSummaryRefresh(text);
+        logInfo('chat-response-finished', {
+          sessionId,
+          userId,
+          routeType: 'assessment',
+          assessmentStage: isConclusion ? 'conclusion' : 'intake',
+          totalDurationMs: Date.now() - requestStartedAt,
+          responseLength: text.length,
+        });
 
         // 🔄 异步检测死循环（不阻塞响应）
         if (!isConclusion && sessionId) {
@@ -792,6 +862,15 @@ export async function POST(request: NextRequest) {
             assessmentStage: 'conclusion',
             actionCards,
           }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+          scheduleConversationSummaryRefresh(text);
+          logInfo('chat-response-finished', {
+            sessionId,
+            userId,
+            routeType: 'assessment',
+            assessmentStage: 'conclusion',
+            totalDurationMs: Date.now() - requestStartedAt,
+            responseLength: text.length,
+          });
 
           data.append({
             reply: text,

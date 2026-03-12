@@ -40,8 +40,13 @@ export async function generateSummary(messages: Array<{ role: string; content: s
  * 判断是否需要对会话进行摘要
  * 规则：消息数量超过 threshold 且距离上次摘要超过 gap 轮
  */
-export function shouldSummarize(messageCount: number, currentThreshold: number = 20): boolean {
-    return messageCount >= currentThreshold;
+export function shouldSummarize(
+    messageCount: number,
+    currentThreshold: number = 20,
+    summaryGap: number = 8
+): boolean {
+    if (messageCount < currentThreshold) return false;
+    return (messageCount - currentThreshold) % summaryGap === 0;
 }
 
 /**
