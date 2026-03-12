@@ -3,12 +3,25 @@
 import { ActionCard } from '@/types/chat';
 import { ActionCardItem } from './ActionCardItem';
 import { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 interface ActionCardGridProps {
   cards: ActionCard[];
   messageId: string;
   sessionId: string;
 }
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+};
 
 export function ActionCardGrid({ cards, messageId, sessionId }: ActionCardGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -28,18 +41,23 @@ export function ActionCardGrid({ cards, messageId, sessionId }: ActionCardGridPr
 
   return (
     <div ref={gridRef} className="w-full min-w-0">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {cards.map((card, index) => (
-          <ActionCardItem
-            key={index}
-            card={card}
-            index={index}
-            messageId={messageId}
-            sessionId={sessionId}
-          />
+          <motion.div key={index} variants={itemVariants}>
+            <ActionCardItem
+              card={card}
+              index={index}
+              messageId={messageId}
+              sessionId={sessionId}
+            />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }
-

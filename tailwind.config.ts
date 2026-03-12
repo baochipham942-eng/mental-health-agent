@@ -16,6 +16,7 @@ const config: Config = {
         'soft': '0 2px 10px rgba(0, 0, 0, 0.03)',
         'glow': '0 4px 20px -2px rgba(99, 102, 241, 0.1)',     // Indigo glow
         'glow-lg': '0 10px 40px -4px rgba(99, 102, 241, 0.15)', // Larger Indigo glow
+        'glow-md': '0 6px 24px -3px rgba(99, 102, 241, 0.12)',              // Medium Indigo glow
         'glow-card': '0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02)', // Card subtle shadow
       },
     },

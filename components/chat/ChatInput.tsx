@@ -233,14 +233,14 @@ export function ChatInput({
           >
             <div className="grid grid-cols-4 gap-3 pb-6 px-1">
               {[
-                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习" },
-                { key: "正念冥想", emoji: "🧘", label: "正念冥想" },
-                { key: "空椅子", emoji: "🪑", label: "空椅子" },
-                { key: "着陆技术", emoji: "🦶", label: "五感着陆" },
-                { key: "溪流落叶", emoji: "🍃", label: "溪流落叶" },
-                { key: "认知重构", emoji: "🧠", label: "认知重构" },
-                { key: "行为激活", emoji: "⚡️", label: "行为激活" },
-                { key: "情绪记录", emoji: "🌡️", label: "情绪记录" },
+                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习", gradient: "from-blue-50 to-blue-100" },
+                { key: "正念冥想", emoji: "🧘", label: "正念冥想", gradient: "from-purple-50 to-purple-100" },
+                { key: "空椅子", emoji: "🪑", label: "空椅子", gradient: "from-amber-50 to-amber-100" },
+                { key: "着陆技术", emoji: "🦶", label: "五感着陆", gradient: "from-teal-50 to-teal-100" },
+                { key: "溪流落叶", emoji: "🍃", label: "溪流落叶", gradient: "from-emerald-50 to-emerald-100" },
+                { key: "认知重构", emoji: "🧠", label: "认知重构", gradient: "from-indigo-50 to-indigo-100" },
+                { key: "行为激活", emoji: "⚡️", label: "行为激活", gradient: "from-orange-50 to-orange-100" },
+                { key: "情绪记录", emoji: "🌡️", label: "情绪记录", gradient: "from-rose-50 to-rose-100" },
               ].map((skill) => (
                 <div
                   key={skill.key}
@@ -248,9 +248,9 @@ export function ChatInput({
                     onSend(`我想试试${skill.key}`);
                     setSkillsOpen(false);
                   }}
-                  className="flex flex-col items-center gap-2 p-2 active:bg-gray-50 rounded-xl transition-colors cursor-pointer"
+                  className="flex flex-col items-center gap-2 p-2 active:scale-95 rounded-xl transition-all cursor-pointer"
                 >
-                  <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-gray-100">
+                  <div className={`w-12 h-12 bg-gradient-to-br ${skill.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-white/60`}>
                     {skill.emoji}
                   </div>
                   <span className="text-[11px] font-medium text-gray-600 text-center leading-tight">

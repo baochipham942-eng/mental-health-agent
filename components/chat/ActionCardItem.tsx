@@ -39,6 +39,50 @@ const effortLabels: Record<'low' | 'medium' | 'high', { label: string; color: st
   high: { label: '高', color: 'bg-orange-100 text-orange-800' },
 };
 
+/** Widget 类型视觉标识 */
+const WIDGET_VISUALS: Record<string, { emoji: string; borderColor: string; accentColor: string }> = {
+  breathing:    { emoji: '🌬️', borderColor: 'border-l-blue-400',    accentColor: 'text-blue-500' },
+  meditation:   { emoji: '🧘', borderColor: 'border-l-purple-400',  accentColor: 'text-purple-500' },
+  empty_chair:  { emoji: '🪑', borderColor: 'border-l-amber-400',   accentColor: 'text-amber-500' },
+  leaves_stream:{ emoji: '🍃', borderColor: 'border-l-emerald-400', accentColor: 'text-emerald-500' },
+  mood_tracker: { emoji: '🌡️', borderColor: 'border-l-rose-400',    accentColor: 'text-rose-500' },
+  grounding:    { emoji: '🦶', borderColor: 'border-l-teal-400',    accentColor: 'text-teal-500' },
+  reframing:    { emoji: '🧠', borderColor: 'border-l-indigo-400',  accentColor: 'text-indigo-500' },
+  activation:   { emoji: '⚡️', borderColor: 'border-l-orange-400',  accentColor: 'text-orange-500' },
+};
+const DEFAULT_VISUAL = { emoji: '✨', borderColor: 'border-l-gray-300', accentColor: 'text-gray-400' };
+
+/** 步骤勾选 Checkmark SVG 动画 */
+function AnimatedCheck({ checked }: { checked: boolean }) {
+  return (
+    <AnimatePresence mode="wait">
+      {checked ? (
+        <motion.svg
+          key="check"
+          viewBox="0 0 24 24"
+          className="w-3.5 h-3.5 text-white"
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: [1.3, 1], opacity: 1 }}
+          exit={{ scale: 0.5, opacity: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
+          <motion.path
+            d="M5 13l4 4L19 7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.25, delay: 0.05 }}
+          />
+        </motion.svg>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 function getCardId(card: ActionCard, sessionId: string, messageId: string): string {
   // Scope by Session AND Message to ensure unique state per instance
   return `card-${sessionId}-${messageId}-${card.title.replace(/\s+/g, '-').toLowerCase()}`;
@@ -202,17 +246,18 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
     handleWidgetComplete(0);
   }
 
+  const visual = WIDGET_VISUALS[card.widget || ''] || DEFAULT_VISUAL;
+  const progressRatio = stepsCount > 0 ? completedSteps.length / stepsCount : 0;
+
   return (
-    <div ref={cardRef} className={`bg-white rounded-xl border transition-all duration-300 w-full overflow-hidden flex flex-col group ${isExpanded ? 'border-blue-200 shadow-glow-md ring-1 ring-blue-50' : 'border-gray-100 shadow-glow-card hover:shadow-glow-md'}`}>
+    <div ref={cardRef} className={`bg-white rounded-xl border border-l-[3px] transition-all duration-300 w-full overflow-hidden flex flex-col group ${visual.borderColor} ${isExpanded ? 'border-blue-200 shadow-glow-md ring-1 ring-blue-50' : 'border-gray-100 shadow-glow-card hover:shadow-glow-md'}`}>
 
       {/* 1. 常驻 Summary 区域 (始终显示) */}
       <div className="flex flex-col md:flex-row relative">
         {/* 左侧信息 */}
         <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${effort.color} bg-opacity-50`}>
-              {effort.label}强度
-            </span>
+            <span className="text-lg flex-shrink-0" role="img">{visual.emoji}</span>
             <h4 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-blue-600 transition-colors">
               {card.title}
             </h4>
@@ -227,6 +272,9 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                 </motion.span>
               )}
             </AnimatePresence>
+            <span className={`ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full ${effort.color} bg-opacity-50 flex-shrink-0`}>
+              {effort.label}强度
+            </span>
           </div>
 
           <p className="text-sm text-gray-500 line-clamp-1 mb-3">{card.when}</p>
@@ -239,6 +287,18 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
               ⏱️ 约{estimatedMinutes}分钟
             </span>
           </div>
+
+          {/* 步骤进度条 */}
+          {completedSteps.length > 0 && stepsCount > 0 && (
+            <div className="mt-3 w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${isCompleted ? 'bg-green-400' : 'bg-blue-400'}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressRatio * 100}%` }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+              />
+            </div>
+          )}
         </div>
 
         {/* 右侧动作按钮 (Header Controls) */}
@@ -296,7 +356,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            transition={{ height: { type: 'spring', stiffness: 500, damping: 40 }, opacity: { duration: 0.25, ease: 'easeInOut' } }}
             className="border-t border-gray-100 bg-slate-50"
           >
             <div className="p-5">
@@ -365,26 +425,33 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                     <div className="space-y-4">
                       <h5 className="font-medium text-gray-700 px-1">步骤指导</h5>
                       <div className="space-y-3">
-                        {card.steps?.map((step, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex gap-3 p-3 rounded-xl border transition-all cursor-pointer ${completedSteps.includes(idx)
-                              ? 'bg-blue-50 border-blue-100 opacity-60'
-                              : 'bg-white border-gray-200 hover:border-blue-300'
-                              }`}
-                            onClick={() => handleStepToggle(idx)}
-                          >
-                            <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${completedSteps.includes(idx)
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
-                              }`}>
-                              {idx + 1}
+                        {card.steps?.map((step, idx) => {
+                          const done = completedSteps.includes(idx);
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex gap-3 p-3 rounded-xl border transition-all cursor-pointer ${done
+                                ? 'bg-blue-50 border-blue-100 opacity-60'
+                                : 'bg-white border-gray-200 hover:border-blue-300'
+                                }`}
+                              onClick={() => handleStepToggle(idx)}
+                            >
+                              <motion.div
+                                className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${done
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-gray-100 text-gray-500'
+                                  }`}
+                                animate={done ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                {done ? <AnimatedCheck checked /> : idx + 1}
+                              </motion.div>
+                              <div className={`text-sm leading-relaxed ${done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                                {step}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-700 leading-relaxed">
-                              {step}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       <div className="pt-2 flex justify-end">
