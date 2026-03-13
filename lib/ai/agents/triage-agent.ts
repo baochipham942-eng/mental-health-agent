@@ -6,7 +6,7 @@
 
 import { BaseAgent, type AgentResult } from './base-agent';
 import { generateText } from 'ai';
-import { quickCrisisKeywordCheck } from '../crisis-classifier';
+import { quickCrisisCheck } from '../crisis-classifier';
 import type { QuickAnalysis } from '../groq';
 import { getFastAgentConfig } from './fast-model';
 
@@ -160,11 +160,11 @@ export async function runTriageWithFallback(input: TriageInput): Promise<AgentRe
         } catch (_) {}
     }
 
-    // 最终防线：关键词检测
-    if (quickCrisisKeywordCheck(input.message)) {
+    // 最终防线：few-shot 语义检测
+    if (await quickCrisisCheck(input.message)) {
         return {
             ...result,
-            data: { ...CONSERVATIVE_TRIAGE, safety: 'crisis', route: 'crisis', safetyReasoning: '关键词检测命中危机信号' },
+            data: { ...CONSERVATIVE_TRIAGE, safety: 'crisis', route: 'crisis', safetyReasoning: 'few-shot 语义检测命中危机信号' },
         };
     }
 

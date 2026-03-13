@@ -9,7 +9,7 @@ import {
   sessionSummaryV2Writer,
 } from '@/lib/memory';
 import { SKILL_CARDS, SkillType } from '@/lib/ai/skills';
-import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
+import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { prisma } from '@/lib/db/prisma';
 import type { QuestionnaireType } from '@/lib/ai/assessment/questionnaire';
 import type { QuickAnalysis } from '@/lib/ai/groq';
@@ -220,22 +220,27 @@ export function detectExplicitAssessmentRequest(message: string): boolean {
   ].some((pattern) => pattern.test(msg));
 }
 
-export function decideRouteByRules(params: {
+export async function decideRouteByRules(params: {
   message: string;
   state?: ChatState;
   assessmentStage?: AssessmentStage;
   questionnaireType?: QuestionnaireType | null;
   explicitAssessmentRequest?: boolean;
   activeExercise?: { exerciseType?: string } | null;
-}): { routeType: RouteType; reason: string } {
+}): Promise<{ routeType: RouteType; reason: string }> {
   const { message, state, assessmentStage, questionnaireType, explicitAssessmentRequest, activeExercise } = params;
 
   if (activeExercise?.exerciseType) {
     return { routeType: 'support', reason: 'active_exercise' };
   }
 
-  if (state === 'in_crisis' || quickCrisisKeywordCheck(message)) {
-    return { routeType: 'crisis', reason: 'crisis_guard' };
+  if (state === 'in_crisis') {
+    return { routeType: 'crisis', reason: 'crisis_state' };
+  }
+
+  // Few-shot 语义判断替代关键词匹配（~200ms）
+  if (await quickCrisisCheck(message)) {
+    return { routeType: 'crisis', reason: 'crisis_few_shot' };
   }
 
   if (assessmentStage === 'conclusion' || questionnaireType) {
@@ -253,14 +258,14 @@ export function decideRouteByRules(params: {
   return { routeType: 'support', reason: 'main_model_default' };
 }
 
-export function buildFallbackQuickAnalysis(params: {
+export async function buildFallbackQuickAnalysis(params: {
   message: string;
-}): QuickAnalysis {
-  const crisis = quickCrisisKeywordCheck(params.message);
+}): Promise<QuickAnalysis> {
+  const crisis = await quickCrisisCheck(params.message);
 
   return {
     safety: crisis ? 'crisis' : 'normal',
-    safetyReasoning: crisis ? '规则守门检测到明确危机表达' : 'triage 未及时返回，使用最小安全兜底',
+    safetyReasoning: crisis ? 'few-shot 语义检测到危机表达' : 'triage 未及时返回，使用最小安全兜底',
     stateReasoning: '普通消息默认交给主模型直接回应',
     emotion: { label: crisis ? '恐惧' : '未表达', score: crisis ? 9 : 0 },
     route: crisis ? 'crisis' : 'support',

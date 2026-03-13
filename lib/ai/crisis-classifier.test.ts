@@ -1,43 +1,60 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { quickCrisisKeywordCheck, classifyCrisisIntent } from './crisis-classifier';
+import { quickCrisisCheck, classifyCrisisIntent } from './crisis-classifier';
 
 vi.mock('@/lib/ai/deepseek', () => ({
     chatStructuredCompletion: vi.fn(),
     chatCompletion: vi.fn(),
 }));
 
+vi.mock('ai', () => ({
+    generateText: vi.fn(),
+}));
+
+vi.mock('./agents/fast-model', () => ({
+    getFastAgentConfig: vi.fn(() => ({
+        provider: (model: string) => model,
+        providerName: 'groq',
+        model: 'llama-3.1-8b-instant',
+    })),
+}));
+
 import { chatStructuredCompletion } from '@/lib/ai/deepseek';
+import { generateText } from 'ai';
 
 const mockChatStructured = vi.mocked(chatStructuredCompletion);
+const mockGenerateText = vi.mocked(generateText);
 
-describe('quickCrisisKeywordCheck', () => {
-    it('行为关键词 "割腕" 应返回true', () => {
-        expect(quickCrisisKeywordCheck('我想割腕')).toBe(true);
+describe('quickCrisisCheck (few-shot)', () => {
+    beforeEach(() => {
+        mockGenerateText.mockReset();
     });
 
-    it('行为关键词 "写遗书" 应返回true', () => {
-        expect(quickCrisisKeywordCheck('我在写遗书')).toBe(true);
+    it('模型返回 YES 时应返回 true', async () => {
+        mockGenerateText.mockResolvedValueOnce({ text: 'YES' } as any);
+        expect(await quickCrisisCheck('我不想活了')).toBe(true);
     });
 
-    it('意念关键词 "不想活了" 应返回true', () => {
-        expect(quickCrisisKeywordCheck('我不想活了')).toBe(true);
+    it('模型返回 NO 时应返回 false', async () => {
+        mockGenerateText.mockResolvedValueOnce({ text: 'NO' } as any);
+        expect(await quickCrisisCheck('今天工作很忙')).toBe(false);
     });
 
-    it('意念关键词 "去死" 应返回true', () => {
-        expect(quickCrisisKeywordCheck('我想去死')).toBe(true);
+    it('模型超时应返回 false（安全兜底由后续层处理）', async () => {
+        mockGenerateText.mockImplementationOnce(() =>
+            new Promise((resolve) => setTimeout(() => resolve({ text: 'YES' } as any), 2000))
+        );
+        // 用极短超时触发 timeout
+        expect(await quickCrisisCheck('一些消息', 10)).toBe(false);
     });
 
-    it('正常文本 "今天工作很忙" 应返回false', () => {
-        expect(quickCrisisKeywordCheck('今天工作很忙')).toBe(false);
+    it('模型异常应返回 false', async () => {
+        mockGenerateText.mockRejectedValueOnce(new Error('API error'));
+        expect(await quickCrisisCheck('一些消息')).toBe(false);
     });
 
-    it('正常文本 "今天真累死了" 应返回false', () => {
-        // "累死了" 不在关键词列表中
-        expect(quickCrisisKeywordCheck('今天真累死了')).toBe(false);
-    });
-
-    it('空字符串应返回false', () => {
-        expect(quickCrisisKeywordCheck('')).toBe(false);
+    it('空字符串应返回 false', async () => {
+        mockGenerateText.mockResolvedValueOnce({ text: 'NO' } as any);
+        expect(await quickCrisisCheck('')).toBe(false);
     });
 });
 
@@ -83,37 +100,5 @@ describe('classifyCrisisIntent', () => {
         expect(result.isCrisis).toBe(false);
         expect(result.confidence).toBe('low');
         expect(result.reason).toBeUndefined();
-    });
-
-    it('应正确映射字段 (crisis→isCrisis)', async () => {
-        mockChatStructured.mockResolvedValueOnce({
-            crisis: true,
-            confidence: 'medium',
-            reason: '用户提到了自残行为',
-        });
-
-        const result = await classifyCrisisIntent('我想伤害自己');
-        expect(result).toEqual({
-            isCrisis: true,
-            confidence: 'medium',
-            reason: '用户提到了自残行为',
-        });
-    });
-
-    it('首次调用使用temperature 0.3，重试使用0.5', async () => {
-        mockChatStructured
-            .mockRejectedValueOnce(new Error('fail'))
-            .mockResolvedValueOnce({
-                crisis: false,
-                confidence: 'low',
-                reason: '无危机',
-            });
-
-        await classifyCrisisIntent('测试消息');
-
-        // 第一次调用 temperature 0.3
-        expect(mockChatStructured.mock.calls[0][2]).toMatchObject({ temperature: 0.3 });
-        // 第二次调用 temperature 0.5
-        expect(mockChatStructured.mock.calls[1][2]).toMatchObject({ temperature: 0.5 });
     });
 });

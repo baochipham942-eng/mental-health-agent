@@ -1,10 +1,15 @@
 /**
  * 危机意图分类器
- * 使用 LLM 进行语义级别的危机意图检测
+ *
+ * Layer 1: quickCrisisCheck — Groq few-shot 语义判断（~200ms，主链路前置守门）
+ * Layer 2: triage agent — Groq 完整分析（~180ms soft-wait）
+ * Layer 3: classifyCrisisIntent — DeepSeek 深度分类（慢，按需）
  */
 
-import { chatCompletion, chatStructuredCompletion } from './deepseek';
+import { generateText } from 'ai';
+import { chatStructuredCompletion } from './deepseek';
 import { CrisisClassificationSchema } from './schemas';
+import { getFastAgentConfig } from './agents/fast-model';
 
 /**
  * 危机分类结果
@@ -15,8 +20,105 @@ export interface CrisisClassificationResult {
     reason?: string;
 }
 
+// ========== Layer 1: Few-shot 快速危机检测 ==========
+
+const CRISIS_FEW_SHOT_PROMPT = `判断用户消息是否包含明确的自杀、自伤或结束生命的意图。只回答 YES 或 NO。
+注意：仅当消息中有明确的死亡/自伤意愿时才回答 YES。普通的负面情绪、压力、低落不算。
+
+YES 的例子（有明确自杀/自伤意图）：
+用户：我想割腕 → YES
+用户：活着真没意思，不如一了百了 → YES
+用户：有时候觉得不想活了 → YES
+用户：好想永远睡过去不再醒来 → YES
+用户：这个世界没有我会更好 → YES
+用户：我已经写好遗书了 → YES
+用户：活着好累，不如死了算了 → YES
+
+NO 的例子（普通负面情绪，没有自杀/自伤意图）：
+用户：最近工作压力好大 → NO
+用户：今天真的累死了 → NO
+用户：最近状态越来越差了 → NO
+用户：被领导骂了好生气 → NO
+用户：失眠快一个月了，什么都提不起劲 → NO
+用户：心情很低落，什么都不想做 → NO
+用户：跟男朋友吵架了想分手 → NO
+用户：觉得自己很没用 → NO
+用户：好绝望啊 → NO
+
+用户：`;
+
 /**
- * 使用 LLM 判断用户消息是否包含危机意图
+ * Layer 1: 基于 LLM few-shot 的快速危机检测
+ * 替代原来的关键词匹配，由模型自主判断语义
+ * 优先 Groq（快），超时/失败降级 DeepSeek（稳）
+ */
+export async function quickCrisisCheck(
+    message: string,
+    timeoutMs = Number(process.env.CRISIS_CHECK_TIMEOUT_MS || 800),
+): Promise<boolean> {
+    const prompt = CRISIS_FEW_SHOT_PROMPT + message;
+
+    // 尝试 Groq（快速模型）
+    const fastConfig = getFastAgentConfig();
+    if (fastConfig.provider) {
+        try {
+            const result = await Promise.race([
+                generateText({
+                    model: fastConfig.provider(fastConfig.model),
+                    prompt,
+                    temperature: 0,
+                    maxTokens: 3,
+                }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+            ]);
+
+            if (result) {
+                const answer = result.text.trim().toUpperCase();
+                return answer.startsWith('YES');
+            }
+            console.log('[CrisisCheck] Groq timeout, falling back to DeepSeek');
+        } catch (error) {
+            console.warn('[CrisisCheck] Groq failed, falling back to DeepSeek:', error instanceof Error ? error.message : error);
+        }
+    }
+
+    // 降级到 DeepSeek（不需要代理，更稳定）
+    const deepseekKey = process.env.DEEPSEEK_API_KEY;
+    if (!deepseekKey) return false;
+
+    try {
+        const { createOpenAI } = await import('@ai-sdk/openai');
+        const deepseek = createOpenAI({
+            baseURL: process.env.DEEPSEEK_API_URL?.replace(/\/chat\/completions$/, '') || 'https://api.deepseek.com/v1',
+            apiKey: deepseekKey,
+        });
+
+        const result = await Promise.race([
+            generateText({
+                model: deepseek(process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat'),
+                prompt,
+                temperature: 0,
+                maxTokens: 3,
+            }),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        ]);
+
+        if (result) {
+            const answer = result.text.trim().toUpperCase();
+            return answer.startsWith('YES');
+        }
+        console.log('[CrisisCheck] DeepSeek also timed out');
+        return false;
+    } catch (error) {
+        console.warn('[CrisisCheck] DeepSeek fallback failed:', error instanceof Error ? error.message : error);
+        return false;
+    }
+}
+
+// ========== Layer 3: DeepSeek 深度危机分类 ==========
+
+/**
+ * 使用 DeepSeek 判断用户消息是否包含危机意图（慢，按需调用）
  */
 export async function classifyCrisisIntent(
     userMessage: string
@@ -52,7 +154,6 @@ export async function classifyCrisisIntent(
     };
 
     try {
-        // 第一尝试，低温度确保一致性
         const result = await callAt(0.3);
         return {
             isCrisis: result.crisis,
@@ -62,7 +163,6 @@ export async function classifyCrisisIntent(
     } catch (error) {
         console.warn('[CrisisClassifier] First attempt failed, retrying...', error);
         try {
-            // 第二次尝试，稍高温度
             const result = await callAt(0.5);
             return {
                 isCrisis: result.crisis,
@@ -71,47 +171,20 @@ export async function classifyCrisisIntent(
             };
         } catch (retryError) {
             console.error('[CrisisClassifier] All attempts failed:', retryError);
-            // 兜底：如果解析一再失败，出于安全考虑，如果关键词命中则由 Layer 1 处理
-            // 这里的语义层返回 false，让外部组合逻辑生效
             return { isCrisis: false, confidence: 'low' };
         }
     }
 }
 
+// ========== 向后兼容 ==========
+
 /**
- * 快速关键词预检（Layer 1: 基于规则的快速拦截）
- * 
- * 词库来源参考：
- * 1.C-SSRS (Columbia-Suicide Severity Rating Scale) 风险标识
- * 2. 临床心理危机干预常用词表
- * 3. 社交媒体自杀风险识别学术研究 (e.g., "Pills", "Sleep forever", "No way out")
+ * @deprecated 使用 quickCrisisCheck 代替（few-shot 语义判断）
+ * 保留导出以避免未更新的调用方编译失败
  */
 export function quickCrisisKeywordCheck(message: string): boolean {
-    const lowerMessage = message.toLowerCase();
-
-    // 1. 行为/方法类 (Method/Action) - 极高风险
-    // 涉及具体实施手段或准备行为
-    const actionKeywords = [
-        '割腕', '跳楼', '跳河', '上吊', '烧炭', '服毒', '吞药', '吃药自杀',
-        '安眠药自杀', '结束生命', '结束自己', '在此告别', '遗书', '写遗书'
-    ];
-
-    // 2. 意念/愿望类 (Ideation/Wish) - 高风险
-    // 表达死亡愿望或不想活的念头
-    const ideationKeywords = [
-        '不想活了', '没意思', '活不下去', '想死', '去死', '死了算了',
-        '离开这个世界', '离开世界', '下辈子', '不再醒来', '一直睡下去',
-        '一了百了', '不如死了', '活着没意思', '活着好累', '不想活'
-    ];
-
-    // 3. 绝望/无助类 (Hopelessness) - 敏感词（仅供 LLM 参考，不直接拦截）
-    // "毫无意义"、"彻底绝望" 等词汇在非自杀语境（如 "这部电影毫无意义"）中常见
-    // 因此这里不再保留 Tier 3 的直接拦截列表，防止误报。
-    // 这些模糊意图完全交给 LLM (classifyCrisisIntent) 去判断。
-
-    // 检查逻辑：
-    // 只拦截 Tier 1 (行为) 和 Tier 2 (意念) 的高置信度词汇
-    const hasHighRisk = [...actionKeywords, ...ideationKeywords].some(kw => lowerMessage.includes(kw));
-
-    return hasHighRisk;
+    console.warn('[CrisisClassifier] quickCrisisKeywordCheck is deprecated, use quickCrisisCheck instead');
+    // 仅保留最明确的行为类关键词作为同步兜底
+    const actionKeywords = ['割腕', '跳楼', '跳河', '上吊', '烧炭', '服毒', '吞药', '遗书'];
+    return actionKeywords.some(kw => message.includes(kw));
 }

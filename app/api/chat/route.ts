@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
       triageResolved: !!softOrchestrationResult,
     });
 
-    const routeDecision = decideRouteByRules({
+    const routeDecision = await decideRouteByRules({
       message,
       state,
       assessmentStage,
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
     });
     routeType = routeDecision.routeType;
 
-    const analysis = softOrchestrationResult?.triage.data || buildFallbackQuickAnalysis({
+    const analysis = softOrchestrationResult?.triage.data || await buildFallbackQuickAnalysis({
       message,
     });
     let safetyAgentResult = softOrchestrationResult?.safety || {

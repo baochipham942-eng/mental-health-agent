@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildFallbackQuickAnalysis,
   buildLayeredMemoryContext,
@@ -6,19 +6,38 @@ import {
   detectExplicitAssessmentRequest,
 } from './route-helpers';
 
+// Mock quickCrisisCheck to control its behavior in tests
+vi.mock('@/lib/ai/crisis-classifier', () => ({
+  quickCrisisCheck: vi.fn(async (message: string) => {
+    // Simulate few-shot model: detect obvious crisis phrases
+    const crisisPhrases = ['不想活了', '一了百了', '想死', '割腕'];
+    return crisisPhrases.some((p) => message.includes(p));
+  }),
+}));
+
 describe('decideRouteByRules', () => {
-  it('routes crisis keywords to crisis before anything else', () => {
-    const result = decideRouteByRules({
+  it('routes crisis messages via few-shot detection', async () => {
+    const result = await decideRouteByRules({
       message: '我不想活了，太痛苦了',
       state: 'normal',
     });
 
     expect(result.routeType).toBe('crisis');
-    expect(result.reason).toBe('crisis_guard');
+    expect(result.reason).toBe('crisis_few_shot');
   });
 
-  it('keeps regular messages on support so the main model decides', () => {
-    const result = decideRouteByRules({
+  it('routes in_crisis state without needing few-shot', async () => {
+    const result = await decideRouteByRules({
+      message: '随便什么消息',
+      state: 'in_crisis',
+    });
+
+    expect(result.routeType).toBe('crisis');
+    expect(result.reason).toBe('crisis_state');
+  });
+
+  it('keeps regular messages on support so the main model decides', async () => {
+    const result = await decideRouteByRules({
       message: '我只想倾诉，不需要分析',
       state: 'normal',
     });
@@ -27,8 +46,8 @@ describe('decideRouteByRules', () => {
     expect(result.reason).toBe('main_model_default');
   });
 
-  it('only enters assessment for locked followup flows', () => {
-    const result = decideRouteByRules({
+  it('only enters assessment for locked followup flows', async () => {
+    const result = await decideRouteByRules({
       message: '继续吧',
       state: 'awaiting_followup',
     });
@@ -37,8 +56,8 @@ describe('decideRouteByRules', () => {
     expect(result.reason).toBe('assessment_followup');
   });
 
-  it('enters assessment when the user explicitly asks for an evaluation', () => {
-    const result = decideRouteByRules({
+  it('enters assessment when the user explicitly asks for an evaluation', async () => {
+    const result = await decideRouteByRules({
       message: '我想做个心理评估',
       state: 'normal',
       explicitAssessmentRequest: true,
@@ -66,8 +85,8 @@ describe('buildLayeredMemoryContext', () => {
 });
 
 describe('buildFallbackQuickAnalysis', () => {
-  it('derives a crisis fallback analysis from rule guard output', () => {
-    const result = buildFallbackQuickAnalysis({
+  it('derives a crisis fallback analysis from few-shot detection', async () => {
+    const result = await buildFallbackQuickAnalysis({
       message: '我不想活了',
     });
 

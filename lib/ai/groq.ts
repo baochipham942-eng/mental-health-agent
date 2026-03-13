@@ -8,7 +8,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import { chatStructuredCompletion } from './deepseek';
-import { quickCrisisKeywordCheck } from './crisis-classifier';
+import { quickCrisisCheck } from './crisis-classifier';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
@@ -226,13 +226,13 @@ export async function quickAnalyze(message: string, recentHistory: { role: strin
             console.error('[Groq→DeepSeek] Fallback also failed:', deepseekError);
         }
 
-        // Fallback 2: 关键词检测 + 保守策略
-        if (quickCrisisKeywordCheck(message)) {
-            console.warn('[Groq] Keyword crisis detected, returning crisis analysis');
+        // Fallback 2: few-shot 语义检测 + 保守策略
+        if (await quickCrisisCheck(message)) {
+            console.warn('[Groq] Few-shot crisis detected, returning crisis analysis');
             return {
                 ...CONSERVATIVE_DEFAULT_ANALYSIS,
                 safety: 'crisis',
-                safetyReasoning: '关键词检测到危机信号（所有AI分析服务不可用）',
+                safetyReasoning: 'few-shot 语义检测到危机信号（所有AI分析服务不可用）',
                 route: 'crisis',
             };
         }

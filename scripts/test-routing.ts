@@ -13,7 +13,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 
-import { quickCrisisKeywordCheck } from '../lib/ai/crisis-classifier';
+import { quickCrisisCheck } from '../lib/ai/crisis-classifier';
 import { coordinateAgents } from '../lib/ai/agents/orchestrator';
 import { ChatMessage } from '../lib/ai/deepseek';
 
@@ -151,10 +151,10 @@ const testCases: TestCase[] = [
 /**
  * 模拟 API 中的意图分类逻辑
  */
-function classifyIntent(
+async function classifyIntent(
     message: string,
     safetyLabel: string
-): { isCrisis: boolean; isSupportPositive: boolean; isSupportVenting: boolean; shouldAssessment: boolean; wantsSkillCard: boolean } {
+): Promise<{ isCrisis: boolean; isSupportPositive: boolean; isSupportVenting: boolean; shouldAssessment: boolean; wantsSkillCard: boolean }> {
     const msg = message.toLowerCase().trim();
 
     // 1. Crisis Check
@@ -162,8 +162,8 @@ function classifyIntent(
         return { isCrisis: true, isSupportPositive: false, isSupportVenting: false, shouldAssessment: false, wantsSkillCard: false };
     }
 
-    // Keyword backup
-    if (quickCrisisKeywordCheck(msg)) {
+    // Few-shot backup
+    if (await quickCrisisCheck(msg)) {
         return { isCrisis: true, isSupportPositive: false, isSupportVenting: false, shouldAssessment: false, wantsSkillCard: false };
     }
 
@@ -192,7 +192,7 @@ function classifyIntent(
     return { isCrisis: false, isSupportPositive, isSupportVenting, shouldAssessment, wantsSkillCard };
 }
 
-function determineRoute(intent: ReturnType<typeof classifyIntent>): 'crisis' | 'assessment' | 'support' {
+function determineRoute(intent: Awaited<ReturnType<typeof classifyIntent>>): 'crisis' | 'assessment' | 'support' {
     if (intent.isCrisis) return 'crisis';
     if (intent.wantsSkillCard) return 'support'; // Action cards go through support route
     if (intent.isSupportPositive || intent.isSupportVenting) return 'support';
@@ -218,7 +218,7 @@ async function runTest(testCase: TestCase, index: number): Promise<{ passed: boo
         console.log(`⏱️  耗时: ${duration}ms`);
 
         // 2. Classify Intent
-        const intent = classifyIntent(testCase.message, orchestration.safety.label);
+        const intent = await classifyIntent(testCase.message, orchestration.safety.label);
         const actualRoute = determineRoute(intent);
 
         // 3. Display Results
