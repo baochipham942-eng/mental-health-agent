@@ -100,7 +100,8 @@ export function quickCrisisKeywordCheck(message: string): boolean {
     // 表达死亡愿望或不想活的念头
     const ideationKeywords = [
         '不想活了', '没意思', '活不下去', '想死', '去死', '死了算了',
-        '离开这个世界', '离开世界', '下辈子', '不再醒来', '一直睡下去'
+        '离开这个世界', '离开世界', '下辈子', '不再醒来', '一直睡下去',
+        '一了百了', '不如死了', '活着没意思', '活着好累', '不想活'
     ];
 
     // 3. 绝望/无助类 (Hopelessness) - 敏感词（仅供 LLM 参考，不直接拦截）
