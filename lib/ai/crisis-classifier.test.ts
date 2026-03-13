@@ -10,12 +10,8 @@ vi.mock('ai', () => ({
     generateText: vi.fn(),
 }));
 
-vi.mock('./agents/fast-model', () => ({
-    getFastAgentConfig: vi.fn(() => ({
-        provider: (model: string) => model,
-        providerName: 'groq',
-        model: 'llama-3.1-8b-instant',
-    })),
+vi.mock('@ai-sdk/openai', () => ({
+    createOpenAI: vi.fn(() => (model: string) => model),
 }));
 
 import { chatStructuredCompletion } from '@/lib/ai/deepseek';
@@ -27,6 +23,7 @@ const mockGenerateText = vi.mocked(generateText);
 describe('quickCrisisCheck (few-shot)', () => {
     beforeEach(() => {
         mockGenerateText.mockReset();
+        vi.stubEnv('DEEPSEEK_API_KEY', 'test-key');
     });
 
     it('模型返回 YES 时应返回 true', async () => {
@@ -39,11 +36,10 @@ describe('quickCrisisCheck (few-shot)', () => {
         expect(await quickCrisisCheck('今天工作很忙')).toBe(false);
     });
 
-    it('模型超时应返回 false（安全兜底由后续层处理）', async () => {
+    it('模型超时应返回 false', async () => {
         mockGenerateText.mockImplementationOnce(() =>
-            new Promise((resolve) => setTimeout(() => resolve({ text: 'YES' } as any), 2000))
+            new Promise((resolve) => setTimeout(() => resolve({ text: 'YES' } as any), 5000))
         );
-        // 用极短超时触发 timeout
         expect(await quickCrisisCheck('一些消息', 10)).toBe(false);
     });
 
@@ -52,9 +48,9 @@ describe('quickCrisisCheck (few-shot)', () => {
         expect(await quickCrisisCheck('一些消息')).toBe(false);
     });
 
-    it('空字符串应返回 false', async () => {
-        mockGenerateText.mockResolvedValueOnce({ text: 'NO' } as any);
-        expect(await quickCrisisCheck('')).toBe(false);
+    it('无 DEEPSEEK_API_KEY 应返回 false', async () => {
+        vi.stubEnv('DEEPSEEK_API_KEY', '');
+        expect(await quickCrisisCheck('我想死')).toBe(false);
     });
 });
 

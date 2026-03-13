@@ -1,15 +1,14 @@
 /**
  * 危机意图分类器
  *
- * Layer 1: quickCrisisCheck — Groq few-shot 语义判断（~200ms，主链路前置守门）
- * Layer 2: triage agent — Groq 完整分析（~180ms soft-wait）
+ * Layer 1: quickCrisisCheck — DeepSeek few-shot（安全关键路径，可靠性优先）
+ * Layer 2: triage agent — Groq 完整分析（soft-wait，速度优先）
  * Layer 3: classifyCrisisIntent — DeepSeek 深度分类（慢，按需）
  */
 
 import { generateText } from 'ai';
 import { chatStructuredCompletion } from './deepseek';
 import { CrisisClassificationSchema } from './schemas';
-import { getFastAgentConfig } from './agents/fast-model';
 
 /**
  * 危机分类结果
@@ -48,41 +47,14 @@ NO 的例子（普通负面情绪，没有自杀/自伤意图）：
 用户：`;
 
 /**
- * Layer 1: 基于 LLM few-shot 的快速危机检测
- * 替代原来的关键词匹配，由模型自主判断语义
- * 优先 Groq（快），超时/失败降级 DeepSeek（稳）
+ * Layer 1: 基于 DeepSeek few-shot 的快速危机检测
+ * 安全关键路径直接用最可靠的模型，不走 fast-model 路由
+ * DeepSeek 国内直连无需代理，稳定性优先于速度
  */
 export async function quickCrisisCheck(
     message: string,
-    timeoutMs = Number(process.env.CRISIS_CHECK_TIMEOUT_MS || 800),
+    timeoutMs = Number(process.env.CRISIS_CHECK_TIMEOUT_MS || 1500),
 ): Promise<boolean> {
-    const prompt = CRISIS_FEW_SHOT_PROMPT + message;
-
-    // 尝试 Groq（快速模型）
-    const fastConfig = getFastAgentConfig();
-    if (fastConfig.provider) {
-        try {
-            const result = await Promise.race([
-                generateText({
-                    model: fastConfig.provider(fastConfig.model),
-                    prompt,
-                    temperature: 0,
-                    maxTokens: 3,
-                }),
-                new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-            ]);
-
-            if (result) {
-                const answer = result.text.trim().toUpperCase();
-                return answer.startsWith('YES');
-            }
-            console.log('[CrisisCheck] Groq timeout, falling back to DeepSeek');
-        } catch (error) {
-            console.warn('[CrisisCheck] Groq failed, falling back to DeepSeek:', error instanceof Error ? error.message : error);
-        }
-    }
-
-    // 降级到 DeepSeek（不需要代理，更稳定）
     const deepseekKey = process.env.DEEPSEEK_API_KEY;
     if (!deepseekKey) return false;
 
@@ -96,21 +68,22 @@ export async function quickCrisisCheck(
         const result = await Promise.race([
             generateText({
                 model: deepseek(process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat'),
-                prompt,
+                prompt: CRISIS_FEW_SHOT_PROMPT + message,
                 temperature: 0,
                 maxTokens: 3,
             }),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
         ]);
 
-        if (result) {
-            const answer = result.text.trim().toUpperCase();
-            return answer.startsWith('YES');
+        if (!result) {
+            console.log('[CrisisCheck] DeepSeek timeout');
+            return false;
         }
-        console.log('[CrisisCheck] DeepSeek also timed out');
-        return false;
+
+        const answer = result.text.trim().toUpperCase();
+        return answer.startsWith('YES');
     } catch (error) {
-        console.warn('[CrisisCheck] DeepSeek fallback failed:', error instanceof Error ? error.message : error);
+        console.warn('[CrisisCheck] DeepSeek failed:', error instanceof Error ? error.message : error);
         return false;
     }
 }
