@@ -1,8 +1,9 @@
-import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
+import { generateText, type ChatMessage } from '@/lib/llm';
 import { UI_TOOLS } from './tools';
-import { IDENTITY_PROMPT, CBT_PROTOCOL_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
-import { loadActiveGoldenExamples, formatGoldenExamplesForPrompt, incrementUsageCount } from './golden-examples';
+import { IDENTITY_PROMPT } from './prompts';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
+import { getCounselorAgent } from './agents/counselor-agent';
+import { getSupportLlmProvider } from '@/lib/llm/config';
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -98,7 +99,8 @@ export async function generateSupportReply(
     },
   ];
 
-  const result = await chatCompletion(messages, {
+  const result = await generateText(messages, {
+    provider: getSupportLlmProvider(),
     temperature: 0.8,
     max_tokens: 400,
     tools: UI_TOOLS as unknown as any[],
@@ -123,34 +125,27 @@ export async function streamSupportReply(
     userPreferences?: string[];
   }
 ) {
-  // Build the base prompt with adaptive modifier + therapist persona
-  let finalSystemPrompt = options?.adaptiveMode
+  const finalSystemPrompt = options?.adaptiveMode
     ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.therapistId, options.userPreferences)
     : SUPPORT_PROMPT;
 
-  // Append context layers
-  finalSystemPrompt += `${options?.memoryContext ? `\n\n${options.memoryContext}` : ''}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`;
-
-  const messages: ChatMessage[] = [
-    {
-      role: 'system',
-      content: finalSystemPrompt,
-    },
-    ...history.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    })),
-    {
-      role: 'user',
-      content: userMessage,
-    },
-  ];
-
-  return await streamChatCompletion(messages, {
-    temperature: 0.8,
-    max_tokens: 400,
+  const result = await getCounselorAgent().run({
+    message: userMessage,
+    history: history as ChatMessage[],
+    provider: getSupportLlmProvider(),
+    systemPrompt: `${finalSystemPrompt}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
+    memoryContext: options?.memoryContext,
     onFinish: options?.onFinish,
-    enableTools: true, // Use unified SDK_TOOLS format
+    enableTools: true,
     traceMetadata: options?.traceMetadata,
+    adaptiveMode: options?.adaptiveMode,
+    temperature: 0.8,
+    maxTokens: 400,
   });
+
+  if (!result.success || !result.data?.streamResult) {
+    throw new Error(result.error || 'CounselorAgent failed to stream support reply');
+  }
+
+  return result.data.streamResult;
 }

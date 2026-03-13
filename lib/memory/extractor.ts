@@ -8,7 +8,8 @@
  * 3. 在存储前进行PII脱敏
  */
 
-import { chatStructuredCompletion, type ChatMessage } from '@/lib/ai/deepseek';
+import { generateStructured, type ChatMessage } from '@/lib/llm';
+import { getMemoryLlmProvider } from '@/lib/llm/config';
 import { MEMORY_EXTRACTION_PROMPT } from './prompts';
 import { redactPII } from './redact';
 import { MemoryExtractionSchema } from '@/lib/ai/schemas';
@@ -46,7 +47,8 @@ export async function extractMemoriesFromMessages(
     ];
 
     try {
-        const result = await chatStructuredCompletion(extractionMessages, MemoryExtractionSchema, {
+        const result = await generateStructured(extractionMessages, MemoryExtractionSchema, {
+            provider: getMemoryLlmProvider(),
             temperature: 0.1, // 更低温度保证一致性
         });
 

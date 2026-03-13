@@ -5,16 +5,10 @@
  */
 
 import { BaseAgent, type AgentResult } from './base-agent';
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { quickCrisisKeywordCheck } from '../crisis-classifier';
 import type { QuickAnalysis } from '../groq';
-
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-
-const groq = GROQ_API_KEY
-    ? createOpenAI({ baseURL: 'https://api.groq.com/openai/v1', apiKey: GROQ_API_KEY })
-    : null;
+import { getFastAgentConfig } from './fast-model';
 
 export interface TriageInput {
     message: string;
@@ -44,18 +38,20 @@ import { QUICK_ANALYSIS_PROMPT } from '../groq';
 
 class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
     constructor() {
+        const fastConfig = getFastAgentConfig();
         super({
             name: 'triage',
-            model: 'llama-3.1-8b-instant',
+            model: fastConfig.model,
             systemPrompt: QUICK_ANALYSIS_PROMPT,
-            timeout: 3000,
+            timeout: Number(process.env.TRIAGE_TIMEOUT_MS || 1200),
             fallbackData: CONSERVATIVE_TRIAGE,
         });
     }
 
     protected async execute(input: TriageInput): Promise<QuickAnalysis> {
-        if (!groq) {
-            console.warn('[TriageAgent] Groq not configured, using default');
+        const fastConfig = getFastAgentConfig();
+        if (!fastConfig.provider) {
+            console.warn(`[TriageAgent] ${fastConfig.providerName} not configured, using default`);
             return DEFAULT_TRIAGE;
         }
 
@@ -66,7 +62,7 @@ class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
         }
 
         const { text } = await generateText({
-            model: groq('llama-3.1-8b-instant'),
+            model: fastConfig.provider(fastConfig.model),
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: input.message }

@@ -4,14 +4,9 @@
  */
 
 import { BaseAgent, type AgentResult } from './base-agent';
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { prisma } from '@/lib/db/prisma';
-
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const groq = GROQ_API_KEY
-    ? createOpenAI({ baseURL: 'https://api.groq.com/openai/v1', apiKey: GROQ_API_KEY })
-    : null;
+import { getFastAgentConfig } from './fast-model';
 
 export interface QualityInput {
     reply: string;
@@ -48,9 +43,10 @@ const QUALITY_PROMPT = `你是AI心理咨询回复质检专家。快速评估回
 
 class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
     constructor() {
+        const fastConfig = getFastAgentConfig();
         super({
             name: 'quality',
-            model: 'llama-3.1-8b-instant',
+            model: fastConfig.model,
             systemPrompt: QUALITY_PROMPT,
             timeout: 3000,
             fallbackData: DEFAULT_QUALITY,
@@ -58,10 +54,11 @@ class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
     }
 
     protected async execute(input: QualityInput): Promise<QualityOutput> {
-        if (!groq) return DEFAULT_QUALITY;
+        const fastConfig = getFastAgentConfig();
+        if (!fastConfig.provider) return DEFAULT_QUALITY;
 
         const { text } = await generateText({
-            model: groq('llama-3.1-8b-instant'),
+            model: fastConfig.provider(fastConfig.model),
             messages: [
                 { role: 'system', content: this.config.systemPrompt },
                 {

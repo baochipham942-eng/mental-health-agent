@@ -5,9 +5,16 @@
 
 // 类型
 export * from './types';
+export * from './v2-types';
 
 // 管理器
 export { MemoryManager, memoryManager } from './manager';
+export { ProfileMemoryService, profileMemoryService } from './profile-memory-service';
+export { SessionSummaryV2Service, sessionSummaryV2Service } from './session-summary-v2-service';
+export { MemoryContextService, memoryContextService } from './memory-context-service';
+export { MemoryCandidateService, memoryCandidateService } from './memory-candidate-service';
+export { ProfileMemoryMergeService, profileMemoryMergeService } from './profile-memory-merge-service';
+export { SessionSummaryV2Writer, sessionSummaryV2Writer } from './session-summary-v2-writer';
 
 // 检索器
 export {

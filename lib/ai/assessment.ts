@@ -1,6 +1,8 @@
-import { chatCompletion, streamChatCompletion, ChatMessage, ToolCall } from './deepseek';
+import { generateText, type ChatMessage, type ToolCall } from '@/lib/llm';
 import { UI_TOOLS } from './tools';
 import { classifyDialogueState, StateClassification } from './agents/state-classifier';
+import { getCounselorAgent } from './agents/counselor-agent';
+import { getAssessmentLlmProvider } from '@/lib/llm/config';
 
 const FINISH_ASSESSMENT_TOOL = {
   type: 'function',
@@ -112,7 +114,8 @@ export async function continueAssessment(
   ];
 
   // Step 4: 调用 LLM 生成回复
-  const result = await chatCompletion(messages, {
+  const result = await generateText(messages, {
+    provider: getAssessmentLlmProvider(),
     temperature: 0.5,
     max_tokens: 400,
     tools: [FINISH_ASSESSMENT_TOOL, ...UI_TOOLS],
@@ -175,22 +178,22 @@ export async function streamAssessmentReply(
     systemPrompt = `${systemPrompt}\n\n${options.memoryContext}`;
   }
 
-  const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
-    ...history.filter(m => (m.role as string) !== 'system').map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    })),
-    { role: 'user', content: userMessage },
-  ];
-
-  // Step 4: 调用流式接口
-  return streamChatCompletion(messages, {
+  const result = await getCounselorAgent().run({
+    message: userMessage,
+    history: history as ChatMessage[],
+    provider: getAssessmentLlmProvider(),
+    systemPrompt,
+    memoryContext: options?.memoryContext,
     temperature: 0.5,
-    max_tokens: 400,
-    enableTools: true, // 必须启用工具以识别 finish_assessment
+    maxTokens: 400,
+    enableTools: true,
     traceMetadata: options?.traceMetadata,
     onFinish: options?.onFinish,
   });
-}
 
+  if (!result.success || !result.data?.streamResult) {
+    throw new Error(result.error || 'CounselorAgent failed to stream assessment reply');
+  }
+
+  return result.data.streamResult;
+}

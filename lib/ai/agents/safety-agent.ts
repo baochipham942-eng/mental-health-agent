@@ -5,7 +5,8 @@
  */
 
 import { BaseAgent } from './base-agent';
-import { chatStructuredCompletion, type ChatMessage } from '../deepseek';
+import { generateStructured, type ChatMessage } from '@/lib/llm';
+import { getSafetyLlmProvider } from '@/lib/llm/config';
 import { z } from 'zod';
 
 export const SafetyAssessmentSchema = z.object({
@@ -69,7 +70,8 @@ class SafetyAgentImpl extends BaseAgent<SafetyInput, SafetyAssessment> {
             { role: 'user', content: `Triage 初步判断: ${input.triageSafety}\n\n用户消息: ${input.message}` }
         ];
 
-        return await chatStructuredCompletion(messages, SafetyAssessmentSchema, {
+        return await generateStructured(messages, SafetyAssessmentSchema, {
+            provider: getSafetyLlmProvider(),
             temperature: 0,
         });
     }

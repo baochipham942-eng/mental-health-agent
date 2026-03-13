@@ -31,6 +31,9 @@ model User {
   questionnaireScores QuestionnaireScore[]
   progressMetrics  ProgressMetric[]
   preferredTherapist String?           // 'xiaowarm' | 'mingyuan' | 'qinghe'
+  memoryCandidates MemoryCandidate[]
+  profileMemories  ProfileMemory[]
+  sessionSummariesV2 SessionSummaryV2[]
 }
 
 model InvitationCode {
@@ -145,6 +148,47 @@ model UserMemory {
   @@index([userId, updatedAt])
 }
 
+model MemoryCandidate {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String
+  kind           String
+  content        String
+  confidence     Float
+  evidence       Json?
+  status         String   @default("pending") // pending | accepted | rejected | merged
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, createdAt])
+  @@index([conversationId])
+  @@index([userId, kind])
+}
+
+model ProfileMemory {
+  id                   String   @id @default(cuid())
+  userId               String
+  kind                 String
+  fingerprint          String?
+  content              String
+  priority             Int      @default(50)
+  confidence           Float
+  sourceConversationId String?
+  supersedes           String?
+  lastConfirmedAt      DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, priority])
+  @@index([userId, deletedAt, updatedAt])
+  @@index([sourceConversationId])
+  @@index([userId, kind, fingerprint])
+}
+
 model MemoryExtractionLog {
   id             String   @id @default(cuid())
   conversationId String
@@ -188,6 +232,22 @@ model SessionSummary {
   
   @@index([userId])
   @@index([createdAt])
+}
+
+model SessionSummaryV2 {
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String   @unique
+  summary        String
+  emotionLabel   String?
+  emotionScore   Int?
+  keyTopics      Json?
+  actionItems    Json?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model ConversationEvaluation {

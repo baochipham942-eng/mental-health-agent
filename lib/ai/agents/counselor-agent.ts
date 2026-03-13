@@ -5,14 +5,14 @@
  */
 
 import { BaseAgent } from './base-agent';
-import { streamChatCompletion, type ChatMessage } from '../deepseek';
+import { streamText, type ChatMessage, type LlmProviderName } from '@/lib/llm';
 import { IDENTITY_PROMPT } from '../prompts';
-import type { SafetyAssessment } from './safety-agent';
 import type { AdaptiveMode } from '../persona-manager';
 
 export interface CounselorInput {
     message: string;
     history: ChatMessage[];
+    provider?: LlmProviderName;
     systemPrompt: string;
     safetyConstraints?: string[];
     memoryContext?: string;
@@ -61,7 +61,8 @@ class CounselorAgentImpl extends BaseAgent<CounselorInput, CounselorOutput> {
             { role: 'user', content: input.message },
         ];
 
-        const streamResult = await streamChatCompletion(messages, {
+        const streamResult = await streamText(messages, {
+            provider: input.provider,
             temperature: input.temperature ?? 0.8,
             max_tokens: input.maxTokens ?? 400,
             onFinish: input.onFinish,

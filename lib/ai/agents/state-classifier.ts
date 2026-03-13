@@ -4,7 +4,8 @@
  */
 
 import { z } from 'zod';
-import { chatStructuredCompletion, ChatMessage } from '../deepseek';
+import { generateStructured, type ChatMessage } from '@/lib/llm';
+import { getStateClassifierLlmProvider } from '@/lib/llm/config';
 
 /**
  * SCEB 进度 Schema
@@ -75,7 +76,8 @@ export async function classifyDialogueState(
     ];
 
     const callAt = async (temp: number) => {
-        return await chatStructuredCompletion(messages, StateClassificationSchema, {
+        return await generateStructured(messages, StateClassificationSchema, {
+            provider: getStateClassifierLlmProvider(),
             temperature: temp,
             traceMetadata: { ...options?.traceMetadata, agent: 'state-classifier', turnCount },
         });
