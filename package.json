@@ -26,7 +26,11 @@
     "test:gui:chat": "bun tests/gui/test-chat.mjs",
     "test:gui:safety": "bun tests/gui/test-safety.mjs",
     "ci:check": "cross-env SKILL_MODE=steps_and_cards npm run verify:config && cross-env SKILL_MODE=steps_and_cards npm run typecheck && cross-env SKILL_MODE=steps_and_cards npm run test:strip && cross-env SKILL_MODE=steps_and_cards npm run test:unit && cross-env SKILL_MODE=steps_and_cards npm run smoke",
-    "deploy:build": "npx prisma generate && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/"
+    "deploy:build": "npx prisma generate && next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
+    "eval:prepare": "bun scripts/eval-academic/prepare.ts",
+    "eval:prepare:stats": "bun scripts/eval-academic/prepare.ts --stats",
+    "eval:academic": "bun scripts/eval-academic/run.ts",
+    "eval:academic:quick": "bun scripts/eval-academic/run.ts --limit 5 --skip-judge"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.54",

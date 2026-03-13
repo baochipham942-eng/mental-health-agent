@@ -5,7 +5,7 @@ import { ProgressPageContent } from './ProgressPageContent';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: '我的进度',
+    title: '情绪趋势',
 };
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export default async function ProgressPage() {
     }
 
     return (
-        <div className="h-full flex flex-col bg-slate-50">
+        <div className="h-full flex flex-col overflow-y-auto">
             <ProgressPageContent />
         </div>
     );

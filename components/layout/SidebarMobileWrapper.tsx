@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { Drawer, Collapse, Avatar } from '@arco-design/web-react';
 import {
     IconHistory, IconExperiment, IconMindMapping,
-    IconPlus, IconPoweroff, IconDashboard, IconBulb
+    IconPlus, IconPoweroff, IconDashboard, IconBulb,
+    IconArrowRise,
 } from '@arco-design/web-react/icon';
 import { MobileHeader } from './MobileHeader';
 import Link from 'next/link';
@@ -31,6 +32,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
 
     // 基础菜单项
     const baseMenuItems = [
+        { key: 'progress', label: '情绪趋势', path: '/dashboard/progress', icon: <IconArrowRise /> },
         { key: 'memory', label: '我的记忆', path: '/dashboard/memory', icon: <IconMindMapping /> },
         { key: 'lab', label: '探索工坊', path: '/dashboard/lab', icon: <IconExperiment /> },
     ];

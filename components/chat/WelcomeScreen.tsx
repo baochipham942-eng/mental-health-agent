@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { EmotionTrendPanel } from '@/components/progress/EmotionTrendPanel';
 
 interface WelcomeScreenProps {
     isReturningUser: boolean;
@@ -54,6 +55,13 @@ export function WelcomeScreen({ isReturningUser, onSendMessage }: WelcomeScreenP
                         : '这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。'
                     }
                 </p>
+
+                {/* 情绪趋势（仅回访用户） */}
+                {isReturningUser && (
+                    <div className="mb-4">
+                        <EmotionTrendPanel />
+                    </div>
+                )}
 
                 {/* Guidance Cards */}
                 <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 text-left">

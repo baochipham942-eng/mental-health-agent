@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { AmbientSound, playCompletionSound } from '@/lib/utils/ambient-sound';
+import { playCompletionSound } from '@/lib/utils/ambient-sound';
+import { useAmbientSound } from '@/hooks/useAmbientSound';
+import { AmbientSoundControl } from './AmbientSoundControl';
 
 interface MeditationExerciseProps {
     onComplete?: (duration: number) => void;
@@ -15,7 +17,7 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [currentStep, setCurrentStep] = useState(0);
     const startTimeRef = useRef<number | null>(null);
-    const ambientRef = useRef<AmbientSound | null>(null);
+    const ambient = useAmbientSound();
 
     // 冥想步骤
     const steps = [
@@ -36,17 +38,11 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
     // 背景音与 isRunning 状态同步
     useEffect(() => {
         if (isRunning) {
-            if (!ambientRef.current) {
-                ambientRef.current = new AmbientSound();
-            }
-            ambientRef.current.start();
-        } else {
-            ambientRef.current?.stop();
+            ambient.play();
         }
-
-        // 组件卸载时清理
         return () => {
-            ambientRef.current?.stop();
+            if (!isRunning) return;
+            ambient.fadeOutAndStop();
         };
     }, [isRunning]);
 
@@ -63,6 +59,7 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
 
     const handleStop = useCallback(() => {
         setIsRunning(false);
+        ambient.fadeOutAndStop();
         playCompletionSound();
         if (onCompleteRef.current && startTimeRef.current) {
             onCompleteRef.current(Math.round((Date.now() - startTimeRef.current) / 1000));
@@ -193,6 +190,20 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
                                     }`}
                             />
                         ))}
+                    </div>
+                )}
+
+                {/* 环境音控制条 */}
+                {isRunning && (
+                    <div className="mt-3 flex justify-center">
+                        <AmbientSoundControl
+                            isPlaying={ambient.isPlaying}
+                            soundType={ambient.soundType}
+                            volume={ambient.volume}
+                            onSoundTypeChange={ambient.setSoundType}
+                            onVolumeChange={ambient.setVolume}
+                            onMute={ambient.stop}
+                        />
                     </div>
                 )}
             </div>

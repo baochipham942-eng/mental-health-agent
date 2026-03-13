@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { AmbientSound, playCompletionSound } from '@/lib/utils/ambient-sound';
+import { playCompletionSound } from '@/lib/utils/ambient-sound';
+import { useAmbientSound } from '@/hooks/useAmbientSound';
+import { AmbientSoundControl } from './AmbientSoundControl';
 
 interface BreathingExerciseProps {
     onComplete?: (duration: number) => void;
@@ -23,7 +25,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
     const [cycleCount, setCycleCount] = useState(0);
     const [isRunning, setIsRunning] = useState(false);
     const [startTime, setStartTime] = useState<number | null>(null);
-    const ambientRef = useRef<AmbientSound | null>(null);
+    const ambient = useAmbientSound();
 
     // 4-4-6 呼吸法节奏（初学者友好版）
     const DURATION_INHALE = 4000;
@@ -32,14 +34,12 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
 
     useEffect(() => {
         if (isRunning) {
-            if (!ambientRef.current) {
-                ambientRef.current = new AmbientSound();
-            }
-            ambientRef.current.start();
-        } else {
-            ambientRef.current?.stop();
+            ambient.play();
         }
-        return () => { ambientRef.current?.stop(); };
+        return () => {
+            if (!isRunning) return;
+            ambient.fadeOutAndStop();
+        };
     }, [isRunning]);
 
     const handleStart = () => {
@@ -58,6 +58,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
     const handleStop = useCallback(() => {
         setIsRunning(false);
         setPhase('ready');
+        ambient.fadeOutAndStop();
         playCompletionSound();
         if (onCompleteRef.current && startTimeRef.current) {
             onCompleteRef.current(Math.round((Date.now() - startTimeRef.current) / 1000));
@@ -258,6 +259,18 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                     <span className="text-[11px] text-slate-400 ml-1">
                         {cycleCount < 4 ? `${cycleCount}/4 组` : `已完成 ${cycleCount} 组`}
                     </span>
+                </div>
+
+                {/* 环境音控制条 */}
+                <div className="mt-4">
+                    <AmbientSoundControl
+                        isPlaying={ambient.isPlaying}
+                        soundType={ambient.soundType}
+                        volume={ambient.volume}
+                        onSoundTypeChange={ambient.setSoundType}
+                        onVolumeChange={ambient.setVolume}
+                        onMute={ambient.stop}
+                    />
                 </div>
             </div>
         </div>

@@ -201,7 +201,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                             placeholder={`向${mentor.name}提问...`}
                             className="flex-1 px-4 py-3 h-12 rounded-xl bg-gray-50 border border-gray-200 hover:border-indigo-300 focus:bg-white focus:border-indigo-400 focus:shadow-[0_0_0_2px_rgba(99,102,241,0.1)] transition-all text-base"
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                                     e.preventDefault();
                                     if (input.trim()) {
                                         const fakeEvent = { preventDefault: () => { } } as React.FormEvent;

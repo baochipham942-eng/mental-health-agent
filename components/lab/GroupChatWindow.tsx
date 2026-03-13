@@ -271,7 +271,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                             placeholder="发送新话题或追问..."
                             className="flex-1 px-4 py-3 h-12 !rounded-xl bg-gray-50 border border-gray-200 hover:border-violet-300 focus:bg-white focus:border-violet-400 focus:shadow-[0_0_0_2px_rgba(139,92,246,0.1)] transition-all text-base"
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                                     e.preventDefault();
                                     handleSubmit();
                                 }

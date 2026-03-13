@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Dropdown, Menu, Divider, Drawer } from '@arco-design/web-react';
-import { IconUser, IconMindMapping, IconExport, IconExperiment, IconEdit } from '@arco-design/web-react/icon';
+import { IconUser, IconMindMapping, IconExport, IconExperiment, IconEdit, IconArrowRise } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
 
 interface UserMenuProps {
@@ -30,6 +30,8 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
         setDrawerVisible(false); // Enable closing drawer on selection
         if (key === 'profile') {
             onEditProfile?.();
+        } else if (key === 'progress') {
+            router.push('/dashboard/progress');
         } else if (key === 'memory') {
             router.push('/dashboard/memory');
         } else if (key === 'lab') {
@@ -54,8 +56,12 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                 <span className="text-gray-700 font-medium">编辑资料</span>
             </div>
 
+            <div onClick={() => handleMenuClick('progress')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors md:hidden">
+                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-500"><IconArrowRise style={{ fontSize: 18 }} /></div>
+                <span className="text-gray-700 font-medium">情绪趋势</span>
+            </div>
+
             <div onClick={() => handleMenuClick('memory')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer rounded-lg transition-colors md:hidden">
-                {/* Mobile only duplicate for safety, though exposed in main menu too */}
                 <div className="p-2 bg-purple-50 rounded-lg text-purple-500"><IconMindMapping style={{ fontSize: 18 }} /></div>
                 <span className="text-gray-700 font-medium">我的记忆</span>
             </div>
@@ -116,6 +122,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
     const dropdownMenu = (
         <Menu onClickMenuItem={handleMenuClick} className="min-w-[180px] select-none py-1">
             <Menu.Item key="profile"><div className="flex gap-2 items-center"><IconEdit className="text-indigo-500" /> 编辑资料</div></Menu.Item>
+            <Menu.Item key="progress"><div className="flex gap-2 items-center"><IconArrowRise className="text-emerald-500" /> 情绪趋势</div></Menu.Item>
             <Menu.Item key="memory"><div className="flex gap-2 items-center"><IconMindMapping className="text-purple-500" /> 我的记忆</div></Menu.Item>
             <Menu.Item key="lab"><div className="flex gap-2 items-center"><IconExperiment className="text-cyan-600" /> 实验室</div></Menu.Item>
             {isAdmin && <Menu.Item key="optimization"><div className="flex gap-2 items-center"><span className="text-amber-500 text-xs">🚀</span> Prompt 优化</div></Menu.Item>}
