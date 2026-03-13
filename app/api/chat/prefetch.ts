@@ -14,11 +14,16 @@ export async function buildChatPrefetchContext(params: {
   const prefetchStartedAt = Date.now();
   const recentContext = history.slice(-2);
 
-  const orchestratePromise = orchestrate({
+  const orchestrationPromise = orchestrate({
     message,
     history: history as ChatMessage[],
     recentHistory: recentContext,
+  }).catch((error) => {
+    console.error('[Prefetch] Orchestration failed:', error);
+    return null;
   });
+
+  const shouldSkipDb = process.env.SKIP_PRISMA_DB === '1';
 
   const memoryPromise = (userId && history.length > 0)
     ? (async () => {
@@ -32,47 +37,53 @@ export async function buildChatPrefetchContext(params: {
     : Promise.resolve({ injectedText: '', source: 'legacy' as const, profileMemories: [], recentSummaries: [] });
 
   const assessmentPromise = userId
-    ? prisma.assessmentReport.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    }).catch(() => [])
+    ? (!shouldSkipDb
+      ? prisma.assessmentReport.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      })
+      : Promise.resolve([]))
     : Promise.resolve([]);
 
   const preferencePromise = userId
-    ? prisma.userMemory.findMany({
-      where: {
-        userId,
-        topic: { in: ['communication_style', 'coping_preference'] }
-      },
-      orderBy: { accessedAt: 'desc' },
-      take: 5
-    }).catch(() => [])
+    ? (!shouldSkipDb
+      ? prisma.userMemory.findMany({
+        where: {
+          userId,
+          topic: { in: ['communication_style', 'coping_preference'] }
+        },
+        orderBy: { accessedAt: 'desc' },
+        take: 5
+      })
+      : Promise.resolve([]))
     : Promise.resolve([]);
 
   const therapistPromise = userId
-    ? prisma.user.findUnique({
-      where: { id: userId },
-      select: { preferredTherapist: true }
-    }).catch(() => null)
+    ? (!shouldSkipDb
+      ? prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferredTherapist: true }
+      })
+      : Promise.resolve(null))
     : Promise.resolve(null);
 
   const activeExercisePromise = userId
-    ? prisma.exerciseState.findFirst({
-      where: { userId, status: 'in_progress' },
-      orderBy: { updatedAt: 'desc' },
-    }).catch(() => null)
+    ? (!shouldSkipDb
+      ? prisma.exerciseState.findFirst({
+        where: { userId, status: 'in_progress' },
+        orderBy: { updatedAt: 'desc' },
+      })
+      : Promise.resolve(null))
     : Promise.resolve(null);
 
   const [
-    orchestrationResult,
     retrievalResult,
     assessmentHistory,
     preferenceMemories,
     userTherapistPref,
     activeExercise,
   ] = await Promise.all([
-    orchestratePromise,
     memoryPromise,
     assessmentPromise,
     preferencePromise,
@@ -100,7 +111,7 @@ export async function buildChatPrefetchContext(params: {
   });
 
   return {
-    orchestrationResult,
+    orchestrationPromise,
     retrievalResult,
     assessmentHistory,
     preferenceMemories,

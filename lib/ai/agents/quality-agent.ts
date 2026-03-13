@@ -4,9 +4,10 @@
  */
 
 import { BaseAgent, type AgentResult } from './base-agent';
-import { generateText } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { prisma } from '@/lib/db/prisma';
 import { getFastAgentConfig } from './fast-model';
+import { z } from 'zod';
 
 export interface QualityInput {
     reply: string;
@@ -23,6 +24,20 @@ export interface QualityOutput {
     suggestions: string[];
 }
 
+const PLACEHOLDER_LINE_PATTERN = /^(问题|建议)\s*\d+\s*[:：.]?$/u;
+
+const QualityLineSchema = z.string()
+    .trim()
+    .min(4)
+    .max(120)
+    .refine((value) => !PLACEHOLDER_LINE_PATTERN.test(value), '必须返回具体问题，不得使用占位文本');
+
+const QualityOutputSchema = z.object({
+    score: z.number().min(0).max(10),
+    issues: z.array(QualityLineSchema).max(3),
+    suggestions: z.array(QualityLineSchema).max(3),
+});
+
 const DEFAULT_QUALITY: QualityOutput = {
     score: 8,
     issues: [],
@@ -38,8 +53,59 @@ const QUALITY_PROMPT = `你是AI心理咨询回复质检专家。快速评估回
 4. 是否有空洞安慰（"我理解你"）或过度诊断
 5. 篇幅是否适中（3-5句为佳）
 
-输出JSON（不要其他文字）:
-{"score": 8, "issues": ["问题1"], "suggestions": ["建议1"]}`;
+输出要求：
+- 只返回 JSON 对象，不要附加说明
+- issues / suggestions 必须是具体、可执行的中文短句
+- 严禁输出“问题1”“问题2”“建议1”这类占位文本
+- 如果没有明显问题，返回 issues: [] 和 suggestions: []
+
+示例：
+{"score":8,"issues":["回复偏长，第二段信息密度过高"],"suggestions":["删掉泛化安慰，保留一个追问即可"]}`;
+
+function normalizeQualityLine(value: string): string | null {
+    const normalized = value
+        .trim()
+        .replace(/^[\d\s\-*_.、()（）]+/, '')
+        .replace(/^["'“”]+|["'“”]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (normalized.length < 4) return null;
+    if (PLACEHOLDER_LINE_PATTERN.test(normalized)) return null;
+    return normalized;
+}
+
+export function normalizeQualityOutput(output: QualityOutput): QualityOutput {
+    const dedupe = (items: string[]) => {
+        const seen = new Set<string>();
+        const result: string[] = [];
+        for (const item of items) {
+            const normalized = normalizeQualityLine(item);
+            if (!normalized || seen.has(normalized)) continue;
+            seen.add(normalized);
+            result.push(normalized);
+            if (result.length >= 3) break;
+        }
+        return result;
+    };
+
+    return {
+        score: Math.max(0, Math.min(10, Math.round(output.score))),
+        issues: dedupe(output.issues || []),
+        suggestions: dedupe(output.suggestions || []),
+    };
+}
+
+function buildQualityPrompt(input: QualityInput, systemPrompt: string): string {
+    return `${systemPrompt}
+
+用户消息: ${input.userMessage.slice(0, 200)}
+路由: ${input.routeType}
+角色模式: ${input.adaptiveMode}
+安全等级: ${input.safetyLevel}
+
+AI回复: ${input.reply.slice(0, 500)}`;
+}
 
 class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
     constructor() {
@@ -56,27 +122,40 @@ class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
     protected async execute(input: QualityInput): Promise<QualityOutput> {
         const fastConfig = getFastAgentConfig();
         if (!fastConfig.provider) return DEFAULT_QUALITY;
+        const prompt = buildQualityPrompt(input, this.config.systemPrompt);
 
-        const { text } = await generateText({
-            model: fastConfig.provider(fastConfig.model),
-            messages: [
-                { role: 'system', content: this.config.systemPrompt },
-                {
-                    role: 'user',
-                    content: `用户消息: ${input.userMessage.slice(0, 200)}
-路由: ${input.routeType}
-角色模式: ${input.adaptiveMode}
-安全等级: ${input.safetyLevel}
+        try {
+            const { object } = await generateObject({
+                model: fastConfig.provider(fastConfig.model),
+                schema: QualityOutputSchema,
+                prompt,
+                temperature: 0,
+                maxTokens: 220,
+            });
 
-AI回复: ${input.reply.slice(0, 500)}`
-                }
-            ],
-            temperature: 0,
-            maxTokens: 300,
-        });
+            return normalizeQualityOutput(object);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn('[QualityAgent] Structured generation failed, falling back to JSON text:', message);
 
-        const cleaned = text.trim().replace(/```json\n?|\n?```/g, '');
-        return JSON.parse(cleaned) as QualityOutput;
+            const { text } = await generateText({
+                model: fastConfig.provider(fastConfig.model),
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0,
+                maxTokens: 220,
+            });
+
+            const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+            const jsonStart = cleaned.indexOf('{');
+            const jsonEnd = cleaned.lastIndexOf('}');
+            if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+                return DEFAULT_QUALITY;
+            }
+
+            const parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+            const validated = QualityOutputSchema.parse(parsed);
+            return normalizeQualityOutput(validated);
+        }
     }
 }
 

@@ -41,6 +41,17 @@ const ASSESSMENT_LOOP_PROMPT = `你是一位专业的心理咨询师。目前处
    - 如果拿到评分且 SCEB 基本清晰，**立即**调用 \`finish_assessment\` 结束。
 4. **见好就收**：不要追求完美的信息。只要有 *评分* + *核心事件* + *主要感受*，即可结束。不要反复盘问细节。`;
 
+function getAssessmentClassifierSoftWaitMs(): number {
+  return Number(process.env.ASSESSMENT_CLASSIFIER_SOFT_WAIT_MS || 700);
+}
+
+export function shouldRunAssessmentStreamingClassifier(
+  userTurnCount: number,
+  minUserTurns = Number(process.env.ASSESSMENT_CLASSIFIER_MIN_USER_TURNS || 4)
+): boolean {
+  return userTurnCount >= minUserTurns;
+}
+
 /**
  * 生成带 SCEB 进度的 Prompt
  */
@@ -150,23 +161,34 @@ export async function streamAssessmentReply(
     content: msg.content,
   }));
   fullHistory.push({ role: 'user', content: userMessage });
+  const userTurnCount = fullHistory.filter(m => m.role === 'user').length;
 
-  // Step 2: 调用状态分类器 (带超时保护，防止挂起)
+  // Step 2: 调用状态分类器（首响优先：早期评估直接跳过，后续轮次只做短等待）
   let classification: StateClassification | undefined;
-  try {
-    const classifyWithTimeout = Promise.race([
-      classifyDialogueState(fullHistory, { traceMetadata: options?.traceMetadata }),
-      new Promise<undefined>((_, reject) => setTimeout(() => reject(new Error('Classification timeout')), 5000))
-    ]);
-    classification = await classifyWithTimeout;
+  if (shouldRunAssessmentStreamingClassifier(userTurnCount)) {
+    try {
+      classification = await Promise.race([
+        classifyDialogueState(fullHistory, { traceMetadata: options?.traceMetadata }),
+        new Promise<undefined>((resolve) =>
+          setTimeout(() => resolve(undefined), getAssessmentClassifierSoftWaitMs())
+        ),
+      ]);
 
-    // 如果分类器建议结束，我们将通过 metadata 告知调用方，此处不直接流式输出
-    if (classification?.shouldConclude) {
-      console.log('[Assessment] State classifier suggests conclusion:', classification.reasoning);
+      if (!classification) {
+        console.log('[Assessment] State classifier soft-timeout, continuing without blocking stream', {
+          userTurnCount,
+          softWaitMs: getAssessmentClassifierSoftWaitMs(),
+        });
+      } else if (classification.shouldConclude) {
+        console.log('[Assessment] State classifier suggests conclusion:', classification.reasoning);
+      }
+    } catch (error) {
+      console.error('[Assessment] State classification failed during streaming, continuing:', error);
     }
-  } catch (error) {
-    console.error('[Assessment] State classification failed or timed out:', error);
-    // 即使分类失败也继续，不影响主流程
+  } else {
+    console.log('[Assessment] Skipping state classifier on early assessment turn', {
+      userTurnCount,
+    });
   }
 
   // Step 3: 构建带进度的 Prompt

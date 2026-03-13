@@ -9,7 +9,11 @@ import {
   sessionSummaryV2Writer,
 } from '@/lib/memory';
 import { SKILL_CARDS, SkillType } from '@/lib/ai/skills';
+import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { prisma } from '@/lib/db/prisma';
+import type { QuestionnaireType } from '@/lib/ai/assessment/questionnaire';
+import type { QuickAnalysis } from '@/lib/ai/groq';
+import type { AssessmentStage, ChatState, RouteType } from '@/types/chat';
 
 const SKILL_INTRO_MESSAGES: Record<SkillType, string> = {
   breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
@@ -118,8 +122,8 @@ export function scheduleConversationSummaryRefresh(params: {
   assistantReply: string;
 }): void {
   const { userId, sessionId, history, message, assistantReply } = params;
-
   if (!userId || !sessionId) return;
+  if (process.env.SKIP_PRISMA_DB === '1') return;
 
   const summaryHistory = [
     ...history,
@@ -173,4 +177,97 @@ export function triggerAsyncMemoryExtraction(sessionId?: string, userId?: string
       console.error('[Memory] Async extraction failed:', e);
     }
   });
+}
+
+export function buildLayeredMemoryContext(params: {
+  baseMemoryContext?: string;
+  userPreferences?: string[];
+  userNickname?: string | null;
+}): string {
+  const sections: string[] = [];
+  const base = params.baseMemoryContext?.trim();
+
+  if (base) {
+    sections.push(base);
+  }
+
+  const uniquePreferences = Array.from(
+    new Set((params.userPreferences || []).map((item) => item.trim()).filter(Boolean))
+  );
+  if (uniquePreferences.length > 0) {
+    sections.push(`## 当前偏好提醒\n${uniquePreferences.map((item) => `- ${item}`).join('\n')}`);
+  }
+
+  if (params.userNickname) {
+    sections.push(`## 互动提醒\n- 用户昵称为「${params.userNickname}」，仅在自然合适的时机偶尔使用。`);
+  }
+
+  return sections.join('\n\n');
+}
+
+export function detectExplicitAssessmentRequest(message: string): boolean {
+  const msg = message.trim().toLowerCase();
+  return [
+    /做个评估/,
+    /评估一下/,
+    /做个测试/,
+    /测试一下/,
+    /心理测试/,
+    /心理评估/,
+    /系统.*评估/,
+    /系统.*了解.*状态/,
+    /看看我.*状态/,
+  ].some((pattern) => pattern.test(msg));
+}
+
+export function decideRouteByRules(params: {
+  message: string;
+  state?: ChatState;
+  assessmentStage?: AssessmentStage;
+  questionnaireType?: QuestionnaireType | null;
+  explicitAssessmentRequest?: boolean;
+  activeExercise?: { exerciseType?: string } | null;
+}): { routeType: RouteType; reason: string } {
+  const { message, state, assessmentStage, questionnaireType, explicitAssessmentRequest, activeExercise } = params;
+
+  if (activeExercise?.exerciseType) {
+    return { routeType: 'support', reason: 'active_exercise' };
+  }
+
+  if (state === 'in_crisis' || quickCrisisKeywordCheck(message)) {
+    return { routeType: 'crisis', reason: 'crisis_guard' };
+  }
+
+  if (assessmentStage === 'conclusion' || questionnaireType) {
+    return { routeType: 'assessment', reason: questionnaireType ? 'questionnaire' : 'assessment_conclusion' };
+  }
+
+  if (state === 'awaiting_followup') {
+    return { routeType: 'assessment', reason: 'assessment_followup' };
+  }
+
+  if (explicitAssessmentRequest) {
+    return { routeType: 'assessment', reason: 'explicit_assessment_request' };
+  }
+
+  return { routeType: 'support', reason: 'main_model_default' };
+}
+
+export function buildFallbackQuickAnalysis(params: {
+  message: string;
+}): QuickAnalysis {
+  const crisis = quickCrisisKeywordCheck(params.message);
+
+  return {
+    safety: crisis ? 'crisis' : 'normal',
+    safetyReasoning: crisis ? '规则守门检测到明确危机表达' : 'triage 未及时返回，使用最小安全兜底',
+    stateReasoning: '普通消息默认交给主模型直接回应',
+    emotion: { label: crisis ? '恐惧' : '未表达', score: crisis ? 9 : 0 },
+    route: crisis ? 'crisis' : 'support',
+    needsValidation: false,
+    adaptiveMode: crisis ? 'guardian' : 'companion',
+    personaReasoning: crisis ? '危机状态优先稳定化' : '默认陪伴式回应',
+    memoryCheck: '待主模型在回复后由 memory v2 异步提取',
+    dialogueIntent: crisis ? 'sharing' : 'opening',
+  };
 }

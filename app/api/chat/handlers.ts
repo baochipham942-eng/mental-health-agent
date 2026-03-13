@@ -3,7 +3,6 @@ import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
 import { streamAssessmentReply } from '@/lib/ai/assessment';
 import { streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
-import { streamEFTValidationReply } from '@/lib/ai/deepseek';
 import { generateSFBTQuery } from '@/lib/ai/sfbt';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
 import { triggerQualityCheck } from '@/lib/ai/agents/orchestrator';
@@ -215,63 +214,6 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
   });
 }
 
-export async function handleValidationRoute(params: BaseHandlerParams): Promise<Response> {
-  const {
-    data,
-    message,
-    processedHistory,
-    sessionId,
-    userId,
-    traceMetadata,
-    requestStartedAt,
-    saveAssistantMessage,
-    scheduleConversationSummaryRefresh,
-    safetyData,
-    stateData,
-    history,
-  } = params;
-
-  console.log('[API] EFT Validation triggered (High Emotion Score)');
-
-  const onFinishWithMeta = async (text: string) => {
-    saveAssistantMessage(text, {
-      routeType: 'support',
-      subRoute: 'eft_validation',
-      safety: safetyData,
-      state: stateData
-    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-    logInfo('chat-response-finished', {
-      sessionId,
-      userId,
-      routeType: 'support',
-      subRoute: 'eft_validation',
-      totalDurationMs: Date.now() - requestStartedAt,
-      responseLength: text.length,
-    });
-
-    data.append({
-      reply: text,
-      routeType: 'support',
-      safety: safetyData,
-      isEFT: true
-    } as any);
-    data.close();
-  };
-
-  const result = await streamEFTValidationReply(message, processedHistory, {
-    onFinish: onFinishWithMeta,
-    traceMetadata
-  });
-  return withStreamMetrics(result.toDataStreamResponse({ data }), {
-    sessionId,
-    userId,
-    routeType: 'support',
-    requestStartedAt,
-    traceMetadata,
-  });
-}
-
 export async function handleSupportRoute(params: BaseHandlerParams & {
   emotionObj: { label: string; score: number };
   dialogueCtx: DialogueContext | null;
@@ -303,6 +245,37 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     userPreferences,
     history,
   } = params;
+
+  if (process.env.MOCK_SUPPORT_REPLY === '1') {
+    const mockText = '我在本地运行，看起来你的状态需要支持。';
+    data.append({
+      reply: mockText,
+      routeType: 'support',
+      safety: safetyData,
+    } as any);
+    data.close();
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(mockText)}\n`));
+        controller.close();
+      },
+    });
+
+    return withStreamMetrics(new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Vercel-AI-Data-Stream': 'v1',
+      },
+    }), {
+      sessionId,
+      userId,
+      routeType: 'support',
+      requestStartedAt,
+      traceMetadata,
+    });
+  }
 
   let sfbtInstruction = undefined;
   const sfbtMatch = message.match(/我完成了“(.+)”练习，现在感觉：.*\((\d+)分\)/);

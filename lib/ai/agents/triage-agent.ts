@@ -33,8 +33,29 @@ const CONSERVATIVE_TRIAGE: QuickAnalysis = {
     safetyReasoning: '分析服务不可用，采用保守策略',
 };
 
-// System prompt 保持与原 groq.ts 一致
-import { QUICK_ANALYSIS_PROMPT } from '../groq';
+const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输出 JSON，不要任何解释。
+
+返回格式：
+{
+  "safety": "crisis" | "urgent" | "normal",
+  "safetyReasoning": "一句话",
+  "stateReasoning": "一句话，描述用户当前意图",
+  "emotion": { "label": "未表达|压力|疲惫|情绪低落|焦虑|悲伤|愤怒|恐惧|抑郁|平静|快乐", "score": 0-10 },
+  "route": "crisis" | "support" | "assessment",
+  "needsValidation": boolean,
+  "adaptiveMode": "guardian" | "companion" | "guide" | "coach",
+  "personaReasoning": "一句话",
+  "memoryCheck": "无 或 需要记录的关键词",
+  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up"
+}
+
+规则：
+- 只有明确自杀、自伤、结束生命计划才是 crisis。
+- 明确“活着没意思/想解脱”但无计划可判 urgent。
+- 其他默认 normal。
+- route 只做粗分类；不确定时给 support。
+- 普通聊天或未表达情绪时，emotion.label 用“未表达”，score 用 0。
+- triage 很弱，保守、简短、不要过度推断。`;
 
 class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
     constructor() {
@@ -42,8 +63,8 @@ class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
         super({
             name: 'triage',
             model: fastConfig.model,
-            systemPrompt: QUICK_ANALYSIS_PROMPT,
-            timeout: Number(process.env.TRIAGE_TIMEOUT_MS || 1200),
+            systemPrompt: WEAK_TRIAGE_PROMPT,
+            timeout: Number(process.env.TRIAGE_TIMEOUT_MS || 2000),
             fallbackData: CONSERVATIVE_TRIAGE,
         });
     }
@@ -68,7 +89,7 @@ class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
                 { role: 'user', content: input.message }
             ],
             temperature: 0,
-            maxTokens: 450,
+            maxTokens: 220,
         });
 
         const cleaned = text.trim().replace(/```json\n?|\n?```/g, '');
@@ -110,32 +131,34 @@ export async function runTriageWithFallback(input: TriageInput): Promise<AgentRe
 
     if (result.success) return result;
 
-    // Groq 失败，尝试 DeepSeek 快速分析
-    try {
-        const { chatStructuredCompletion } = await import('../deepseek');
-        const { z } = await import('zod');
-        type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+    // 弱化 triage：默认不再做第二层慢模型回退，避免在后台拖长主链尾部。
+    if (process.env.TRIAGE_ENABLE_DEEP_FALLBACK === '1') {
+        try {
+            const { chatStructuredCompletion } = await import('../deepseek');
+            const { z } = await import('zod');
+            type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
-        const schema = z.object({
-            safety: z.enum(['crisis', 'urgent', 'normal']),
-            emotion: z.object({ label: z.string(), score: z.number() }),
-            route: z.enum(['crisis', 'support', 'assessment']),
-        });
+            const schema = z.object({
+                safety: z.enum(['crisis', 'urgent', 'normal']),
+                emotion: z.object({ label: z.string(), score: z.number() }),
+                route: z.enum(['crisis', 'support', 'assessment']),
+            });
 
-        const messages: ChatMessage[] = [
-            { role: 'system', content: '快速分析用户消息的安全等级、情绪和路由。输出JSON: {"safety":"normal","emotion":{"label":"平静","score":5},"route":"support"}' },
-            { role: 'user', content: input.message }
-        ];
+            const messages: ChatMessage[] = [
+                { role: 'system', content: '快速分析用户消息的安全等级、情绪和路由。输出JSON: {"safety":"normal","emotion":{"label":"平静","score":5},"route":"support"}' },
+                { role: 'user', content: input.message }
+            ];
 
-        const dsResult = await chatStructuredCompletion(messages, schema, { temperature: 0 });
-        return {
-            success: true,
-            data: { ...CONSERVATIVE_TRIAGE, ...dsResult },
-            latency: result.latency,
-            agentName: 'triage-deepseek-fallback',
-            model: 'deepseek-chat',
-        };
-    } catch (_) {}
+            const dsResult = await chatStructuredCompletion(messages, schema, { temperature: 0 });
+            return {
+                success: true,
+                data: { ...CONSERVATIVE_TRIAGE, ...dsResult },
+                latency: result.latency,
+                agentName: 'triage-deepseek-fallback',
+                model: 'deepseek-chat',
+            };
+        } catch (_) {}
+    }
 
     // 最终防线：关键词检测
     if (quickCrisisKeywordCheck(input.message)) {

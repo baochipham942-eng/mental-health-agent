@@ -8,12 +8,16 @@ function resolveFastProvider(): FastProviderName {
     return explicit;
   }
 
-  if (process.env.DEEPSEEK_API_KEY) {
-    return 'deepseek';
+  if (process.env.GROQ_API_KEY) {
+    return 'groq';
   }
 
   if (process.env.OPENROUTER_API_KEY) {
     return 'openrouter';
+  }
+
+  if (process.env.DEEPSEEK_API_KEY) {
+    return 'deepseek';
   }
 
   return 'groq';

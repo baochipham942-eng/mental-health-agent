@@ -3,7 +3,6 @@ import { StreamData } from 'ai';
 import { auth } from '@/lib/runtime/chat-auth';
 import { prisma } from '@/lib/db/prisma';
 import { streamCrisisReply } from '@/lib/ai/crisis';
-import { quickCrisisKeywordCheck } from '@/lib/ai/crisis-classifier';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import { logInfo, logWarn } from '@/lib/observability/logger';
@@ -25,16 +24,20 @@ import {
   handleAssessmentRoute,
   handleCrisisRoute,
   handleSupportRoute,
-  handleValidationRoute,
 } from './handlers';
 import {
+  buildFallbackQuickAnalysis,
+  buildLayeredMemoryContext,
   createAssistantMessageSaver,
   createFixedStreamResponse,
   createSkillCardStreamResponse,
+  decideRouteByRules,
+  detectExplicitAssessmentRequest,
   getSkillIntroMessage,
   scheduleConversationSummaryRefresh,
   triggerAsyncMemoryExtraction,
 } from './route-helpers';
+import { DEFAULT_SAFE, getSafetyAgent } from '@/lib/ai/agents/safety-agent';
 
 // =================================================================================
 // 预设技能卡配置 - 用于直接技能请求的快速响应
@@ -134,7 +137,8 @@ export async function POST(request: NextRequest) {
     let memoryContext = '';
     let processedHistory = history;
     const stateRestoreStartedAt = Date.now();
-    const lastAssistantMsgPromise = sessionId
+    const shouldSkipDb = process.env.SKIP_PRISMA_DB === '1';
+    const lastAssistantMsgPromise = sessionId && !shouldSkipDb
       ? prisma.message.findFirst({
         where: { conversationId: sessionId, role: 'assistant' },
         orderBy: { createdAt: 'desc' },
@@ -146,7 +150,7 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null);
 
     const {
-      orchestrationResult,
+      orchestrationPromise,
       retrievalResult,
       assessmentHistory,
       preferenceMemories,
@@ -160,15 +164,63 @@ export async function POST(request: NextRequest) {
       history,
     });
 
-    // 从编排结果中解包 Triage + Safety
-    const analysis = orchestrationResult.triage.data;
-    const safetyAgentResult = orchestrationResult.safety;
-
     const userPreferences = preferenceMemories.map((m: any) => m.content);
     const retrievalMetrics =
       retrievalResult && typeof retrievalResult === 'object' && 'metrics' in retrievalResult
         ? (retrievalResult as any).metrics
         : undefined;
+
+    const questionnaireType = detectQuestionnaireRequest(message);
+    const explicitAssessmentRequest = detectExplicitAssessmentRequest(message);
+    if (questionnaireType) {
+      logInfo('questionnaire-trigger', { type: questionnaireType, source: 'user_request' });
+    }
+
+    const triageSoftWaitStartedAt = Date.now();
+    const softOrchestrationResult = await Promise.race([
+      orchestrationPromise,
+      new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), Number(process.env.TRIAGE_SOFT_WAIT_MS || 180))
+      ),
+    ]);
+    logInfo('chat-soft-triage', {
+      sessionId,
+      userId,
+      softTriageWaitMs: Date.now() - triageSoftWaitStartedAt,
+      triageResolved: !!softOrchestrationResult,
+    });
+
+    const routeDecision = decideRouteByRules({
+      message,
+      state,
+      assessmentStage,
+      questionnaireType,
+      explicitAssessmentRequest,
+      activeExercise,
+    });
+    routeType = routeDecision.routeType;
+
+    const analysis = softOrchestrationResult?.triage.data || buildFallbackQuickAnalysis({
+      message,
+    });
+    let safetyAgentResult = softOrchestrationResult?.safety || {
+      success: false,
+      data: DEFAULT_SAFE,
+      latency: 0,
+      agentName: 'safety-skipped',
+      model: 'rules-only',
+    };
+
+    if (
+      !softOrchestrationResult &&
+      analysis.safety !== 'normal'
+    ) {
+      safetyAgentResult = await getSafetyAgent().run({
+        message,
+        history: history as any,
+        triageSafety: analysis.safety,
+      });
+    }
 
     // 构建统一的 safety 对象（优先使用 SafetyAgent 深度评估，回退到 Triage 快速评估）
     const hasSafetyDeep = safetyAgentResult.success && safetyAgentResult.data.label !== 'normal';
@@ -217,6 +269,12 @@ export async function POST(request: NextRequest) {
         } as any);
       }
     }
+
+    memoryContext = buildLayeredMemoryContext({
+      baseMemoryContext: memoryContext,
+      userPreferences,
+      userNickname: session?.user?.nickname,
+    });
 
     // =================================================================================
     // 0.6 Dialogue State Tracking - 对话状态追踪 (Moved Up)
@@ -273,15 +331,6 @@ export async function POST(request: NextRequest) {
     // 生成状态机上下文注入
     stateMachinePrompt = generateStateMachinePrompt(dialogueCtx);
 
-    // P5: 检测问卷触发请求
-    // TODO: 当检测到用户连续 3+ 次对话涉及同类情绪话题时，
-    // AI 温和建议"要不要花几分钟了解一下自己最近的状态？"
-    // 用户仍可主动触发（说"了解一下自己"/"测一下"）
-    const questionnaireType = detectQuestionnaireRequest(message);
-    if (questionnaireType) {
-      logInfo('questionnaire-trigger', { type: questionnaireType, source: 'user_request' });
-    }
-
     logInfo('dialogue-state', {
       turn: conversationTurn,
       phase: dialoguePhase,
@@ -294,7 +343,7 @@ export async function POST(request: NextRequest) {
     // 构建对话状态对象
     const stateData = {
       reasoning: analysis.stateReasoning,
-      route: analysis.route,
+      route: routeType,
     };
 
     // 构建角色与记忆元数据
@@ -330,24 +379,8 @@ export async function POST(request: NextRequest) {
       questionnaireDetected: questionnaireType || undefined,
     } as any);
 
-    // 如果 Groq 检测到危机，强制切换到危机路由
-    if (analysis.safety === 'crisis') {
-      console.log('[API] Groq detected crisis, overriding route');
-      routeType = 'crisis';
-    }
-
-    // =================================================================================
-    // 0.55 User Context Injection - 将用户昵称注入上下文，让 AI 可以自然使用
-    // =================================================================================
-    const userNickname = session?.user?.nickname;
-    if (userNickname) {
-      memoryContext += `\n\n**用户信息**：用户昵称为「${userNickname}」。你可以在合适的时机（如开场问候、鼓励语句）使用这个昵称来增加亲切感，但不要每句都用，保持自然。`;
-    }
-
     // const data = new StreamData(); // Moved up
     const traceMetadata = { sessionId, userId };
-
-    routeType = analysis.route;
 
     // =================================================================================
     // 0.7 Exercise State Detection - 检测进行中的引导练习
@@ -364,23 +397,6 @@ export async function POST(request: NextRequest) {
       console.log('[Exercise] Active exercise detected:', activeExercise.exerciseType, `step ${activeExercise.currentStep}/${activeExercise.totalSteps}`);
     }
 
-    // 后备：关键词检测危机（防止小模型漏检）
-    if (routeType !== 'crisis' && quickCrisisKeywordCheck(message)) {
-      console.log('[API] Crisis keyword detected, overriding route');
-      routeType = 'crisis';
-    }
-
-    // 移除原有硬编码的关键词强制路由逻辑，改由 Groq 分析意图
-
-
-
-    // Fix: Sticky Logic Removed
-    // Previously we forced 'assessment' if state was 'awaiting_followup'.
-    // Now we trust Groq's context-aware routing.
-    // However, if the route IS 'assessment' and we are 'awaiting_followup', that's fine.
-    // If Groq says 'support' but we are 'awaiting_followup' -> user likely changed topic -> We respect 'support'.
-
-
     // =================================================================================
     // 1. 危机处理 (Crisis Handler) - 最高优先级
     // =================================================================================
@@ -396,6 +412,8 @@ export async function POST(request: NextRequest) {
       memoryContextDurationMs: retrievalMetrics?.totalDurationMs,
       profileMemoryQueryDurationMs: retrievalMetrics?.profileQueryDurationMs,
       sessionSummaryQueryDurationMs: retrievalMetrics?.summaryQueryDurationMs,
+      routeReason: routeDecision.reason,
+      triageResolved: !!softOrchestrationResult,
     });
     console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
@@ -416,28 +434,6 @@ export async function POST(request: NextRequest) {
         state,
         emotionObj,
         analysis,
-      });
-    }
-
-    // =================================================================================
-    // 1.5 EFT Validation Logic - (The "Heart" Phase)
-    // 优先处理高情绪唤起 (非危机状态下)
-    // =================================================================================
-    if (analysis.needsValidation) {
-      return await handleValidationRoute({
-        data,
-        message,
-        history,
-        processedHistory,
-        sessionId,
-        userId,
-        traceMetadata,
-        requestStartedAt,
-        saveAssistantMessage,
-        scheduleConversationSummaryRefresh,
-        safetyData,
-        stateData,
-        adaptiveMode,
       });
     }
 

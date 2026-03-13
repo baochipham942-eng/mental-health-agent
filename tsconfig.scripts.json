@@ -13,6 +13,5 @@
       "module": "commonjs"
     }
   },
-  "include": ["scripts/**/*"]
+  "include": ["scripts/**/*", "types/**/*.d.ts"]
 }
-
