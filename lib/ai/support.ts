@@ -1,4 +1,4 @@
-import { generateText, type ChatMessage } from '@/lib/llm';
+import { generateText, type ChatMessage, type LlmProviderName } from '@/lib/llm';
 import { UI_TOOLS } from './tools';
 import { IDENTITY_PROMPT } from './prompts';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
@@ -123,6 +123,7 @@ export async function streamSupportReply(
     adaptiveMode?: AdaptiveMode;
     therapistId?: string;
     userPreferences?: string[];
+    providerOverride?: LlmProviderName;
   }
 ) {
   const finalSystemPrompt = options?.adaptiveMode
@@ -132,7 +133,7 @@ export async function streamSupportReply(
   const result = await getCounselorAgent().run({
     message: userMessage,
     history: history as ChatMessage[],
-    provider: getSupportLlmProvider(),
+    provider: options?.providerOverride || getSupportLlmProvider(),
     systemPrompt: `${finalSystemPrompt}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
     memoryContext: options?.memoryContext,
     onFinish: options?.onFinish,

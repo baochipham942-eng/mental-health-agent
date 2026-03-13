@@ -71,6 +71,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     // @deprecated: Use sessionStatus instead
     isConsulting,
     setConsulting,
+    currentModel,
   } = useChatStore();
 
   const router = useRouter();
@@ -549,18 +550,49 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
   // ★ 摘要获取逻辑
   const [summary, setSummary] = useState<any>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  // 会话结束时自动滚动到底部，展示完成卡片
+  useEffect(() => {
+    if (isSessionEnded) {
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 300);
+    }
+  }, [isSessionEnded]);
+
   useEffect(() => {
     // 只有当会话结束且有会话ID且本地无摘要时才获取
     if (isSessionEnded && internalSessionId && !summary) {
       console.log('[ChatShell] Fetching summary for ended session:', internalSessionId);
+      // 超时计时器：15 秒后若仍无摘要则显示 fallback
+      const fallbackTimer = setTimeout(() => {
+        setSummaryFailed(true);
+      }, 15000);
+
       generateSummaryForSession(internalSessionId)
         .then(data => {
+          clearTimeout(fallbackTimer);
           if (data) {
             console.log('[ChatShell] Summary fetched successfully');
             setSummary(data);
+            setTimeout(() => {
+              scrollContainerRef.current?.scrollTo({
+                top: scrollContainerRef.current.scrollHeight,
+                behavior: 'smooth',
+              });
+            }, 100);
+          } else {
+            setSummaryFailed(true);
           }
         })
-        .catch(err => console.error('[ChatShell] Failed to fetch summary:', err));
+        .catch(err => {
+          clearTimeout(fallbackTimer);
+          console.error('[ChatShell] Failed to fetch summary:', err);
+          setSummaryFailed(true);
+        });
     }
   }, [isSessionEnded, internalSessionId]);
 
@@ -654,6 +686,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
       if (!currentSessionId) {
         try {
+          setCreatingSession(true); // 先标记创建中，防止初始化 effect 在 await 期间清空消息
           const { createNewSessionAndReturnId, updateSessionTitle } = await import('@/lib/actions/chat');
           currentSessionId = await createNewSessionAndReturnId();
 
@@ -662,7 +695,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           await updateSessionTitle(currentSessionId, content).catch(console.error);
 
           sessionIdRef.current = currentSessionId;
-          setCreatingSession(true); // Mark as creating (survives remounts)
           setSessionStatus('active'); // Set status to active immediately
           setInternalSessionId(currentSessionId);
           // 防护：仅当 sessionId 有效时才更新 URL
@@ -744,6 +776,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           initialMessage: currentInitialMessage,
           meta: requestPayload.meta,
           sessionId: currentSessionId,
+          model: currentModel,
           onTextChunk: (chunk) => {
             if (chunk) {
               localAccumulatedContent += chunk;
@@ -1079,6 +1112,12 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                         </div>
                       )}
 
+                    </div>
+                  ) : summaryFailed ? (
+                    // Fallback: 生成失败或超时
+                    <div className="py-6 text-center space-y-3">
+                      <p className="text-sm text-gray-500">本次对话已安全保存</p>
+                      <p className="text-xs text-gray-400">小结生成暂时不可用，你可以开始新对话</p>
                     </div>
                   ) : (
                     // Loading State

@@ -145,6 +145,7 @@ export async function sendChatMessage(options: {
   onTextChunk?: (chunk: string) => void;
   onDataChunk?: (data: any) => void;
   sessionId?: string;
+  model?: string;
 }): Promise<{ response: ValidatedChatResponse; error: ChatApiError | null }> {
   const {
     message,
@@ -156,6 +157,7 @@ export async function sendChatMessage(options: {
     onTextChunk,
     onDataChunk,
     sessionId,
+    model,
   } = options;
   try {
     const request: ChatRequest = {
@@ -166,7 +168,8 @@ export async function sendChatMessage(options: {
       meta: meta || (initialMessage ? {
         initialMessage,
       } : undefined),
-      sessionId, // Pass sessionId
+      sessionId,
+      model,
     };
 
     const res = await fetch('/api/chat', {

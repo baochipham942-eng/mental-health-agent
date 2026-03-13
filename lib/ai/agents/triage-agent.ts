@@ -55,7 +55,8 @@ const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输出 JSON
 - 其他默认 normal。
 - route 只做粗分类；不确定时给 support。
 - 普通聊天或未表达情绪时，emotion.label 用“未表达”，score 用 0。
-- triage 很弱，保守、简短、不要过度推断。`;
+- triage 很弱，保守、简短、不要过度推断。
+- dialogueIntent 为 wrapping_up 仅当用户明确告别时使用。完成练习后的反馈（如"我完成了XX练习"）应判为 sharing，不是 wrapping_up。`;
 
 class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
     constructor() {

@@ -2,7 +2,7 @@ import type { LlmProviderName } from '@/lib/llm';
 
 function readProviderEnv(key: string, fallback: LlmProviderName = 'deepseek'): LlmProviderName {
   const value = process.env[key];
-  if (value === 'glm' || value === 'deepseek' || value === 'openrouter') {
+  if (value === 'glm' || value === 'deepseek' || value === 'openrouter' || value === 'kimi') {
     return value;
   }
   return fallback;

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/prisma';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { logInfo, logWarn } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
 import {
@@ -61,7 +62,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: ChatRequest = await request.json();
-    const { message, history = [], state, assessmentStage } = body;
+    const { message, history = [], state, assessmentStage, model: requestedModel } = body;
+
+    // 用户选择的模型 → LLM provider 名称（线程安全，不修改 process.env）
+    const providerOverride = requestedModel === 'kimi' ? 'kimi' as const
+      : requestedModel === 'openrouter' ? 'openrouter' as const
+      : undefined; // undefined = 使用 env 默认值
 
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
@@ -132,7 +138,7 @@ export async function POST(request: NextRequest) {
     const saveAssistantMessage = createAssistantMessageSaver(sessionId);
 
     // =================================================================================
-    // 0.5 Memory Retrieval + Groq Analysis (并行执行，节省 ~300ms)
+    // 0.5 Memory Retrieval + Groq Analysis + Crisis Check (全部并行，节省 ~800ms)
     // =================================================================================
     let memoryContext = '';
     let processedHistory = history;
@@ -148,6 +154,9 @@ export async function POST(request: NextRequest) {
         return null;
       })
       : Promise.resolve(null);
+
+    // Crisis check 提前启动，与 prefetch 并行执行
+    const crisisCheckPromise = quickCrisisCheck(message);
 
     const {
       orchestrationPromise,
@@ -190,18 +199,22 @@ export async function POST(request: NextRequest) {
       triageResolved: !!softOrchestrationResult,
     });
 
-    const routeDecision = await decideRouteByRules({
+    // await 预先启动的 crisis check（已与 prefetch 并行，此处几乎为 0ms）
+    const crisisCheckResult = await crisisCheckPromise;
+
+    const routeDecision = decideRouteByRules({
       message,
       state,
       assessmentStage,
       questionnaireType,
       explicitAssessmentRequest,
       activeExercise,
+      crisisCheckResult,
     });
     routeType = routeDecision.routeType;
 
-    const analysis = softOrchestrationResult?.triage.data || await buildFallbackQuickAnalysis({
-      message,
+    const analysis = softOrchestrationResult?.triage.data || buildFallbackQuickAnalysis({
+      crisisCheckResult,
     });
     let safetyAgentResult = softOrchestrationResult?.safety || {
       success: false,
@@ -319,6 +332,13 @@ export async function POST(request: NextRequest) {
     dialogueCtx.emotionTrajectory.push(analysis.emotion.score);
     if (dialogueCtx.emotionTrajectory.length > 20) {
       dialogueCtx.emotionTrajectory = dialogueCtx.emotionTrajectory.slice(-20);
+    }
+
+    // 练习完成消息（SFBT 触发）强制覆盖 intent，防止误判为 wrapping_up
+    const isSfbtMessage = /我完成了".+"练习，现在感觉：.*\(\d+分\)/.test(message);
+    if (isSfbtMessage && (analysis as any).dialogueIntent === 'wrapping_up') {
+      (analysis as any).dialogueIntent = 'sharing';
+      logInfo('sfbt-intent-override', { original: 'wrapping_up', corrected: 'sharing' });
     }
 
     // 评估状态转移
@@ -462,6 +482,7 @@ export async function POST(request: NextRequest) {
         memoryContext,
         userTherapistPref,
         userPreferences,
+        providerOverride,
       });
     }
 

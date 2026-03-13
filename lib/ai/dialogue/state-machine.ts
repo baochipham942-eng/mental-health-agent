@@ -215,11 +215,18 @@ export function evaluateTransition(
     }
 
     case 'coping': {
-      // coping → wrap_up: 用户表达满足感或 turn ≥ 10
-      if (intent === 'wrapping_up' || turn >= 11) {
+      // coping → wrap_up: 仅当用户明确告别时（turn 阈值提高到 20，避免练习完成后误触发）
+      if (intent === 'wrapping_up' && turn >= 5) {
         return {
           nextState: 'wrap_up',
-          reason: '用户表达结束意愿或对话轮次充足，进入收尾',
+          reason: '用户明确表达结束意愿，进入收尾',
+          stateChanged: true,
+        };
+      }
+      if (turn >= 20) {
+        return {
+          nextState: 'wrap_up',
+          reason: '对话轮次充足（20+），自然收尾',
           stateChanged: true,
         };
       }

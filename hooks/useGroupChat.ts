@@ -31,7 +31,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
     const [activeMentorId, setActiveMentorId] = useState<string | null>(null);
     const [currentRound, setCurrentRound] = useState(0);
     const abortRef = useRef<AbortController | null>(null);
-    // Track current streaming message to build it up
     const currentMentorMsgRef = useRef<{
         id: string;
         mentorId: string;
@@ -45,7 +44,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
     const sendMessage = useCallback(async (content: string) => {
         if (isLoading || !content.trim()) return;
 
-        // Add user message
         const userMsg: GroupMessage = {
             id: generateId(),
             role: 'user',
@@ -55,9 +53,8 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
-        // Build full message history for API
         const allMessages = [...messages, userMsg].map(m => ({
-            role: m.role,
+            role: m.role === 'moderator' || m.role === 'synthesis' ? 'assistant' as const : m.role,
             content: m.content,
             mentorId: m.mentorId,
         }));
@@ -94,9 +91,8 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
 
                 buffer += decoder.decode(value, { stream: true });
 
-                // Parse SSE events from buffer
                 const lines = buffer.split('\n');
-                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                buffer = lines.pop() || '';
 
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
@@ -116,7 +112,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                 console.error('[useGroupChat] Error:', error);
             }
         } finally {
-            // Flush any remaining partial message
             if (currentMentorMsgRef.current) {
                 flushCurrentMentorMessage();
             }
@@ -129,7 +124,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
     function handleSSEEvent(event: GroupSSEEvent) {
         switch (event.type) {
             case 'mentor_start': {
-                // Start a new mentor message
                 currentMentorMsgRef.current = {
                     id: generateId(),
                     mentorId: event.mentorId,
@@ -142,7 +136,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                 setActiveMentorId(event.mentorId);
                 setCurrentRound(event.round);
 
-                // Add empty message that we'll update
                 const newMsg: GroupMessage = {
                     id: currentMentorMsgRef.current.id,
                     role: 'assistant',
@@ -163,7 +156,6 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                 currentMentorMsgRef.current.content += event.content;
                 const msgId = currentMentorMsgRef.current.id;
                 const updatedContent = currentMentorMsgRef.current.content;
-                // Update the last message with new content
                 setMessages(prev =>
                     prev.map(m =>
                         m.id === msgId ? { ...m, content: updatedContent } : m
@@ -175,6 +167,30 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
             case 'mentor_end': {
                 flushCurrentMentorMessage();
                 setActiveMentorId(null);
+                break;
+            }
+
+            case 'moderator': {
+                const modMsg: GroupMessage = {
+                    id: generateId(),
+                    role: 'moderator',
+                    content: event.content,
+                    moderatorAction: event.action,
+                    targetMentorId: event.targetMentorId,
+                    timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, modMsg]);
+                break;
+            }
+
+            case 'synthesis': {
+                const synMsg: GroupMessage = {
+                    id: generateId(),
+                    role: 'synthesis',
+                    content: event.content,
+                    timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, synMsg]);
                 break;
             }
 

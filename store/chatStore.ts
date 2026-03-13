@@ -7,6 +7,15 @@ export interface SkillProgress {
   completedSteps: number[];
 }
 
+// 可用模型列表
+export type ChatModelId = 'deepseek' | 'kimi' | 'openrouter';
+
+export const CHAT_MODELS: Record<ChatModelId, { label: string; modelName: string }> = {
+  deepseek: { label: 'DeepSeek R3', modelName: 'deepseek-chat' },
+  kimi: { label: 'Kimi K2.5', modelName: 'kimi-k2.5' },
+  openrouter: { label: 'GPT 5.4', modelName: 'openai/gpt-5.4' },
+};
+
 interface ChatStore {
   // 消息列表
   messages: Message[];
@@ -82,6 +91,10 @@ interface ChatStore {
   // 当前会话 ID（持久化跨组件状态）
   currentSessionId: string | undefined;
   setCurrentSessionId: (id: string | undefined) => void;
+
+  // 当前模型选择
+  currentModel: ChatModelId;
+  setCurrentModel: (model: ChatModelId) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -207,6 +220,10 @@ export const useChatStore = create<ChatStore>()(
       setCurrentSessionId: (id: string | undefined) =>
         set({ currentSessionId: id }),
 
+      currentModel: 'deepseek' as ChatModelId,
+      setCurrentModel: (model: ChatModelId) =>
+        set({ currentModel: model }),
+
       updateSkillProgress: (cardId: string, progress: SkillProgress) =>
         set((state: ChatStore) => ({
           skillProgress: {
@@ -245,9 +262,10 @@ export const useChatStore = create<ChatStore>()(
     {
       name: 'chat-storage',
       storage: createJSONStorage(() => localStorage),
-      // 仅持久化技能进度，不持久化消息（消息从服务端加载，避免会话污染）
+      // 持久化技能进度和模型选择
       partialize: (state: ChatStore) => ({
         skillProgress: state.skillProgress,
+        currentModel: state.currentModel,
       }),
     }
   )

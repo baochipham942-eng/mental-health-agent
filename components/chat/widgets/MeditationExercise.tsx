@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AmbientSound, playCompletionSound } from '@/lib/utils/ambient-sound';
 
@@ -58,38 +58,35 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
         if (onStart) onStart();
     };
 
-    const handleStop = () => {
+    const onCompleteRef = useRef(onComplete);
+    onCompleteRef.current = onComplete;
+
+    const handleStop = useCallback(() => {
         setIsRunning(false);
-        // 播放结束提示音，让闭眼的用户知道练习结束
         playCompletionSound();
-        if (onComplete && startTimeRef.current) {
-            const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
-            onComplete(duration);
+        if (onCompleteRef.current && startTimeRef.current) {
+            onCompleteRef.current(Math.round((Date.now() - startTimeRef.current) / 1000));
         }
-    };
+    }, []);
 
     // 将控制按钮注入到 Header
     useEffect(() => {
         if (!setHeaderControl) return;
 
-        const isComplete = currentStep >= steps.length - 1 && !isRunning;
+        if (!isRunning) {
+            setHeaderControl(null);
+            return;
+        }
 
-        const controls = (
+        setHeaderControl(
             <button
-                onClick={isRunning ? handleStop : handleStart}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${isRunning
-                    ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    : isComplete
-                        ? 'bg-green-500 text-white hover:bg-green-600'
-                        : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
+                onClick={handleStop}
+                className="px-4 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-full text-xs font-semibold hover:bg-gray-50 hover:text-violet-600 transition-colors"
             >
-                {isRunning ? '停止冥想' : isComplete ? '完成练习' : '开始冥想'}
+                结束练习
             </button>
         );
-
-        setHeaderControl(controls);
-    }, [isRunning, currentStep, setHeaderControl]);
+    }, [isRunning, setHeaderControl, handleStop]);
 
     // 计时器和步骤切换
     useEffect(() => {

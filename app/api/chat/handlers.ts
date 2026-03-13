@@ -1,6 +1,7 @@
 import type { StreamData } from 'ai';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
+import type { LlmProviderName } from '@/lib/llm';
 import { streamAssessmentReply } from '@/lib/ai/assessment';
 import { streamAssessmentConclusion } from '@/lib/ai/assessment/conclusion';
 import { generateSFBTQuery } from '@/lib/ai/sfbt';
@@ -222,6 +223,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
   memoryContext: string;
   userTherapistPref?: { preferredTherapist: string | null } | null;
   userPreferences: string[];
+  providerOverride?: LlmProviderName;
 }): Promise<Response> {
   const {
     data,
@@ -244,6 +246,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     userTherapistPref,
     userPreferences,
     history,
+    providerOverride,
   } = params;
 
   if (process.env.MOCK_SUPPORT_REPLY === '1') {
@@ -343,7 +346,8 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     systemInstructionInjection: combinedInjection || undefined,
     adaptiveMode,
     therapistId: userTherapistPref?.preferredTherapist || undefined,
-    userPreferences
+    userPreferences,
+    providerOverride,
   });
 
   return withStreamMetrics(result.toDataStreamResponse({ data }), {

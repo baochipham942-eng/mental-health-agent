@@ -35,6 +35,8 @@ function parseThoughtTags(content: string): { displayContent: string; thoughtCon
   // 移除所有 thought 标签及其内容
   const displayContent = content
     .replace(thoughtRegex, '')
+    // 清洗 DeepSeek 泄漏的工具调用文本（如 "to=recommend_skill_card diýen here ..."）
+    .replace(/to=(?:recommend_skill_card|recommend_lab_exploration)\b[^\u4e00-\u9fff]*/gi, '')
     .replace(/^\s*\n/gm, '') // 移除多余空行
     .trim();
 

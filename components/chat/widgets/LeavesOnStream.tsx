@@ -1,247 +1,347 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LeavesOnStreamProps {
-    onComplete: (duration: number) => void;
-    setHeaderControl: (node: React.ReactNode) => void;
-    onStart: () => void;
+  onComplete: (duration: number) => void;
+  setHeaderControl: (node: React.ReactNode) => void;
+  onStart: () => void;
 }
 
-interface Leaf {
-    id: string;
-    text: string;
-    x: number; // Horizontal position (%)
-    delay: number;
+interface Balloon {
+  id: string;
+  text: string;
+  x: number;      // 水平位置 %
+  color: number;   // 颜色索引
+  size: number;    // 大小系数 0.85-1.15
+  swayDir: number; // 摆动方向 1 or -1
 }
+
+// 气球配色 — 柔和马卡龙色系
+const BALLOON_COLORS = [
+  { body: 'from-rose-300 to-pink-400',    highlight: 'bg-white/40', string: 'border-pink-300/60' },
+  { body: 'from-sky-300 to-blue-400',     highlight: 'bg-white/40', string: 'border-sky-300/60' },
+  { body: 'from-violet-300 to-purple-400', highlight: 'bg-white/40', string: 'border-violet-300/60' },
+  { body: 'from-amber-200 to-orange-300',  highlight: 'bg-white/50', string: 'border-amber-300/60' },
+  { body: 'from-emerald-300 to-teal-400',  highlight: 'bg-white/40', string: 'border-emerald-300/60' },
+  { body: 'from-fuchsia-300 to-pink-400',  highlight: 'bg-white/40', string: 'border-fuchsia-300/60' },
+];
 
 export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: LeavesOnStreamProps) {
-    const [thoughts, setThoughts] = useState<Leaf[]>([]);
-    const [inputTitle, setInputTitle] = useState('');
-    const [isStarted, setIsStarted] = useState(false);
-    const [showGuide, setShowGuide] = useState(true);
+  const [balloons, setBalloons] = useState<Balloon[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isStarted, setIsStarted] = useState(false);
+  const [releasedCount, setReleasedCount] = useState(0);
+  const startTimeRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const colorIdx = useRef(0);
 
-    // Initialize header controls
-    useEffect(() => {
-        if (isStarted) {
-            setHeaderControl(
-                <button
-                    onClick={() => onComplete(0)} // No standardized duration for this
-                    className="px-4 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-full text-xs font-medium hover:bg-gray-50 hover:text-green-600 transition-colors"
-                >
-                    结束练习
-                </button>
-            );
-        } else {
-            setHeaderControl(null);
-        }
-    }, [isStarted, setHeaderControl, onComplete]);
-
-    const handleStart = () => {
-        setIsStarted(true);
-        setShowGuide(false);
-        onStart();
-    };
-
-    const addThought = () => {
-        if (!inputTitle.trim()) return;
-
-        const newLeaf: Leaf = {
-            id: Date.now().toString(),
-            text: inputTitle,
-            x: Math.random() * 60 + 20, // 20% to 80% screen width
-            delay: 0
-        };
-
-        setThoughts(prev => [...prev, newLeaf]);
-        setInputTitle('');
-    };
-
-    // Remove leaf after animation completes (approx 8s)
-    const removeLeaf = (id: string) => {
-        setThoughts(prev => prev.filter(t => t.id !== id));
-    };
-
-    if (!isStarted) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[360px] px-4 text-center select-none transition-all">
-                <div className="mb-6 relative">
-                    <div className="absolute inset-0 bg-green-100 rounded-full blur-xl opacity-20 animate-pulse"></div>
-                    <span className="text-6xl relative z-10 drop-shadow-sm">🍃</span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3 tracking-tight">想法脱钩练习</h3>
-                <p className="text-slate-600 text-sm max-w-[280px] mb-8 leading-relaxed font-medium">
-                    想象你正坐在一条缓缓流淌的小溪边。<br />
-                    对于头脑中出现的每一个想法 —— <br />
-                    无论好坏，都把它放在树叶上，<br />
-                    看着它顺流而下。
-                </p>
-                <button
-                    onClick={handleStart}
-                    className="px-8 py-3 bg-[#4caf50] text-white rounded-full text-[15px] font-bold shadow-lg shadow-green-500/20 hover:bg-[#43a047] hover:shadow-green-500/30 hover:scale-105 active:scale-95 transition-all"
-                >
-                    开始练习
-                </button>
-            </div>
-        );
+  useEffect(() => {
+    if (isStarted) {
+      setHeaderControl(
+        <button
+          onClick={() => onComplete(Math.round((Date.now() - startTimeRef.current) / 1000))}
+          className="px-4 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-full text-xs font-medium hover:bg-gray-50 hover:text-violet-600 transition-colors"
+        >
+          结束练习
+        </button>
+      );
+    } else {
+      setHeaderControl(null);
     }
+  }, [isStarted, setHeaderControl, onComplete]);
 
+  const handleStart = () => {
+    setIsStarted(true);
+    startTimeRef.current = Date.now();
+    onStart();
+    setTimeout(() => inputRef.current?.focus(), 300);
+  };
+
+  const addBalloon = useCallback(() => {
+    const text = inputText.trim();
+    if (!text) return;
+
+    const balloon: Balloon = {
+      id: `${Date.now()}-${Math.random()}`,
+      text,
+      x: 25 + Math.random() * 50, // 25%-75% 水平范围
+      color: colorIdx.current % BALLOON_COLORS.length,
+      size: 0.9 + Math.random() * 0.2,
+      swayDir: Math.random() > 0.5 ? 1 : -1,
+    };
+    colorIdx.current++;
+
+    setBalloons(prev => [...prev, balloon]);
+    setReleasedCount(prev => prev + 1);
+    setInputText('');
+    inputRef.current?.focus();
+  }, [inputText]);
+
+  const removeBalloon = useCallback((id: string) => {
+    setBalloons(prev => prev.filter(b => b.id !== id));
+  }, []);
+
+  // ========================
+  // 引导页
+  // ========================
+  if (!isStarted) {
     return (
-        <div className="relative h-[360px] rounded-xl overflow-hidden mb-2 border border-teal-100 shadow-inner group select-none bg-[#e0f7fa]">
-            {/* Exquisite Water Background */}
-            <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
-                {/* Base Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-teal-50 to-blue-50"></div>
+      <div className="relative flex flex-col items-center justify-center h-[380px] px-6 text-center select-none overflow-hidden">
+        {/* 天空背景 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-orange-50/30" />
+        {/* 装饰云 */}
+        <div className="absolute top-8 left-[10%] w-20 h-6 bg-white/60 rounded-full blur-sm" />
+        <div className="absolute top-16 right-[15%] w-16 h-5 bg-white/40 rounded-full blur-sm" />
+        <div className="absolute top-28 left-[30%] w-12 h-4 bg-white/30 rounded-full blur-sm" />
 
-                {/* Layer 1: Slow Deep Current (Left to Right) */}
-                <div className="absolute bottom-[-20%] left-0 w-[200%] h-[150%] flex opacity-40 animate-[wave-flow_18s_linear_infinite] will-change-transform">
-                    {/* Render identical SVG twice for seamless loop */}
-                    <div className="w-1/2 h-full">
-                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                            <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 V320 H0 Z"></path>
-                        </svg>
-                    </div>
-                    <div className="w-1/2 h-full">
-                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                            <path fill="#b2ebf2" d="M0,192 C480,250 960,150 1440,192 V320 H0 Z"></path>
-                        </svg>
-                    </div>
-                </div>
+        <div className="relative z-10 flex flex-col items-center">
+          {/* 气球插画 */}
+          <div className="relative mb-6 flex items-end gap-2">
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <MiniBallon color={BALLOON_COLORS[0]} size={40} />
+            </motion.div>
+            <motion.div
+              animate={{ y: [0, -14, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+            >
+              <MiniBallon color={BALLOON_COLORS[1]} size={52} />
+            </motion.div>
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+            >
+              <MiniBallon color={BALLOON_COLORS[2]} size={36} />
+            </motion.div>
+          </div>
 
-                {/* Layer 2: Surface Ripples (Left to Right, Faster) */}
-                <div className="absolute bottom-[-30%] left-0 w-[200%] h-[150%] flex opacity-30 animate-[wave-flow_13s_linear_infinite] will-change-transform">
-                    <div className="w-1/2 h-full">
-                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                            <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 V320 H0 Z"></path>
-                        </svg>
-                    </div>
-                    <div className="w-1/2 h-full">
-                        <svg className="w-full h-full" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                            <path fill="#4dd0e1" d="M0,128 C360,160 1080,96 1440,128 V320 H0 Z"></path>
-                        </svg>
-                    </div>
-                </div>
+          <h3 className="text-lg font-bold text-slate-700 mb-3">放飞念头</h3>
+          <p className="text-[13px] text-slate-400 max-w-[240px] leading-[1.8] mb-8">
+            把脑海中的念头写在气球上<br />
+            轻轻松手，看它飘向远方<br />
+            你不需要抓住每一个想法
+          </p>
 
-                {/* Layer 3: Sun Glimmer Overlay */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.8),transparent_70%)] opacity-60 pointer-events-none mix-blend-soft-light"></div>
-            </div>
-
-            <style jsx>{`
-                @keyframes wave-flow {
-                    0% { transform: translate3d(-50%, 0, 0); } 
-                    100% { transform: translate3d(0, 0, 0); }
-                }
-            `}</style>
-
-            <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                <AnimatePresence>
-                    {thoughts.map(leaf => (
-                        <LeafNode key={leaf.id} leaf={leaf} onComplete={() => removeLeaf(leaf.id)} />
-                    ))}
-                </AnimatePresence>
-            </div>
-
-            {/* Input Area */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 z-30 flex justify-center pb-6">
-                <div className="bg-white/80 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(31,38,135,0.1)] border border-white/60 p-1.5 flex gap-2 w-full max-w-sm transition-all hover:bg-white/90 hover:shadow-lg hover:scale-[1.01]">
-                    <input
-                        type="text"
-                        value={inputTitle}
-                        onChange={e => setInputTitle(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addThought()}
-                        placeholder="输入此时的一个念头..."
-                        className="flex-1 px-4 py-2 rounded-full bg-transparent text-gray-700 placeholder:text-gray-400 focus:outline-none text-sm font-medium"
-                    />
-                    <button
-                        onClick={addThought}
-                        disabled={!inputTitle.trim()}
-                        className="px-5 py-2 bg-gradient-to-r from-teal-400 to-emerald-500 hover:from-teal-500 hover:to-emerald-600 active:scale-95 text-white rounded-full shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold tracking-wide"
-                    >
-                        放入
-                    </button>
-                </div>
-            </div>
-
-            {thoughts.length === 0 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 pb-20 opacity-30">
-                    <span className="text-8xl text-teal-800/10 mb-2 font-serif italic mix-blend-overlay">Flow</span>
-                    <span className="text-teal-900/40 text-xs tracking-[0.3em]">让念头随水流去</span>
-                </div>
-            )}
+          <button
+            onClick={handleStart}
+            className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-sky-400 to-violet-400 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
+          >
+            开始练习
+          </button>
         </div>
+      </div>
     );
+  }
+
+  // ========================
+  // 练习主界面
+  // ========================
+  return (
+    <div className="relative h-[420px] rounded-2xl overflow-hidden select-none">
+      {/* 天空 */}
+      <SkyBackground />
+
+      {/* 气球层 */}
+      <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+        <AnimatePresence>
+          {balloons.map(b => (
+            <FlyingBalloon key={b.id} balloon={b} onDone={() => removeBalloon(b.id)} />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* 空状态 */}
+      {balloons.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-5 pointer-events-none pb-20">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-center"
+          >
+            <p className="text-white/50 text-sm font-medium">写下念头，放飞它</p>
+            <p className="text-white/30 text-xs mt-1.5">让它随风飘走…</p>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 计数 */}
+      {releasedCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute top-3 left-3 z-20"
+        >
+          <div className="bg-white/30 backdrop-blur-md rounded-full px-3 py-1 text-white/90 text-[11px] font-medium border border-white/20">
+            🎈 已放飞 {releasedCount} 个念头
+          </div>
+        </motion.div>
+      )}
+
+      {/* 输入区 */}
+      <div className="absolute bottom-0 left-0 right-0 z-30 p-4 pb-5">
+        <div className="relative max-w-sm mx-auto">
+          <div className="bg-white/85 backdrop-blur-xl rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-white/90 p-1.5 flex gap-1.5 transition-all focus-within:shadow-[0_4px_30px_rgba(0,0,0,0.12)] focus-within:bg-white/95">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  addBalloon();
+                }
+              }}
+              placeholder="写下一个念头…"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-transparent text-slate-600 placeholder:text-slate-300 focus:outline-none text-[13px]"
+              autoComplete="off"
+            />
+            <button
+              onClick={addBalloon}
+              disabled={!inputText.trim()}
+              className="px-4 py-2.5 bg-gradient-to-r from-sky-400 to-violet-400 text-white rounded-xl text-[13px] font-semibold shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              放飞
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function LeafNode({ leaf, onComplete }: { leaf: Leaf, onComplete: () => void }) {
-    // Flow speed - slightly increased as requested, synchronized with water
-    const flowDuration = 14 + Math.random() * 4;
+// ========================
+// 天空背景
+// ========================
+function SkyBackground() {
+  return (
+    <div className="absolute inset-0 z-0">
+      {/* 天空渐变 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-indigo-400 via-sky-300 to-sky-200" />
 
-    // Y-position: On the "first" stream layer (upper middle)
-    const randomYStart = 100 + Math.random() * 30;
-
-    return (
+      {/* 云朵 */}
+      {[
+        { top: '8%',  w: 120, h: 32, opacity: 0.6, dur: 25, startX: '-10%' },
+        { top: '18%', w: 80,  h: 24, opacity: 0.4, dur: 30, startX: '20%' },
+        { top: '30%', w: 100, h: 28, opacity: 0.5, dur: 22, startX: '-5%' },
+        { top: '12%', w: 60,  h: 18, opacity: 0.3, dur: 28, startX: '60%' },
+        { top: '42%', w: 70,  h: 20, opacity: 0.25, dur: 35, startX: '40%' },
+      ].map((cloud, i) => (
         <motion.div
-            initial={{
-                x: -120,
-                y: randomYStart,
-                opacity: 0,
-                scale: 0.9,
-                rotate: -5
-            }}
-            animate={{
-                x: ["-25%", "145%"], // Move further to ensure complete exit
-                y: randomYStart,
-                opacity: [0, 1, 1, 1, 1], // Stay fully opaque until reaching the edge
-                scale: 1,
-                rotate: 5
-            }}
-            transition={{
-                duration: flowDuration,
-                ease: "linear",
-                opacity: { duration: flowDuration, times: [0, 0.05, 0.9, 0.95, 1] }, // Fade in early, stay until the very end
-                rotate: { duration: flowDuration, ease: "easeInOut" }
-            }}
-            onAnimationComplete={onComplete}
-            className="absolute top-0 left-0"
+          key={i}
+          className="absolute rounded-full bg-white"
+          style={{
+            top: cloud.top,
+            width: cloud.w,
+            height: cloud.h,
+            opacity: cloud.opacity,
+            filter: 'blur(6px)',
+            left: cloud.startX,
+          }}
+          animate={{ x: ['0%', '120%'] }}
+          transition={{
+            duration: cloud.dur,
+            repeat: Infinity,
+            ease: 'linear',
+            delay: i * 3,
+          }}
+        />
+      ))}
+
+      {/* 阳光光晕 */}
+      <div className="absolute top-[-20%] right-[-10%] w-60 h-60 bg-amber-100/20 rounded-full blur-3xl" />
+
+      {/* 底部地平线柔化 */}
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-sky-100/40 to-transparent" />
+    </div>
+  );
+}
+
+// ========================
+// 引导页小气球
+// ========================
+function MiniBallon({ color, size }: { color: typeof BALLOON_COLORS[0]; size: number }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className={`rounded-full bg-gradient-to-br ${color.body} shadow-lg relative`}
+        style={{ width: size, height: size * 1.15 }}
+      >
+        {/* 高光 */}
+        <div className={`absolute top-[15%] left-[20%] w-[30%] h-[25%] ${color.highlight} rounded-full blur-[2px]`} />
+        {/* 底部尖角 */}
+        <div className={`absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-2 h-2 bg-gradient-to-b ${color.body} rotate-45`} />
+      </div>
+      {/* 线 */}
+      <div className={`w-0 h-6 border-l border-dashed ${color.string}`} />
+    </div>
+  );
+}
+
+// ========================
+// 飘飞气球
+// ========================
+function FlyingBalloon({ balloon, onDone }: { balloon: Balloon; onDone: () => void }) {
+  const color = BALLOON_COLORS[balloon.color];
+  const baseW = balloon.size * 78;
+  const baseH = baseW * 1.18;
+  const flyDuration = 20 + Math.random() * 6; // 20-26s
+  const swayAmount = 30 * balloon.swayDir;
+
+  return (
+    <motion.div
+      className="absolute z-10"
+      style={{ left: `${balloon.x}%`, bottom: 70, transform: 'translateX(-50%)' }}
+      initial={{ y: 0, opacity: 0, scale: 0.2 }}
+      animate={{
+        y: [0, -60, -160, -280, -450],
+        opacity: [0, 1, 1, 1, 0],
+        scale: [0.2, 1.05, 1, 0.92, 0.65],
+        x: [0, swayAmount * 0.4, -swayAmount * 0.3, swayAmount * 0.35, 0],
+      }}
+      transition={{
+        y: { duration: flyDuration, times: [0, 0.06, 0.3, 0.65, 1], ease: [0.2, 0, 0.6, 1] },
+        opacity: { duration: flyDuration, times: [0, 0.05, 0.35, 0.9, 1] },
+        scale: { duration: flyDuration, times: [0, 0.06, 0.15, 0.75, 1] },
+        x: { duration: flyDuration, ease: 'easeInOut' },
+      }}
+      onAnimationComplete={onDone}
+    >
+      {/* 线 */}
+      <motion.div
+        className={`absolute top-full left-1/2 -translate-x-1/2 w-0 border-l border-dashed ${color.string} h-8`}
+        animate={{ rotate: [-2, 2, -2] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      {/* 气球主体 */}
+      <div
+        className="relative"
+        style={{ width: baseW, height: baseH }}
+      >
+        {/* 气球形状 */}
+        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${color.body} shadow-lg`}
+          style={{ borderRadius: '50% 50% 50% 50% / 45% 45% 55% 55%' }}
         >
-            {/* No bobbing wrapper - direct leaf rendering */}
-            <div className="relative w-32 h-20 flex items-center justify-center">
-                {/* Leaf SVG: High Fidelity */}
-                <svg viewBox="0 0 120 60" className="absolute w-full h-full" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,50,30,0.15))' }}>
-                    <defs>
-                        <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="50%">
-                            <stop offset="0%" stopColor="#81c784" />
-                            <stop offset="100%" stopColor="#43a047" />
-                        </linearGradient>
-                        <linearGradient id="leafShine" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                            <stop offset="100%" stopColor="transparent" />
-                        </linearGradient>
-                    </defs>
+          {/* 高光 */}
+          <div className={`absolute top-[12%] left-[18%] w-[35%] h-[28%] ${color.highlight} rounded-full blur-[3px]`} />
 
-                    {/* Main Body */}
-                    <path d="M5,30 Q35,-5 65,5 Q95,15 115,30 Q95,45 65,55 Q35,65 5,30 Z" fill="url(#leafGradient)" />
+          {/* 底部收口 */}
+          <div className={`absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-3 h-3 bg-gradient-to-b ${color.body} rotate-45 rounded-sm`} />
+        </div>
 
-                    {/* Upper Shine */}
-                    <path d="M10,28 Q35,0 65,10" stroke="url(#leafShine)" strokeWidth="2" fill="none" opacity="0.6" />
-
-                    {/* Veins - Delicate White */}
-                    <path d="M5,30 C35,30 85,30 115,30" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
-                    <g stroke="rgba(255,255,255,0.2)" strokeWidth="0.5">
-                        <path d="M35,30 L45,15" /> <path d="M35,30 L45,45" />
-                        <path d="M65,30 L75,15" /> <path d="M65,30 L75,45" />
-                        <path d="M90,30 L98,20" /> <path d="M90,30 L98,40" />
-                    </g>
-                </svg>
-
-                {/* Text - Centered */}
-                <div className="relative z-10 w-24 px-1 text-center flex items-center justify-center">
-                    <span className="text-[11px] font-bold text-white tracking-wide drop-shadow-md select-none line-clamp-1">
-                        {leaf.text}
-                    </span>
-                </div>
-            </div>
-        </motion.div>
-    )
+        {/* 文字 */}
+        <div className="absolute inset-0 flex items-center justify-center p-2">
+          <span className="text-[12px] font-semibold text-white/90 text-center leading-tight line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)] max-w-[60px]">
+            {balloon.text}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
 }

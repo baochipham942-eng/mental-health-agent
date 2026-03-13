@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Input, Message } from '@arco-design/web-react';
+import { Button, Input } from '@arco-design/web-react';
 import { IconSend, IconClose, IconUser } from '@arco-design/web-react/icon';
 import { getMentor } from '@/lib/ai/mentors/personas';
 import { useGroupChat } from '@/hooks/useGroupChat';
@@ -56,7 +56,6 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
         activeMentorId,
         currentRound,
         stop,
-        reset,
     } = useGroupChat({ mentorIds, mode, topic });
 
     useEffect(() => {
@@ -91,7 +90,6 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
     };
 
     const handleClose = () => {
-        // 触发后台提取
         if (messages.length >= 2) {
             const userMsgs = messages.filter(m => m.role === 'user');
             if (userMsgs.length > 0) {
@@ -100,10 +98,12 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         messages: messages.map(m => ({
-                            role: m.role,
+                            role: m.role === 'moderator' || m.role === 'synthesis' ? 'assistant' : m.role,
                             content: m.mentorName
                                 ? `[${m.mentorName}]: ${m.content}`
-                                : m.content,
+                                : m.role === 'moderator'
+                                    ? `[主持人]: ${m.content}`
+                                    : m.content,
                         })),
                         contextType: 'group',
                         contextId: mentorIds.join(','),
@@ -115,18 +115,16 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
         onClose();
     };
 
-    // 获取参与大师信息
     const mentorsInfo = mentorIds
         .map(id => getMentor(id))
         .filter(Boolean);
 
     // 判断是否需要显示轮次分隔线
     const shouldShowRoundSeparator = (msg: GroupMessage, index: number) => {
-        if (msg.role === 'user' || !msg.round) return false;
+        if (msg.role === 'user' || msg.role === 'moderator' || msg.role === 'synthesis' || !msg.round) return false;
         const prevMsg = messages[index - 1];
         if (!prevMsg) return false;
-        // 如果上一条是用户消息，或者轮次变了
-        if (prevMsg.role === 'user') return false; // 用户消息后面自然是新轮次开头
+        if (prevMsg.role === 'user') return false;
         if (prevMsg.round && msg.round > prevMsg.round) return true;
         return false;
     };
@@ -199,7 +197,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                 </div>
                             )}
 
-                            {/* 消息气泡 */}
+                            {/* 消息渲染 */}
                             {msg.role === 'user' ? (
                                 <div className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
                                     <div className="flex-shrink-0 w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center border border-indigo-600 shadow-sm">
@@ -209,6 +207,10 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                         {msg.content}
                                     </div>
                                 </div>
+                            ) : msg.role === 'moderator' ? (
+                                <ModeratorBubble msg={msg} />
+                            ) : msg.role === 'synthesis' ? (
+                                <SynthesisBubble msg={msg} />
                             ) : (
                                 <MentorMessageBubble
                                     msg={msg}
@@ -222,11 +224,23 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                     {isLoading && activeMentorId && (
                         <ActiveSpeakerIndicator mentorId={activeMentorId} />
                     )}
+
+                    {/* 加载中但没有活跃大师（可能是 Moderator 在思考）*/}
+                    {isLoading && !activeMentorId && messages.length > 0 && (
+                        <div className="flex items-center gap-2 justify-center text-xs text-gray-400 py-2">
+                            <span>🎭</span>
+                            <span>主持人正在组织讨论</span>
+                            <span className="flex gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Input + Quick Actions */}
                 <div className="p-4 bg-white border-t border-gray-100">
-                    {/* 快捷操作 */}
                     {!isLoading && messages.length > 0 && (
                         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
                             <button
@@ -295,17 +309,56 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 }
 
 /**
+ * 主持人消息气泡
+ */
+function ModeratorBubble({ msg }: { msg: GroupMessage }) {
+    const actionIcon = {
+        opening: '🎬',
+        point: '👉',
+        transition: '🔄',
+        synthesize: '📋',
+    }[msg.moderatorAction || 'opening'];
+
+    return (
+        <div className="flex justify-center py-1">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 max-w-[85%]">
+                <span className="text-sm flex-shrink-0">{actionIcon}</span>
+                <span className="text-sm text-violet-700 font-medium leading-snug">
+                    {msg.content}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * 总结消息气泡
+ */
+function SynthesisBubble({ msg }: { msg: GroupMessage }) {
+    return (
+        <div className="mx-auto max-w-[90%] mt-4">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📜</span>
+                    <span className="text-sm font-bold text-amber-800">圆桌总结</span>
+                </div>
+                <div className="prose prose-sm max-w-none text-gray-800 prose-strong:text-amber-900 prose-p:my-1.5">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
  * 大师消息气泡组件
  */
 function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStreaming: boolean }) {
     const bubbleColor = bubbleColorMap[msg.mentorColor || 'gray'] || 'bg-gray-50 border-gray-200';
     const nameColor = nameColorMap[msg.mentorColor || 'gray'] || 'text-gray-700';
 
-    // 清理大师回复中可能出现的 "[大师名]: " 前缀（AI 有时违反指令加前缀）
-    // 同时转义剩余的 markdown 链接语法 [text](url) 中的裸方括号
     const cleanContent = (content: string) => {
         if (!content) return '';
-        // 移除开头的 [emoji 大师名]: 前缀
         return content.replace(/^\[.*?\]:\s*/, '');
     };
 
@@ -313,13 +366,11 @@ function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStream
 
     return (
         <div className="flex gap-3 max-w-[88%]">
-            {/* 大师头像 */}
             <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center border border-gray-200 shadow-sm">
                 <span className="text-lg">{msg.mentorAvatar || '🤔'}</span>
             </div>
 
             <div className="flex-1 min-w-0">
-                {/* 大师名字标签 */}
                 <div className={cn("text-xs font-semibold mb-1", nameColor)}>
                     {msg.mentorName}
                     {isStreaming && (
@@ -329,7 +380,6 @@ function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStream
                     )}
                 </div>
 
-                {/* 消息内容 */}
                 <div className={cn(
                     "px-4 py-3 rounded-2xl rounded-tl-sm text-[15px] leading-relaxed shadow-sm border",
                     bubbleColor

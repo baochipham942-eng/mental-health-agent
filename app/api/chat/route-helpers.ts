@@ -9,7 +9,6 @@ import {
   sessionSummaryV2Writer,
 } from '@/lib/memory';
 import { SKILL_CARDS, SkillType } from '@/lib/ai/skills';
-import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { prisma } from '@/lib/db/prisma';
 import type { QuestionnaireType } from '@/lib/ai/assessment/questionnaire';
 import type { QuickAnalysis } from '@/lib/ai/groq';
@@ -220,15 +219,16 @@ export function detectExplicitAssessmentRequest(message: string): boolean {
   ].some((pattern) => pattern.test(msg));
 }
 
-export async function decideRouteByRules(params: {
+export function decideRouteByRules(params: {
   message: string;
   state?: ChatState;
   assessmentStage?: AssessmentStage;
   questionnaireType?: QuestionnaireType | null;
   explicitAssessmentRequest?: boolean;
   activeExercise?: { exerciseType?: string } | null;
-}): Promise<{ routeType: RouteType; reason: string }> {
-  const { message, state, assessmentStage, questionnaireType, explicitAssessmentRequest, activeExercise } = params;
+  crisisCheckResult?: boolean;
+}): { routeType: RouteType; reason: string } {
+  const { state, assessmentStage, questionnaireType, explicitAssessmentRequest, activeExercise, crisisCheckResult } = params;
 
   if (activeExercise?.exerciseType) {
     return { routeType: 'support', reason: 'active_exercise' };
@@ -238,8 +238,8 @@ export async function decideRouteByRules(params: {
     return { routeType: 'crisis', reason: 'crisis_state' };
   }
 
-  // Few-shot 语义判断替代关键词匹配（~200ms）
-  if (await quickCrisisCheck(message)) {
+  // crisis check 已在 prefetch 阶段并行完成
+  if (crisisCheckResult) {
     return { routeType: 'crisis', reason: 'crisis_few_shot' };
   }
 
@@ -258,10 +258,10 @@ export async function decideRouteByRules(params: {
   return { routeType: 'support', reason: 'main_model_default' };
 }
 
-export async function buildFallbackQuickAnalysis(params: {
-  message: string;
-}): Promise<QuickAnalysis> {
-  const crisis = await quickCrisisCheck(params.message);
+export function buildFallbackQuickAnalysis(params: {
+  crisisCheckResult: boolean;
+}): QuickAnalysis {
+  const crisis = params.crisisCheckResult;
 
   return {
     safety: crisis ? 'crisis' : 'normal',

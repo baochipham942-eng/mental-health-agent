@@ -5,6 +5,7 @@ import { Button, Dropdown, Menu, Drawer } from '@arco-design/web-react';
 import { IconSend, IconLoading, IconApps } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
+import { useChatStore, CHAT_MODELS, type ChatModelId } from '@/store/chatStore';
 
 interface ChatInputProps {
   value: string;
@@ -29,6 +30,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   // 自适应高度：1-6行，超出内部滚动
   // 修复：避免设置 height=auto 导致的视觉跳变
@@ -178,16 +180,19 @@ export function ChatInput({
         <div className="hidden md:block">
           <Dropdown
             position="tl"
+            trigger="click"
+            popupVisible={desktopMenuOpen}
+            onVisibleChange={setDesktopMenuOpen}
             triggerProps={{
               popupStyle: { zIndex: 2000 },
             }}
             droplist={
-              <Menu onClickMenuItem={(key) => onSend(`我想试试${key}`)}>
+              <Menu onClickMenuItem={(key) => { onSend(`我想试试${key}`); setDesktopMenuOpen(false); }}>
                 <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (缓解焦虑)</Menu.Item>
                 <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
                 <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
                 <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
-                <Menu.Item key="溪流落叶">🍃 溪流落叶 (改善纠结)</Menu.Item>
+                <Menu.Item key="溪流落叶">🎈 放飞念头 (改善纠结)</Menu.Item>
                 <Menu.Item key="认知重构">🧠 认知重构 (转换视角)</Menu.Item>
                 <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
                 <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
@@ -237,7 +242,7 @@ export function ChatInput({
                 { key: "正念冥想", emoji: "🧘", label: "正念冥想", gradient: "from-purple-50 to-purple-100" },
                 { key: "空椅子", emoji: "🪑", label: "空椅子", gradient: "from-amber-50 to-amber-100" },
                 { key: "着陆技术", emoji: "🦶", label: "五感着陆", gradient: "from-teal-50 to-teal-100" },
-                { key: "溪流落叶", emoji: "🍃", label: "溪流落叶", gradient: "from-emerald-50 to-emerald-100" },
+                { key: "溪流落叶", emoji: "🎈", label: "放飞念头", gradient: "from-sky-50 to-violet-100" },
                 { key: "认知重构", emoji: "🧠", label: "认知重构", gradient: "from-indigo-50 to-indigo-100" },
                 { key: "行为激活", emoji: "⚡️", label: "行为激活", gradient: "from-orange-50 to-orange-100" },
                 { key: "情绪记录", emoji: "🌡️", label: "情绪记录", gradient: "from-rose-50 to-rose-100" },
@@ -337,12 +342,43 @@ export function ChatInput({
         />
       </div>
 
-      {/* 免责声明 */}
+      {/* 免责声明 + 模型切换 */}
       {showDisclaimer && (
-        <p className="text-[11px] text-gray-400 mt-2 text-center">
-          内容由 AI 生成，仅供参考
-        </p>
+        <ModelDisclaimer />
       )}
+    </div>
+  );
+}
+
+/**
+ * 底部模型指示器 + 切换器
+ */
+function ModelDisclaimer() {
+  const { currentModel, setCurrentModel } = useChatStore();
+  const [open, setOpen] = useState(false);
+  const modelIds = Object.keys(CHAT_MODELS) as ChatModelId[];
+
+  return (
+    <div className="mt-2 text-center">
+      <Dropdown
+        trigger="click"
+        popupVisible={open}
+        onVisibleChange={setOpen}
+        droplist={
+          <Menu onClickMenuItem={(key) => { setCurrentModel(key as ChatModelId); setOpen(false); }}>
+            {modelIds.map(id => (
+              <Menu.Item key={id} className={id === currentModel ? '!bg-indigo-50 !text-indigo-700' : ''}>
+                <span className="font-medium">{CHAT_MODELS[id].label}</span>
+                <span className="ml-2 text-xs text-gray-400">{CHAT_MODELS[id].modelName}</span>
+              </Menu.Item>
+            ))}
+          </Menu>
+        }
+      >
+        <button className="text-[11px] text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer">
+          内容由 <span className="font-medium underline decoration-dotted underline-offset-2">{CHAT_MODELS[currentModel]?.label || 'DeepSeek'}</span> 生成，仅供参考
+        </button>
+      </Dropdown>
     </div>
   );
 }

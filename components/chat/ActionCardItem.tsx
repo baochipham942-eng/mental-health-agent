@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatActions } from './ChatContext';
 
 /** AI 引导型练习类型 */
-const GUIDED_EXERCISES = ['grounding', 'reframing', 'activation', 'empty_chair'] as const;
+const GUIDED_EXERCISES = ['grounding', 'reframing', 'activation'] as const;
 type GuidedType = typeof GUIDED_EXERCISES[number];
 
 function isGuidedExerciseType(widget?: string): widget is GuidedType {
@@ -23,7 +23,6 @@ const GUIDED_LABELS: Record<GuidedType, string> = {
   grounding: '五感着陆',
   reframing: '认知重构',
   activation: '行为激活',
-  empty_chair: '空椅子技术',
 };
 
 interface ActionCardItemProps {
@@ -44,7 +43,7 @@ const WIDGET_VISUALS: Record<string, { emoji: string; borderColor: string; accen
   breathing:    { emoji: '🌬️', borderColor: 'border-l-blue-400',    accentColor: 'text-blue-500' },
   meditation:   { emoji: '🧘', borderColor: 'border-l-purple-400',  accentColor: 'text-purple-500' },
   empty_chair:  { emoji: '🪑', borderColor: 'border-l-amber-400',   accentColor: 'text-amber-500' },
-  leaves_stream:{ emoji: '🍃', borderColor: 'border-l-emerald-400', accentColor: 'text-emerald-500' },
+  leaves_stream:{ emoji: '🎈', borderColor: 'border-l-sky-400', accentColor: 'text-sky-500' },
   mood_tracker: { emoji: '🌡️', borderColor: 'border-l-rose-400',    accentColor: 'text-rose-500' },
   grounding:    { emoji: '🦶', borderColor: 'border-l-teal-400',    accentColor: 'text-teal-500' },
   reframing:    { emoji: '🧠', borderColor: 'border-l-indigo-400',  accentColor: 'text-indigo-500' },

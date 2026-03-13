@@ -10,7 +10,7 @@ import { streamText as sdkStreamText } from 'ai';
 
 export type { ChatMessage, ToolCall };
 
-export type LlmProviderName = 'deepseek' | 'glm' | 'openrouter';
+export type LlmProviderName = 'deepseek' | 'glm' | 'openrouter' | 'kimi';
 
 export interface GenerateTextOptions {
   provider?: LlmProviderName;
@@ -42,6 +42,10 @@ const OPENROUTER_API_BASE_URL = process.env.OPENROUTER_API_BASE_URL || 'https://
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_CHAT_MODEL = process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-4.1-mini';
 
+const KIMI_API_BASE_URL = process.env.KIMI_API_URL || 'https://cn.haioi.net/v1';
+const KIMI_API_KEY = process.env.KIMI_API_KEY;
+const KIMI_CHAT_MODEL = process.env.KIMI_CHAT_MODEL || 'kimi-k2.5';
+
 const glm = GLM_API_KEY
   ? createOpenAI({
     baseURL: GLM_API_BASE_URL,
@@ -53,6 +57,13 @@ const openrouter = OPENROUTER_API_KEY
   ? createOpenAI({
     baseURL: OPENROUTER_API_BASE_URL,
     apiKey: OPENROUTER_API_KEY,
+  })
+  : null;
+
+const kimiProvider = KIMI_API_KEY
+  ? createOpenAI({
+    baseURL: KIMI_API_BASE_URL,
+    apiKey: KIMI_API_KEY,
   })
   : null;
 
@@ -271,6 +282,103 @@ async function openrouterStreamText(
   });
 }
 
+async function kimiGenerateText(
+  messages: ChatMessage[],
+  options?: GenerateTextOptions
+): Promise<{ reply: string; toolCalls?: ToolCall[] }> {
+  if (!KIMI_API_KEY) {
+    throw new Error('KIMI_API_KEY is not configured');
+  }
+
+  const response = await fetch(`${KIMI_API_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${KIMI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: KIMI_CHAT_MODEL,
+      messages,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.max_tokens ?? 2000,
+      response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
+      tools: options?.tools,
+      tool_choice: options?.toolChoice,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Kimi API error: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json() as OpenAICompatResponse;
+  const choice = data.choices?.[0];
+
+  if (!choice) {
+    throw new Error('No response from Kimi API');
+  }
+
+  return {
+    reply: choice.message.content || '',
+    toolCalls: choice.message.tool_calls,
+  };
+}
+
+async function kimiGenerateStructured<T>(
+  messages: ChatMessage[],
+  schema: { parse: (val: any) => T },
+  options?: Omit<GenerateTextOptions, 'responseFormat' | 'tools' | 'toolChoice'>
+): Promise<T> {
+  const response = await kimiGenerateText(messages, {
+    ...options,
+    responseFormat: 'json_object',
+  });
+
+  let json: unknown;
+  try {
+    json = JSON.parse(response.reply.trim().replace(/^```json\n?/, '').replace(/\n?```$/, ''));
+  } catch {
+    const jsonMatch = response.reply.match(/```json\n?([\s\S]*?)\n?```/)
+      || response.reply.match(/{[\s\S]*}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse structured output from Kimi');
+    }
+    json = JSON.parse((jsonMatch[1] || jsonMatch[0]).trim());
+  }
+
+  return schema.parse(json);
+}
+
+async function kimiStreamText(
+  messages: ChatMessage[],
+  options?: StreamTextOptions
+) {
+  if (!kimiProvider) {
+    throw new Error('KIMI_API_KEY is not configured');
+  }
+
+  return sdkStreamText({
+    model: kimiProvider(KIMI_CHAT_MODEL),
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+    temperature: options?.temperature ?? 0.7,
+    maxTokens: options?.max_tokens ?? 2000,
+    onFinish: async ({ text, toolCalls }) => {
+      if (options?.onFinish) {
+        const formattedToolCalls = toolCalls?.map((tc: any) => ({
+          id: tc.toolCallId,
+          type: 'function' as const,
+          function: {
+            name: tc.toolName,
+            arguments: tc.args
+          }
+        }));
+        await options.onFinish(text, formattedToolCalls);
+      }
+    },
+  });
+}
+
 export async function generateText(
   messages: ChatMessage[],
   options?: GenerateTextOptions
@@ -280,6 +388,8 @@ export async function generateText(
       return openrouterGenerateText(messages, options);
     case 'glm':
       return glmGenerateText(messages, options);
+    case 'kimi':
+      return kimiGenerateText(messages, options);
     case 'deepseek':
     default:
       return deepseekChatCompletion(messages, options);
@@ -296,6 +406,8 @@ export async function generateStructured<T>(
       return openrouterGenerateStructured(messages, schema, options);
     case 'glm':
       return glmGenerateStructured(messages, schema, options);
+    case 'kimi':
+      return kimiGenerateStructured(messages, schema, options);
     case 'deepseek':
     default:
       return deepseekStructuredCompletion(messages, schema, options);
@@ -311,6 +423,8 @@ export async function streamText(
       return openrouterStreamText(messages, options);
     case 'glm':
       return glmStreamText(messages, options);
+    case 'kimi':
+      return kimiStreamText(messages, options);
     case 'deepseek':
     default:
       return deepseekStreamChatCompletion(messages, options);

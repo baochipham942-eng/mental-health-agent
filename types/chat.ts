@@ -82,9 +82,9 @@ export interface ChatRequest {
   assessmentStage?: AssessmentStage;
   meta?: {
     initialMessage?: string;
-    // Removed legacy state objects
   };
-  sessionId?: string; // Add sessionId
+  sessionId?: string;
+  model?: string; // 用户选择的模型 provider: deepseek | kimi | openrouter
 }
 
 export type RouteType = 'crisis' | 'assessment' | 'support';
@@ -104,7 +104,7 @@ export interface ActionCard {
 // 群组对话（圆桌论道）消息
 export interface GroupMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'moderator' | 'synthesis';
   content: string;
   mentorId?: string;
   mentorName?: string;
@@ -112,6 +112,9 @@ export interface GroupMessage {
   mentorColor?: string;
   round?: number;
   timestamp: string;
+  // Moderator 专用
+  moderatorAction?: 'opening' | 'point' | 'transition' | 'synthesize';
+  targetMentorId?: string;
 }
 
 // 群组对话 SSE 事件类型
@@ -119,6 +122,8 @@ export type GroupSSEEvent =
   | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
   | { type: 'mentor_chunk'; content: string }
   | { type: 'mentor_end'; mentorId: string }
+  | { type: 'moderator'; content: string; action: 'opening' | 'point' | 'transition' | 'synthesize'; targetMentorId?: string }
+  | { type: 'synthesis'; content: string }
   | { type: 'round_end'; round: number }
   | { type: 'done' }
   | { type: 'error'; message: string };

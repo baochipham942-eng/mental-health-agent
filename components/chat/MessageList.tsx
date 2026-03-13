@@ -37,6 +37,47 @@ function getTimeGreeting(): { greeting: string; emoji: string } {
   return { greeting: '夜深了', emoji: '🌙' };
 }
 
+const COMFORT_MESSAGES = [
+  '正在认真思考你说的话...',
+  '每一种情绪都值得被看见',
+  '慢慢来，我在这里陪着你',
+];
+
+function ThinkingIndicator() {
+  const [comfortIndex, setComfortIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setComfortIndex(prev => (prev + 1) % COMFORT_MESSAGES.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="relative flex items-center justify-center w-6 h-6">
+              <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
+              <div className="absolute w-3 h-3 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
+              <div className="absolute w-5 h-5 border border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
+            </div>
+            <span className="text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              正在深入思考...
+            </span>
+          </div>
+          <div className="h-4 overflow-hidden relative">
+            <span className="text-xs text-indigo-600/80 italic whitespace-nowrap transition-all duration-700 block">
+              {COMFORT_MESSAGES[comfortIndex]}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef, sessionId }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -231,6 +272,11 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
             />
           );
         })}
+
+        {/* 即时 thinking 动画：用户发完消息后立刻显示，不等 API 首 token */}
+        {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+          <ThinkingIndicator />
+        )}
 
         <div ref={endRef} />
 
