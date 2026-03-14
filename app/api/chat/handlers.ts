@@ -38,6 +38,75 @@ interface BaseHandlerParams {
   adaptiveMode: AdaptiveMode;
 }
 
+/**
+ * onFinish 回调工厂 — 统一处理 save/refresh/log/stream-close/quality-check
+ */
+function createOnFinishCallback(params: {
+  data: StreamData;
+  message: string;
+  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  sessionId?: string;
+  userId?: string;
+  requestStartedAt: number;
+  saveAssistantMessage: SaveAssistantMessage;
+  scheduleConversationSummaryRefresh: RefreshSummary;
+  safetyData: any;
+  routeType: string;
+  adaptiveMode: AdaptiveMode;
+  /** 额外的 meta 字段合并到 saveAssistantMessage */
+  extraMeta?: Record<string, any>;
+  /** onFinish 后的额外逻辑（如 stuckLoop 检测） */
+  afterFinish?: (text: string, toolCalls?: any[]) => void;
+  /** 是否跳过质检 */
+  skipQualityCheck?: boolean;
+  /** 额外的 stream append 字段 */
+  extraStreamData?: Record<string, any>;
+}) {
+  const {
+    data, message, history, sessionId, userId, requestStartedAt,
+    saveAssistantMessage, scheduleConversationSummaryRefresh,
+    safetyData, routeType, adaptiveMode,
+    extraMeta, afterFinish, skipQualityCheck, extraStreamData,
+  } = params;
+
+  return async (text: string, toolCalls?: any[]) => {
+    saveAssistantMessage(text, {
+      toolCalls,
+      safety: safetyData,
+      ...extraMeta,
+    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+
+    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
+
+    logInfo('chat-response-finished', {
+      sessionId, userId, routeType,
+      totalDurationMs: Date.now() - requestStartedAt,
+      responseLength: text.length,
+    });
+
+    data.append({
+      reply: text,
+      toolCalls,
+      safety: safetyData,
+      ...extraStreamData,
+    } as any);
+    data.close();
+
+    if (!skipQualityCheck && sessionId) {
+      triggerQualityCheck({
+        conversationId: sessionId,
+        routeType,
+        adaptiveMode,
+        safetyLevel: safetyData.label,
+        reply: text,
+        userMessage: message,
+      });
+    }
+
+    afterFinish?.(text, toolCalls);
+  };
+}
+
 function withStreamMetrics(
   response: Response,
   params: {
@@ -115,6 +184,7 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     scheduleConversationSummaryRefresh,
     safetyData,
     stateData,
+    adaptiveMode,
     analysis,
     state,
     emotionObj,
@@ -140,30 +210,15 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     console.log('[API] De-escalating crisis state based on LLM assessment');
     data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
-    const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-      saveAssistantMessage(text, {
-        toolCalls,
-        safety: safetyData,
-        state: stateData,
-      }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-      scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-      logInfo('chat-response-finished', {
-        sessionId,
-        userId,
-        routeType: 'support',
-        totalDurationMs: Date.now() - requestStartedAt,
-        responseLength: text.length,
-      });
+    const onDeescalateFinish = createOnFinishCallback({
+      data, message, history, sessionId, userId, requestStartedAt,
+      saveAssistantMessage, scheduleConversationSummaryRefresh,
+      safetyData, routeType: 'support', adaptiveMode,
+      extraMeta: { state: stateData },
+      skipQualityCheck: true,
+    });
 
-      data.append({
-        reply: text,
-        toolCalls,
-        safety: safetyData,
-      } as any);
-      data.close();
-    };
-
-    const result = await streamSupportReply(message, history, { onFinish: onFinishWithMeta, traceMetadata });
+    const result = await streamSupportReply(message, history, { onFinish: onDeescalateFinish, traceMetadata });
     return withStreamMetrics(result.toDataStreamResponse({ data }), {
       sessionId,
       userId,
@@ -185,39 +240,12 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     }).catch(e => console.error('[CrisisEscalation] Failed:', e));
   }
 
-  const onCrisisFinish = async (text: string, toolCalls?: any[]) => {
-    saveAssistantMessage(text, {
-      toolCalls,
-      safety: safetyData,
-      state: stateData,
-    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-    logInfo('chat-response-finished', {
-      sessionId,
-      userId,
-      routeType: 'crisis',
-      totalDurationMs: Date.now() - requestStartedAt,
-      responseLength: text.length,
-    });
-
-    data.append({
-      reply: text,
-      toolCalls,
-      safety: safetyData,
-    } as any);
-    data.close();
-
-    if (sessionId) {
-      triggerQualityCheck({
-        conversationId: sessionId,
-        routeType: 'crisis',
-        adaptiveMode: 'guardian',
-        safetyLevel: safetyData.label,
-        reply: text,
-        userMessage: message,
-      });
-    }
-  };
+  const onCrisisFinish = createOnFinishCallback({
+    data, message, history, sessionId, userId, requestStartedAt,
+    saveAssistantMessage, scheduleConversationSummaryRefresh,
+    safetyData, routeType: 'crisis', adaptiveMode: 'guardian',
+    extraMeta: { state: stateData },
+  });
 
   const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
   return withStreamMetrics(result.toDataStreamResponse({ data }), {
@@ -312,41 +340,12 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     emotion: emotionObj,
   });
 
-  const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {
-    saveAssistantMessage(text, {
-      toolCalls,
-      safety: safetyData,
-      state: stateData,
-      adaptiveMode,
-      dialogueContext: dialogueCtx,
-    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-    logInfo('chat-response-finished', {
-      sessionId,
-      userId,
-      routeType: 'support',
-      totalDurationMs: Date.now() - requestStartedAt,
-      responseLength: text.length,
-    });
-
-    data.append({
-      reply: text,
-      toolCalls,
-      safety: safetyData,
-    } as any);
-    data.close();
-
-    if (sessionId) {
-      triggerQualityCheck({
-        conversationId: sessionId,
-        routeType: 'support',
-        adaptiveMode,
-        safetyLevel: safetyData.label,
-        reply: text,
-        userMessage: message,
-      });
-    }
-  };
+  const onFinishWithMeta = createOnFinishCallback({
+    data, message, history, sessionId, userId, requestStartedAt,
+    saveAssistantMessage, scheduleConversationSummaryRefresh,
+    safetyData, routeType: 'support', adaptiveMode,
+    extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx },
+  });
 
   let combinedInjection = sfbtInstruction || '';
   if (exerciseInjection) combinedInjection += exerciseInjection;
@@ -400,51 +399,25 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
 
   const onAssessmentFinish = async (text: string, toolCalls?: any[]) => {
     const isConclusion = toolCalls?.some(tc => tc.function.name === 'finish_assessment') || false;
+    const stage = isConclusion ? 'conclusion' : 'intake';
 
-    saveAssistantMessage(text, {
-      toolCalls,
-      routeType: 'assessment',
-      assessmentStage: isConclusion ? 'conclusion' : 'intake',
-      safety: safetyData,
-      state: stateData,
-    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-    logInfo('chat-response-finished', {
-      sessionId,
-      userId,
-      routeType: 'assessment',
-      assessmentStage: isConclusion ? 'conclusion' : 'intake',
-      totalDurationMs: Date.now() - requestStartedAt,
-      responseLength: text.length,
-    });
-
-    if (!isConclusion && sessionId) {
-      analyzeConversationForStuckLoop(sessionId).then(result => {
-        if (result?.isStuck) {
-          createStuckLoopEvent(sessionId, result);
+    const baseFinish = createOnFinishCallback({
+      data, message, history, sessionId, userId, requestStartedAt,
+      saveAssistantMessage, scheduleConversationSummaryRefresh,
+      safetyData, routeType: 'assessment', adaptiveMode,
+      extraMeta: { state: stateData, routeType: 'assessment', assessmentStage: stage },
+      extraStreamData: { routeType: 'assessment', assessmentStage: stage },
+      afterFinish: () => {
+        if (!isConclusion && sessionId) {
+          analyzeConversationForStuckLoop(sessionId).then(result => {
+            if (result?.isStuck) {
+              createStuckLoopEvent(sessionId, result);
+            }
+          }).catch(err => console.error('[StuckLoop] Detection failed:', err));
         }
-      }).catch(err => console.error('[StuckLoop] Detection failed:', err));
-    }
-
-    data.append({
-      reply: text,
-      toolCalls,
-      routeType: 'assessment',
-      assessmentStage: isConclusion ? 'conclusion' : 'intake',
-      safety: safetyData,
-    } as any);
-    data.close();
-
-    if (sessionId) {
-      triggerQualityCheck({
-        conversationId: sessionId,
-        routeType: 'assessment',
-        adaptiveMode,
-        safetyLevel: safetyData.label,
-        reply: text,
-        userMessage: message,
-      });
-    }
+      },
+    });
+    await baseFinish(text, toolCalls);
   };
 
   if (assessmentStage === 'conclusion') {
@@ -454,29 +427,15 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
     const followupStr = allUserMessages.slice(1).join('\n\n') || '（无补充回答）';
 
     const onConclusionFinish = async (text: string, actionCards: any[]) => {
-      saveAssistantMessage(text, {
-        routeType: 'assessment',
-        assessmentStage: 'conclusion',
-        actionCards,
-      }).catch(e => console.error('[DB] Failed to save assistant message:', e));
-      scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
-      logInfo('chat-response-finished', {
-        sessionId,
-        userId,
-        routeType: 'assessment',
-        assessmentStage: 'conclusion',
-        totalDurationMs: Date.now() - requestStartedAt,
-        responseLength: text.length,
+      const baseFinish = createOnFinishCallback({
+        data, message, history, sessionId, userId, requestStartedAt,
+        saveAssistantMessage, scheduleConversationSummaryRefresh,
+        safetyData, routeType: 'assessment', adaptiveMode,
+        extraMeta: { routeType: 'assessment', assessmentStage: 'conclusion', actionCards },
+        extraStreamData: { actionCards, routeType: 'assessment', assessmentStage: 'conclusion' },
+        skipQualityCheck: true,
       });
-
-      data.append({
-        reply: text,
-        actionCards,
-        routeType: 'assessment',
-        assessmentStage: 'conclusion',
-        safety: safetyData,
-      } as any);
-      data.close();
+      await baseFinish(text);
     };
 
     const conclusionResult = await streamAssessmentConclusion(initialMsg, followupStr, history, {

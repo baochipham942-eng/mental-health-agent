@@ -2,21 +2,11 @@ import { NextRequest, NextResponse } from 'next/server.js';
 import { StreamData } from 'ai';
 import { auth } from '@/lib/runtime/chat-auth';
 import { prisma } from '@/lib/db/prisma';
-import { streamCrisisReply } from '@/lib/ai/crisis';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import type { LlmProviderName } from '@/lib/llm';
 import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { logInfo, logWarn } from '@/lib/observability/logger';
-import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
-import {
-  createInitialContext,
-  restoreContext,
-  evaluateTransition,
-  updateSCEBProgress,
-  generateStateMachinePrompt,
-  type DialogueContext,
-} from '@/lib/ai/dialogue/state-machine';
 import { detectQuestionnaireRequest } from '@/lib/ai/assessment/questionnaire';
 import { ChatService } from '@/lib/services/chat-service';
 import { determinePersonaMode } from '@/lib/ai/persona-manager';
@@ -37,6 +27,7 @@ import {
   detectExplicitAssessmentRequest,
   getSkillIntroMessage,
   scheduleConversationSummaryRefresh,
+  trackDialogueState,
   triggerAsyncMemoryExtraction,
 } from './route-helpers';
 import { DEFAULT_SAFE, getSafetyAgent } from '@/lib/ai/agents/safety-agent';
@@ -307,74 +298,15 @@ export async function POST(request: NextRequest) {
     });
 
     // =================================================================================
-    // 0.6 Dialogue State Tracking - 对话状态追踪 (Moved Up)
+    // 0.6 Dialogue State Tracking - 对话状态追踪
     // =================================================================================
-    const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
-    const conversationTurn = calculateTurn(history);
-    const riskSignals = analyzeRiskSignals(message);
-    const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
-    const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
-
-    // P5: 状态机驱动对话路由（优先使用，fallback 到轮次推断）
-    let dialogueCtx: DialogueContext | null = null;
-    let stateMachinePrompt = '';
-    if (sessionId) {
-      try {
-        const lastAssistantMsg = await lastAssistantMsgPromise;
-        dialogueCtx = restoreContext(lastAssistantMsg?.meta);
-      } catch (e) {
-        console.error('[StateMachine] Failed to restore context:', e);
-      } finally {
-        logInfo('chat-state-restore-complete', {
-          sessionId,
-          userId,
-          stateRestoreDurationMs: Date.now() - stateRestoreStartedAt,
-        });
-      }
-    }
-
-    if (!dialogueCtx) {
-      // 新会话或无法恢复 → 创建初始上下文，用 turn 调整初始状态
-      dialogueCtx = createInitialContext();
-      dialogueCtx.turn = conversationTurn;
-      if (conversationTurn > 2) dialogueCtx.state = 'exploration';
-    } else {
-      dialogueCtx.turn = conversationTurn;
-    }
-
-    // 更新 SCEB 进度
-    dialogueCtx.scebProgress = updateSCEBProgress(dialogueCtx.scebProgress, analysis, message);
-
-    // 追踪情绪轨迹
-    dialogueCtx.emotionTrajectory.push(analysis.emotion.score);
-    if (dialogueCtx.emotionTrajectory.length > 20) {
-      dialogueCtx.emotionTrajectory = dialogueCtx.emotionTrajectory.slice(-20);
-    }
-
-    // 练习完成消息（SFBT 触发）强制覆盖 intent，防止误判为 wrapping_up
-    const isSfbtMessage = /我完成了".+"练习，现在感觉：.*\(\d+分\)/.test(message);
-    if (isSfbtMessage && (analysis as any).dialogueIntent === 'wrapping_up') {
-      (analysis as any).dialogueIntent = 'sharing';
-      logInfo('sfbt-intent-override', { original: 'wrapping_up', corrected: 'sharing' });
-    }
-
-    // 评估状态转移
-    const transition = evaluateTransition(dialogueCtx, analysis);
-    if (transition.stateChanged) {
-      console.log(`[StateMachine] Transition: ${dialogueCtx.state} → ${transition.nextState} (${transition.reason})`);
-      dialogueCtx.state = transition.nextState;
-    }
-
-    // 生成状态机上下文注入
-    stateMachinePrompt = generateStateMachinePrompt(dialogueCtx);
-
-    logInfo('dialogue-state', {
-      turn: conversationTurn,
-      phase: dialoguePhase,
-      machineState: dialogueCtx.state,
-      riskLevel: riskSignals.level,
-      triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
-      shouldTriggerSafety: safetyCheck.shouldTrigger,
+    const {
+      emotionObj, conversationTurn, dialoguePhase, riskSignals,
+      dialogueCtx, stateMachinePrompt,
+    } = await trackDialogueState({
+      analysis, message, history, sessionId, userId,
+      lastAssistantMsgPromise,
+      stateRestoreStartedAt,
     });
 
     // 构建对话状态对象

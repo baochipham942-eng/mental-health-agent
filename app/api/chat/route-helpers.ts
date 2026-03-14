@@ -13,6 +13,16 @@ import { prisma } from '@/lib/db/prisma';
 import type { QuestionnaireType } from '@/lib/ai/assessment/questionnaire';
 import type { QuickAnalysis } from '@/lib/ai/groq';
 import type { AssessmentStage, ChatState, RouteType } from '@/types/chat';
+import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
+import {
+  createInitialContext,
+  restoreContext,
+  evaluateTransition,
+  updateSCEBProgress,
+  generateStateMachinePrompt,
+  type DialogueContext,
+} from '@/lib/ai/dialogue/state-machine';
+import { logInfo } from '@/lib/observability/logger';
 
 const SKILL_INTRO_MESSAGES: Record<SkillType, string> = {
   breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
@@ -256,6 +266,99 @@ export function decideRouteByRules(params: {
   }
 
   return { routeType: 'support', reason: 'main_model_default' };
+}
+
+/**
+ * 对话状态追踪 — 从 route.ts 提取的自容函数
+ * 计算情绪对象、对话轮次、风险信号、状态机上下文等
+ */
+export async function trackDialogueState(params: {
+  analysis: any;
+  message: string;
+  history: Array<{ role: string; content: string }>;
+  sessionId?: string;
+  userId?: string;
+  lastAssistantMsgPromise: Promise<{ meta: any } | null>;
+  stateRestoreStartedAt: number;
+}): Promise<{
+  emotionObj: { label: string; score: number };
+  conversationTurn: number;
+  dialoguePhase: string;
+  riskSignals: ReturnType<typeof analyzeRiskSignals>;
+  safetyCheck: ReturnType<typeof shouldTriggerSafetyCheck>;
+  dialogueCtx: DialogueContext;
+  stateMachinePrompt: string;
+}> {
+  const { analysis, message, history, sessionId, userId, lastAssistantMsgPromise, stateRestoreStartedAt } = params;
+
+  const emotionObj = { label: analysis.emotion.label, score: analysis.emotion.score };
+  const conversationTurn = calculateTurn(history);
+  const riskSignals = analyzeRiskSignals(message);
+  const dialoguePhase = inferPhase(conversationTurn, riskSignals.shouldTriggerSafetyAssessment);
+  const safetyCheck = shouldTriggerSafetyCheck(riskSignals, conversationTurn, emotionObj?.score);
+
+  // 状态机驱动对话路由（优先使用，fallback 到轮次推断）
+  let dialogueCtx: DialogueContext | null = null;
+  let stateMachinePrompt = '';
+  if (sessionId) {
+    try {
+      const lastAssistantMsg = await lastAssistantMsgPromise;
+      dialogueCtx = restoreContext(lastAssistantMsg?.meta);
+    } catch (e) {
+      console.error('[StateMachine] Failed to restore context:', e);
+    } finally {
+      logInfo('chat-state-restore-complete', {
+        sessionId,
+        userId,
+        stateRestoreDurationMs: Date.now() - stateRestoreStartedAt,
+      });
+    }
+  }
+
+  if (!dialogueCtx) {
+    dialogueCtx = createInitialContext();
+    dialogueCtx.turn = conversationTurn;
+    if (conversationTurn > 2) dialogueCtx.state = 'exploration';
+  } else {
+    dialogueCtx.turn = conversationTurn;
+  }
+
+  // 更新 SCEB 进度
+  dialogueCtx.scebProgress = updateSCEBProgress(dialogueCtx.scebProgress, analysis, message);
+
+  // 追踪情绪轨迹
+  dialogueCtx.emotionTrajectory.push(analysis.emotion.score);
+  if (dialogueCtx.emotionTrajectory.length > 20) {
+    dialogueCtx.emotionTrajectory = dialogueCtx.emotionTrajectory.slice(-20);
+  }
+
+  // 练习完成消息（SFBT 触发）强制覆盖 intent，防止误判为 wrapping_up
+  const isSfbtMessage = /我完成了".+"练习，现在感觉：.*\(\d+分\)/.test(message);
+  if (isSfbtMessage && analysis.dialogueIntent === 'wrapping_up') {
+    analysis.dialogueIntent = 'sharing';
+    logInfo('sfbt-intent-override', { original: 'wrapping_up', corrected: 'sharing' });
+  }
+
+  // 评估状态转移
+  const transition = evaluateTransition(dialogueCtx, analysis);
+  if (transition.stateChanged) {
+    console.log(`[StateMachine] Transition: ${dialogueCtx.state} → ${transition.nextState} (${transition.reason})`);
+    dialogueCtx.state = transition.nextState;
+  }
+
+  // 生成状态机上下文注入
+  stateMachinePrompt = generateStateMachinePrompt(dialogueCtx);
+
+  logInfo('dialogue-state', {
+    turn: conversationTurn,
+    phase: dialoguePhase,
+    machineState: dialogueCtx.state,
+    riskLevel: riskSignals.level,
+    triggeredSignals: riskSignals.triggeredSignals.slice(0, 3),
+    shouldTriggerSafety: safetyCheck.shouldTrigger,
+  });
+
+  return { emotionObj, conversationTurn, dialoguePhase, riskSignals, safetyCheck, dialogueCtx, stateMachinePrompt };
 }
 
 export function buildFallbackQuickAnalysis(params: {
