@@ -27,10 +27,10 @@ import * as fs from 'fs';
 import * as childProcess from 'child_process';
 import {
   getCases, createRun, finishRun, insertResult,
-  getDatasets, closeDb, getRunResults, updateResultScores,
+  getDatasets, closeDb, getDb, getRunResults, updateResultScores,
   type EvalCaseRow, type DialogTurn,
 } from './db';
-import { runCodeChecks, runLLMJudges, computeConfidenceInterval, computeWeightedScore, getJudgeDimensions, type CodeCheckResult, type JudgeResult, type WeightPreset } from './judges';
+import { runCodeChecks, runLLMJudges, computeConfidenceInterval, computeWeightedScore, type CodeCheckResult, type JudgeResult, type WeightPreset } from './judges';
 import { cacheKey, getCachedResponse, setCachedResponse, closeCacheDb } from './cache';
 
 dotenv.config({ path: path.join(__dirname, '../../.env.local') });
@@ -188,7 +188,7 @@ async function evalCase(
 
     try {
       // 调用心灵树洞 API（支持缓存）
-      const hash = noCache ? null : cacheKey(turn.userMsg, historyForApi);
+      const hash = noCache ? null : cacheKey(turn.userMsg, historyForApi, EVAL_CHAT_MODEL, EVAL_CHAT_PROVIDER);
       let chatResp: ChatResponse;
       if (hash) {
         const cached = getCachedResponse(hash);
@@ -248,11 +248,9 @@ async function evalCase(
           model: JUDGE_MODEL,
         });
       } else if (criticalFail) {
-        // 关键维度失败，所有 LLM Judge 维度标记为 Fail
-        judgeResults = getJudgeDimensions().map(d => ({
-          dimension: d, result: 'Fail' as const,
-          critique: '代码检查关键维度失败，跳过 LLM 评分'
-        }));
+        // 关键维度失败，LLM Judge 不运行（不计入维度统计，避免扭曲数据）
+        // judgeResults 保持为空数组
+        console.log(`    Turn ${cutIdx + 1}: ⚡ 代码检查关键维度失败，跳过 LLM Judge`);
       }
 
       const turnResult = {
@@ -455,11 +453,8 @@ async function evalProductTrace(
           model: JUDGE_MODEL,
         });
       } else if (criticalFail) {
-        // 关键维度失败，所有 LLM Judge 维度标记为 Fail
-        judgeResults = getJudgeDimensions().map(d => ({
-          dimension: d, result: 'Fail' as const,
-          critique: '代码检查关键维度失败，跳过 LLM 评分'
-        }));
+        // 关键维度失败，LLM Judge 不运行（不计入维度统计）
+        console.log(`    Turn ${cutIdx + 1}: ⚡ 代码检查关键维度失败，跳过 LLM Judge`);
       }
 
       const turnResult = {
@@ -789,7 +784,27 @@ async function rescoreRun(runId: string, skipJudge: boolean) {
     process.exit(1);
   }
 
-  console.log(`  找到 ${results.length} 条结果，开始重新评分...\n`);
+  // 按 case_id 分组，用于重建 history 和获取 totalTurns
+  const resultsByCase: Record<string, any[]> = {};
+  for (const r of results) {
+    if (!resultsByCase[r.case_id]) resultsByCase[r.case_id] = [];
+    resultsByCase[r.case_id].push(r);
+  }
+
+  // 预加载 eval_cases 的 dialog 和 metadata（用于重建 history 和 expectedBehavior）
+  const caseDialogCache: Record<string, { dialog: DialogTurn[]; metadata: any }> = {};
+  const db = getDb();
+  for (const caseId of Object.keys(resultsByCase)) {
+    const caseRow = db.query('SELECT dialog_json, metadata_json FROM eval_cases WHERE id = ?').get(caseId) as any;
+    if (caseRow) {
+      caseDialogCache[caseId] = {
+        dialog: JSON.parse(caseRow.dialog_json),
+        metadata: caseRow.metadata_json ? JSON.parse(caseRow.metadata_json) : {},
+      };
+    }
+  }
+
+  console.log(`  找到 ${results.length} 条结果（${Object.keys(resultsByCase).length} 个用例），开始重新评分...\n`);
 
   for (let i = 0; i < results.length; i++) {
     const row = results[i];
@@ -806,14 +821,44 @@ async function rescoreRun(runId: string, skipJudge: boolean) {
       (c: CodeCheckResult) => c.result === 'fail' && ['no-medical-label', 'no-gaslighting'].includes(c.check)
     );
 
+    // 重建上下文（从原始 dialog 中提取 history）
+    const caseData = caseDialogCache[row.case_id];
+    const caseTurns = resultsByCase[row.case_id] || [];
+    const totalTurns = caseTurns.length;
+    let history: Array<{ role: string; content: string }> = [];
+    let isLastTurn = false;
+    let fullConversation: string | undefined;
+    const expectedBehavior = caseData?.metadata?.expectedBehavior || undefined;
+
+    if (caseData) {
+      // 从原始对话中截取到 turn_index 之前的 history
+      const userTurnIndices: number[] = [];
+      for (let j = 0; j < caseData.dialog.length; j++) {
+        if (caseData.dialog[j].role === 'user') userTurnIndices.push(j);
+      }
+      const cutDialogIdx = userTurnIndices[row.turn_index] || 0;
+      history = caseData.dialog.slice(0, cutDialogIdx).map(d => ({ role: d.role, content: d.content }));
+      isLastTurn = row.turn_index === totalTurns - 1;
+
+      // 最后一轮构建完整对话
+      if (isLastTurn) {
+        fullConversation = [...history, { role: 'user', content: row.user_input }, { role: 'assistant', content: reply }]
+          .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join('\n');
+      }
+    }
+
     // 重新运行 LLM Judge
     let judgeMap: Record<string, { result: string; critique: string }> = {};
     if (!skipJudge && JUDGE_API_KEY && !criticalFail) {
       const judgeResults = await runLLMJudges({
         userInput: row.user_input,
         aiReply: reply,
+        history,
         turnIndex: row.turn_index,
-        totalTurns: row.turn_index + 1,
+        totalTurns,
+        fullConversation,
+        isLastTurn,
+        expectedBehavior,
         apiKey: JUDGE_API_KEY,
         apiUrl: JUDGE_API_URL,
         model: JUDGE_MODEL,
@@ -822,9 +867,7 @@ async function rescoreRun(runId: string, skipJudge: boolean) {
         judgeMap[j.dimension] = { result: j.result, critique: j.critique };
       }
     } else if (criticalFail) {
-      for (const d of getJudgeDimensions()) {
-        judgeMap[d] = { result: 'Fail', critique: '代码检查关键维度失败，跳过 LLM 评分' };
-      }
+      // 关键维度失败，LLM Judge 不运行（judgeMap 保持为空）
     }
 
     // 计算加权分

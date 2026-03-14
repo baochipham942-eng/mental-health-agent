@@ -30,9 +30,14 @@ export function closeCacheDb() {
   if (_cacheDb) { _cacheDb.close(); _cacheDb = null; }
 }
 
-export function cacheKey(message: string, history: Array<{role: string; content: string}>): string {
+export function cacheKey(
+  message: string,
+  history: Array<{role: string; content: string}>,
+  model?: string,
+  provider?: string,
+): string {
   return crypto.createHash('sha256')
-    .update(JSON.stringify({ message, history }))
+    .update(JSON.stringify({ message, history, model: model || '', provider: provider || '' }))
     .digest('hex');
 }
 
