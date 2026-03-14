@@ -1,0 +1,314 @@
+{
+  "runId": "academic-2026-03-13T14-25-14",
+  "items": [
+    {
+      "caseId": "esconv:1105",
+      "turnIndex": 7,
+      "dimension": "context-coherence",
+      "critique": "AI忽略了用户当前消息中明确说'我的鹦鹉死了'，这与之前对话中用户要送走活着的鹦鹉相矛盾。",
+      "tags": [
+        "忽略关键信息"
+      ],
+      "userInput": "Yes, I was depressed for 6 months after my parrot died, but eventually we move on.  I dont know that I can move on after giving him up",
+      "aiReply": "It sounds like this feels **especially painful and unfinished**—not like a goodbye you can grieve cleanly, but a living loss that keeps your **worry** switched on.\n\nYou’ve cared for him with so much love and detail that it makes sense your mind goes straight to “what if no one does it like I do.” If you want, I can stay with you in that fear and help think about what might make this feel a tiny bit more bearable."
+    },
+    {
+      "caseId": "esconv:1105",
+      "turnIndex": 14,
+      "dimension": "context-coherence",
+      "critique": "AI 的回复忽略了用户之前明确表示'It isn't about a new pet it is about worrying that he will not be taken care of'，并再次将话题引向'不舍和牵挂'，而非聚焦于用户当前的核心担忧（对鹦鹉未来照顾的忧虑）。",
+      "tags": [
+        "偏离核心话题"
+      ],
+      "userInput": "Thanks for listening",
+      "aiReply": "听起来你一边在失去熟悉生活，一边还要放下陪了你 15 年的他，这种**不舍和牵挂**真的很重。你已经在尽力为他找更稳妥的去处了，联系救助机构这一步，说明你把他的以后看得很认真。\n\n我也想说，你担心他会不会被照顾好，正是因为你这些年一直把他照顾得**非常用心**。如果你愿意，我会继续陪你聊，哪怕只是把这些舍不得一点点说出来。"
+    },
+    {
+      "caseId": "esconv:1106",
+      "turnIndex": 6,
+      "dimension": "empathy-accuracy",
+      "critique": "AI将用户‘联系不上且不想再谈’的核心情绪错误地映射为‘委屈和不甘’，并引入了‘六个月’等用户未提及的假设，偏离了用户当下的情绪状态。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "I could not reach him and i do not want to talk to him too",
+      "aiReply": "听起来你心里有**委屈和不甘**，像一句“为什么”一直卡在那儿，六个月了也很难真正放下。\n\n你一边联系不上他，一边也不想再去碰那段关系，这种**拉扯感**会特别消耗人。  \n如果你愿意，我有点好奇，最近最常冒出来的是哪种感觉——是难过、愤怒，还是遗憾？"
+    },
+    {
+      "caseId": "esconv:1106",
+      "turnIndex": 6,
+      "dimension": "context-coherence",
+      "critique": "AI忽略了用户刚明确表示'We don't talk anymore'和'do not want to talk to him'，却建议用户'ask your boyfriend to discuss to me'，与用户意愿矛盾。",
+      "tags": [
+        "忽略用户意愿"
+      ],
+      "userInput": "I could not reach him and i do not want to talk to him too",
+      "aiReply": "听起来你心里有**委屈和不甘**，像一句“为什么”一直卡在那儿，六个月了也很难真正放下。\n\n你一边联系不上他，一边也不想再去碰那段关系，这种**拉扯感**会特别消耗人。  \n如果你愿意，我有点好奇，最近最常冒出来的是哪种感觉——是难过、愤怒，还是遗憾？"
+    },
+    {
+      "caseId": "esconv:1106",
+      "turnIndex": 12,
+      "dimension": "empathy-accuracy",
+      "critique": "AI 将用户简单的感谢‘thanks’错误地映射为‘难过’和‘被过去拉住’等复杂负面情绪，属于过度解读和错误识别。",
+      "tags": [
+        "过度解读意图"
+      ],
+      "userInput": "thanks",
+      "aiReply": "听起来你现在的**难过还没有真正散掉**，像是想往前走，却总被那段没有好好告别的结束拉住。\n\n你已经很努力在撑着了，也清楚自己**不想再回头联系他**，这其实是很重要的一步 💙\n\n如果你愿意，我可以陪你一起想一件很小的事，帮你今天先把这份沉重放轻一点。"
+    },
+    {
+      "caseId": "esconv:1106",
+      "turnIndex": 12,
+      "dimension": "context-coherence",
+      "critique": "AI的回复忽略了用户明确表示'不想再联系他'和'想开始新生活'的关键信息，反而聚焦于'被没有好好告别的结束拉住'，这与用户表达的意愿相矛盾。",
+      "tags": [
+        "忽略用户意愿"
+      ],
+      "userInput": "thanks",
+      "aiReply": "听起来你现在的**难过还没有真正散掉**，像是想往前走，却总被那段没有好好告别的结束拉住。\n\n你已经很努力在撑着了，也清楚自己**不想再回头联系他**，这其实是很重要的一步 💙\n\n如果你愿意，我可以陪你一起想一件很小的事，帮你今天先把这份沉重放轻一点。"
+    },
+    {
+      "caseId": "esconv:1107",
+      "turnIndex": 14,
+      "dimension": "empathy-accuracy",
+      "critique": "回复直接提供事实信息，完全忽略了用户提问背后可能隐含的焦虑、困惑或寻求安全感的核心情绪。",
+      "tags": [
+        "忽略关键信息"
+      ],
+      "userInput": "can you please explain further about socialized medicine?",
+      "aiReply": "英国这边的**公费医疗**大体是由税收支持的，所以很多基础就医不需要像商业保险那样先看网络、免赔额和共付额。\n\n像看全科、转诊、很多常规检查和不少药物，个人直接承担的费用通常**更少、更可预测**；但代价也可能是等待时间更长、资源分配更紧。  \n\n和美国更依赖雇主保险、商业保险、不同 provider 网络的模式相比，它更像是把风险放到整个社会一起分担。\n\n如果你愿意，我也可以顺着这个话题，陪你一起看看：当你想到在美国求助会**很贵、又不一定有效**时，最卡住你的究竟是费用、效果，还是对药物依赖的担心？"
+    },
+    {
+      "caseId": "esconv:1107",
+      "turnIndex": 28,
+      "dimension": "reply-length",
+      "critique": "10 字（过短）",
+      "tags": [
+        "回复长度不足"
+      ],
+      "userInput": "Have a good one!",
+      "aiReply": "Take care!"
+    },
+    {
+      "caseId": "esconv:1107",
+      "turnIndex": 28,
+      "dimension": "empty-comfort",
+      "critique": "回复是泛化的告别语，缺乏针对用户情境或情感的具体内容。",
+      "tags": [
+        "泛化空洞回应"
+      ],
+      "userInput": "Have a good one!",
+      "aiReply": "Take care!"
+    },
+    {
+      "caseId": "esconv:1108",
+      "turnIndex": 12,
+      "dimension": "context-coherence",
+      "critique": "AI忽略了用户之前明确表示不想要建议，仍然提出要帮助思考赚钱方法。",
+      "tags": [
+        "忽略用户意愿"
+      ],
+      "userInput": "but I guess it ads up",
+      "aiReply": "That **does sound frustrating** — putting in time and energy and still seeing **barely any return** can feel discouraging.\n\nIf you want, I can help you think through **practical ways to earn a bit more online** or make mturk feel less draining; what kind of work do you usually do there?"
+    },
+    {
+      "caseId": "esconv:1108",
+      "turnIndex": 23,
+      "dimension": "empathy-accuracy",
+      "critique": "AI将简单的告别‘Bye’过度解读为‘轻松’的情绪，缺乏依据，忽略了用户可能只是礼貌结束对话的核心意图。",
+      "tags": [
+        "过度解读意图"
+      ],
+      "userInput": "Bye",
+      "aiReply": "听起来你现在**轻松了不少**，也把这段聊天好好收了个尾。\n\n**再见啦**，我会在这儿，等你下次想说话的时候 💙"
+    },
+    {
+      "caseId": "esconv:1108",
+      "turnIndex": 23,
+      "dimension": "empty-comfort",
+      "critique": "回复是泛化的告别和安慰，缺乏对用户具体情境或情感的理解与回应。",
+      "tags": [
+        "泛化空洞回应"
+      ],
+      "userInput": "Bye",
+      "aiReply": "听起来你现在**轻松了不少**，也把这段聊天好好收了个尾。\n\n**再见啦**，我会在这儿，等你下次想说话的时候 💙"
+    },
+    {
+      "caseId": "esconv:1108",
+      "turnIndex": 23,
+      "dimension": "context-coherence",
+      "critique": "AI的回复忽略了用户刚刚在对话中明确表达的积极情绪（'I am feeling happy right now'），转而使用了'轻松了不少'这一与用户原意不符的表述，且未对用户表达的感谢和受益做出直接回应，导致上下文情感基调不一致。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "Bye",
+      "aiReply": "听起来你现在**轻松了不少**，也把这段聊天好好收了个尾。\n\n**再见啦**，我会在这儿，等你下次想说话的时候 💙"
+    },
+    {
+      "caseId": "esconv:1109",
+      "turnIndex": 11,
+      "dimension": "empathy-accuracy",
+      "critique": "AI的回复完全忽略了用户礼貌告别、希望结束对话的核心意图，错误地将其映射为对过往事件的愤怒情绪。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "If you are urgent, I do not want to delay you . Thanks, Bye.",
+      "aiReply": "听起来这段回忆被勾起时，你会冒出一阵**短暂但真实的愤怒**，虽然不会影响关系，却还是让你有点在意。\n\n你已经很清楚自己的状态了：平时并不容易情绪化，只是这件事像个“刺”，偶尔碰到就会扎一下。\n\n如果你愿意，我可以陪你继续聊聊：看看究竟是“他没帮你”最让你生气，还是“你曾经帮过他却没被同样对待”这部分更**过不去**。"
+    },
+    {
+      "caseId": "esconv:1109",
+      "turnIndex": 11,
+      "dimension": "context-coherence",
+      "critique": "AI忽略了用户刚刚明确表示不需要呼吸练习，且用户已准备结束对话，但AI却提议继续深入探讨愤怒的根源，这与用户结束对话的意图相矛盾。",
+      "tags": [
+        "忽略用户意愿"
+      ],
+      "userInput": "If you are urgent, I do not want to delay you . Thanks, Bye.",
+      "aiReply": "听起来这段回忆被勾起时，你会冒出一阵**短暂但真实的愤怒**，虽然不会影响关系，却还是让你有点在意。\n\n你已经很清楚自己的状态了：平时并不容易情绪化，只是这件事像个“刺”，偶尔碰到就会扎一下。\n\n如果你愿意，我可以陪你继续聊聊：看看究竟是“他没帮你”最让你生气，还是“你曾经帮过他却没被同样对待”这部分更**过不去**。"
+    },
+    {
+      "caseId": "esconv:1110",
+      "turnIndex": 0,
+      "dimension": "empty-comfort",
+      "critique": "回复是泛化的开放邀请，缺乏对用户具体状态‘I am fine’的针对性回应或情感理解。",
+      "tags": [
+        "泛化空洞回应"
+      ],
+      "userInput": "I am fine thank you. How are you?",
+      "aiReply": "谢谢你回我，听起来你现在**还不错**，这很好呀 ✨\n\n我也在这里，**很愿意陪你聊聊**。如果你想，今天可以随便说说你的心情，或者最近发生了什么。"
+    },
+    {
+      "caseId": "esconv:1110",
+      "turnIndex": 5,
+      "dimension": "empathy-accuracy",
+      "critique": "AI的回复是基于一个未提供的、关于第三方（“她”）和女儿的复杂情感背景进行推断，而用户当前的核心情绪是简单的、积极的认同与顿悟（“Very true. I really never even considered that!”），AI完全忽略了这一点。",
+      "tags": [
+        "错误事实解读"
+      ],
+      "userInput": "Very true. I really never even considered that!",
+      "aiReply": "听起来你现在一边对她的遭遇感到**心疼和同情**，一边又对自己和女儿是否被蒙在鼓里感到**不安和警惕**。\n\n这两种感受同时存在很正常，并不说明你冷漠；恰恰说明你既在乎她，也在乎女儿的安全。  \n如果你愿意，我有些好奇，眼下最让你卡住的是“要不要继续信任她”，还是“该怎么和女儿保持边界”呢？"
+    },
+    {
+      "caseId": "esconv:1110",
+      "turnIndex": 5,
+      "dimension": "context-coherence",
+      "critique": "AI 的回复忽略了用户刚刚明确表示认同并从未考虑过的新视角（'她可能不认为吸毒驾驶是错的'），转而重复讨论之前已表达过的矛盾情感，未能连贯承接用户的最新反馈。",
+      "tags": [
+        "偏离核心话题"
+      ],
+      "userInput": "Very true. I really never even considered that!",
+      "aiReply": "听起来你现在一边对她的遭遇感到**心疼和同情**，一边又对自己和女儿是否被蒙在鼓里感到**不安和警惕**。\n\n这两种感受同时存在很正常，并不说明你冷漠；恰恰说明你既在乎她，也在乎女儿的安全。  \n如果你愿意，我有些好奇，眼下最让你卡住的是“要不要继续信任她”，还是“该怎么和女儿保持边界”呢？"
+    },
+    {
+      "caseId": "esconv:1110",
+      "turnIndex": 10,
+      "dimension": "empathy-accuracy",
+      "critique": "AI的回复将用户的感谢和积极反馈，错误地映射为‘松了一口气’和‘在复杂情绪里努力’的疲惫与挣扎情绪，与用户表达的核心感激与满意情绪不符。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "Thank you so much! You were very helpful!",
+      "aiReply": "听起来你现在**松了一口气**，也很努力在复杂的情绪里保持善意。\n\n你已经在一边照顾自己的担心，一边尽力支持朋友了，这真的**很不容易** 💙"
+    },
+    {
+      "caseId": "esconv:1111",
+      "turnIndex": 6,
+      "dimension": "empathy-accuracy",
+      "critique": "AI 忽略了用户表达的核心情绪（对现状的无奈和孤立感），转而假设了用户存在'现实与期待的拉扯'，这是对情绪的误读。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "I have contacts in the previous job location only. But not in my family location. Some of my friends in the previous location have given some idea what I can do. To find a job in my previous location is not an issue. I try to be nearby.",
+      "aiReply": "听起来你在**现实和期待之间拉扯**：原来的地方机会更多，但你更想留在家人身边，这种取舍真的很不容易。\n\n我会先把方向收紧成一句话：你不是找“任何工作”，你是在找一份**离家近、匹配经验、又值得稳定做下去**的工作。  \n如果你愿意，我可以陪你一起把接下来分成两块：一块是“怎么提高附近岗位的机会”，一块是“怎么面对等待和反复面试带来的心累”。"
+    },
+    {
+      "caseId": "esconv:1111",
+      "turnIndex": 6,
+      "dimension": "premature-advice",
+      "critique": "AI 在用户刚表达完情况后，立即进入分析和建议模式，跳过了进一步的倾听和共情。",
+      "tags": [
+        "过早给出建议"
+      ],
+      "userInput": "I have contacts in the previous job location only. But not in my family location. Some of my friends in the previous location have given some idea what I can do. To find a job in my previous location is not an issue. I try to be nearby.",
+      "aiReply": "听起来你在**现实和期待之间拉扯**：原来的地方机会更多，但你更想留在家人身边，这种取舍真的很不容易。\n\n我会先把方向收紧成一句话：你不是找“任何工作”，你是在找一份**离家近、匹配经验、又值得稳定做下去**的工作。  \n如果你愿意，我可以陪你一起把接下来分成两块：一块是“怎么提高附近岗位的机会”，一块是“怎么面对等待和反复面试带来的心累”。"
+    },
+    {
+      "caseId": "esconv:1111",
+      "turnIndex": 6,
+      "dimension": "context-coherence",
+      "critique": "AI忽略了用户明确表示'To find a job in my previous location is not an issue'，错误地解读为在原地点找工作有困难，与用户陈述矛盾。",
+      "tags": [
+        "错误事实解读"
+      ],
+      "userInput": "I have contacts in the previous job location only. But not in my family location. Some of my friends in the previous location have given some idea what I can do. To find a job in my previous location is not an issue. I try to be nearby.",
+      "aiReply": "听起来你在**现实和期待之间拉扯**：原来的地方机会更多，但你更想留在家人身边，这种取舍真的很不容易。\n\n我会先把方向收紧成一句话：你不是找“任何工作”，你是在找一份**离家近、匹配经验、又值得稳定做下去**的工作。  \n如果你愿意，我可以陪你一起把接下来分成两块：一块是“怎么提高附近岗位的机会”，一块是“怎么面对等待和反复面试带来的心累”。"
+    },
+    {
+      "caseId": "esconv:1112",
+      "turnIndex": 0,
+      "dimension": "empty-comfort",
+      "critique": "回复是泛化的开场白，缺乏针对用户具体情境的回应或理解。",
+      "tags": [
+        "泛化空洞回应"
+      ],
+      "userInput": "Hi",
+      "aiReply": "嗨，见到你我很开心 **🌿**\n\n你现在想聊点什么都可以，我会在这儿陪着你。"
+    },
+    {
+      "caseId": "esconv:1112",
+      "turnIndex": 17,
+      "dimension": "empathy-accuracy",
+      "critique": "AI 回复忽略了用户简短感谢背后的核心情绪，直接假设了用户正承受巨大压力并需要计划，缺乏对用户当前情绪状态的识别和回应。",
+      "tags": [
+        "忽略关键信息"
+      ],
+      "userInput": "Thanks",
+      "aiReply": "You’re welcome — and honestly, you’re carrying **a lot** right now between school, work, and living on your own.\n\nThe fact that you’re still looking for ways to make this manageable says a lot about your **strength**. If you want, I can stay with you and help you make a simple plan for this week."
+    },
+    {
+      "caseId": "esconv:1113",
+      "turnIndex": 13,
+      "dimension": "reply-length",
+      "critique": "10 字（过短）",
+      "tags": [
+        "回复长度不足"
+      ],
+      "userInput": "bye",
+      "aiReply": "Take care."
+    },
+    {
+      "caseId": "esconv:1113",
+      "turnIndex": 13,
+      "dimension": "empty-comfort",
+      "critique": "回复是泛化的告别语，缺乏针对用户情境的实质性内容。",
+      "tags": [
+        "泛化空洞回应"
+      ],
+      "userInput": "bye",
+      "aiReply": "Take care."
+    },
+    {
+      "caseId": "esconv:1114",
+      "turnIndex": 12,
+      "dimension": "empathy-accuracy",
+      "critique": "AI 将用户的核心情绪错误地映射为‘困惑和受伤’，而用户陈述的核心是犹豫、被动和一种基于原则的克制，而非明确的受伤或困惑。",
+      "tags": [
+        "情绪映射错误"
+      ],
+      "userInput": "I wanted to reach out to her but since I didn't do anything I figured if she wants to talk she can reach out to me",
+      "aiReply": "It sounds like you’re feeling **confused and a little hurt**, especially because this happened right around such a huge life moment for you.\n\nI think your instinct makes sense: if you didn’t do anything, it’s okay not to chase after an answer. At the same time, I’m hearing there’s still a part of you that **wants clarity**—is it more the loss of the friendship that stings, or not knowing *why* she disappeared?"
+    },
+    {
+      "caseId": "esconv:1114",
+      "turnIndex": 24,
+      "dimension": "empathy-accuracy",
+      "critique": "AI 的回复是基于一个假设的、未在当前用户消息中出现的具体情境（失去朋友）来推断情绪，而用户当前消息仅表达了感谢，没有提供任何情绪线索。",
+      "tags": [
+        "过度解读意图"
+      ],
+      "userInput": "Well thanks for talking to me",
+      "aiReply": "Of course. It makes a lot of sense that you feel **sad and disappointed**—losing a friend’s presence right after having a baby can sting a lot.\n\nAnd it also sounds like there’s some **anger** there too, especially because she didn’t give you a chance to understand what happened. If you want, you can tell me which part hits hardest right now: missing her, feeling shut out, or wondering whether you’d even want the friendship back."
+    }
+  ],
+  "generatedAt": "2026-03-14T00:39:18.436Z"
+}

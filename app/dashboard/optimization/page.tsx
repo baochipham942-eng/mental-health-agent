@@ -1,404 +1,661 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, Button, Space, Message, Pagination, Statistic, Grid, Tabs, Badge } from '@arco-design/web-react';
-import { IconPlus, IconPlayArrow, IconDelete, IconExclamationCircle, IconThumbDown, IconLoop, IconStar } from '@arco-design/web-react/icon';
-import EvaluationList, { Evaluation } from './components/EvaluationList';
-import SelectConversationModal from './components/SelectConversationModal';
-import EvaluationDetailModal from './components/EvaluationDetailModal';
-import EventFeedTab from './components/EventFeedTab';
-import GoldenSamplesTab from './components/GoldenSamplesTab';
+import { useState, useEffect, useRef } from 'react';
+import { Card, Button, Tag, Table, Empty, Message, Modal, Checkbox, InputNumber, Input, Spin, Select, Progress } from '@arco-design/web-react';
+import { IconLoading, IconPlus, IconSearch } from '@arco-design/web-react/icon';
+import type { ColumnProps } from '@arco-design/web-react/es/Table';
+import { useRouter } from 'next/navigation';
 
-const Row = Grid.Row;
-const Col = Grid.Col;
-const TabPane = Tabs.TabPane;
+/* ---------- Types ---------- */
 
-interface Stats {
-    allConversations: number;
-    pending: number;
-    completed: number;
-    lowScore: number;
+interface EvalRun {
+  runId: string;
+  dataset: string;
+  model: string;
+  mode: string;
+  version: string;
+  gitCommit: string;
+  status: string;
+  timestamp: string;
+  totalCases: number;
+  totalTurns: number;
+  avgTtftMs: number;
+  passRate: number;
+  failCount: number;
+  annotationStats: { total: number; annotated: number; pass: number; fail: number; pending: number };
+  progress: { completed: number; total: number };
 }
 
-interface EventStats {
-    LOW_SCORE: number;
-    NEGATIVE_FEEDBACK: number;
-    STUCK_LOOP: number;
-}
+interface DatasetInfo { id: string; name: string; total_cases: number; caseCount: number }
+interface CaseItem { id: string; dataset_id: string; category: string | null; situation: string | null; turn_count: number }
 
-export default function OptimizationPage() {
-    const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-    const [stats, setStats] = useState<Stats>({ allConversations: 0, pending: 0, completed: 0, lowScore: 0 });
-    const [eventStats, setEventStats] = useState<EventStats>({ LOW_SCORE: 0, NEGATIVE_FEEDBACK: 0, STUCK_LOOP: 0 });
-    const [loading, setLoading] = useState(false);
-    const [evaluating, setEvaluating] = useState(false);
-    const [page, setPage] = useState(1);
-    const [pageSize] = useState(20);
-    const [total, setTotal] = useState(0);
-    const [selectModalVisible, setSelectModalVisible] = useState(false);
-    const [selectedEvaluationIds, setSelectedEvaluationIds] = useState<string[]>([]);
-    const [detailModalVisible, setDetailModalVisible] = useState(false);
-    const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
+import { passRateHex, statusTagColor, modeTagColor } from '@/lib/eval/constants';
 
-    // 初始加载
-    useEffect(() => {
-        loadEvaluations();
-        loadEventStats();
-    }, [page]);
+/* ---------- Helpers ---------- */
 
-    const loadEvaluations = async () => {
-        setLoading(true);
+/* ---------- Model Catalog ---------- */
+
+const MODEL_CATALOG: Record<string, { label: string; models: { value: string; label: string; desc: string }[] }> = {
+  deepseek: { label: 'DeepSeek', models: [
+    { value: 'deepseek-chat', label: 'DeepSeek V3.2', desc: '中文对话最佳性价比' },
+    { value: 'deepseek-reasoner', label: 'DeepSeek V3.2 推理', desc: '深度推理模式' },
+  ] },
+  kimi: { label: 'Kimi', models: [
+    { value: 'kimi-k2.5', label: 'Kimi K2.5', desc: '1T MoE，中文长上下文强' },
+  ] },
+  openai: { label: 'OpenAI', models: [
+    { value: 'gpt-5.4', label: 'GPT-5.4', desc: '最强旗舰' },
+    { value: 'gpt-5-mini', label: 'GPT-5 Mini', desc: '轻量高性价比' },
+  ] },
+  openrouter: { label: 'OpenRouter', models: [
+    { value: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', desc: 'Anthropic 最强' },
+    { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', desc: 'Anthropic 高性价比' },
+  ] },
+};
+
+/* ---------- Component ---------- */
+
+export default function ExperimentsPage() {
+  const router = useRouter();
+  const [runs, setRuns] = useState<EvalRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modeFilter, setModeFilter] = useState<string>('all');
+
+  // 新建实验
+  const [modalVisible, setModalVisible] = useState(false);
+  const [experimentMode, setExperimentMode] = useState<'benchmark' | 'product'>('benchmark');
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<string | null>(null);
+  const [cases, setCases] = useState<CaseItem[]>([]);
+  const [casesLoading, setCasesLoading] = useState(false);
+  const [selectedCases, setSelectedCases] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [skipJudge, setSkipJudge] = useState(false);
+  const [limitPerCase, setLimitPerCase] = useState(20);
+  const [evalProvider, setEvalProvider] = useState('deepseek');
+  const [evalModel, setEvalModel] = useState('deepseek-chat');
+  // Product 模式
+  const [prodConversations, setProdConversations] = useState<Array<{ id: string; title: string; type: string; labType?: string; messageCount: number; firstPrompt: string; createdAt: string }>>([]);
+  const [prodLoading, setProdLoading] = useState(false);
+  const [selectedConvIds, setSelectedConvIds] = useState<string[]>([]);
+  const [selectedLabIds, setSelectedLabIds] = useState<string[]>([]);
+
+  // 运行状态
+  const [running, setRunning] = useState(false);
+  const [runOutput, setRunOutput] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 对比功能
+  const [compareVisible, setCompareVisible] = useState(false);
+  const [compareRun1, setCompareRun1] = useState<string>('');
+  const [compareRun2, setCompareRun2] = useState<string>('');
+  const [compareData, setCompareData] = useState<any>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+
+  useEffect(() => { loadRuns(); }, []);
+  useEffect(() => { return () => { if (pollRef.current) clearInterval(pollRef.current); }; }, []);
+
+  const loadRuns = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/eval/runs');
+      if (res.ok) setRuns((await res.json()).runs);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  const handleProviderChange = (provider: string) => {
+    setEvalProvider(provider);
+    setEvalModel(MODEL_CATALOG[provider]?.models[0]?.value || '');
+  };
+
+  const openModal = async () => {
+    setModalVisible(true);
+    setSelectedCases([]);
+    setSelectedDataset(null);
+    setCases([]);
+    setSelectedConvIds([]);
+    setSelectedLabIds([]);
+    try {
+      const res = await fetch('/api/eval/datasets');
+      if (res.ok) setDatasets((await res.json()).datasets);
+    } catch { /* ignore */ }
+  };
+
+  const loadProductConversations = async () => {
+    setProdLoading(true);
+    try {
+      const res = await fetch('/api/eval/conversations?type=all&limit=100');
+      if (res.ok) setProdConversations((await res.json()).conversations);
+    } catch { /* ignore */ }
+    finally { setProdLoading(false); }
+  };
+
+  const handleModeSwitch = (mode: 'benchmark' | 'product') => {
+    setExperimentMode(mode);
+    if (mode === 'product' && prodConversations.length === 0) {
+      loadProductConversations();
+    }
+  };
+
+  const startProductExperiment = async () => {
+    if (selectedConvIds.length === 0 && selectedLabIds.length === 0) {
+      Message.warning('请至少选择一条会话');
+      return;
+    }
+    setModalVisible(false);
+    setRunning(true);
+    setRunOutput('启动 Product 评测...\n');
+
+    try {
+      const res = await fetch('/api/eval/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'product',
+          conversationIds: selectedConvIds,
+          labSessionIds: selectedLabIds,
+          skipJudge,
+          provider: evalProvider,
+          model: evalModel,
+        }),
+      });
+      const { runId } = await res.json();
+
+      pollRef.current = setInterval(async () => {
         try {
-            const res = await fetch(`/api/optimization/evaluations?page=${page}&pageSize=${pageSize}`);
-            if (res.ok) {
-                const data = await res.json();
-                setEvaluations(data.evaluations);
-                setStats(data.stats);
-                setTotal(data.total);
-            } else {
-                Message.error('加载评估列表失败');
+          const sr = await fetch(`/api/eval/status/${runId}`);
+          if (sr.ok) {
+            const data = await sr.json();
+            setRunOutput(data.output || '');
+            if (data.status !== 'running') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setRunning(false);
+              if (data.status === 'completed') { Message.success('Product 评测完成！'); loadRuns(); }
+              else Message.error('评测失败');
             }
-        } catch (error) {
-            Message.error('加载评估列表失败');
-        } finally {
-            setLoading(false);
-        }
-    };
+          }
+        } catch { /* ignore */ }
+      }, 2000);
+    } catch {
+      setRunning(false);
+      Message.error('启动失败');
+    }
+  };
 
-    const loadEventStats = async () => {
+  const selectDataset = async (dsId: string) => {
+    setSelectedDataset(dsId);
+    setCasesLoading(true);
+    try {
+      const url = searchQuery
+        ? `/api/eval/datasets?dataset=${dsId}&q=${encodeURIComponent(searchQuery)}`
+        : `/api/eval/datasets?dataset=${dsId}&pageSize=200`;
+      const res = await fetch(url);
+      if (res.ok) setCases((await res.json()).cases || []);
+    } catch { /* ignore */ }
+    finally { setCasesLoading(false); }
+  };
+
+  const selectAll = () => { setSelectedCases(prev => [...new Set([...prev, ...cases.map(c => c.id)])]); };
+  const deselectAll = () => { const ids = new Set(cases.map(c => c.id)); setSelectedCases(prev => prev.filter(id => !ids.has(id))); };
+
+  const startExperiment = async () => {
+    if (selectedCases.length === 0) { Message.warning('请至少选择一个用例'); return; }
+    setModalVisible(false);
+    setRunning(true);
+    setRunOutput('启动评测...\n');
+
+    const byDataset: Record<string, string[]> = {};
+    for (const caseId of selectedCases) {
+      const ds = caseId.split(':')[0];
+      if (!byDataset[ds]) byDataset[ds] = [];
+      byDataset[ds].push(caseId);
+    }
+
+    try {
+      const res = await fetch('/api/eval/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasets: Object.keys(byDataset),
+          caseIds: selectedCases,
+          limit: limitPerCase,
+          skipJudge,
+          provider: evalProvider,
+          model: evalModel,
+        }),
+      });
+      const { runId } = await res.json();
+
+      pollRef.current = setInterval(async () => {
         try {
-            const res = await fetch('/api/optimization/events?type=ALL&status=PENDING&pageSize=1');
-            if (res.ok) {
-                const data = await res.json();
-                setEventStats(data.stats || { LOW_SCORE: 0, NEGATIVE_FEEDBACK: 0, STUCK_LOOP: 0 });
+          const sr = await fetch(`/api/eval/status/${runId}`);
+          if (sr.ok) {
+            const data = await sr.json();
+            setRunOutput(data.output || '');
+            if (data.status !== 'running') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setRunning(false);
+              if (data.status === 'completed') { Message.success('评测完成！'); loadRuns(); }
+              else Message.error('评测失败');
             }
-        } catch (error) {
-            console.error('Failed to load event stats:', error);
-        }
-    };
+          }
+        } catch { /* ignore */ }
+      }, 2000);
+    } catch {
+      setRunning(false);
+      Message.error('启动失败');
+    }
+  };
 
-    // 添加选中的会话到列表（只创建记录，不评估）
-    const handleAddConversations = async (conversationIds: string[]) => {
-        try {
-            const res = await fetch('/api/optimization/add-to-list', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ conversationIds }),
+  const doCompare = async () => {
+    if (!compareRun1 || !compareRun2) { Message.warning('请选择两个实验'); return; }
+    if (compareRun1 === compareRun2) { Message.warning('请选择不同的实验'); return; }
+    setCompareLoading(true);
+    try {
+      const res = await fetch(`/api/eval/compare?run1=${encodeURIComponent(compareRun1)}&run2=${encodeURIComponent(compareRun2)}`);
+      if (res.ok) setCompareData(await res.json());
+      else Message.error('对比失败');
+    } catch { Message.error('对比失败'); }
+    finally { setCompareLoading(false); }
+  };
+
+  // 筛选
+  const filteredRuns = modeFilter === 'all' ? runs : runs.filter(r => r.mode === modeFilter);
+
+  // 统计
+  const totalRuns = runs.length;
+  const runningCount = runs.filter(r => r.status === 'running').length;
+  const completedCount = runs.filter(r => r.status === 'completed').length;
+  const latestPassRate = runs.find(r => r.status === 'completed')?.passRate ?? 0;
+
+  const columns: ColumnProps<EvalRun>[] = [
+    {
+      title: 'ID', dataIndex: 'runId', width: 160,
+      render: (v: string) => {
+        // 去掉前缀和日期部分，只保留有意义的标识
+        const short = v.replace(/^(academic|product)-/, '').replace(/^\d{4}-\d{2}-\d{2}[T_-]?\d{0,6}-?/, '').slice(0, 16) || v.slice(0, 16);
+        return (
+          <a onClick={() => router.push(`/dashboard/optimization/exp/${encodeURIComponent(v)}`)}
+            className="text-indigo-600 hover:underline cursor-pointer font-mono text-xs" title={v}>
+            {short}
+          </a>
+        );
+      },
+    },
+    {
+      title: '模式', dataIndex: 'mode', width: 90,
+      render: (v: string) => <Tag color={modeTagColor(v)} size="small">{v}</Tag>,
+    },
+    {
+      title: '模型', dataIndex: 'model', width: 140,
+      render: (v: string) => {
+        const display = v || 'deepseek';
+        const color = display.startsWith('deepseek') ? 'green' : display.startsWith('kimi') ? 'purple' : display.startsWith('gpt') ? 'orange' : 'blue';
+        return <Tag color={color} size="small">{display}</Tag>;
+      },
+    },
+    { title: '数据集', dataIndex: 'dataset', width: 130, render: (v: string) => <span className="text-xs text-gray-600">{v}</span> },
+    {
+      title: '状态', dataIndex: 'status', width: 90,
+      render: (v: string) => <Tag color={statusTagColor(v)} size="small">{v}</Tag>,
+    },
+    {
+      title: '进度', width: 120,
+      render: (_: unknown, record: EvalRun) => {
+        const p = record.progress;
+        const pct = p.total > 0 ? Math.round(p.completed / p.total * 100) : 0;
+        return (
+          <div className="flex items-center gap-2">
+            <Progress percent={pct} size="small" style={{ width: 60 }} showText={false}
+              color={record.status === 'completed' ? '#00b42a' : '#f77234'} />
+            <span className="text-xs text-gray-500">{p.completed}/{p.total}</span>
+          </div>
+        );
+      },
+    },
+    {
+      title: '通过率', dataIndex: 'passRate', width: 80, align: 'center' as const,
+      render: (v: number) => v > 0 ? <span style={{ color: passRateHex(v), fontWeight: 600 }}>{v}%</span> : <span className="text-gray-400">-</span>,
+      sorter: (a: EvalRun, b: EvalRun) => a.passRate - b.passRate,
+    },
+    {
+      title: '创建时间', dataIndex: 'timestamp', width: 155,
+      render: (v: string) => v ? <span className="text-xs text-gray-500">{v}</span> : '-',
+    },
+    {
+      title: '操作', width: 60,
+      render: (_: unknown, record: EvalRun) => (
+        <Button type="text" size="mini" status="danger"
+          onClick={async (e) => {
+            e.stopPropagation();
+            Modal.confirm({
+              title: '确认删除',
+              content: `确定要删除实验 ${record.runId.slice(0, 20)} 吗？此操作不可逆。`,
+              onOk: async () => {
+                try {
+                  const res = await fetch(`/api/eval/runs/${encodeURIComponent(record.runId)}`, { method: 'DELETE' });
+                  if (res.ok) { Message.success('已删除'); loadRuns(); }
+                  else Message.error('删除失败');
+                } catch { Message.error('删除失败'); }
+              },
             });
+          }}>
+          删除
+        </Button>
+      ),
+    },
+  ];
 
-            if (res.ok) {
-                const data = await res.json();
-                Message.success(`已添加 ${data.added} 条会话到评估列表`);
-                loadEvaluations();
-            } else {
-                const error = await res.json();
-                Message.error(`添加失败: ${error.error}`);
-            }
-        } catch (error) {
-            Message.error('添加失败');
-        }
-    };
+  const selectedSummary = () => {
+    const byDs: Record<string, number> = {};
+    for (const id of selectedCases) { const ds = id.split(':')[0]; byDs[ds] = (byDs[ds] || 0) + 1; }
+    return Object.entries(byDs).map(([ds, n]) => `${ds} ${n}条`).join(', ');
+  };
 
-    // 批量评估选中的记录
-    const handleBatchEvaluate = async () => {
-        // 筛选出待评估状态的记录
-        const pendingIds = evaluations
-            .filter(e => selectedEvaluationIds.includes(e.id) && e.overallGrade === 'EVALUATING')
-            .map(e => e.conversationId);
+  return (
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+      {/* 运行状态 */}
+      {(running || runOutput) && (
+        <Card className="shadow-sm" title={
+          <span className="font-semibold text-sm flex items-center gap-2">
+            {running && <IconLoading className="animate-spin" />}
+            {running ? '评测运行中...' : '最近运行输出'}
+          </span>
+        }>
+          <div className="bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs max-h-48 overflow-y-auto whitespace-pre-wrap">
+            {runOutput}
+          </div>
+        </Card>
+      )}
 
-        if (pendingIds.length === 0) {
-            Message.warning('请选择待评估的会话');
-            return;
-        }
+      {/* 标题 + 筛选 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">实验列表</h1>
+          <p className="text-sm text-gray-500">跨基准和产品模式的评测运行记录</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="small" onClick={() => setCompareVisible(true)} disabled={runs.filter(r => r.status === 'completed').length < 2}>对比</Button>
+          <Button type="primary" icon={<IconPlus />} size="small" onClick={openModal} disabled={running}>
+            新建实验
+          </Button>
+        </div>
+      </div>
 
-        setEvaluating(true);
-        Message.info(`开始评估 ${pendingIds.length} 条会话...`);
+      {/* 模式筛选 */}
+      <div className="flex items-center gap-2">
+        {['all', 'benchmark', 'product'].map(mode => (
+          <Button key={mode} size="small" type={modeFilter === mode ? 'primary' : 'secondary'}
+            onClick={() => setModeFilter(mode)}>
+            {mode === 'all' ? '全部' : mode === 'benchmark' ? '基准模式' : '产品模式'}
+          </Button>
+        ))}
+      </div>
 
-        try {
-            const res = await fetch('/api/optimization/evaluate-sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ conversationIds: pendingIds }),
-            });
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: '实验总数', value: totalRuns, color: '#165dff' },
+          { label: '运行中', value: runningCount, color: '#f77234' },
+          { label: '已完成', value: completedCount, color: '#00b42a' },
+          { label: '最新通过率', value: latestPassRate > 0 ? `${latestPassRate}%` : '-', color: passRateHex(latestPassRate) },
+        ].map(item => (
+          <Card key={item.label} className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <div className="text-xs text-gray-500">{item.label}</div>
+            <div className="text-2xl font-bold mt-1" style={{ color: item.color }}>{item.value}</div>
+          </Card>
+        ))}
+      </div>
 
-            if (res.ok) {
-                const data = await res.json();
-                Message.success(`评估完成！成功 ${data.success} 条，失败 ${data.failed} 条`);
-                setSelectedEvaluationIds([]);
-                loadEvaluations();
-            } else {
-                const error = await res.json();
-                Message.error(`评估失败: ${error.error}`);
-            }
-        } catch (error) {
-            Message.error('评估失败');
-        } finally {
-            setEvaluating(false);
-        }
-    };
+      {/* 实验表格 */}
+      <Card className="shadow-sm">
+        <Table
+          columns={columns}
+          data={filteredRuns}
+          rowKey="runId"
+          loading={loading}
+          pagination={filteredRuns.length > 20 ? { pageSize: 20 } : false}
+          size="small"
+          noDataElement={<Empty description="暂无实验，点击「新建实验」开始" />}
+          onRow={(record) => ({
+            className: 'cursor-pointer hover:bg-gray-50',
+            onClick: () => router.push(`/dashboard/optimization/exp/${encodeURIComponent(record.runId)}`),
+          })}
+        />
+      </Card>
 
-    // 删除选中的评估记录
-    const handleDeleteSelected = async () => {
-        if (selectedEvaluationIds.length === 0) {
-            Message.warning('请选择要删除的记录');
-            return;
-        }
+      {/* ===== 对比弹窗 ===== */}
+      <Modal
+        title="实验对比"
+        visible={compareVisible}
+        onCancel={() => { setCompareVisible(false); setCompareData(null); }}
+        footer={<Button onClick={() => { setCompareVisible(false); setCompareData(null); }}>关闭</Button>}
+        style={{ width: 720, maxWidth: '95vw' }}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <Select size="small" placeholder="选择实验 A" value={compareRun1} onChange={setCompareRun1} style={{ flex: 1 }}
+            options={runs.filter(r => r.status === 'completed').map(r => ({ value: r.runId, label: `${r.runId.slice(0, 20)} (${r.mode})` }))} />
+          <span className="text-gray-400">vs</span>
+          <Select size="small" placeholder="选择实验 B" value={compareRun2} onChange={setCompareRun2} style={{ flex: 1 }}
+            options={runs.filter(r => r.status === 'completed').map(r => ({ value: r.runId, label: `${r.runId.slice(0, 20)} (${r.mode})` }))} />
+          <Button type="primary" size="small" onClick={doCompare} loading={compareLoading}>对比</Button>
+        </div>
 
-        try {
-            const res = await fetch('/api/optimization/delete-evaluations', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ evaluationIds: selectedEvaluationIds }),
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                Message.success(`已删除 ${data.deleted} 条记录`);
-                setSelectedEvaluationIds([]);
-                loadEvaluations();
-            } else {
-                Message.error('删除失败');
-            }
-        } catch (error) {
-            Message.error('删除失败');
-        }
-    };
-
-    // 计算选中的待评估数量
-    const selectedPendingCount = evaluations
-        .filter(e => selectedEvaluationIds.includes(e.id) && e.overallGrade === 'EVALUATING')
-        .length;
-
-    // 点击行查看详情
-    const handleRowClick = (evaluation: Evaluation) => {
-        setSelectedEvaluation(evaluation);
-        setDetailModalVisible(true);
-    };
-
-    // 点击事件行查看详情（根据 conversationId 获取评估数据）
-    const handleEventClick = async (event: { conversationId: string }) => {
-        // 快速路径：先从已有的 evaluations 中查找
-        const existing = evaluations.find(e => e.conversationId === event.conversationId);
-        if (existing) {
-            setSelectedEvaluation(existing);
-            setDetailModalVisible(true);
-            return;
-        }
-
-        // 慢路径：创建一个临时的 Evaluation 对象，让 Modal 自己加载消息
-        // 这样可以立即打开 Modal，用户能看到加载状态而不是等待
-        const tempEvaluation = {
-            id: `temp-${event.conversationId}`,
-            conversationId: event.conversationId,
-            conversationTitle: '加载中...',
-            evaluatedAt: new Date().toISOString(),
-            overallGrade: 'EVALUATING',
-            overallScore: 0,
-            legalScore: 0, legalIssues: [],
-            ethicalScore: 0, ethicalIssues: [],
-            professionalScore: 0, professionalIssues: [],
-            uxScore: 0, uxIssues: [],
-        } as any;
-
-        setSelectedEvaluation(tempEvaluation);
-        setDetailModalVisible(true);
-    };
-
-    return (
-        <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 to-indigo-50">
-            <div className="max-w-7xl mx-auto p-6 space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between hidden md:flex">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Prompt 优化审批</h1>
-                        <p className="text-sm text-gray-500 mt-1">基于 AI 评估的自动化 Prompt 改进建议</p>
-                    </div>
-                </div>
-
-                {/* Stats - Responsive Grid */}
-                <Row gutter={[16, 16]}>
-                    <Col xs={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title="全部会话"
-                                value={stats.allConversations}
-                                suffix="条"
-                                styleValue={{ color: '#165dff' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title="待评估"
-                                value={stats.pending}
-                                suffix="条"
-                                styleValue={{ color: '#00b42a' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title="已评估"
-                                value={stats.completed}
-                                suffix="条"
-                                styleValue={{ color: '#3370ff' }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={12} md={6}>
-                        <Card>
-                            <Statistic
-                                title="低分会话"
-                                value={stats.lowScore}
-                                suffix="条"
-                                styleValue={{ color: '#f77234' }}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-
-                {/* 4-Tab Layout */}
-                <Tabs defaultActiveTab="all" type="rounded">
-                    {/* Tab 1: 全部会话 (现有功能) */}
-                    <TabPane key="all" title={<span>📋 全部会话</span>}>
-                        {/* Actions */}
-                        <Card className="shadow-md mb-4">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-lg font-semibold">评估列表</h3>
-                                <Space>
-                                    <Button
-                                        icon={<IconPlus />}
-                                        onClick={() => setSelectModalVisible(true)}
-                                    >
-                                        选择会话
-                                    </Button>
-                                    <Button
-                                        type="primary"
-                                        icon={<IconPlayArrow />}
-                                        loading={evaluating}
-                                        onClick={handleBatchEvaluate}
-                                        disabled={selectedPendingCount === 0}
-                                    >
-                                        {evaluating ? '评估中...' : `批量评估 (${selectedPendingCount})`}
-                                    </Button>
-                                    <Button
-                                        status="danger"
-                                        icon={<IconDelete />}
-                                        onClick={handleDeleteSelected}
-                                        disabled={selectedEvaluationIds.length === 0}
-                                    >
-                                        删除 ({selectedEvaluationIds.length})
-                                    </Button>
-                                </Space>
-                            </div>
-                        </Card>
-
-                        {/* Evaluation List */}
-                        <EvaluationList
-                            evaluations={evaluations}
-                            loading={loading}
-                            selectedRowKeys={selectedEvaluationIds}
-                            onSelectionChange={setSelectedEvaluationIds}
-                            onRowClick={handleRowClick}
-                        />
-
-                        {/* Pagination */}
-                        {total > pageSize && (
-                            <div className="flex justify-center mt-4">
-                                <Pagination
-                                    current={page}
-                                    pageSize={pageSize}
-                                    total={total}
-                                    onChange={setPage}
-                                />
-                            </div>
-                        )}
-                    </TabPane>
-
-                    {/* Tab 2: 死循环 */}
-                    <TabPane
-                        key="stuck"
-                        title={
-                            <span>
-                                <IconLoop style={{ marginRight: 4 }} />
-                                死循环
-                                {eventStats.STUCK_LOOP > 0 && (
-                                    <Badge count={eventStats.STUCK_LOOP} style={{ marginLeft: 6 }} />
-                                )}
-                            </span>
-                        }
-                    >
-                        <EventFeedTab type="STUCK_LOOP" onRowClick={handleEventClick} />
-                    </TabPane>
-
-                    {/* Tab 3: 低分会话 */}
-                    <TabPane
-                        key="low_score"
-                        title={
-                            <span>
-                                <IconExclamationCircle style={{ marginRight: 4 }} />
-                                低分会话
-                                {eventStats.LOW_SCORE > 0 && (
-                                    <Badge count={eventStats.LOW_SCORE} style={{ marginLeft: 6 }} />
-                                )}
-                            </span>
-                        }
-                    >
-                        <EventFeedTab type="LOW_SCORE" onRowClick={handleEventClick} />
-                    </TabPane>
-
-                    {/* Tab 4: 差评反馈 */}
-                    <TabPane
-                        key="feedback"
-                        title={
-                            <span>
-                                <IconThumbDown style={{ marginRight: 4 }} />
-                                差评反馈
-                                {eventStats.NEGATIVE_FEEDBACK > 0 && (
-                                    <Badge count={eventStats.NEGATIVE_FEEDBACK} style={{ marginLeft: 6 }} />
-                                )}
-                            </span>
-                        }
-                    >
-                        <EventFeedTab type="NEGATIVE_FEEDBACK" onRowClick={handleEventClick} />
-                    </TabPane>
-
-                    {/* Tab 5: 黄金样本 */}
-                    <TabPane
-                        key="golden"
-                        title={
-                            <span>
-                                <IconStar style={{ marginRight: 4, color: '#ffc53d' }} />
-                                黄金样本
-                            </span>
-                        }
-                    >
-                        <GoldenSamplesTab onRowClick={(s) => handleEventClick({ conversationId: s.conversationId })} />
-                    </TabPane>
-                </Tabs>
-
-                {/* Select Conversation Modal */}
-                <SelectConversationModal
-                    visible={selectModalVisible}
-                    onClose={() => setSelectModalVisible(false)}
-                    onConfirm={handleAddConversations}
-                />
-
-                {/* Evaluation Detail Modal */}
-                <EvaluationDetailModal
-                    visible={detailModalVisible}
-                    evaluation={selectedEvaluation}
-                    onClose={() => {
-                        setDetailModalVisible(false);
-                        setSelectedEvaluation(null);
-                    }}
-                    onAdopted={() => {
-                        loadEvaluations();
-                    }}
-                />
+        {compareData && (
+          <div className="space-y-2">
+            <div className="flex gap-4 text-xs text-gray-500 mb-2">
+              <span>A: <Tag size="small" color="arcoblue">{compareData.run1.model}</Tag> {compareData.run1.mode}</span>
+              <span>B: <Tag size="small" color="purple">{compareData.run2.model}</Tag> {compareData.run2.mode}</span>
             </div>
-        </div >
-    );
+            <Table
+              size="small"
+              pagination={false}
+              data={compareData.comparison}
+              rowKey="dimension"
+              columns={[
+                { title: '维度', dataIndex: 'dimension', width: 160 },
+                { title: 'A 通过率', width: 100, render: (_: any, r: any) => <span>{r.run1.rate}%</span> },
+                { title: 'B 通过率', width: 100, render: (_: any, r: any) => <span>{r.run2.rate}%</span> },
+                { title: '差异', width: 100, render: (_: any, r: any) => {
+                  const color = r.diff > 0 ? '#00b42a' : r.diff < 0 ? '#cb2634' : '#999';
+                  return <span style={{ color, fontWeight: 600 }}>{r.diff > 0 ? '+' : ''}{r.diff}%</span>;
+                }},
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* ===== 新建实验弹窗 ===== */}
+      <Modal
+        title="新建实验"
+        visible={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        maskClosable={false}
+        style={{ width: 960, maxWidth: '95vw' }}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <div className="text-sm text-gray-500">
+              {experimentMode === 'benchmark' ? (
+                <>
+                  已选 <b className="text-indigo-600">{selectedCases.length}</b> 条用例
+                  {selectedCases.length > 0 && <span className="ml-2 text-gray-400">({selectedSummary()})</span>}
+                  {evalModel && <Tag color="arcoblue" size="small" className="ml-2">{evalModel}</Tag>}
+                </>
+              ) : (
+                <>
+                  已选 <b className="text-purple-600">{selectedConvIds.length + selectedLabIds.length}</b> 条会话
+                  {selectedConvIds.length > 0 && <span className="ml-2 text-gray-400">({selectedConvIds.length} 普通)</span>}
+                  {selectedLabIds.length > 0 && <span className="ml-1 text-gray-400">({selectedLabIds.length} 实验室)</span>}
+                </>
+              )}
+            </div>
+            <Button type="primary"
+              onClick={experimentMode === 'benchmark' ? startExperiment : startProductExperiment}
+              disabled={experimentMode === 'benchmark' ? selectedCases.length === 0 : (selectedConvIds.length + selectedLabIds.length === 0)}>
+              开始评测
+            </Button>
+          </div>
+        }
+      >
+        {/* 模式 Tab */}
+        <div className="flex gap-2 mb-4">
+          <Button size="small" type={experimentMode === 'benchmark' ? 'primary' : 'secondary'}
+            onClick={() => handleModeSwitch('benchmark')}>
+            基准评测
+          </Button>
+          <Button size="small" type={experimentMode === 'product' ? 'primary' : 'secondary'}
+            onClick={() => handleModeSwitch('product')}>
+            产品评测（已有会话）
+          </Button>
+        </div>
+
+        {experimentMode === 'benchmark' ? (
+          /* ===== Benchmark 模式 ===== */
+          <div className="flex gap-4 min-h-[400px] overflow-hidden">
+            {/* 左侧：数据集列表 */}
+            <div className="w-48 shrink-0 border-r border-gray-100 pr-4 space-y-2">
+              <div className="text-xs text-gray-400 font-medium mb-2">数据集</div>
+              {datasets.map(ds => (
+                <button key={ds.id} onClick={() => selectDataset(ds.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedDataset === ds.id ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  <div className="font-medium">{ds.name || ds.id}</div>
+                  <div className="text-xs text-gray-400">{ds.caseCount || ds.total_cases} 条</div>
+                </button>
+              ))}
+            </div>
+
+            {/* 右侧：用例列表 */}
+            <div className="w-0 flex-1">
+              {selectedDataset ? (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Input size="small" placeholder="搜索用例..." prefix={<IconSearch />}
+                      value={searchQuery} onChange={v => setSearchQuery(v)}
+                      onPressEnter={() => selectDataset(selectedDataset)} style={{ flex: 1 }} />
+                    <Button size="small" onClick={selectAll}>全选</Button>
+                    <Button size="small" onClick={deselectAll}>取消全选</Button>
+                  </div>
+                  <Spin loading={casesLoading} style={{ width: '100%', overflow: 'hidden' }}>
+                    <div className="max-h-[40vh] overflow-y-auto overflow-x-hidden space-y-1">
+                      {cases.map(c => (
+                        <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm transition-colors w-full ${
+                          selectedCases.includes(c.id) ? 'bg-indigo-50' : 'hover:bg-gray-50'
+                        }`}>
+                          <Checkbox checked={selectedCases.includes(c.id)}
+                            onChange={checked => setSelectedCases(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
+                          <span className="font-mono text-xs text-gray-600 w-32 shrink-0 truncate" title={c.id}>{c.id}</span>
+                          <span className="text-gray-500 truncate min-w-0 flex-1">{c.category || c.situation || '—'}</span>
+                          <span className="text-xs text-gray-400 shrink-0">{c.turn_count} 轮</span>
+                        </label>
+                      ))}
+                      {cases.length === 0 && !casesLoading && <div className="text-center text-gray-400 py-8">暂无用例</div>}
+                    </div>
+                  </Spin>
+
+                  {/* 评测配置 */}
+                  <div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
+                    <div className="text-xs text-gray-400 font-medium">评测配置</div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500">模型</span>
+                        <Select size="small" value={evalProvider} onChange={handleProviderChange} style={{ width: 120 }}
+                          options={Object.entries(MODEL_CATALOG).map(([k, v]) => ({ value: k, label: v.label }))} />
+                        <Select size="small" value={evalModel} onChange={setEvalModel} style={{ width: 260 }}>
+                          {(MODEL_CATALOG[evalProvider]?.models || []).map(m => (
+                            <Select.Option key={m.value} value={m.value}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span>{m.label}</span>
+                                <span className="text-xs text-gray-400">{m.desc}</span>
+                              </div>
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500">采样条数</span>
+                        <InputNumber min={1} max={200} value={limitPerCase} onChange={v => setLimitPerCase(v || 20)} style={{ width: 60 }} size="small" />
+                      </div>
+                      <Checkbox checked={skipJudge} onChange={setSkipJudge}>
+                        <span className="text-gray-500 text-sm">仅跑代码规则</span>
+                      </Checkbox>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400">← 选择一个数据集</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ===== Product 模式 ===== */
+          <div className="min-h-[400px]">
+            <p className="text-sm text-gray-500 mb-3">选择已有的真实对话进行质量评测</p>
+
+            <Spin loading={prodLoading} style={{ width: '100%' }}>
+              <div className="max-h-[40vh] overflow-y-auto space-y-1">
+                {prodConversations.map(conv => {
+                  const isConv = conv.type === 'conversation';
+                  const isSelected = isConv ? selectedConvIds.includes(conv.id) : selectedLabIds.includes(conv.id);
+                  const toggle = (checked: boolean) => {
+                    if (isConv) {
+                      setSelectedConvIds(prev => checked ? [...prev, conv.id] : prev.filter(id => id !== conv.id));
+                    } else {
+                      setSelectedLabIds(prev => checked ? [...prev, conv.id] : prev.filter(id => id !== conv.id));
+                    }
+                  };
+                  return (
+                    <label key={conv.id} className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer text-sm transition-colors ${
+                      isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'
+                    }`}>
+                      <Checkbox checked={isSelected} onChange={toggle} />
+                      <Tag size="small" color={isConv ? 'arcoblue' : 'purple'}>
+                        {isConv ? '聊天' : conv.labType === 'group' ? '圆桌' : conv.labType === 'wisdom' ? '智慧' : '实验'}
+                      </Tag>
+                      <span className="text-gray-700 truncate flex-1" title={conv.title}>{conv.title}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{conv.messageCount} 条</span>
+                      <span className="text-xs text-gray-400 shrink-0">{new Date(conv.createdAt).toLocaleDateString('zh-CN')}</span>
+                    </label>
+                  );
+                })}
+                {prodConversations.length === 0 && !prodLoading && (
+                  <div className="text-center text-gray-400 py-8">暂无会话记录</div>
+                )}
+              </div>
+            </Spin>
+
+            {/* 评测配置 */}
+            <div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
+              <div className="text-xs text-gray-400 font-medium">评测配置</div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">打分模型</span>
+                  <Select size="small" value={evalProvider} onChange={handleProviderChange} style={{ width: 120 }}
+                    options={Object.entries(MODEL_CATALOG).map(([k, v]) => ({ value: k, label: v.label }))} />
+                  <Select size="small" value={evalModel} onChange={setEvalModel} style={{ width: 260 }}>
+                    {(MODEL_CATALOG[evalProvider]?.models || []).map(m => (
+                      <Select.Option key={m.value} value={m.value}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{m.label}</span>
+                          <span className="text-xs text-gray-400">{m.desc}</span>
+                        </div>
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </div>
+                <Checkbox checked={skipJudge} onChange={setSkipJudge}>
+                  <span className="text-gray-500 text-sm">仅跑代码规则（跳过 LLM Judge）</span>
+                </Checkbox>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
 }

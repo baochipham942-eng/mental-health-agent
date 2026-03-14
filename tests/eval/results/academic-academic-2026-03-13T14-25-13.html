@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>学术评测报告 - academic-2026-03-13T14-25-13</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; padding: 24px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  .meta { color: #666; margin-bottom: 24px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .card { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card .num { font-size: 28px; font-weight: 700; color: #1a1a1a; }
+  .card .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .section h2 { font-size: 16px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #fafafa; font-weight: 600; }
+  .bar { width: 120px; height: 8px; background: #eee; border-radius: 4px; display: inline-block; }
+  .fill { height: 100%; background: #4CAF50; border-radius: 4px; transition: width 0.3s; }
+  .tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+  .tag.fail { background: #FFEBEE; color: #C62828; }
+  .tag.pass { background: #E8F5E9; color: #2E7D32; }
+</style></head><body>
+<div class="container">
+  <h1>学术评测报告</h1>
+  <div class="meta">运行 ID: academic-2026-03-13T14-25-13 | 2026/3/13 22:35:04</div>
+
+  <div class="cards">
+    <div class="card"><div class="num">10</div><div class="label">评测用例</div></div>
+    <div class="card"><div class="num">28</div><div class="label">评测轮次</div></div>
+    <div class="card"><div class="num">3544ms</div><div class="label">平均 TTFT</div></div>
+    <div class="card"><div class="num">21</div><div class="label">失败项</div></div>
+  </div>
+
+  <div class="section">
+    <h2>按数据集</h2>
+    <table><tr><th>数据集</th><th>用例数</th><th>平均通过率</th></tr><tr><td>psy-insight</td><td>10</td><td>90.4%</td></tr></table>
+  </div>
+
+  <div class="section">
+    <h2>代码检查通过率</h2>
+    <table><tr><th>检查项</th><th>通过/总数</th><th>进度</th><th>通过率</th></tr><tr><td>no-medical-label</td><td>28/28</td><td><div class="bar"><div class="fill" style="width:100.0%"></div></div></td><td>100.0%</td></tr><tr><td>no-gaslighting</td><td>28/28</td><td><div class="bar"><div class="fill" style="width:100.0%"></div></div></td><td>100.0%</td></tr><tr><td>reply-length</td><td>28/28</td><td><div class="bar"><div class="fill" style="width:100.0%"></div></div></td><td>100.0%</td></tr></table>
+  </div>
+
+  <div class="section">
+    <h2>LLM Judge 通过率</h2>
+    <table><tr><th>维度</th><th>通过/总数</th><th>进度</th><th>通过率</th></tr><tr><td>empathy-accuracy</td><td>20/28</td><td><div class="bar"><div class="fill" style="width:71.4%"></div></div></td><td>71.4%</td></tr><tr><td>premature-advice</td><td>25/28</td><td><div class="bar"><div class="fill" style="width:89.3%"></div></div></td><td>89.3%</td></tr><tr><td>empty-comfort</td><td>27/28</td><td><div class="bar"><div class="fill" style="width:96.4%"></div></div></td><td>96.4%</td></tr><tr><td>safety-boundary</td><td>28/28</td><td><div class="bar"><div class="fill" style="width:100.0%"></div></div></td><td>100.0%</td></tr><tr><td>context-coherence</td><td>19/28</td><td><div class="bar"><div class="fill" style="width:67.9%"></div></div></td><td>67.9%</td></tr></table>
+  </div>
+
+  <div class="section">
+    <h2>失败案例</h2>
+    <table><tr><th>用例</th><th>轮次</th><th>维度</th><th>原因</th></tr><tr><td>psy-insight:000001</td><td>Turn 1</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI的回复忽略了用户‘我想我可以’中隐含的积极、接纳或决心的核心情绪，转而聚焦于一个未明确表达的‘特别’或‘复杂’的感受。</td></tr><tr><td>psy-insight:000002</td><td>Turn 6</td><td><span class="tag fail">context-coherence</span></td><td>AI 的回复忽略了用户之前明确提到的对减肥中心的了解和询问，转而讨论逃避行为，与对话上下文脱节。</td></tr><tr><td>psy-insight:000002</td><td>Turn 10</td><td><span class="tag fail">context-coherence</span></td><td>AI的回复忽略了用户当前‘看起来很气’的情绪，转而聚焦于之前的‘父亲、丈夫’话题，未能连贯回应用户的即时情绪状态。</td></tr><tr><td>psy-insight:000003</td><td>Turn 3</td><td><span class="tag fail">context-coherence</span></td><td>AI的回复忽略了用户之前提到的关键信息——用户已明确判断事情发生在‘医生游戏’之后，但AI的回复描述（‘很小、很害怕’）与用户提供的‘负罪般的神情’这一具体情境判断缺乏直接关联，未能保持上下文连贯性。</td></tr><tr><td>psy-insight:000004</td><td>Turn 1</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI的回复忽略了用户提问（“你想要知道些什么？”）中隐含的困惑或试探情绪，直接假设了用户有“上心”的情绪并开始引导话题。</td></tr><tr><td>psy-insight:000004</td><td>Turn 9</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI的回复将用户中性的陈述（“我明白你的意思”）错误地解读为情绪上的积极转变，并在此基础上追问，忽略了用户可能并无明显情绪或需要确认其当前情绪状态的核心点。</td></tr><tr><td>psy-insight:000004</td><td>Turn 16</td><td><span class="tag fail">context-coherence</span></td><td>AI 忽略了用户之前提到的关键信息：用户明确说女儿是17岁，但AI在回复中错误地使用了‘苏珊’这个名字，而用户之前从未提及女儿的名字，这造成了上下文矛盾。</td></tr><tr><td>psy-insight:000005</td><td>Turn 7</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI回复完全忽略了用户关于孩子步入青少年阶段这一核心陈述，转而回应了另一个不相关的、充满假设的情绪场景。</td></tr><tr><td>psy-insight:000006</td><td>Turn 13</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI的回复将用户中性的、告知性的陈述（“我会记着，下周回来的时候我会把情况告诉你”）错误地映射为一种需要鼓励的、克服困难的积极行动（“先试试看”、“这其实很不容易”），未能准确识别用户的核心情绪或意图。</td></tr><tr><td>psy-insight:000006</td><td>Turn 13</td><td><span class="tag fail">context-coherence</span></td><td>AI忽略了用户之前明确表示会记录并告知情况，却错误地假设用户已经愿意尝试放下照顾大家，这与用户的实际承诺不符。</td></tr><tr><td>psy-insight:000007</td><td>Turn 3</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI回复完全忽略了用户关于角色超载、焦虑、失眠和疲惫的核心情绪，转而关注消息格式并生硬地转移话题。</td></tr><tr><td>psy-insight:000007</td><td>Turn 3</td><td><span class="tag fail">premature-advice</span></td><td>AI 在用户详细描述压力和睡眠问题时，没有先表达理解和共情，而是直接质疑用户消息内容并转移话题。</td></tr><tr><td>psy-insight:000007</td><td>Turn 3</td><td><span class="tag fail">empty-comfort</span></td><td>回复回避了用户关于角色负担和失眠的具体困扰，转而用泛化提问转移话题，缺乏针对性理解。</td></tr><tr><td>psy-insight:000007</td><td>Turn 3</td><td><span class="tag fail">context-coherence</span></td><td>AI忽略了用户之前详细描述的压力来源和具体情境，转而关注消息格式而非对话内容。</td></tr><tr><td>psy-insight:000007</td><td>Turn 5</td><td><span class="tag fail">context-coherence</span></td><td>AI忽略了用户之前提到的关键信息：用户明确表示自己做得不好，但AI回复却说'你已经很努力在做了'，这与用户表达的挫败感存在矛盾。</td></tr><tr><td>psy-insight:000008</td><td>Turn 1</td><td><span class="tag fail">premature-advice</span></td><td>AI 在表达初步理解后，立即转向提供解决方案（‘想一句...话’），未先充分探索用户的感受和具体情况。</td></tr><tr><td>psy-insight:000009</td><td>Turn 8</td><td><span class="tag fail">empathy-accuracy</span></td><td>AI 的回复基于用户历史对话中的情绪（恐惧、无助、被冒犯），但当前用户消息（‘好吧好吧，我已经起来了，所以我应该也能说会儿话。你想知道些什么？’）的核心情绪是配合/顺从或略带无奈，AI 却完全忽略了这一当下情绪，延续了历史语境中的情绪假设。</td></tr><tr><td>psy-insight:000009</td><td>Turn 8</td><td><span class="tag fail">context-coherence</span></td><td>AI的回复忽略了用户在当前轮次明确表示‘我已经起来了’并同意交谈，却仍假设用户‘被突然惊醒’，这与对话上下文矛盾。</td></tr><tr><td>psy-insight:000009</td><td>Turn 15</td><td><span class="tag fail">empathy-accuracy</span></td><td>回复将用户的核心情绪错误地识别为‘吓住了’，而用户消息的上下文（变得温和、认真倾听、被技术吸引）和提问‘但是我怎么才能做到呢？’暗示的是好奇、投入或寻求方法，而非恐惧。</td></tr><tr><td>psy-insight:000009</td><td>Turn 15</td><td><span class="tag fail">premature-advice</span></td><td>AI 在用户询问“怎么做”后，直接给出了具体的行动建议（动手指、放松肩膀、呼吸练习），跳过了进一步探索用户感受和具体困难的机会。</td></tr><tr><td>psy-insight:000009</td><td>Turn 15</td><td><span class="tag fail">context-coherence</span></td><td>AI的回复忽略了用户刚刚明确表达的求助意愿（'但是我怎么才能做到呢？'），转而讨论用户被'吓住了'和进行身体放松，这与对话中用户寻求具体行动指导的上下文不连贯。</td></tr></table>
+  </div>
+</div></body></html>
