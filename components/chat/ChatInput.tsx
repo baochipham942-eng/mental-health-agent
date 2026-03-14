@@ -2,10 +2,27 @@
 
 import { KeyboardEvent, useRef, useEffect, useCallback, useState } from 'react';
 import { Button, Drawer } from '@arco-design/web-react';
-import { IconSend, IconLoading, IconApps } from '@arco-design/web-react/icon';
+import { IconSend, IconLoading } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
 import { useChatStore, CHAT_MODELS, type ChatModelId } from '@/store/chatStore';
+
+/** 解压工具箱图标 — 魔法棒风格 */
+function ToolboxIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 4V2" />
+      <path d="M15 16v-2" />
+      <path d="M8 9h2" />
+      <path d="M20 9h2" />
+      <path d="M17.8 11.8L19 13" />
+      <path d="M15 9h.01" />
+      <path d="M17.8 6.2L19 5" />
+      <path d="M11 6.2L9.7 5" />
+      <path d="M2 22l10-10" />
+    </svg>
+  );
+}
 
 interface ChatInputProps {
   value: string;
@@ -197,7 +214,7 @@ export function ChatInput({
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
-            <IconApps style={{ fontSize: 20 }} />
+            <ToolboxIcon size={20} />
           </Button>
 
           {/* 技能面板 — 始终在 DOM 中，CSS 控制显隐 */}
@@ -248,7 +265,7 @@ export function ChatInput({
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
-            <IconApps style={{ fontSize: 22 }} />
+            <ToolboxIcon size={22} />
           </Button>
 
           <Drawer

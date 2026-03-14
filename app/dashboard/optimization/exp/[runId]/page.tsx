@@ -254,10 +254,11 @@ export default function ExperimentDetailPage() {
 
   const caseColumns: ColumnProps<CaseSummary>[] = [
     {
-      title: '用例 ID', dataIndex: 'case_id', width: 160,
-      render: (v: string) => (
-        <a onClick={() => openCase(v)} className="text-indigo-600 hover:underline cursor-pointer font-mono text-xs">{v}</a>
-      ),
+      title: 'ID', dataIndex: 'case_id', width: 80,
+      render: (v: string) => {
+        const shortId = v.includes(':') ? v.split(':').pop() : v;
+        return <a onClick={() => openCase(v)} className="text-indigo-600 hover:underline cursor-pointer font-mono text-xs">{shortId}</a>;
+      },
     },
     {
       title: '状态', dataIndex: 'human_status', width: 80, align: 'center' as const,
@@ -461,7 +462,7 @@ export default function ExperimentDetailPage() {
               {/* 头部：用例 ID + 导航 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold">用例 {selectedCase.caseId}</h3>
+                  <h3 className="text-base font-bold">用例 {selectedCase.caseId.includes(':') ? selectedCase.caseId.split(':').pop() : selectedCase.caseId}</h3>
                   {humanStatusTag(selectedCase.results?.[0]?.human_status)}
                 </div>
                 <div className="flex items-center gap-2">
@@ -508,7 +509,14 @@ export default function ExperimentDetailPage() {
               {/* 对话详情 Tabs */}
               <Tabs defaultActiveTab="dialog" type="rounded" size="small">
                 <TabPane key="dialog" title="对话详情">
-                  <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                  {/* 元信息内联 */}
+                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-3 px-1">
+                    <span>模型: <b className="text-gray-700">{runMeta?.model || '-'}</b></span>
+                    <span>轮次: <b className="text-gray-700">{selectedCase.results.length}</b></span>
+                    <span>耗时: <b className="text-gray-700">{selectedCase.results.reduce((s, t) => s + (t.total_ms || 0), 0)}ms</b></span>
+                    <span>状态: <b className="text-gray-700">{runMeta?.status || '-'}</b></span>
+                  </div>
+                  <div className="space-y-3 max-h-[55vh] overflow-y-auto">
                     {selectedCase.results.map(t => {
                       const judges = t.judge_results_json ? JSON.parse(t.judge_results_json) : {};
                       const codes = t.code_checks_json ? JSON.parse(t.code_checks_json) : {};
@@ -590,30 +598,6 @@ export default function ExperimentDetailPage() {
                   </div>
                 </TabPane>
 
-                <TabPane key="meta" title="元信息">
-                  <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-xs text-gray-400">模型</div>
-                        <div className="font-medium">{runMeta?.model || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">耗时</div>
-                        <div className="font-medium">
-                          {selectedCase.results.reduce((s, t) => s + (t.total_ms || 0), 0)}ms
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">评测轮次</div>
-                        <div className="font-medium">{selectedCase.results.length}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">状态</div>
-                        <div className="font-medium">{runMeta?.status || '-'}</div>
-                      </div>
-                    </div>
-                  </Card>
-                </TabPane>
               </Tabs>
             </div>
           )}

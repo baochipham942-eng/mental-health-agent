@@ -13,10 +13,10 @@ export function LabContent() {
     const [activeTab, setActiveTab] = useState<Tab>('wisdom');
 
     const tabs: { key: Tab; label: string; icon: string; activeColor: string }[] = [
-        { key: 'wisdom', label: '智慧殿堂', icon: '🏛️', activeColor: 'text-amber-700' },
         { key: 'mirrors', label: '镜像回廊', icon: '🪞', activeColor: 'text-purple-700' },
-        { key: 'custom', label: '自定义大师', icon: '✨', activeColor: 'text-indigo-700' },
+        { key: 'wisdom', label: '智慧殿堂', icon: '🏛️', activeColor: 'text-amber-700' },
         { key: 'roundtable', label: '圆桌论道', icon: '🎭', activeColor: 'text-violet-700' },
+        { key: 'custom', label: '自定义大师', icon: '✨', activeColor: 'text-indigo-700' },
     ];
 
     const tabWidth = 130;

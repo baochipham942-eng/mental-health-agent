@@ -27,7 +27,7 @@ interface EvalRun {
 }
 
 interface DatasetInfo { id: string; name: string; total_cases: number; caseCount: number }
-interface CaseItem { id: string; dataset_id: string; category: string | null; situation: string | null; turn_count: number }
+interface CaseItem { id: string; dataset_id: string; category: string | null; situation: string | null; turn_count: number; first_prompt?: string | null }
 
 import { passRateHex, statusTagColor, modeTagColor } from '@/lib/eval/constants';
 
@@ -485,23 +485,22 @@ export default function ExperimentsPage() {
 
         {experimentMode === 'benchmark' ? (
           /* ===== Benchmark 模式 ===== */
-          <div className="flex gap-4 min-h-[400px] overflow-hidden">
-            {/* 左侧：数据集列表 */}
-            <div className="w-48 shrink-0 border-r border-gray-100 pr-4 space-y-2">
-              <div className="text-xs text-gray-400 font-medium mb-2">数据集</div>
+          <div className="flex flex-col min-h-[400px] overflow-hidden">
+            {/* 数据集选择 — 横排 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-gray-400 font-medium shrink-0">数据集</span>
               {datasets.map(ds => (
                 <button key={ds.id} onClick={() => selectDataset(ds.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    selectedDataset === ds.id ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    selectedDataset === ds.id ? 'bg-indigo-50 text-indigo-700 font-medium border border-indigo-200' : 'text-gray-600 hover:bg-gray-50 border border-gray-100'
                   }`}>
-                  <div className="font-medium">{ds.name || ds.id}</div>
-                  <div className="text-xs text-gray-400">{ds.caseCount || ds.total_cases} 条</div>
+                  {ds.name || ds.id} <span className="text-xs text-gray-400 ml-1">{ds.caseCount || ds.total_cases}</span>
                 </button>
               ))}
             </div>
 
-            {/* 右侧：用例列表 */}
-            <div className="w-0 flex-1">
+            {/* 用例列表 */}
+            <div className="flex-1 min-h-0">
               {selectedDataset ? (
                 <>
                   <div className="flex items-center gap-2 mb-3">
@@ -513,17 +512,23 @@ export default function ExperimentsPage() {
                   </div>
                   <Spin loading={casesLoading} style={{ width: '100%', overflow: 'hidden' }}>
                     <div className="max-h-[40vh] overflow-y-auto overflow-x-hidden space-y-1">
-                      {cases.map(c => (
-                        <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm transition-colors w-full ${
-                          selectedCases.includes(c.id) ? 'bg-indigo-50' : 'hover:bg-gray-50'
-                        }`}>
-                          <Checkbox checked={selectedCases.includes(c.id)}
-                            onChange={checked => setSelectedCases(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
-                          <span className="font-mono text-xs text-gray-600 w-32 shrink-0 truncate" title={c.id}>{c.id}</span>
-                          <span className="text-gray-500 truncate min-w-0 flex-1">{c.category || c.situation || '—'}</span>
-                          <span className="text-xs text-gray-400 shrink-0">{c.turn_count} 轮</span>
-                        </label>
-                      ))}
+                      {cases.map(c => {
+                        // 去掉 ID 中的数据集前缀（如 "esconv:1105" → "1105"）
+                        const shortId = c.id.includes(':') ? c.id.split(':').pop() : c.id;
+                        return (
+                          <label key={c.id} className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm transition-colors w-full ${
+                            selectedCases.includes(c.id) ? 'bg-indigo-50' : 'hover:bg-gray-50'
+                          }`}>
+                            <Checkbox checked={selectedCases.includes(c.id)}
+                              onChange={checked => setSelectedCases(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
+                            <span className="font-mono text-xs text-gray-500 w-10 shrink-0" title={c.id}>{shortId}</span>
+                            <span className="text-gray-700 truncate min-w-0 flex-1" title={c.first_prompt || c.category || c.situation || ''}>
+                              {c.first_prompt || c.category || c.situation || '—'}
+                            </span>
+                            <span className="text-xs text-gray-400 shrink-0">{c.turn_count} 轮</span>
+                          </label>
+                        );
+                      })}
                       {cases.length === 0 && !casesLoading && <div className="text-center text-gray-400 py-8">暂无用例</div>}
                     </div>
                   </Spin>

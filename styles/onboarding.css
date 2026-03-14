@@ -1,0 +1,339 @@
+/* ================================================================
+   Onboarding — 引导流程样式
+   Step 1: 图片选择（4 张情绪卡片）
+   Step 2: 情绪揭示（选中卡片放大 + 共情文案）
+   ================================================================ */
+
+/* 步骤容器 */
+.onboarding-step {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  will-change: opacity, transform;
+}
+
+.onboarding-step.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.98) translateY(8px);
+}
+
+.onboarding-step.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+.onboarding-step.fade-out {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1);
+  transition: opacity 0.45s ease;
+}
+
+/* ==================== Step 1: 图片选择 ==================== */
+.ob-step1 {
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f1f8 100%);
+}
+
+@keyframes ob-fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ob-title {
+  font-size: 24px;
+  font-weight: 300;
+  color: #374151;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  opacity: 0;
+  animation: ob-fadeUp 0.8s 0.3s forwards;
+}
+
+.ob-subtitle {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 40px;
+  font-weight: 300;
+  opacity: 0;
+  animation: ob-fadeUp 0.8s 0.5s forwards;
+}
+
+/* 图片网格 */
+.ob-image-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 520px;
+  width: 90%;
+  opacity: 0;
+  animation: ob-fadeUp 0.8s 0.7s forwards;
+}
+
+/* 单张情绪卡片 */
+.ob-image-card {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.ob-image-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.ob-image-card:active {
+  transform: scale(0.98);
+}
+
+.ob-card-bg {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.6s ease;
+}
+
+.ob-image-card:hover .ob-card-bg {
+  transform: scale(1.08);
+}
+
+.ob-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(0, 0, 0, 0.55) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+}
+
+.ob-card-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.ob-card-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+/* 卡片背景 */
+.ob-card-rain .ob-card-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 40%, #4a5568 100%);
+}
+
+.ob-card-spring .ob-card-bg {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 30%, #ff9a9e 60%, #fecfef 100%);
+}
+
+.ob-card-ocean .ob-card-bg {
+  background: linear-gradient(135deg, #0c3483 0%, #3f7fb5 40%, #6dd5ed 70%, #2193b0 100%);
+}
+
+.ob-card-autumn .ob-card-bg {
+  background: linear-gradient(135deg, #f6d365 0%, #e4954f 40%, #d4805f 70%, #c06c3e 100%);
+}
+
+/* ==================== Step 2: 情绪揭示 ==================== */
+.ob-step2 {
+  background: #F7F8FA;
+  transition: background 1s ease;
+}
+
+.ob-reveal-card {
+  width: 280px;
+  aspect-ratio: 4/3;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  position: relative;
+}
+
+.ob-reveal-card.show {
+  opacity: 1;
+}
+
+.ob-reveal-card .ob-card-bg {
+  position: absolute;
+  inset: 0;
+}
+
+/* 揭示卡片动画效果 */
+.ob-reveal-card.ob-card-spring .ob-card-bg::after {
+  content: '🌸';
+  position: absolute;
+  font-size: 60px;
+  right: -10px;
+  top: -10px;
+  opacity: 0.3;
+  animation: ob-float 4s ease-in-out infinite;
+}
+
+.ob-reveal-card.ob-card-autumn .ob-card-bg::after {
+  content: '🍂';
+  position: absolute;
+  font-size: 48px;
+  right: 10px;
+  top: 15px;
+  opacity: 0.4;
+  animation: ob-fall 5s ease-in-out infinite;
+}
+
+@keyframes ob-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+}
+
+@keyframes ob-fall {
+  0% { transform: translateY(-5px) rotate(0deg); }
+  50% { transform: translateY(10px) rotate(15deg); }
+  100% { transform: translateY(-5px) rotate(0deg); }
+}
+
+/* 揭示文案 */
+.ob-reveal-text {
+  margin-top: 32px;
+  text-align: center;
+  max-width: 360px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
+              transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ob-reveal-text.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ob-reveal-empathy {
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.ob-reveal-note {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 12px;
+  font-style: italic;
+}
+
+/* CTA 按钮 */
+.ob-cta {
+  margin-top: 36px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+              transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ob-cta.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ob-cta-button {
+  padding: 14px 40px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  background: linear-gradient(135deg,
+    rgba(var(--mood-color), 0.9),
+    rgba(var(--mood-color), 0.7));
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(var(--mood-color), 0.3);
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.ob-cta-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.3), transparent 60%);
+  animation: ob-pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes ob-pulse-glow {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.ob-cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(var(--mood-color), 0.4);
+}
+
+/* 飞行卡片动画 */
+.ob-flying-card {
+  position: fixed;
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  will-change: left, top, width, height;
+}
+
+/* 跳过按钮 */
+.ob-skip {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: #b0b5c0;
+  cursor: pointer;
+  transition: color 0.2s;
+  z-index: 10;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.ob-skip:hover {
+  color: #6b7280;
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .ob-image-grid {
+    gap: 12px;
+    max-width: 100%;
+    width: 92%;
+  }
+
+  .ob-title {
+    font-size: 20px;
+  }
+
+  .ob-reveal-card {
+    width: 240px;
+  }
+
+  .ob-reveal-empathy {
+    font-size: 16px;
+  }
+}

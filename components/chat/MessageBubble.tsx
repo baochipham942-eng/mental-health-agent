@@ -189,21 +189,21 @@ export function MessageBubble({
     if (isLoading || isSending || isPlaceholderMessage) {
       return (
         <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50">
+          <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50 msg-bubble-ai">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-4">
-                {/* 核心“心灵呼吸”动画 */}
-                <div className="relative flex items-center justify-center w-6 h-6">
-                  <div className="absolute w-full h-full bg-indigo-400/20 rounded-full animate-ping duration-[3000ms]"></div>
-                  <div className="absolute w-3 h-3 bg-indigo-500 rounded-full animate-pulse duration-[1500ms]"></div>
-                  <div className="absolute w-5 h-5 border border-indigo-200 rounded-full animate-spin duration-[4000ms] border-t-transparent"></div>
+                {/* 三层情绪光球动画 */}
+                <div className="thinking-orb">
+                  <div className="thinking-orb-ring" />
+                  <div className="thinking-orb-middle" />
+                  <div className="thinking-orb-core" />
                 </div>
-                <span className="text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <span className="text-sm font-medium thinking-text-gradient">
                   正在深入思考...
                 </span>
               </div>
               <div className="h-4 overflow-hidden relative">
-                <span className="text-xs text-indigo-600/80 italic whitespace-nowrap transition-all duration-700 block translate-y-0">
+                <span className="text-xs thinking-comfort-text italic whitespace-nowrap transition-all duration-700 block translate-y-0">
                   {comfortMessages[comfortIndex]}
                 </span>
               </div>
@@ -274,7 +274,7 @@ export function MessageBubble({
             ? 'bg-blue-600 text-white max-w-[80%] sm:max-w-[80%]'
             : isSkillMessage
               ? 'bg-white text-gray-900 shadow-sm w-full max-w-6xl mx-auto'
-              : 'bg-white text-gray-900 shadow-glow max-w-[85%] sm:max-w-[80%]'
+              : 'bg-white text-gray-900 shadow-glow max-w-[85%] sm:max-w-[80%] msg-bubble-ai'
         )}
       >
         {/* Logic Chain Visualization (CoT) */}
@@ -288,7 +288,7 @@ export function MessageBubble({
               {showReasoning ? '收起思考过程' : '查看思考过程'}
             </button>
             {showReasoning && (
-              <div className="mt-2 text-[11px] leading-relaxed text-gray-600 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300 space-y-2">
+              <div className="mt-2 text-[11px] leading-relaxed text-gray-600 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100/50 animate-in fade-in slide-in-from-top-1 duration-300 space-y-2 cot-detail-mood">
                 {/* 1. 安全评估 - 安全时不使用负面语言 */}
                 {message.metadata?.safety && (
                   <div className="flex items-start gap-2">

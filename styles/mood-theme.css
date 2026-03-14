@@ -1,0 +1,294 @@
+/* ================================================================
+   情绪主题系统 — CSS 变量 + 动画
+   通过 --mood-color (RGB) 驱动全局色彩
+   ================================================================ */
+
+:root {
+  --mood-color: 99, 102, 241; /* indigo default */
+}
+
+/* ==================== 情绪渐变条 ==================== */
+.mood-bar {
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg,
+    rgba(var(--mood-color), 0.9) 0%,
+    rgba(var(--mood-color), 0.5) 40%,
+    rgba(var(--mood-color), 0.15) 80%,
+    transparent 100%);
+  transition: background 1.2s ease, height 0.4s ease, box-shadow 1.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 1px 8px rgba(var(--mood-color), 0.3);
+}
+
+.mood-bar.pulse {
+  height: 6px;
+}
+
+/* ==================== 环境光晕 ==================== */
+.ambient-light {
+  position: fixed;
+  top: -80px;
+  right: -80px;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(var(--mood-color), 0.08) 0%,
+    rgba(var(--mood-color), 0.03) 40%,
+    transparent 70%);
+  pointer-events: none;
+  transition: background 1.2s ease;
+  z-index: 0;
+}
+
+.ambient-light-2 {
+  position: fixed;
+  bottom: -120px;
+  left: -60px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(var(--mood-color), 0.04) 0%,
+    transparent 60%);
+  pointer-events: none;
+  transition: background 1.2s ease;
+  z-index: 0;
+}
+
+/* ==================== 呼吸光球 ==================== */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(0.93); }
+  50% { transform: scale(1.07); }
+}
+
+@keyframes orb-ring-breathe {
+  0%, 100% { transform: scale(0.96); opacity: 0.3; }
+  50% { transform: scale(1.16); opacity: 0.6; }
+}
+
+.breathing-orb {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+  animation: orb-breathe 3.5s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.breathing-orb-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(var(--mood-color), 0.65),
+    rgba(var(--mood-color), 0.25) 65%,
+    rgba(var(--mood-color), 0.08));
+  box-shadow: 0 0 10px rgba(var(--mood-color), 0.2);
+  transition: all 1.5s ease;
+}
+
+.breathing-orb-highlight {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  width: 10px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.5), transparent);
+}
+
+.breathing-orb-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--mood-color), 0.15);
+  animation: orb-ring-breathe 3.5s ease-in-out infinite;
+  transition: border-color 1.5s ease;
+}
+
+/* ==================== 思考动画光球 ==================== */
+@keyframes thinking-ring {
+  0%, 100% { transform: scale(0.85); opacity: 0.3; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+@keyframes thinking-middle {
+  0%, 100% { transform: scale(0.9); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+}
+
+@keyframes thinking-core {
+  0%, 100% { transform: scale(0.85); box-shadow: 0 0 4px rgba(var(--mood-color), 0.15); }
+  50% { transform: scale(1.1); box-shadow: 0 0 14px rgba(var(--mood-color), 0.35); }
+}
+
+@keyframes thinking-shimmer {
+  0% { left: -60%; }
+  100% { left: 120%; }
+}
+
+.thinking-orb {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.thinking-orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--mood-color), 0.2);
+  animation: thinking-ring 3s ease-in-out infinite;
+}
+
+.thinking-orb-middle {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(var(--mood-color), 0.12);
+  animation: thinking-middle 3s ease-in-out infinite;
+}
+
+.thinking-orb-core {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%,
+    rgba(var(--mood-color), 0.7),
+    rgba(var(--mood-color), 0.35));
+  animation: thinking-core 3s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(var(--mood-color), 0.25);
+}
+
+/* ==================== 情绪变化 Toast ==================== */
+.mood-shift-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-60px);
+  background: white;
+  border-radius: 12px;
+  padding: 10px 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #374151;
+  z-index: 50;
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-left: 3px solid rgba(var(--mood-color), 0.6);
+}
+
+.mood-shift-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.mood-shift-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(var(--mood-color), 0.7);
+  animation: orb-breathe 2s ease-in-out infinite;
+}
+
+/* ==================== 离开确认弹窗 ==================== */
+.leave-dialog-orb {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(var(--mood-color), 0.5),
+    rgba(var(--mood-color), 0.15));
+  box-shadow: 0 0 20px rgba(var(--mood-color), 0.15);
+  animation: orb-breathe 3.5s ease-in-out infinite;
+}
+
+/* ==================== 消息气泡情绪边框 ==================== */
+.msg-bubble-ai {
+  border-left: 3px solid rgba(var(--mood-color), 0.35);
+  transition: border-color 1.5s ease;
+}
+
+/* CoT 区域 mood-color 着色 */
+.cot-detail-mood {
+  background: rgba(var(--mood-color), 0.03);
+  border-color: rgba(var(--mood-color), 0.08);
+}
+
+/* 思考文字渐变 */
+.thinking-text-gradient {
+  background: linear-gradient(135deg, rgba(var(--mood-color), 1), #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 安慰文案颜色 */
+.thinking-comfort-text {
+  color: rgba(var(--mood-color), 0.55);
+}
+
+/* 光球状态提示 tooltip */
+.orb-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  background: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  width: 160px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: all 0.2s ease;
+  z-index: 30;
+}
+
+.orb-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.orb-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 20px;
+  width: 10px;
+  height: 10px;
+  background: white;
+  transform: rotate(45deg);
+  box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.orb-energy-bar {
+  height: 3px;
+  background: #f3f4f6;
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.orb-energy-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    rgba(var(--mood-color), 0.7),
+    rgba(var(--mood-color), 0.4));
+  transition: width 1.5s ease;
+}
+
+/* 反馈按钮 hover 使用情绪色 */
+.fb-btn-mood:hover {
+  color: rgba(var(--mood-color), 0.8);
+}

@@ -66,7 +66,7 @@ export function GroupChatSection() {
 
             {/* 话题输入 */}
             <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">讨论话题</label>
+                <label className="text-sm font-semibold text-gray-700">讨论话题 <span className="text-red-500">*</span></label>
                 <Input
                     value={topic}
                     onChange={(val) => setTopic(val)}

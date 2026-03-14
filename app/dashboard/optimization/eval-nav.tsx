@@ -17,7 +17,16 @@ export default function EvalNav() {
 
     return (
         <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6">
-            <div className="max-w-7xl mx-auto flex items-center gap-6 h-12">
+            <div className="max-w-7xl mx-auto flex items-center gap-4 h-12">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mr-1"
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5" />
+                        <path d="M12 19l-7-7 7-7" />
+                    </svg>
+                </Link>
                 <h1 className="text-base font-bold text-gray-900 mr-2 hidden md:block">评测中心</h1>
                 <nav className="flex gap-1">
                     {NAV_ITEMS.map(item => {

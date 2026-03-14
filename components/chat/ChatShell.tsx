@@ -9,10 +9,16 @@ import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
 import { DebugDrawer } from './DebugDrawer';
-import { Button, Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
-import { IconStop, IconInfoCircle, IconArrowRight } from '@arco-design/web-react/icon';
+import { Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
+import { IconArrowRight } from '@arco-design/web-react/icon';
 import { generateSummaryForSession } from '@/lib/actions/summary';
+import { hideSession } from '@/lib/actions/chat';
 import { TherapistSelector } from './TherapistSelector';
+import { BreathingOrb } from './BreathingOrb';
+import { MoodBar } from './MoodBar';
+import { LeaveDialog } from './LeaveDialog';
+import { MoodShiftToast } from './MoodShiftToast';
+import { MoodTheme, MOOD_THEMES, emotionToMoodTheme, applyMoodColor, getMoodShiftText } from '@/lib/mood-theme';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -103,6 +109,16 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   const [draft, setDraft] = useState(inputDraft || '');
   const scrollContainerRef = useRef<HTMLElement>(null);
   const hasInitializedRef = useRef(false);
+
+  // 情绪主题状态
+  const [currentMoodTheme, setCurrentMoodTheme] = useState<MoodTheme>(MOOD_THEMES.default);
+  const prevMoodThemeRef = useRef<MoodTheme>(MOOD_THEMES.default);
+  const [moodShiftText, setMoodShiftText] = useState<string | null>(null);
+  const [moodBarPulse, setMoodBarPulse] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  // 对话计时器（正计时，显示已聊时长）
+  const [chatDuration, setChatDuration] = useState(0);
+  const chatDurationRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ★ 同步初始化：在组件挂载时立即用 props 数据初始化 store，避免等待 useEffect
   // 这是消除闪烁的核心修复：确保首帧渲染就使用正确的数据
@@ -428,43 +444,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     return () => clearTimeout(timer);
   }, [isLoading, isSending, setLoading]);
 
-  const handleEndSession = useCallback(() => {
-    Modal.confirm({
-      title: <div style={{ textAlign: 'center', width: '100%' }}>确定要结束当前对话吗？</div>,
-      content: <div className="text-center text-gray-600">结束后将返回列表页，当前对话记录会被保存。</div>,
-      okText: '确定结束',
-      cancelText: '继续聊天',
-      icon: null, // 不显示图标
-      style: { width: 320, borderRadius: '12px' }, // 减小宽度保持一致
-      onOk: async () => {
-        // 1. Trigger summary generation (if session has messages)
-        if (internalSessionId && messages.length > 0) {
-          console.log('[ChatShell] Triggering summary generation for session:', internalSessionId);
-          try {
-            const generatedSummary = await generateSummaryForSession(internalSessionId);
-            console.log('[ChatShell] Summary generated successfully');
-            if (generatedSummary) {
-              setSummary(generatedSummary);
-            }
-          } catch (error) {
-            console.error('[ChatShell] Summary generation failed:', error);
-          }
-        }
-
-        // 2. Force session to end state (UI changes to ended view)
-        setTimeLeft(0);
-
-        // 3. Do NOT reset conversation or redirect immediately
-        // Allow user to read the summary
-        // resetConversation();
-        // router.push('/');
-
-        // Optional: Show a toast?
-        ArcoMessage.success('对话已完成');
-      },
-    });
-  }, [resetConversation, setLoading, setError, router]);
-
   // 构建 messageExtras Map，用于传递额外的 props 给 MessageBubble
   // Use a stable key that changes when any message metadata changes
   const messagesMetadataKey = useMemo(() => {
@@ -530,6 +509,54 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   // ★ 简化：会话结束判断完全由服务端决定（通过 isReadOnly 传入）
   // 前端倒计时只用于 UI 展示，不作为结束的权威来源
   const isSessionEnded = isReadOnly || timeLeft <= 0;
+
+  // 情绪主题追踪：当 AI 回复带有情绪数据时，更新全局主题色
+  useEffect(() => {
+    const lastAssistantMsg = [...displayMessages].reverse().find(m => m.role === 'assistant' && m.emotion);
+    if (lastAssistantMsg?.emotion) {
+      const newTheme = emotionToMoodTheme(lastAssistantMsg.emotion.label, lastAssistantMsg.emotion.score);
+      if (newTheme.key !== currentMoodTheme.key) {
+        const shiftText = getMoodShiftText(currentMoodTheme, newTheme);
+        setMoodShiftText(shiftText);
+        setMoodBarPulse(true);
+        setTimeout(() => setMoodBarPulse(false), 800);
+
+        prevMoodThemeRef.current = currentMoodTheme;
+        setCurrentMoodTheme(newTheme);
+        applyMoodColor(newTheme.color);
+      }
+    }
+  }, [displayMessages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 初始化情绪色
+  useEffect(() => {
+    applyMoodColor(currentMoodTheme.color);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 对话计时器：开始有消息后启动正计时
+  useEffect(() => {
+    if (displayMessages.length > 0 && !isSessionEnded && !chatDurationRef.current) {
+      chatDurationRef.current = setInterval(() => {
+        setChatDuration(prev => prev + 1);
+      }, 1000);
+    }
+    if (isSessionEnded && chatDurationRef.current) {
+      clearInterval(chatDurationRef.current);
+      chatDurationRef.current = null;
+    }
+    return () => {
+      if (chatDurationRef.current) {
+        clearInterval(chatDurationRef.current);
+        chatDurationRef.current = null;
+      }
+    };
+  }, [displayMessages.length, isSessionEnded]);
+
+  const formatDuration = (seconds: number) => {
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   useEffect(() => {
     // 如果已经结束，不执行
@@ -947,44 +974,78 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
       >
 
+        {/* 情绪渐变条 */}
+        <MoodBar pulse={moodBarPulse} />
+
+        {/* 环境光晕 */}
+        <div className="ambient-light" />
+        <div className="ambient-light-2" />
+
         {/* 顶部栏 */}
         <header
-          className="hidden md:flex w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
-          style={{ flexShrink: 0, width: '100%', zIndex: 20, backgroundColor: 'rgba(255,255,255,0.8)', paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          className="w-full bg-white border-b border-gray-100/80 z-20 shrink-0 pt-[env(safe-area-inset-top,0px)]"
+          style={{ flexShrink: 0, width: '100%', zIndex: 20 }}
         >
-          <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 transition-all duration-300" title={internalSessionId ? `会话 ID: ${internalSessionId}` : undefined}>
-                <span className="text-xl transition-all duration-300">{isReadOnly || isSessionEnded ? '📋' : internalSessionId ? '💬' : '✨'}</span>
-                <h1 className="text-lg font-semibold text-gray-800 transition-all duration-300">
-                  {isReadOnly || isSessionEnded ? '已完成' : internalSessionId ? '聊天中' : '新对话'}
-                </h1>
-              </div>
-              {/* 倒计时 */}
-              <div className={`transition-opacity duration-300 ${!isReadOnly && !isSessionEnded && internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <Tag
-                  color={timeLeft < 300 ? 'red' : 'arcoblue'}
-                  size="small"
-                  className="font-mono !rounded-xl"
-                >
-                  ⏱️ 剩余 {formatTime(timeLeft)}
-                </Tag>
+          <div className="w-full px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5 flex-1 relative">
+              <BreathingOrb theme={currentMoodTheme} />
+              <div>
+                <h1 className="text-[15px] font-semibold text-gray-800 leading-tight">心灵树洞</h1>
+                <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{isSessionEnded ? '已结束' : '倾听中'}</span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 min-w-[80px] justify-end">
+            <div className="flex items-center gap-3.5 shrink-0">
+              {/* 对话计时 — 已完成会话显示总时长，进行中显示计时 */}
               {(isReadOnly || isSessionEnded) ? (
-                <Tag color="gray" size="small" className="!rounded-xl">已完成</Tag>
+                displayMessages.length >= 2 && (() => {
+                  const first = displayMessages[0]?.timestamp;
+                  const last = displayMessages[displayMessages.length - 1]?.timestamp;
+                  if (!first || !last) return null;
+                  const dur = Math.floor((new Date(last).getTime() - new Date(first).getTime()) / 1000);
+                  return (
+                    <div className="text-xs text-gray-400 flex items-center gap-1 font-mono tabular-nums">
+                      <span>⏱</span>
+                      <span>{formatDuration(dur)}</span>
+                    </div>
+                  );
+                })()
               ) : (
-                <div className={`transition-opacity duration-300 ${internalSessionId ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  <Button
-                    size="small"
-                    icon={<IconStop />}
-                    onClick={handleEndSession}
-                    className="!rounded-xl"
-                  >
-                    结束对话
-                  </Button>
+                <div className={`text-xs text-gray-400 flex items-center gap-1 font-mono tabular-nums transition-opacity duration-300 ${displayMessages.length > 0 ? 'opacity-100' : 'opacity-0'}`}>
+                  <span>⏱</span>
+                  <span>{formatDuration(chatDuration)}</span>
                 </div>
+              )}
+              {/* 离开按钮 */}
+              {!isReadOnly && !isSessionEnded && internalSessionId && (
+                <button
+                  onClick={() => {
+                    // 空会话（0条消息）直接返回，不弹确认框，不做总结
+                    if (messages.length === 0) {
+                      hideSession(internalSessionId).catch(() => {});
+                      resetConversation();
+                      router.push('/');
+                      return;
+                    }
+                    setShowLeaveDialog(true);
+                  }}
+                  className="px-4 py-[7px] rounded-[10px] border border-gray-200 bg-white text-[13px] text-gray-500 cursor-pointer flex items-center gap-1.5 transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97]"
+                >
+                  <span>←</span> 离开
+                </button>
+              )}
+              {(isReadOnly || isSessionEnded) && (
+                <>
+                  <Tag color="gray" size="small" className="!rounded-xl">已完成</Tag>
+                  <button
+                    onClick={() => router.push('/')}
+                    className="px-3 py-[6px] rounded-[10px] border border-gray-200 bg-white text-[13px] text-gray-500 cursor-pointer flex items-center gap-1 transition-all duration-200 hover:bg-gray-50"
+                  >
+                    ← 返回
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1168,6 +1229,28 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           lastRequestPayload={lastRequestPayload}
           user={user}
         />
+
+        {/* 离开确认弹窗 */}
+        <LeaveDialog
+          visible={showLeaveDialog}
+          onStay={() => setShowLeaveDialog(false)}
+          onLeave={async () => {
+            setShowLeaveDialog(false);
+            // 生成摘要（后台异步）
+            if (internalSessionId && messages.length > 0) {
+              generateSummaryForSession(internalSessionId).catch((e) => {
+                console.error('[ChatShell] Summary generation failed:', e);
+              });
+            }
+            setTimeLeft(0);
+            ArcoMessage.success('对话已完成');
+            // 返回会话列表
+            router.push('/');
+          }}
+        />
+
+        {/* 情绪变化 Toast */}
+        <MoodShiftToast text={moodShiftText} />
 
         {/* 免责声明弹窗 */}
         <Modal
