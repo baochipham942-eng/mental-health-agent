@@ -22,6 +22,7 @@ export interface CounselorInput {
     enableTools?: boolean;
     temperature?: number;
     maxTokens?: number;
+    modelOverride?: string;
 }
 
 export interface CounselorOutput {
@@ -68,6 +69,7 @@ class CounselorAgentImpl extends BaseAgent<CounselorInput, CounselorOutput> {
             onFinish: input.onFinish,
             enableTools: input.enableTools ?? true,
             traceMetadata: input.traceMetadata,
+            modelOverride: input.modelOverride,
         });
 
         return { streamResult };

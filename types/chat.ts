@@ -84,7 +84,8 @@ export interface ChatRequest {
     initialMessage?: string;
   };
   sessionId?: string;
-  model?: string; // 用户选择的模型 provider: deepseek | kimi | openrouter
+  model?: string; // 用户选择的模型名称，如 gpt-4o, kimi-k2.5
+  provider?: string; // 显式指定 provider: deepseek | openai | kimi | openrouter | glm
 }
 
 export type RouteType = 'crisis' | 'assessment' | 'support';

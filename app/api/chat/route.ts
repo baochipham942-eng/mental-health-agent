@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/prisma';
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import type { LlmProviderName } from '@/lib/llm';
 import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { logInfo, logWarn } from '@/lib/observability/logger';
 import { analyzeRiskSignals, calculateTurn, inferPhase, shouldTriggerSafetyCheck } from '@/lib/ai/dialogue';
@@ -39,6 +40,8 @@ import {
   triggerAsyncMemoryExtraction,
 } from './route-helpers';
 import { DEFAULT_SAFE, getSafetyAgent } from '@/lib/ai/agents/safety-agent';
+import { runWithTrace } from '@/lib/observability/trace-context';
+import { updateTrace } from '@/lib/observability/langfuse';
 
 // =================================================================================
 // 预设技能卡配置 - 用于直接技能请求的快速响应
@@ -60,14 +63,28 @@ export async function POST(request: NextRequest) {
   const data = new StreamData();
   const requestStartedAt = Date.now();
 
+  // 包裹在 Langfuse trace 上下文中，让底层 LLM 调用自动关联
+  return runWithTrace('chat-request', { requestStartedAt }, async () => {
   try {
     const body: ChatRequest = await request.json();
-    const { message, history = [], state, assessmentStage, model: requestedModel } = body;
+    const { message, history = [], state, assessmentStage, model: requestedModel, provider: requestedProvider } = body;
 
-    // 用户选择的模型 → LLM provider 名称（线程安全，不修改 process.env）
-    const providerOverride = requestedModel === 'kimi' ? 'kimi' as const
-      : requestedModel === 'openrouter' ? 'openrouter' as const
-      : undefined; // undefined = 使用 env 默认值
+    // 优先用显式 provider，其次从 model 名推断
+    function deriveProvider(provider?: string, model?: string): LlmProviderName | undefined {
+      if (provider && ['deepseek', 'openai', 'kimi', 'openrouter', 'glm'].includes(provider)) {
+        return provider as LlmProviderName;
+      }
+      if (!model) return undefined;
+      if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) return 'openai';
+      if (model.startsWith('kimi-') || model.startsWith('moonshot-')) return 'kimi';
+      if (model.startsWith('deepseek-')) return 'deepseek';
+      if (model.includes('/')) return 'openrouter';  // anthropic/claude-xxx, google/gemini-xxx
+      if (model.startsWith('glm-')) return 'glm';
+      return undefined;
+    }
+
+    const providerOverride = deriveProvider(requestedProvider, requestedModel);
+    const modelOverride = requestedModel || undefined;
 
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
@@ -397,10 +414,30 @@ export async function POST(request: NextRequest) {
       },
       adaptiveMode,
       questionnaireDetected: questionnaireType || undefined,
+      // 评测系统需要的额外数据
+      emotionTrajectory: dialogueCtx?.emotionTrajectory || [],
+      dialogueIntent: (analysis as any).dialogueIntent || null,
+      scebProgress: dialogueCtx?.scebProgress || null,
     } as any);
 
     // const data = new StreamData(); // Moved up
     const traceMetadata = { sessionId, userId };
+
+    // 更新 Langfuse 请求级 trace 的元数据
+    const { getCurrentTrace: getCtx } = await import('@/lib/observability/trace-context');
+    const reqTrace = getCtx()?.trace;
+    if (reqTrace) {
+      updateTrace(reqTrace, {
+        metadata: {
+          userId, sessionId, routeType,
+          emotion: analysis.emotion,
+          safetyLabel: safetyData.label,
+          machineState: dialogueCtx?.state,
+          turn: conversationTurn,
+          preStreamDurationMs: Date.now() - requestStartedAt,
+        },
+      });
+    }
 
     // =================================================================================
     // 0.7 Exercise State Detection - 检测进行中的引导练习
@@ -483,6 +520,7 @@ export async function POST(request: NextRequest) {
         userTherapistPref,
         userPreferences,
         providerOverride,
+        modelOverride,
       });
     }
 
@@ -520,7 +558,7 @@ export async function POST(request: NextRequest) {
     // =================================================================================
     // 异步触发记忆提取 - 不阻塞响应
     // =================================================================================
-    // Session and userId are captured at the start of the try block
     triggerAsyncMemoryExtraction(finalSessionId, finalUserId);
   }
+  }); // end runWithTrace
 }

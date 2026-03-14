@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { StreamData } from 'ai';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryManager } from '@/lib/memory';
 import { getMentor } from '@/lib/ai/mentors/personas';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { prisma } from '@/lib/db/prisma';
+import { extractLabInsights } from '@/lib/memory/lab-extractor';
+import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
+import { updateTrace } from '@/lib/observability/langfuse';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+    return runWithTrace('mentor-chat', {}, async () => {
     try {
         const session = await auth();
         const userId = session?.user?.id;
 
-        // Only allow authenticated users
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const body = await request.json();
-        const { messages, mentorId } = body;
+        const { messages, mentorId, customMentor, sessionId: clientSessionId } = body;
 
-        // Vercel AI SDK sends 'messages' array. Get the last message as current input.
         const lastMessage = messages?.[messages.length - 1];
         const messageContent = lastMessage?.content;
 
@@ -30,38 +32,65 @@ export async function POST(request: NextRequest) {
         }
 
         let mentor = getMentor(mentorId);
-
-        // Allow custom mentor/persona injection
-        if (!mentor && body.customMentor) {
-            mentor = body.customMentor;
+        if (!mentor && customMentor) {
+            mentor = customMentor;
         }
-
         if (!mentor) {
             return NextResponse.json({ error: 'Mentor not found' }, { status: 400 });
         }
 
-        // 1. Input Guard (Safety First)
+        // 1. Input Guard
         const inputGuard = guardInput(messageContent);
         if (!inputGuard.safe) {
-            const data = new StreamData();
             return new NextResponse(getBlockedResponse(inputGuard.reason), { status: 200 });
-            // Note: handling blocked response simply here for simplicity in experimental feature
         }
 
-        // 2. Memory Context Retrieval (Read-Only)
+        // 2. Memory Context Retrieval
         let memoryContext = '';
+        let memoryRetrieved = false;
         try {
             const { contextString } = await memoryManager.getMemoriesForContext(userId, messageContent);
             if (contextString) {
                 memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${contextString}`;
+                memoryRetrieved = true;
             }
         } catch (e) {
             console.error('[MentorChat] Failed to retrieve memories:', e);
         }
 
-        // 3. Construct Prompts
+        // 3. Ensure LabSession exists (for persistence)
+        let labSessionId = clientSessionId || null;
+        if (!labSessionId) {
+            // 首次对话，创建新 LabSession
+            const firstUserMsg = messages.find((m: any) => m.role === 'user')?.content || '';
+            const title = firstUserMsg.slice(0, 20) + (firstUserMsg.length > 20 ? '...' : '');
+            const labType = customMentor ? 'custom' : 'wisdom';
+            const labSession = await prisma.labSession.create({
+                data: {
+                    userId,
+                    labType,
+                    mentorId: labType === 'wisdom' ? mentorId : null,
+                    customName: customMentor?.name || null,
+                    title,
+                    messageCount: 0,
+                },
+            });
+            labSessionId = labSession.id;
+        }
+
+        // 4. Save user message
+        await prisma.labMessage.create({
+            data: {
+                sessionId: labSessionId,
+                role: 'user',
+                content: messageContent,
+                meta: { mentorId: mentor.id },
+            },
+        });
+
+        // 5. Construct Prompts & Stream
         const systemPrompt = `${mentor.systemPrompt}
-    
+
 ${memoryContext}
 
 ⚠️ **重要约束**：
@@ -77,16 +106,103 @@ ${memoryContext}
             }))
         ];
 
-        // 4. Stream Response (No saving to DB)
+        // Langfuse trace metadata
+        const reqTrace = getCurrentTrace()?.trace;
+        if (reqTrace) {
+            updateTrace(reqTrace, {
+                metadata: {
+                    userId, mentorId: mentor.id, mentorName: mentor.name,
+                    labSessionId, memoryRetrieved,
+                    isCustomMentor: !!customMentor,
+                    messageCount: messages.length,
+                },
+            });
+        }
+
         const result = await streamChatCompletion(coreMessages, {
-            temperature: 0.9, // Higher temperature for more creative/personable responses
+            temperature: 0.9,
             max_tokens: 800,
         });
 
-        return result.toDataStreamResponse();
+        // 6. Collect full reply for persistence (intercept stream)
+        const originalResponse = result.toDataStreamResponse();
+        const originalBody = originalResponse.body;
+        if (!originalBody) {
+            return originalResponse;
+        }
+
+        let fullReply = '';
+        const reader = originalBody.getReader();
+        const decoder = new TextDecoder();
+
+        const interceptedStream = new ReadableStream({
+            async start(controller) {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        // Forward chunk to client
+                        controller.enqueue(value);
+                        // Parse text content from stream
+                        const chunk = decoder.decode(value, { stream: true });
+                        for (const line of chunk.split('\n')) {
+                            if (line.startsWith('0:')) {
+                                try { fullReply += JSON.parse(line.slice(2)); } catch {}
+                            }
+                        }
+                    }
+                } finally {
+                    controller.close();
+
+                    // 7. Async: Save assistant message + extract insights
+                    const trimmedReply = fullReply.trim();
+                    if (trimmedReply && labSessionId) {
+                        // Save assistant message
+                        prisma.labMessage.create({
+                            data: {
+                                sessionId: labSessionId,
+                                role: 'assistant',
+                                content: trimmedReply,
+                                mentorId: mentor!.id,
+                                meta: { mentorId: mentor!.id, memoryRetrieved },
+                            },
+                        }).then(() =>
+                            // Update message count
+                            prisma.labSession.update({
+                                where: { id: labSessionId! },
+                                data: { messageCount: { increment: 2 } }, // user + assistant
+                            })
+                        ).catch(e => console.error('[MentorChat] Failed to save assistant message:', e));
+
+                        // Extract insights (async, non-blocking)
+                        const allMessages = [
+                            ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                            { role: 'assistant', content: trimmedReply },
+                        ];
+                        extractLabInsights(userId, allMessages, 'mentor', mentorId || 'custom')
+                            .then(count => {
+                                if (count > 0) console.log(`[MentorChat] Extracted ${count} insights`);
+                            })
+                            .catch(e => console.error('[MentorChat] Insight extraction failed:', e));
+                    }
+                }
+            },
+        });
+
+        const headers = new Headers(originalResponse.headers);
+        if (labSessionId) {
+            headers.set('X-Lab-Session-Id', labSessionId);
+        }
+
+        return new Response(interceptedStream, {
+            status: originalResponse.status,
+            statusText: originalResponse.statusText,
+            headers,
+        });
 
     } catch (error: any) {
         console.error('Mentor Chat API Error:', error);
         return NextResponse.json({ error: error.message || 'Processing failed' }, { status: 500 });
     }
+    }); // end runWithTrace
 }

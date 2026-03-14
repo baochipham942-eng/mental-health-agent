@@ -41,33 +41,47 @@ AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊
 app/
   api/
     chat/route.ts           # Main dialogue API endpoint
+    chat/handlers.ts        # Route handlers (crisis/support/assessment)
+    chat/prefetch.ts        # Parallel prefetch (memory/triage/safety)
     memory/                 # Memory management APIs
+    eval/                   # Eval system APIs
+      start/route.ts        #   启动评测（spawn child process）
+      status/[runId]/       #   轮询评测状态
+      runs/route.ts         #   实验列表
+      datasets/route.ts     #   数据集/用例查询
+      coding/route.ts       #   开放编码（两阶段标签生成）
+      coding/axial/route.ts #   主轴编码（标签聚类）
     optimization/           # Prompt optimization APIs
     auth/[...nextauth]/     # Authentication
-  dashboard/                # Admin dashboards (memory, lab, prompts, progress, crisis)
+  dashboard/
+    optimization/           # 评测中心 Dashboard
+      page.tsx              #   实验列表 + 新建实验弹窗
+      exp/[runId]/page.tsx  #   实验详情（维度/对话/评分/AI分析）
+      datasets/             #   数据集管理
+      graders/              #   评分器配置
+      analysis/             #   定性分析（开放编码/主轴编码）
+    memory/                 # 记忆管理 Dashboard
+    crisis/                 # 危机管理 Dashboard
+    progress/               # 进度追踪 Dashboard
   page.tsx                  # Home page (chat interface)
 
-components/
-  chat/                     # Chat UI components
-    ChatContainer.tsx       # Main container
-    ChatInput.tsx           # Input with voice support
-    EmotionIndicator.tsx    # Emotion display
-    ThoughtChain.tsx        # Reasoning visualization
-    ActionCardGrid.tsx      # Skill-based actions
-
 lib/
+  llm/
+    index.ts                # Unified LLM layer (5 providers: deepseek/openai/kimi/openrouter/glm)
+    config.ts               # Provider env config
   ai/
-    deepseek.ts             # DeepSeek API wrapper
-    dialogue/               # Dialogue state management
+    deepseek.ts             # DeepSeek API wrapper (legacy, used by llm layer)
+    dialogue/               # Dialogue state management + state machine
     emotion.ts              # Emotion analysis (7 types, 0-10 intensity)
     guardrails/             # Input/output safety
     crisis-classifier.ts    # Crisis detection
     crisis-escalation.ts    # Crisis escalation flow
     assessment/             # PHQ-9/GAD-7 questionnaire system
     persona/                # Therapist profiles (xiaowarm/mingyuan/qinghe)
-    progress/               # Progress tracking
     exercise-engine.ts      # Exercise engine (breathing, mindfulness, etc.)
     agents/                 # Agent orchestration (triage/counselor/safety/quality)
+    support.ts              # Support reply (streamSupportReply)
+    skills.ts               # Skill cards detection + config
   memory/
     manager.ts              # Memory lifecycle
     extractor.ts            # Information extraction
@@ -75,12 +89,16 @@ lib/
   observability/
     langfuse.ts             # LLM monitoring
 
-hooks/
-  useChat.ts                # Chat state and logic
-
 scripts/
-  run-smoke.ts              # Performance smoke testing
-  optimize-prompts.ts       # Prompt optimization
+  eval-academic/
+    run.ts                  # Eval runner (multi-turn chat + dual-layer judge)
+    db.ts                   # SQLite eval database
+    judges.ts               # Code checks + LLM judges
+
+data/coding/                # Cached analysis results (open coding, AI analysis)
+tests/eval/
+  results/                  # Eval run results JSON
+  datasets/                 # Academic dataset SQLite DB
 ```
 
 ## Package Manager

@@ -124,6 +124,7 @@ export async function streamSupportReply(
     therapistId?: string;
     userPreferences?: string[];
     providerOverride?: LlmProviderName;
+    modelOverride?: string;
   }
 ) {
   const finalSystemPrompt = options?.adaptiveMode
@@ -140,6 +141,7 @@ export async function streamSupportReply(
     enableTools: true,
     traceMetadata: options?.traceMetadata,
     adaptiveMode: options?.adaptiveMode,
+    modelOverride: options?.modelOverride,
     temperature: 0.8,
     maxTokens: 400,
   });

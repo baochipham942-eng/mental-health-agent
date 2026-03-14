@@ -402,10 +402,11 @@ model LabSession {
 model LabMessage {
   id           String     @id @default(cuid())
   sessionId    String
-  role         String     // 'user' | 'assistant'
+  role         String     // 'user' | 'assistant' | 'moderator' | 'synthesis'
   content      String
   mentorId     String?    // 群聊中标识哪位大师发言
   round        Int?       // 群聊中第几轮对话
+  meta         Json?      // 元数据（mentorId、decision reason、phase metrics 等）
   createdAt    DateTime   @default(now())
 
   session      LabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

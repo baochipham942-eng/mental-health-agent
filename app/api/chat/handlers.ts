@@ -224,6 +224,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
   userTherapistPref?: { preferredTherapist: string | null } | null;
   userPreferences: string[];
   providerOverride?: LlmProviderName;
+  modelOverride?: string;
 }): Promise<Response> {
   const {
     data,
@@ -247,6 +248,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     userPreferences,
     history,
     providerOverride,
+    modelOverride,
   } = params;
 
   if (process.env.MOCK_SUPPORT_REPLY === '1') {
@@ -348,6 +350,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     therapistId: userTherapistPref?.preferredTherapist || undefined,
     userPreferences,
     providerOverride,
+    modelOverride,
   });
 
   return withStreamMetrics(result.toDataStreamResponse({ data }), {

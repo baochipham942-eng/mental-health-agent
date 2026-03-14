@@ -71,6 +71,7 @@ export async function* orchestrateGroupChat(
 
     // ═══ PHASE 0: Moderator 开场白（仅首次交互）═══
     if (isFirstInteraction) {
+        const phase0Start = Date.now();
         try {
             const opening = await generateOpening(mentors, mode, effectiveTopic);
             yield {
@@ -80,8 +81,8 @@ export async function* orchestrateGroupChat(
             };
         } catch (e) {
             console.error('[Orchestrator] Moderator opening failed:', e);
-            // 降级：不显示开场白，直接开始
         }
+        yield { type: 'phase_metrics', phase: 'opening', durationMs: Date.now() - phase0Start };
     }
 
     // ═══ PHASE 1: Round 1 — 并行独立表态（Layer 3）═══
@@ -95,6 +96,8 @@ export async function* orchestrateGroupChat(
             stanceInfo = stances.stances
                 .map(s => `${s.mentorId}: ${s.stance === 'for' ? '正方' : s.stance === 'against' ? '反方' : '中立'} — ${s.briefReason}`)
                 .join('\n');
+            // 持久化立场分析结果
+            yield { type: 'stance_analysis', stances: stances.stances };
         } catch (e) {
             console.error('[Orchestrator] Stance analysis failed:', e);
         }
@@ -102,6 +105,7 @@ export async function* orchestrateGroupChat(
 
     if (isFirstInteraction) {
         // Round 1: 并行调用所有 Agent
+        const round1Start = Date.now();
         const sharedHistory = buildSharedHistory(messages, mentors, round1);
         const round1Results = await generateRound1Parallel(
             mentors, mode, effectiveTopic, lastUserMessage, stanceInfo, sharedHistory
@@ -131,6 +135,7 @@ export async function* orchestrateGroupChat(
         }
 
         yield { type: 'round_end', round: round1 };
+        yield { type: 'phase_metrics', phase: 'round1', durationMs: Date.now() - round1Start };
     } else {
         // 非首次交互：对用户追问进行一轮回复
         const sharedHistory = buildSharedHistory(messages, mentors, round1);
@@ -158,6 +163,7 @@ export async function* orchestrateGroupChat(
                         content: moderatorPrompt,
                         action: 'point',
                         targetMentorId: nextMentorId,
+                        decision: { reason: decision.reason, shouldContinue: decision.shouldContinue },
                     };
                 } catch (e) {
                     console.error('[Orchestrator] Moderator decision failed:', e);
@@ -190,6 +196,7 @@ export async function* orchestrateGroupChat(
                                 content: decision.prompt,
                                 action: 'point',
                                 targetMentorId: nextMentorId,
+                                decision: { reason: decision.reason, shouldContinue: decision.shouldContinue },
                             };
                         }
                     } catch (e) {
@@ -297,6 +304,7 @@ export async function* orchestrateGroupChat(
                                     content: decision.prompt,
                                     action: 'point',
                                     targetMentorId: nextMentorId,
+                                    decision: { reason: decision.reason, shouldContinue: decision.shouldContinue },
                                 };
                             }
                         } catch (e) {
@@ -349,6 +357,7 @@ export async function* orchestrateGroupChat(
 
     // ═══ PHASE 3: Synthesizer 总结（Layer 3）═══
     if (allReplies.length >= mentors.length * 2 || !isFirstInteraction) {
+        const synthesisStart = Date.now();
         try {
             yield { type: 'moderator', content: '让我来梳理一下各位的观点——', action: 'synthesize' };
 
@@ -366,6 +375,7 @@ export async function* orchestrateGroupChat(
         } catch (e) {
             console.error('[Orchestrator] Synthesis failed:', e);
         }
+        yield { type: 'phase_metrics', phase: 'synthesis', durationMs: Date.now() - synthesisStart };
     }
 
     yield { type: 'done' };
@@ -598,8 +608,10 @@ export type GroupSSEPayload =
     | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
     | { type: 'mentor_chunk'; content: string }
     | { type: 'mentor_end'; mentorId: string }
-    | { type: 'moderator'; content: string; action: 'opening' | 'point' | 'transition' | 'synthesize'; targetMentorId?: string }
+    | { type: 'moderator'; content: string; action: 'opening' | 'point' | 'transition' | 'synthesize'; targetMentorId?: string; decision?: { reason: string; shouldContinue: boolean } }
     | { type: 'synthesis'; content: string }
     | { type: 'round_end'; round: number }
+    | { type: 'stance_analysis'; stances: Array<{ mentorId: string; stance: string; briefReason: string }> }
+    | { type: 'phase_metrics'; phase: string; durationMs: number }
     | { type: 'done' }
     | { type: 'error'; message: string };

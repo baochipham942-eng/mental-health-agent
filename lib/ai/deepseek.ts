@@ -3,6 +3,7 @@ import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
 import { EFT_VALIDATION_PROMPT } from './prompts-eft';
 import { createTrace, createGeneration, endGeneration, flushLangfuse, updateTrace } from '../observability/langfuse';
+import { getCurrentTrace } from '../observability/trace-context';
 import { SDK_TOOLS } from './tools';
 
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
@@ -127,8 +128,9 @@ export async function chatCompletion(
     throw new Error(`AI refused to respond: ${refusal}`);
   }
 
-  // LangFuse Tracing
-  const trace = createTrace(
+  // LangFuse Tracing — 优先挂载到请求级 trace（如有），否则创建独立 trace
+  const parentCtx = getCurrentTrace();
+  const traceTarget = parentCtx?.trace || createTrace(
     'chatCompletion',
     {
       model: 'deepseek-chat',
@@ -138,20 +140,21 @@ export async function chatCompletion(
       toolsCount: options?.tools?.length,
       ...options?.traceMetadata,
     },
-    messages // Input
+    messages
   );
-  if (trace) {
-    const generation = createGeneration(trace, 'DeepSeek Chat', messages, 'deepseek-chat');
+  if (traceTarget) {
+    const generation = createGeneration(traceTarget, 'DeepSeek Chat', messages, 'deepseek-chat');
     endGeneration(generation, output, {
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
       totalTokens: data.usage?.total_tokens,
     });
 
-    // Update trace with output
-    updateTrace(trace, { output: output, metadata: { toolCalls } });
-
-    await flushLangfuse();
+    // 仅独立 trace 时更新 output（请求级 trace 由路由层负责）
+    if (!parentCtx) {
+      updateTrace(traceTarget, { output: output, metadata: { toolCalls } });
+      await flushLangfuse();
+    }
   }
 
   return { reply: output, toolCalls };
@@ -260,11 +263,10 @@ export async function streamChatCompletion(
       }
 
       // LangFuse Tracing (Async, Non-Blocking)
-      // 使用 setImmediate pattern 确保不阻塞流关闭
-      // 这样用户端能立即收到流结束信号，而日志在后台发送
       (async () => {
         try {
-          const trace = createTrace(
+          const parentCtx = getCurrentTrace();
+          const traceTarget = parentCtx?.trace || createTrace(
             'streamChatCompletion',
             {
               model: 'deepseek-chat',
@@ -274,21 +276,21 @@ export async function streamChatCompletion(
               toolCalls,
               ...options?.traceMetadata,
             },
-            messages // Input
+            messages
           );
 
-          if (trace) {
-            const generation = createGeneration(trace, 'DeepSeek Stream', messages, 'deepseek-chat');
+          if (traceTarget) {
+            const generation = createGeneration(traceTarget, 'DeepSeek Stream', messages, 'deepseek-chat');
             endGeneration(generation, text, {
               promptTokens: usage.promptTokens,
               completionTokens: usage.completionTokens,
               totalTokens: usage.totalTokens,
             });
 
-            // Update trace with output
-            updateTrace(trace, { output: text });
-
-            await flushLangfuse();
+            if (!parentCtx) {
+              updateTrace(traceTarget, { output: text });
+              await flushLangfuse();
+            }
           }
         } catch (e) {
           console.error('[LangFuse] Async trace error:', e);
