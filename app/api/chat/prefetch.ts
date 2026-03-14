@@ -1,17 +1,19 @@
 import { prisma } from '@/lib/db/prisma';
 import { memoryContextService } from '@/lib/memory';
 import { orchestrate } from '@/lib/ai/agents/orchestrator';
+import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { logInfo } from '@/lib/observability/logger';
 import type { ChatMessage } from '@/lib/ai/deepseek';
 
-export async function buildChatPrefetchContext(params: {
-  userId?: string;
-  sessionId?: string;
+/**
+ * 启动不依赖 userId 的并行任务（auth 之前即可调用）
+ * 让 orchestration + crisisCheck 与 auth() 并行执行，节省 ~50-200ms
+ */
+export function startEarlyPrefetch(params: {
   message: string;
   history: Array<{ role: string; content: string }>;
 }) {
-  const { userId, sessionId, message, history } = params;
-  const prefetchStartedAt = Date.now();
+  const { message, history } = params;
   const recentContext = history.slice(-2);
 
   const orchestrationPromise = orchestrate({
@@ -23,7 +25,25 @@ export async function buildChatPrefetchContext(params: {
     return null;
   });
 
+  const crisisCheckPromise = quickCrisisCheck(message);
+
+  return { orchestrationPromise, crisisCheckPromise };
+}
+
+/**
+ * 启动依赖 userId 的 DB 查询（auth 之后调用）
+ * 首轮对话跳过不必要的 DB 查询（assessment/preference/therapist）
+ */
+export async function buildChatPrefetchContext(params: {
+  userId?: string;
+  sessionId?: string;
+  message: string;
+  history: Array<{ role: string; content: string }>;
+}) {
+  const { userId, sessionId, message, history } = params;
+  const prefetchStartedAt = Date.now();
   const shouldSkipDb = process.env.SKIP_PRISMA_DB === '1';
+  const isFirstTurn = history.length === 0;
 
   const memoryPromise = (userId && history.length > 0)
     ? (async () => {
@@ -36,7 +56,8 @@ export async function buildChatPrefetchContext(params: {
     })()
     : Promise.resolve({ injectedText: '', source: 'legacy' as const, profileMemories: [], recentSummaries: [] });
 
-  const assessmentPromise = userId
+  // 首轮对话跳过 assessment/preference/therapist 查询（用户还没说有意义的话）
+  const assessmentPromise = (userId && !isFirstTurn)
     ? (!shouldSkipDb
       ? prisma.assessmentReport.findMany({
         where: { userId },
@@ -46,7 +67,7 @@ export async function buildChatPrefetchContext(params: {
       : Promise.resolve([]))
     : Promise.resolve([]);
 
-  const preferencePromise = userId
+  const preferencePromise = (userId && !isFirstTurn)
     ? (!shouldSkipDb
       ? prisma.userMemory.findMany({
         where: {
@@ -77,18 +98,32 @@ export async function buildChatPrefetchContext(params: {
       : Promise.resolve(null))
     : Promise.resolve(null);
 
+  // lastAssistantMsg 也纳入并行批次（之前在 route.ts 中单独启动）
+  const lastAssistantMsgPromise = (sessionId && !shouldSkipDb)
+    ? prisma.message.findFirst({
+      where: { conversationId: sessionId, role: 'assistant' },
+      orderBy: { createdAt: 'desc' },
+      select: { meta: true },
+    }).catch((error) => {
+      console.error('[StateMachine] Failed to query last assistant message:', error);
+      return null;
+    })
+    : Promise.resolve(null);
+
   const [
     retrievalResult,
     assessmentHistory,
     preferenceMemories,
     userTherapistPref,
     activeExercise,
+    lastAssistantMsg,
   ] = await Promise.all([
     memoryPromise,
     assessmentPromise,
     preferencePromise,
     therapistPromise,
     activeExercisePromise,
+    lastAssistantMsgPromise,
   ]);
 
   const prefetchDurationMs = Date.now() - prefetchStartedAt;
@@ -101,6 +136,7 @@ export async function buildChatPrefetchContext(params: {
     userId,
     prefetchDurationMs,
     historyLen: history.length,
+    isFirstTurn,
     hasActiveExercise: !!activeExercise,
     preferenceCount: preferenceMemories.length,
     assessmentCount: assessmentHistory.length,
@@ -111,12 +147,12 @@ export async function buildChatPrefetchContext(params: {
   });
 
   return {
-    orchestrationPromise,
     retrievalResult,
     assessmentHistory,
     preferenceMemories,
     userTherapistPref,
     activeExercise,
+    lastAssistantMsg,
     prefetchDurationMs,
   };
 }

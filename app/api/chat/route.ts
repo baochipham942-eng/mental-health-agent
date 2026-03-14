@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server.js';
 import { StreamData } from 'ai';
 import { auth } from '@/lib/runtime/chat-auth';
-import { prisma } from '@/lib/db/prisma';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import type { LlmProviderName } from '@/lib/llm';
-import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { logInfo, logWarn } from '@/lib/observability/logger';
 import { detectQuestionnaireRequest } from '@/lib/ai/assessment/questionnaire';
 import { ChatService } from '@/lib/services/chat-service';
 import { determinePersonaMode } from '@/lib/ai/persona-manager';
 import { isGuidedExercise, buildExerciseSystemInjection } from '@/lib/ai/exercise-engine';
-import { buildChatPrefetchContext } from './prefetch';
+import { startEarlyPrefetch, buildChatPrefetchContext } from './prefetch';
 import {
   handleAssessmentRoute,
   handleCrisisRoute,
@@ -119,8 +117,11 @@ export async function POST(request: NextRequest) {
     }
 
     // =================================================================================
-    // 0.2 Persistence Setup
+    // 0.2 Early prefetch + Auth (并行执行，节省 ~50-200ms)
+    // orchestration + crisisCheck 不依赖 userId，可在 auth 之前启动
     // =================================================================================
+    const { orchestrationPromise, crisisCheckPromise } = startEarlyPrefetch({ message, history });
+
     const authStartedAt = Date.now();
     const session = await auth();
     const authDurationMs = Date.now() - authStartedAt;
@@ -139,40 +140,26 @@ export async function POST(request: NextRequest) {
 
     // Save User Message - 异步执行，不阻塞响应
     if (sessionId && userId) {
-      // Return promise to not block? The original code didn't await the IIFE.
       ChatService.saveUserMessage(sessionId, userId, message);
     }
 
     const saveAssistantMessage = createAssistantMessageSaver(sessionId);
 
     // =================================================================================
-    // 0.5 Memory Retrieval + Groq Analysis + Crisis Check (全部并行，节省 ~800ms)
+    // 0.5 DB Prefetch (依赖 userId，auth 之后启动)
+    // lastAssistantMsg 也纳入并行批次，首轮跳过不必要的查询
     // =================================================================================
     let memoryContext = '';
     let processedHistory = history;
     const stateRestoreStartedAt = Date.now();
-    const shouldSkipDb = process.env.SKIP_PRISMA_DB === '1';
-    const lastAssistantMsgPromise = sessionId && !shouldSkipDb
-      ? prisma.message.findFirst({
-        where: { conversationId: sessionId, role: 'assistant' },
-        orderBy: { createdAt: 'desc' },
-        select: { meta: true },
-      }).catch((error) => {
-        console.error('[StateMachine] Failed to query last assistant message:', error);
-        return null;
-      })
-      : Promise.resolve(null);
-
-    // Crisis check 提前启动，与 prefetch 并行执行
-    const crisisCheckPromise = quickCrisisCheck(message);
 
     const {
-      orchestrationPromise,
       retrievalResult,
       assessmentHistory,
       preferenceMemories,
       userTherapistPref,
       activeExercise,
+      lastAssistantMsg,
       prefetchDurationMs,
     } = await buildChatPrefetchContext({
       userId,
@@ -193,6 +180,7 @@ export async function POST(request: NextRequest) {
       logInfo('questionnaire-trigger', { type: questionnaireType, source: 'user_request' });
     }
 
+    // soft-wait: 等 orchestration 最多 180ms，超时用 fallback
     const triageSoftWaitStartedAt = Date.now();
     const softOrchestrationResult = await Promise.race([
       orchestrationPromise,
@@ -207,7 +195,7 @@ export async function POST(request: NextRequest) {
       triageResolved: !!softOrchestrationResult,
     });
 
-    // await 预先启动的 crisis check（已与 prefetch 并行，此处几乎为 0ms）
+    // await 预先启动的 crisis check（已与 auth + DB 并行，此处几乎为 0ms）
     const crisisCheckResult = await crisisCheckPromise;
 
     const routeDecision = decideRouteByRules({
@@ -305,7 +293,7 @@ export async function POST(request: NextRequest) {
       dialogueCtx, stateMachinePrompt,
     } = await trackDialogueState({
       analysis, message, history, sessionId, userId,
-      lastAssistantMsgPromise,
+      lastAssistantMsgPromise: Promise.resolve(lastAssistantMsg),
       stateRestoreStartedAt,
     });
 
