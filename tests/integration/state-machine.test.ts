@@ -153,8 +153,8 @@ describe('evaluateTransition', () => {
       expect(result.nextState).toBe('wrap_up');
     });
 
-    it('should transition when turn >= 11', () => {
-      const ctx = makeContext({ state: 'coping', turn: 11 });
+    it('should transition when turn >= 20', () => {
+      const ctx = makeContext({ state: 'coping', turn: 20 });
       const analysis = makeAnalysis();
       const result = evaluateTransition(ctx, analysis);
       expect(result.nextState).toBe('wrap_up');
