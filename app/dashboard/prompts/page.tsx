@@ -90,7 +90,7 @@ export default async function PromptsDashboardPage() {
         <div className="flex flex-col h-full">
             <div className="max-w-5xl mx-auto w-full p-6 flex flex-col h-full gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">系统 Prompt 看板</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">系统 Prompt 看板</h1>
                     <p className="text-sm text-gray-500 mt-0.5">
                         实时查看系统核心提示词配置（共 {Object.keys(promptsData).length} 项）
                     </p>

@@ -521,7 +521,7 @@ export default function ExperimentsPage() {
                           }`}>
                             <Checkbox checked={selectedCases.includes(c.id)}
                               onChange={checked => setSelectedCases(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
-                            <span className="font-mono text-xs text-gray-500 w-10 shrink-0" title={c.id}>{shortId}</span>
+                            <span className="font-mono text-xs text-gray-500 shrink-0 max-w-[120px] truncate" title={c.id}>{shortId}</span>
                             <span className="text-gray-700 truncate min-w-0 flex-1" title={c.first_prompt || c.category || c.situation || ''}>
                               {c.first_prompt || c.category || c.situation || '—'}
                             </span>

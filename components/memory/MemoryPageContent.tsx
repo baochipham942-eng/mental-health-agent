@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Spin, Empty, Tag, Input, Button, Message, Modal, Card } from '@arco-design/web-react';
-import { IconEdit, IconDelete, IconSave, IconClose, IconLeft, IconRefresh } from '@arco-design/web-react/icon';
+import { Spin, Tag, Input, Button, Message, Modal } from '@arco-design/web-react';
+import { IconEdit, IconDelete, IconSave, IconClose, IconRefresh } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 
 // 记忆类型标签映射 - 优化视觉层次
@@ -255,13 +254,7 @@ export function MemoryPageContent() {
             <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
-                            </svg>
-                        </Link>
-                        <span className="text-xl">🧠</span>
-                        <h1 className="text-lg font-semibold text-gray-800">我的记忆</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">我的记忆</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <Tag color="gray" size="small">共 {memories.length} 条</Tag>

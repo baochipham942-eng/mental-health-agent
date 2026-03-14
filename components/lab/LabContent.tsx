@@ -25,6 +25,12 @@ export function LabContent() {
 
     return (
         <div className="w-full">
+            {/* 标题 */}
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">探索工坊</h1>
+                <p className="text-sm text-gray-500 mt-1">大师对话 · MBTI 人格探索 · 圆桌论道</p>
+            </div>
+
             {/* Tab Navigation */}
             <div className="flex justify-center mb-8">
                 <div className="bg-gray-100/80 p-1.5 rounded-full inline-flex relative">

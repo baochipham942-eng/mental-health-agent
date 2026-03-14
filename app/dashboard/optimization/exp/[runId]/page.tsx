@@ -320,13 +320,23 @@ export default function ExperimentDetailPage() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
       {/* 标题 */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold text-gray-900">{runId.replace('academic-', '').slice(0, 25)}</h2>
-          {runMeta?.mode && <Tag color={runMeta.mode === 'product' ? 'purple' : 'arcoblue'} size="small">{runMeta.mode}</Tag>}
-        </div>
-        <div className="text-xs text-gray-400 mt-0.5">
-          模型: {runMeta?.model || '-'} | 数据集: {runMeta?.dataset || '-'} | 创建: {runMeta?.timestamp || '-'}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.history.back()}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900">{runId.replace('academic-', '').slice(0, 25)}</h2>
+              {runMeta?.mode && <Tag color={runMeta.mode === 'product' ? 'purple' : 'arcoblue'} size="small">{runMeta.mode}</Tag>}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              模型: {runMeta?.model || '-'} | 数据集: {runMeta?.dataset || '-'} | 创建: {runMeta?.timestamp || '-'}
+            </div>
+          </div>
         </div>
       </div>
 

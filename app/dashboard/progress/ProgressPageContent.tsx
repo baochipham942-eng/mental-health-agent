@@ -103,9 +103,9 @@ export function ProgressPageContent() {
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
 
         {/* ==================== 顶部：鼓励语 + 时间切换 ==================== */}
-        <div className="text-center pt-2 pb-1">
-          <h1 className={`text-xl font-bold ${theme.accent} mb-1`}>{encouragement.text}</h1>
-          <p className="text-sm text-gray-400">{encouragement.sub}</p>
+        <div className="pt-2 pb-1">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">情绪趋势</h1>
+          <p className="text-sm text-gray-500">{encouragement.text} — {encouragement.sub}</p>
         </div>
 
         <div className="flex justify-center">
