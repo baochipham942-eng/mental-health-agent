@@ -1,7 +1,7 @@
 'use client';
 
 import { KeyboardEvent, useRef, useEffect, useCallback, useState } from 'react';
-import { Button, Dropdown, Menu, Drawer } from '@arco-design/web-react';
+import { Button, Drawer } from '@arco-design/web-react';
 import { IconSend, IconLoading, IconApps } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
 import { VoiceInputButton } from './VoiceInputButton';
@@ -29,8 +29,20 @@ export function ChatInput({
   autoFocus = true,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const skillPanelRef = useRef<HTMLDivElement>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+
+  // 点击外部关闭技能面板
+  useEffect(() => {
+    if (!desktopMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (skillPanelRef.current?.contains(e.target as Node)) return;
+      setDesktopMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [desktopMenuOpen]);
 
   // 自适应高度：1-6行，超出内部滚动
   // 修复：避免设置 height=auto 导致的视觉跳变
@@ -176,38 +188,55 @@ export function ChatInput({
            Layer 1（自然发现）: 呼吸练习、正念冥想、情绪记录、认知重构
            Layer 2（主动探索）: 对话排练、深度自我了解、成长记录
            Layer 3（专业评估）: 情绪健康度检查(PHQ-9)、压力指数检查(GAD-7) */}
-        {/* Desktop: Dropdown Menu */}
-        <div className="hidden md:block">
-          <Dropdown
-            position="tl"
-            trigger="click"
-            popupVisible={desktopMenuOpen}
-            onVisibleChange={setDesktopMenuOpen}
-            triggerProps={{
-              popupStyle: { zIndex: 2000 },
-            }}
-            droplist={
-              <Menu onClickMenuItem={(key) => { onSend(`我想试试${key}`); setDesktopMenuOpen(false); }}>
-                <Menu.Item key="4-7-8呼吸法">🌬️ 呼吸练习 (缓解焦虑)</Menu.Item>
-                <Menu.Item key="正念冥想">🧘 正念冥想 (放松身心)</Menu.Item>
-                <Menu.Item key="空椅子">🪑 空椅子 (释放情绪)</Menu.Item>
-                <Menu.Item key="着陆技术">🦶 五感着陆 (缓解恐慌)</Menu.Item>
-                <Menu.Item key="溪流落叶">🎈 放飞念头 (改善纠结)</Menu.Item>
-                <Menu.Item key="认知重构">🧠 认知重构 (转换视角)</Menu.Item>
-                <Menu.Item key="行为激活">⚡️ 行为激活 (提升动力)</Menu.Item>
-                <Menu.Item key="情绪记录">🌡️ 情绪记录 (觉察当下)</Menu.Item>
-              </Menu>
-            }
+        {/* Desktop: CSS Popover（无 Portal，即时响应） */}
+        <div className="hidden md:block relative" ref={skillPanelRef}>
+          <Button
+            type="text"
+            shape="circle"
+            onClick={() => setDesktopMenuOpen(v => !v)}
+            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
+            style={{ width: 44, height: 44, flexShrink: 0 }}
           >
-            <Button
-              type="text"
-              shape="circle"
-              className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
-              style={{ width: 44, height: 44, flexShrink: 0 }}
-            >
-              <IconApps style={{ fontSize: 20 }} />
-            </Button>
-          </Dropdown>
+            <IconApps style={{ fontSize: 20 }} />
+          </Button>
+
+          {/* 技能面板 — 始终在 DOM 中，CSS 控制显隐 */}
+          <div
+            className={`absolute bottom-full left-0 mb-2 z-[2000]
+              bg-white rounded-xl shadow-lg border border-gray-100 p-3 min-w-[280px]
+              transition-all duration-150 origin-bottom-left
+              ${desktopMenuOpen
+                ? 'opacity-100 scale-100 pointer-events-auto'
+                : 'opacity-0 scale-95 pointer-events-none'
+              }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs text-gray-400 font-medium mb-2 px-1">解压工具箱</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习", desc: "缓解焦虑" },
+                { key: "正念冥想", emoji: "🧘", label: "正念冥想", desc: "放松身心" },
+                { key: "空椅子", emoji: "🪑", label: "空椅子", desc: "释放情绪" },
+                { key: "着陆技术", emoji: "🦶", label: "五感着陆", desc: "缓解恐慌" },
+                { key: "溪流落叶", emoji: "🎈", label: "放飞念头", desc: "改善纠结" },
+                { key: "认知重构", emoji: "🧠", label: "认知重构", desc: "转换视角" },
+                { key: "行为激活", emoji: "⚡️", label: "行为激活", desc: "提升动力" },
+                { key: "情绪记录", emoji: "🌡️", label: "情绪记录", desc: "觉察当下" },
+              ].map((skill) => (
+                <div
+                  key={skill.key}
+                  onClick={() => { onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); }}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
+                >
+                  <span className="text-xl flex-shrink-0">{skill.emoji}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">{skill.label}</div>
+                    <div className="text-[11px] text-gray-400">{skill.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Mobile: Bottom ActionSheet (Drawer) */}
@@ -356,29 +385,50 @@ export function ChatInput({
 function ModelDisclaimer() {
   const { currentModel, setCurrentModel } = useChatStore();
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const modelIds = Object.keys(CHAT_MODELS) as ChatModelId[];
 
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
   return (
-    <div className="mt-2 text-center">
-      <Dropdown
-        trigger="click"
-        popupVisible={open}
-        onVisibleChange={setOpen}
-        droplist={
-          <Menu onClickMenuItem={(key) => { setCurrentModel(key as ChatModelId); setOpen(false); }}>
-            {modelIds.map(id => (
-              <Menu.Item key={id} className={id === currentModel ? '!bg-indigo-50 !text-indigo-700' : ''}>
-                <span className="font-medium">{CHAT_MODELS[id].label}</span>
-                <span className="ml-2 text-xs text-gray-400">{CHAT_MODELS[id].modelName}</span>
-              </Menu.Item>
-            ))}
-          </Menu>
-        }
+    <div className="mt-2 text-center relative" ref={containerRef}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="text-[11px] text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer"
       >
-        <button className="text-[11px] text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer">
-          内容由 <span className="font-medium underline decoration-dotted underline-offset-2">{CHAT_MODELS[currentModel]?.label || 'DeepSeek'}</span> 生成，仅供参考
-        </button>
-      </Dropdown>
+        内容由 <span className="font-medium underline decoration-dotted underline-offset-2">{CHAT_MODELS[currentModel]?.label || 'DeepSeek'}</span> 生成，仅供参考
+      </button>
+
+      {/* 模型选择面板 */}
+      <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50
+        bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 min-w-[220px]
+        transition-all duration-150 origin-bottom
+        ${open
+          ? 'opacity-100 scale-100 pointer-events-auto'
+          : 'opacity-0 scale-95 pointer-events-none'
+        }`}>
+        {modelIds.map(id => (
+          <div
+            key={id}
+            onClick={() => { setCurrentModel(id); setOpen(false); }}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 mx-1 rounded-lg cursor-pointer transition-colors text-sm',
+              id === currentModel ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'
+            )}
+          >
+            <span className="font-medium">{CHAT_MODELS[id].label}</span>
+            <span className="text-xs text-gray-400">{CHAT_MODELS[id].modelName}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

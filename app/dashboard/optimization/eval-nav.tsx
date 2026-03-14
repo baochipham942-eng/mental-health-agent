@@ -9,6 +9,7 @@ const NAV_ITEMS = [
     { href: '/dashboard/optimization/datasets', label: '数据集' },
     { href: '/dashboard/optimization/graders', label: '评分器' },
     { href: '/dashboard/optimization/analysis', label: '定性分析' },
+    { href: '/dashboard/optimization/calibration', label: '校准' },
 ];
 
 export default function EvalNav() {

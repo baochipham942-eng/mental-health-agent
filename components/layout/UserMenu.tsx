@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Dropdown, Menu, Divider, Drawer } from '@arco-design/web-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Drawer } from '@arco-design/web-react';
 import { IconUser, IconMindMapping, IconExport, IconExperiment, IconEdit, IconArrowRise } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
 
@@ -14,20 +14,28 @@ interface UserMenuProps {
     onEditProfile?: () => void;
 }
 
-/**
- * User Menu Component
- * Uses ByteDance's Arco Design Framework (@arco-design/web-react)
- * Features:
- * - Arco Dropdown & Menu components
- * - Custom animated avatar trigger on hover (rotates like the logo)
- * - "Lab" (Wisdom Hall) access
- */
 export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOut, onEditProfile }: UserMenuProps) {
     const router = useRouter();
     const [drawerVisible, setDrawerVisible] = useState(false);
+    const [popoverOpen, setPopoverOpen] = useState(false);
+    const popoverRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
+
+    // 点击外部关闭 popover
+    useEffect(() => {
+        if (!popoverOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (popoverRef.current?.contains(e.target as Node)) return;
+            if (triggerRef.current?.contains(e.target as Node)) return;
+            setPopoverOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [popoverOpen]);
 
     const handleMenuClick = (key: string) => {
-        setDrawerVisible(false); // Enable closing drawer on selection
+        setPopoverOpen(false);
+        setDrawerVisible(false);
         if (key === 'profile') {
             onEditProfile?.();
         } else if (key === 'progress') {
@@ -110,7 +118,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                 </div>
             )}
 
-            <Divider style={{ margin: '8px 0' }} />
+            <div className="mx-3 my-1 border-t border-gray-100" />
 
             <div onClick={() => handleMenuClick('logout')} className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 cursor-pointer rounded-lg transition-colors text-red-600">
                 <div className="p-2 bg-red-50 rounded-lg"><IconExport style={{ fontSize: 18 }} /></div>
@@ -119,28 +127,13 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
         </>
     );
 
-    const dropdownMenu = (
-        <Menu onClickMenuItem={handleMenuClick} className="min-w-[180px] select-none py-1">
-            <Menu.Item key="profile"><div className="flex gap-2 items-center"><IconEdit className="text-indigo-500" /> 编辑资料</div></Menu.Item>
-            <Menu.Item key="progress"><div className="flex gap-2 items-center"><IconArrowRise className="text-emerald-500" /> 情绪趋势</div></Menu.Item>
-            <Menu.Item key="memory"><div className="flex gap-2 items-center"><IconMindMapping className="text-purple-500" /> 我的记忆</div></Menu.Item>
-            <Menu.Item key="lab"><div className="flex gap-2 items-center"><IconExperiment className="text-cyan-600" /> 实验室</div></Menu.Item>
-            {isAdmin && <Menu.Item key="optimization"><div className="flex gap-2 items-center"><span className="text-amber-500 text-xs">🚀</span> 评测中心</div></Menu.Item>}
-            {isAdmin && <Menu.Item key="prompts"><div className="flex gap-2 items-center"><span className="text-emerald-500 text-xs">📝</span> 系统 Prompts</div></Menu.Item>}
-            {isAdmin && <Menu.Item key="users"><div className="flex gap-2 items-center"><IconUser className="text-blue-500" /> 用户管理</div></Menu.Item>}
-            {isAdmin && <Menu.Item key="invites"><div className="flex gap-2 items-center"><span className="text-pink-500 text-xs">🎟️</span> 邀请码管理</div></Menu.Item>}
-            <Divider style={{ margin: '4px 0' }} />
-            <Menu.Item key="logout"><div className="flex gap-2 items-center text-red-600"><IconExport /> 退出登录</div></Menu.Item>
-        </Menu>
-    );
-
-    const UserButton = () => (
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 hover:bg-indigo-50 active:scale-95 transition-all group cursor-pointer shadow-sm border border-gray-100">
+    const UserButton = ({ onClick }: { onClick?: () => void }) => (
+        <button
+            onClick={onClick}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 hover:bg-indigo-50 active:scale-95 transition-all group cursor-pointer shadow-sm border border-gray-100"
+        >
             <div className="relative flex-shrink-0">
-                {/* Active trait status dot */}
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm z-10"></div>
-
-                {/* Animated Avatar Container */}
                 <div className="w-[34px] h-[34px] rounded-full ring-2 ring-white shadow-md overflow-hidden bg-white flex items-center justify-center
                     transition-transform duration-500 ease-out group-hover:rotate-[12deg] group-hover:scale-105">
                     {avatar ? (
@@ -159,7 +152,7 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
             </div>
 
             <svg
-                className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors"
+                className={`w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-all ${popoverOpen ? 'rotate-0' : 'rotate-180'}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -171,16 +164,68 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
 
     return (
         <>
-            {/* Desktop: Dropdown */}
-            <div className="hidden md:block w-full">
-                <Dropdown droplist={dropdownMenu} position="top" trigger="hover">
-                    <div><UserButton /></div>
-                </Dropdown>
+            {/* Desktop: CSS Popover（无 Portal，即时响应） */}
+            <div className="hidden md:block w-full relative" ref={triggerRef}>
+                <UserButton onClick={() => setPopoverOpen(v => !v)} />
+
+                {/* 菜单面板 — 始终在 DOM 中，用 CSS 控制显隐 */}
+                <div
+                    ref={popoverRef}
+                    className={`absolute bottom-full left-0 right-0 mb-2 z-50
+                        bg-white rounded-xl shadow-lg border border-gray-100 py-2
+                        transition-all duration-150 origin-bottom
+                        ${popoverOpen
+                            ? 'opacity-100 scale-100 pointer-events-auto'
+                            : 'opacity-0 scale-95 pointer-events-none'
+                        }`}
+                >
+                    {[
+                        { key: 'profile', icon: <IconEdit style={{ fontSize: 16 }} />, label: '编辑资料', color: 'text-indigo-500', bgColor: 'bg-indigo-50' },
+                        { key: 'progress', icon: <IconArrowRise style={{ fontSize: 16 }} />, label: '情绪趋势', color: 'text-emerald-500', bgColor: 'bg-emerald-50' },
+                        { key: 'memory', icon: <IconMindMapping style={{ fontSize: 16 }} />, label: '我的记忆', color: 'text-purple-500', bgColor: 'bg-purple-50' },
+                        { key: 'lab', icon: <IconExperiment style={{ fontSize: 16 }} />, label: '实验室', color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
+                    ].map(item => (
+                        <div key={item.key} onClick={() => handleMenuClick(item.key)}
+                            className="flex items-center gap-3 px-4 py-2.5 mx-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                            <div className={`p-1.5 ${item.bgColor} rounded-lg ${item.color}`}>{item.icon}</div>
+                            <span className="text-sm text-gray-700 font-medium">{item.label}</span>
+                        </div>
+                    ))}
+                    {isAdmin && (
+                        <>
+                            <div className="mx-4 my-1.5 border-t border-gray-100" />
+                            {[
+                                { key: 'optimization', icon: '🚀', label: '评测中心' },
+                                { key: 'prompts', icon: '📝', label: '系统 Prompts' },
+                                { key: 'users', icon: <IconUser style={{ fontSize: 16 }} />, label: '用户管理', color: 'text-blue-500', bgColor: 'bg-blue-50' },
+                                { key: 'invites', icon: '🎟️', label: '邀请码管理' },
+                            ].map(item => (
+                                <div key={item.key} onClick={() => handleMenuClick(item.key)}
+                                    className="flex items-center gap-3 px-4 py-2.5 mx-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                    {typeof item.icon === 'string' ? (
+                                        <span className="text-base w-[28px] h-[28px] flex items-center justify-center">{item.icon}</span>
+                                    ) : (
+                                        <div className={`p-1.5 ${(item as any).bgColor || 'bg-gray-50'} rounded-lg ${(item as any).color || 'text-gray-500'}`}>{item.icon}</div>
+                                    )}
+                                    <span className="text-sm text-gray-700 font-medium">{item.label}</span>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                    <div className="mx-4 my-1.5 border-t border-gray-100" />
+                    <div onClick={() => handleMenuClick('logout')}
+                        className="flex items-center gap-3 px-4 py-2.5 mx-1.5 rounded-lg hover:bg-red-50 cursor-pointer transition-colors">
+                        <div className="p-1.5 bg-red-50 rounded-lg text-red-500"><IconExport style={{ fontSize: 16 }} /></div>
+                        <span className="text-sm text-red-600 font-medium">退出登录</span>
+                    </div>
+                </div>
             </div>
 
             {/* Mobile: Drawer (Bottom ActionSheet style) */}
             <div className="md:hidden w-full">
-                <div onClick={() => setDrawerVisible(true)}><UserButton /></div>
+                <div onClick={() => setDrawerVisible(true)}>
+                    <UserButton />
+                </div>
                 <Drawer
                     visible={drawerVisible}
                     onCancel={() => setDrawerVisible(false)}
@@ -190,7 +235,6 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
                     title={
                         <div className="text-center w-full relative">
                             <span className="text-gray-900 font-semibold">账户与设置</span>
-                            {/* Drag handle hint */}
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 rounded-full"></div>
                         </div>
                     }

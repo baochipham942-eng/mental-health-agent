@@ -89,8 +89,6 @@ export default function ExperimentsPage() {
   const [compareVisible, setCompareVisible] = useState(false);
   const [compareRun1, setCompareRun1] = useState<string>('');
   const [compareRun2, setCompareRun2] = useState<string>('');
-  const [compareData, setCompareData] = useState<any>(null);
-  const [compareLoading, setCompareLoading] = useState(false);
 
   useEffect(() => { loadRuns(); }, []);
   useEffect(() => { return () => { if (pollRef.current) clearInterval(pollRef.current); }; }, []);
@@ -253,13 +251,8 @@ export default function ExperimentsPage() {
   const doCompare = async () => {
     if (!compareRun1 || !compareRun2) { Message.warning('请选择两个实验'); return; }
     if (compareRun1 === compareRun2) { Message.warning('请选择不同的实验'); return; }
-    setCompareLoading(true);
-    try {
-      const res = await fetch(`/api/eval/compare?run1=${encodeURIComponent(compareRun1)}&run2=${encodeURIComponent(compareRun2)}`);
-      if (res.ok) setCompareData(await res.json());
-      else Message.error('对比失败');
-    } catch { Message.error('对比失败'); }
-    finally { setCompareLoading(false); }
+    setCompareVisible(false);
+    router.push(`/dashboard/optimization/compare?run1=${encodeURIComponent(compareRun1)}&run2=${encodeURIComponent(compareRun2)}`);
   };
 
   // 筛选
@@ -427,46 +420,23 @@ export default function ExperimentsPage() {
         />
       </Card>
 
-      {/* ===== 对比弹窗 ===== */}
+      {/* ===== 对比弹窗（仅选择实验，确认后跳转对比页） ===== */}
       <Modal
-        title="实验对比"
+        title="选择对比实验"
         visible={compareVisible}
-        onCancel={() => { setCompareVisible(false); setCompareData(null); }}
-        footer={<Button onClick={() => { setCompareVisible(false); setCompareData(null); }}>关闭</Button>}
-        style={{ width: 720, maxWidth: '95vw' }}
+        onCancel={() => setCompareVisible(false)}
+        onOk={doCompare}
+        okText="开始对比"
+        cancelText="取消"
+        style={{ width: 560, maxWidth: '95vw' }}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <Select size="small" placeholder="选择实验 A" value={compareRun1} onChange={setCompareRun1} style={{ flex: 1 }}
+        <div className="flex items-center gap-3">
+          <Select size="small" placeholder="选择实验 A" value={compareRun1 || undefined} onChange={setCompareRun1} style={{ flex: 1 }}
             options={runs.filter(r => r.status === 'completed').map(r => ({ value: r.runId, label: `${r.runId.slice(0, 20)} (${r.mode})` }))} />
-          <span className="text-gray-400">vs</span>
-          <Select size="small" placeholder="选择实验 B" value={compareRun2} onChange={setCompareRun2} style={{ flex: 1 }}
+          <span className="text-gray-400 font-bold">vs</span>
+          <Select size="small" placeholder="选择实验 B" value={compareRun2 || undefined} onChange={setCompareRun2} style={{ flex: 1 }}
             options={runs.filter(r => r.status === 'completed').map(r => ({ value: r.runId, label: `${r.runId.slice(0, 20)} (${r.mode})` }))} />
-          <Button type="primary" size="small" onClick={doCompare} loading={compareLoading}>对比</Button>
         </div>
-
-        {compareData && (
-          <div className="space-y-2">
-            <div className="flex gap-4 text-xs text-gray-500 mb-2">
-              <span>A: <Tag size="small" color="arcoblue">{compareData.run1.model}</Tag> {compareData.run1.mode}</span>
-              <span>B: <Tag size="small" color="purple">{compareData.run2.model}</Tag> {compareData.run2.mode}</span>
-            </div>
-            <Table
-              size="small"
-              pagination={false}
-              data={compareData.comparison}
-              rowKey="dimension"
-              columns={[
-                { title: '维度', dataIndex: 'dimension', width: 160 },
-                { title: 'A 通过率', width: 100, render: (_: any, r: any) => <span>{r.run1.rate}%</span> },
-                { title: 'B 通过率', width: 100, render: (_: any, r: any) => <span>{r.run2.rate}%</span> },
-                { title: '差异', width: 100, render: (_: any, r: any) => {
-                  const color = r.diff > 0 ? '#00b42a' : r.diff < 0 ? '#cb2634' : '#999';
-                  return <span style={{ color, fontWeight: 600 }}>{r.diff > 0 ? '+' : ''}{r.diff}%</span>;
-                }},
-              ]}
-            />
-          </div>
-        )}
       </Modal>
 
       {/* ===== 新建实验弹窗 ===== */}

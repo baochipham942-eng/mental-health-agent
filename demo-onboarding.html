@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心灵树洞 — Onboarding 体验 Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
+
+  :root {
+    --mood-color: 99, 102, 241;   /* indigo default */
+    --mood-hue: 239;
+    --energy: 0.5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F7F8FA;
+    color: #1a1a2e;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ==================== STEP CONTAINER ==================== */
+  .step {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+    will-change: opacity, transform;
+  }
+  .step.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.98) translateY(8px);
+  }
+  .step.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+  }
+  .step.fade-out {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1);
+    transition: opacity 0.45s ease;
+  }
+
+  /* ==================== STEP 1: IMAGE SELECTION ==================== */
+  #step1 {
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f1f8 100%);
+  }
+
+  .step1-title {
+    font-size: 24px;
+    font-weight: 300;
+    color: #374151;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.3s forwards;
+  }
+
+  .step1-subtitle {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-bottom: 40px;
+    font-weight: 300;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.5s forwards;
+  }
+
+  .image-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    max-width: 520px;
+    width: 90%;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.7s forwards;
+  }
+
+  .image-card {
+    position: relative;
+    aspect-ratio: 4/3;
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .image-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  }
+  .image-card:active {
+    transform: scale(0.98);
+  }
+
+  .image-card .card-bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.6s ease;
+  }
+  .image-card:hover .card-bg {
+    transform: scale(1.08);
+  }
+
+  .image-card .card-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.55) 100%);
+    display: flex; flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px;
+  }
+
+  .image-card .card-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: white;
+    margin-bottom: 4px;
+  }
+
+  .image-card .card-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  /* Card backgrounds with CSS gradients (no external images) */
+  .card-rain .card-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 40%, #4a5568 100%);
+  }
+  .card-rain .card-bg::before {
+    content: '';
+    position: absolute;
+    width: 1px; height: 60%;
+    left: 30%; top: -20%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.25));
+    animation: rainStem 0.9s linear infinite;
+  }
+  .card-rain .card-bg::after {
+    content: '';
+    position: absolute;
+    width: 1px; height: 50%;
+    left: 60%; top: -15%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.18));
+    animation: rainStem 0.9s 0.3s linear infinite;
+  }
+  .card-rain .rain-s1, .card-rain .rain-s2 {
+    position: absolute;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.2));
+  }
+  .card-rain .rain-s1 {
+    height: 45%; left: 45%; top: -10%;
+    animation: rainStem 0.9s 0.5s linear infinite;
+  }
+  .card-rain .rain-s2 {
+    height: 55%; left: 78%; top: -18%;
+    animation: rainStem 0.9s 0.15s linear infinite;
+  }
+  @keyframes rainStem {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(180%); opacity: 0; }
+  }
+
+  .card-spring .card-bg {
+    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 30%, #ff9a9e 60%, #fecfef 100%);
+  }
+  .card-spring .card-bg::after {
+    content: '🌸';
+    position: absolute;
+    font-size: 60px;
+    right: -10px; top: -10px;
+    opacity: 0.3;
+  }
+  /* Reveal card inherits card theme animations */
+  .reveal-card.card-spring .card-bg::after {
+    content: '🌸'; position: absolute; font-size: 60px;
+    right: -10px; top: -10px; opacity: 0.3;
+    animation: float 4s ease-in-out infinite;
+  }
+  .reveal-card.card-autumn .card-bg::after {
+    content: '🍂'; position: absolute; font-size: 48px;
+    right: 10px; top: 15px; opacity: 0.4;
+    animation: fall 5s ease-in-out infinite;
+  }
+  .reveal-card.card-rain .card-bg::before {
+    content: ''; position: absolute;
+    width: 1px; height: 60%; left: 30%; top: -20%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.25));
+    animation: rainStem 0.9s linear infinite;
+  }
+  .reveal-card.card-rain .card-bg::after {
+    content: ''; position: absolute;
+    width: 1px; height: 50%; left: 60%; top: -15%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.18));
+    animation: rainStem 0.9s 0.3s linear infinite;
+  }
+  .reveal-card .rain-s1, .reveal-card .rain-s2 {
+    position: absolute; width: 1px;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.2));
+  }
+  .reveal-card .rain-s1 { height: 45%; left: 45%; top: -10%; animation: rainStem 0.9s 0.5s linear infinite; }
+  .reveal-card .rain-s2 { height: 55%; left: 78%; top: -18%; animation: rainStem 0.9s 0.15s linear infinite; }
+  .reveal-card .wave-l1,
+  .reveal-card .wave-l2,
+  .reveal-card .wave-l3 {
+    position: absolute; width: 250%; height: 250%; left: -75%;
+  }
+  .reveal-card .wave-l1 { top: 45%; background-color: rgba(255,255,255,0.08); border-radius: 45%; animation: waveRot 20s linear infinite; }
+  .reveal-card .wave-l2 { top: 50%; background-color: rgba(200,230,255,0.07); border-radius: 43%; animation: waveRot 28s linear infinite reverse; }
+  .reveal-card .wave-l3 { top: 48%; background-color: rgba(255,255,255,0.05); border-radius: 40%; animation: waveRot 35s linear infinite; }
+
+  .card-ocean .card-bg {
+    background: linear-gradient(135deg, #0c3483 0%, #3f7fb5 40%, #6dd5ed 70%, #2193b0 100%);
+    overflow: hidden;
+  }
+  .card-ocean .wave-l1,
+  .card-ocean .wave-l2,
+  .card-ocean .wave-l3 {
+    position: absolute;
+    width: 250%; height: 250%;
+    left: -75%;
+  }
+  .card-ocean .wave-l1 {
+    top: 45%;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 45%;
+    animation: waveRot 20s linear infinite;
+  }
+  .card-ocean .wave-l2 {
+    top: 50%;
+    background-color: rgba(200, 230, 255, 0.07);
+    border-radius: 43%;
+    animation: waveRot 28s linear infinite reverse;
+  }
+  .card-ocean .wave-l3 {
+    top: 48%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 40%;
+    animation: waveRot 35s linear infinite;
+  }
+  @keyframes waveRot {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .card-autumn .card-bg {
+    background: linear-gradient(135deg, #f6d365 0%, #e4954f 40%, #d4805f 70%, #c06c3e 100%);
+  }
+  .card-autumn .card-bg::after {
+    content: '🍂';
+    position: absolute;
+    font-size: 48px;
+    right: 10px; top: 15px;
+    opacity: 0.4;
+  }
+
+  /* Selection grid: no animated elements */
+  .image-grid .card-bg::before,
+  .image-grid .card-bg::after,
+  .image-grid .rain-s1,
+  .image-grid .rain-s2,
+  .image-grid .wave-l1,
+  .image-grid .wave-l2,
+  .image-grid .wave-l3 {
+    display: none !important;
+  }
+
+  /* Flying card overlay for selection → reveal transition */
+  .flying-card {
+    position: fixed;
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: 200;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    pointer-events: none;
+    will-change: left, top, width, height;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-5px) rotate(0deg); }
+    50% { transform: translateY(10px) rotate(15deg); }
+    100% { transform: translateY(-5px) rotate(0deg); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(5deg); }
+  }
+
+  /* ==================== STEP 2: EMOTION REVEAL ==================== */
+  #step2 {
+    background: #F7F8FA;
+    transition: background 1s ease;
+  }
+
+  .reveal-card {
+    width: 280px;
+    aspect-ratio: 4/3;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    position: relative;
+  }
+  .reveal-card.show {
+    opacity: 1;
+  }
+  .reveal-card .card-bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center;
+  }
+  .reveal-card .card-overlay {
+    position: absolute; inset: 0;
+    background: none;
+  }
+
+  .reveal-text {
+    margin-top: 32px;
+    text-align: center;
+    max-width: 360px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
+                transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .reveal-text.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .reveal-empathy {
+    font-size: 18px;
+    font-weight: 300;
+    line-height: 1.8;
+    color: #374151;
+  }
+
+  .reveal-note {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 12px;
+    font-style: italic;
+  }
+
+  .reveal-cta {
+    margin-top: 36px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+                transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .reveal-cta.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .cta-button {
+    padding: 14px 40px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+    background: linear-gradient(135deg,
+      rgba(var(--mood-color), 0.9),
+      rgba(var(--mood-color), 0.7));
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(var(--mood-color), 0.3);
+    font-family: inherit;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-button::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.3), transparent 60%);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(var(--mood-color), 0.4);
+  }
+
+  /* ==================== STEP 3: REGISTRATION ==================== */
+  #step3 {
+    transition: background 0.6s ease;
+  }
+
+  .register-container {
+    background: white;
+    border-radius: 20px;
+    width: 360px;
+    max-width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease 0.2s;
+    overflow: hidden;
+  }
+  .register-container.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .register-header {
+    background: rgba(var(--mood-color), 1);
+    padding: 32px 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .register-header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 2px;
+  }
+  .register-header p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+    margin-top: 6px;
+    font-weight: 300;
+  }
+
+  .register-body {
+    padding: 32px 36px 36px;
+  }
+
+  .register-view-title {
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 24px;
+    color: #1f2937;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 6px;
+    font-weight: 400;
+  }
+  .form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background: #fafafa;
+    outline: none;
+  }
+  .form-group input:focus {
+    border-color: rgba(var(--mood-color), 0.5);
+    box-shadow: 0 0 0 3px rgba(var(--mood-color), 0.1);
+    background: white;
+  }
+
+  .register-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: white;
+    background: linear-gradient(135deg,
+      rgba(var(--mood-color), 1),
+      rgba(var(--mood-color), 0.8));
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+  .register-btn:hover {
+    box-shadow: 0 4px 16px rgba(var(--mood-color), 0.35);
+    transform: translateY(-1px);
+  }
+
+  .register-skip {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    font-size: 13px;
+    color: #9ca3af;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .register-skip:hover { color: #6b7280; }
+
+  /* ==================== STEP 4: CHAT PAGE ==================== */
+  /* 从 demo-pages.html 同步的聊天详情页样式 */
+  #step4 {
+    background: #F7F8FA;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .chat-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #F7F8FA;
+    position: relative;
+  }
+
+  /* 顶部情绪渐变条 */
+  .mood-bar {
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg,
+      rgba(var(--mood-color), 0.9) 0%,
+      rgba(var(--mood-color), 0.5) 40%,
+      rgba(var(--mood-color), 0.15) 80%,
+      transparent 100%);
+    transition: background 1.2s ease, height 0.4s ease, box-shadow 1.2s ease;
+    flex-shrink: 0;
+    box-shadow: 0 1px 8px rgba(var(--mood-color), 0.3);
+  }
+
+  /* 环境光晕 — 右上角 */
+  .ambient-light {
+    position: fixed;
+    top: -80px; right: -80px;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(var(--mood-color), 0.1) 0%,
+      rgba(var(--mood-color), 0.04) 40%,
+      transparent 70%);
+    pointer-events: none;
+    transition: background 1.2s ease;
+    z-index: 0;
+  }
+
+  /* 环境光晕 — 左下角 */
+  .ambient-light-2 {
+    position: fixed;
+    bottom: -120px; left: -60px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(var(--mood-color), 0.05) 0%,
+      transparent 60%);
+    pointer-events: none;
+    transition: background 1.2s ease;
+    z-index: 0;
+  }
+
+  /* 聊天 Header */
+  .ch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    background: white;
+    border-bottom: 1px solid #f0f0f3;
+    width: 100%;
+  }
+  .ch-left {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1;
+    position: relative;
+  }
+
+  /* Header 呼吸光球 */
+  .h-orb {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    animation: ho 3.5s ease-in-out infinite;
+    cursor: pointer;
+  }
+  .h-orb-inner {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      rgba(var(--mood-color),0.65),
+      rgba(var(--mood-color),0.25) 65%,
+      rgba(var(--mood-color),0.08));
+    box-shadow: 0 0 10px rgba(var(--mood-color),0.2);
+    transition: all 1.5s ease;
+  }
+  .h-orb-hl {
+    position: absolute; top: 4px; left: 5px;
+    width: 10px; height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.5), transparent);
+  }
+  .h-orb-ring {
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--mood-color),0.15);
+    animation: hr 3.5s ease-in-out infinite;
+    transition: border-color 1.5s ease;
+  }
+  @keyframes ho { 0%,100%{transform:scale(0.93)} 50%{transform:scale(1.07)} }
+  @keyframes hr { 0%,100%{transform:scale(0.96);opacity:0.3} 50%{transform:scale(1.16);opacity:0.6} }
+
+  /* 光球状态提示 */
+  .orb-tip {
+    position: absolute;
+    top: calc(100% + 10px); left: 12px;
+    background: white;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    width: 160px;
+    opacity: 0; transform: translateY(-4px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 30;
+  }
+  .orb-tip.show { opacity:1; transform:translateY(0); pointer-events:auto; }
+  .orb-tip::before {
+    content: ''; position: absolute;
+    top: -5px; left: 20px;
+    width: 10px; height: 10px;
+    background: white;
+    transform: rotate(45deg);
+    box-shadow: -1px -1px 2px rgba(0,0,0,0.03);
+  }
+  .ot-l { font-size:11px; color:#9ca3af; margin-bottom:3px; }
+  .ot-v { font-size:13px; color:#374151; font-weight:500; }
+  .ot-b { height:3px; background:#f3f4f6; border-radius:2px; margin-top:6px; overflow:hidden; }
+  .ot-f { height:100%; border-radius:2px;
+    background: linear-gradient(90deg, rgba(var(--mood-color),0.7), rgba(var(--mood-color),0.4));
+    transition: width 1.5s ease; }
+
+  .ch-title { font-size:15px; font-weight:600; color:#1f2937; line-height:1.3; }
+  .ch-status {
+    font-size:12px; color:#9ca3af;
+    display:flex; align-items:center; gap:4px;
+  }
+  .ch-dot {
+    width:6px; height:6px; border-radius:50%;
+    background: #34d399;
+    animation: dp 2s ease-in-out infinite;
+  }
+  @keyframes dp { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+  .ch-right {
+    display:flex; align-items:center; gap:14px;
+    flex-shrink: 0;
+  }
+  .ch-dur {
+    font-size:12px; color:#b0b5c0;
+    display:flex; align-items:center; gap:4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .leave-btn {
+    padding: 7px 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    font-size: 13px; color: #6b7280;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .leave-btn:hover { background:#f9fafb; border-color:#d1d5db; }
+  .leave-btn:active { transform:scale(0.97); }
+
+  /* 离开确认对话框 */
+  .leave-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .leave-overlay.show { opacity: 1; pointer-events: auto; }
+  .leave-dialog {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 28px 24px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    transform: scale(0.92) translateY(10px);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .leave-overlay.show .leave-dialog {
+    transform: scale(1) translateY(0);
+  }
+  .leave-dialog-orb {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    background: radial-gradient(circle at 35% 35%, rgba(var(--mood-color),0.5), rgba(var(--mood-color),0.15));
+    box-shadow: 0 0 20px rgba(var(--mood-color),0.15);
+    animation: ho 3.5s ease-in-out infinite;
+  }
+  .leave-dialog h3 {
+    font-size: 17px; font-weight: 600; color: #1f2937;
+    margin-bottom: 8px;
+  }
+  .leave-dialog p {
+    font-size: 13.5px; color: #9ca3af; line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .leave-dialog-btns {
+    display: flex; gap: 10px;
+  }
+  .leave-dialog-btns button {
+    flex: 1; padding: 11px 0;
+    border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .leave-stay {
+    background: linear-gradient(135deg, rgba(var(--mood-color),0.85), rgba(var(--mood-color),0.65));
+    color: white;
+    box-shadow: 0 2px 12px rgba(var(--mood-color),0.25);
+  }
+  .leave-stay:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(var(--mood-color),0.35); }
+  .leave-go {
+    background: #f9fafb; color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+  .leave-go:hover { background: #f3f4f6; }
+
+  /* 设置面板 */
+  .settings-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(3px);
+    z-index: 80;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .settings-overlay.show { opacity: 1; pointer-events: auto; }
+  .settings-panel {
+    background: white;
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    transform: scale(0.92); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .settings-overlay.show .settings-panel { transform: scale(1); }
+  .settings-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .settings-header h3 { font-size: 17px; font-weight: 600; color: #1f2937; }
+  .settings-close {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: none; background: #f3f4f6; color: #9ca3af;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .settings-close:hover { background: #e5e7eb; color: #6b7280; }
+  .settings-section { margin-bottom: 16px; }
+  .settings-section-title {
+    font-size: 11px; font-weight: 600; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .settings-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+  }
+  .settings-item:hover { background: #f9fafb; }
+  .settings-item-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .settings-item-text { flex: 1; }
+  .settings-item-label { font-size: 13.5px; font-weight: 500; color: #1f2937; }
+  .settings-item-desc { font-size: 11.5px; color: #9ca3af; margin-top: 1px; }
+  .settings-item-arrow { color: #d1d5db; font-size: 14px; }
+  .settings-divider {
+    height: 1px; background: #f3f4f6;
+    margin: 12px 0;
+  }
+  .settings-admin-badge {
+    font-size: 10px;
+    background: linear-gradient(135deg, rgba(var(--mood-color),0.85), rgba(var(--mood-color),0.65));
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  /* 消息列表 */
+  .cm { flex:1; overflow-y:auto; scrollbar-width:none; }
+  .cm::-webkit-scrollbar { display:none; }
+  .cm-inner {
+    max-width: 720px; margin: 0 auto;
+    padding: 16px 20px 32px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .msg {
+    display:flex; flex-direction:column; gap:5px;
+    margin-bottom:10px;
+    animation: mi 0.35s ease;
+  }
+  .msg.user { align-items:flex-end; }
+  .msg.ai { align-items:flex-start; }
+  @keyframes mi { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .bub {
+    border-radius:16px; padding:12px 16px;
+    font-size:14px; line-height:1.75;
+    max-width:80%; word-break:break-word; white-space:pre-wrap;
+  }
+  .msg.user .bub {
+    background:#2563EB; color:white;
+    border-top-right-radius:4px;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.18);
+  }
+  .msg.ai .bub {
+    background:white; color:#374151;
+    border-top-left-radius:4px;
+    box-shadow: 0 4px 20px -2px rgba(99,102,241,0.08);
+    border-left: 3px solid rgba(var(--mood-color),0.35);
+    transition: border-color 1.5s ease;
+  }
+  .msg-t { font-size:11px; color:#c4c8d0; padding:0 4px; }
+  .msg-fb {
+    display:flex; gap:12px; padding:0 4px;
+    opacity:0; transition:opacity 0.3s;
+  }
+  .msg:hover .msg-fb { opacity:0.5; }
+  .msg-fb:hover { opacity:1!important; }
+  .fb { background:none; border:none; font-size:14px; cursor:pointer; color:#c4c8d0; padding:2px; transition:color 0.2s; }
+  .fb:hover { color:rgba(var(--mood-color),0.8); }
+
+  /* 思考动画 */
+  .tk-wrap { margin-bottom:10px; animation:mi 0.35s ease; }
+  .tk-body {
+    background:white; border-radius:12px; border-top-left-radius:4px;
+    padding:10px 14px;
+    box-shadow:0 2px 12px -2px rgba(99,102,241,0.06);
+    border-left:2px solid rgba(var(--mood-color),0.3);
+    display:inline-flex; align-items:center; gap:10px;
+    position:relative; overflow:hidden;
+  }
+  .tk-body::before {
+    content:''; position:absolute; top:0; left:-100%; bottom:0;
+    width:60%;
+    background:linear-gradient(90deg,transparent,rgba(var(--mood-color),0.04),transparent);
+    animation: shm 2.5s ease-in-out infinite;
+  }
+  @keyframes shm { 0%{left:-60%} 100%{left:120%} }
+  .tk-o { position:relative; width:20px; height:20px; flex-shrink:0; }
+  .tk-or { position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(var(--mood-color),0.2); animation:tr 3s ease-in-out infinite; }
+  @keyframes tr { 0%,100%{transform:scale(0.85);opacity:0.3} 50%{transform:scale(1.2);opacity:0.7} }
+  .tk-om { position:absolute; inset:4px; border-radius:50%; background:rgba(var(--mood-color),0.12); animation:tm 3s ease-in-out infinite; }
+  @keyframes tm { 0%,100%{transform:scale(0.9);opacity:0.5} 50%{transform:scale(1.15);opacity:0.9} }
+  .tk-oc { position:absolute; inset:7px; border-radius:50%;
+    background:radial-gradient(circle at 40% 40%, rgba(var(--mood-color),0.7), rgba(var(--mood-color),0.35));
+    animation:tc 3s ease-in-out infinite;
+    box-shadow:0 0 8px rgba(var(--mood-color),0.25); }
+  @keyframes tc { 0%,100%{transform:scale(0.85);box-shadow:0 0 4px rgba(var(--mood-color),0.15)} 50%{transform:scale(1.1);box-shadow:0 0 14px rgba(var(--mood-color),0.35)} }
+  .tk-txt { display:flex; flex-direction:column; gap:1px; }
+  .tk-l {
+    font-size:12px; font-weight:500;
+    background:linear-gradient(135deg,rgba(var(--mood-color),1),#7c3aed);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .tk-c { font-size:11px; color:rgba(var(--mood-color),0.55); font-style:italic; transition:opacity 0.4s; }
+
+  /* CoT 查看思考过程 */
+  .cot-btn {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; color:#9ca3af; background:none; border:none;
+    cursor:pointer; padding:2px 0; margin-bottom:2px;
+    font-family:inherit; transition:color 0.2s;
+  }
+  .cot-btn:hover { color:#6b7280; }
+  .cot-btn svg { width:12px; height:12px; transition:transform 0.2s; }
+  .cot-btn.open svg { transform:rotate(180deg); }
+  .cot-detail {
+    display:none; margin-bottom:6px;
+    font-size:11px; line-height:1.6; color:#6b7280;
+    background:rgba(var(--mood-color),0.03);
+    border:1px solid rgba(var(--mood-color),0.08);
+    border-radius:8px; padding:10px 12px;
+    animation: mi 0.3s ease;
+  }
+  .cot-detail.show { display:block; }
+  .cot-row { display:flex; align-items:flex-start; gap:6px; }
+  .cot-row + .cot-row { margin-top:6px; }
+  .cot-row span:first-child { flex-shrink:0; }
+
+  /* 输入区 */
+  .ci {
+    flex-shrink:0;
+    max-width:720px; width:100%; margin:0 auto;
+    padding: 8px 20px 20px;
+  }
+  .ci-box {
+    display:flex; align-items:center; gap:6px;
+    background:white; border:1px solid #e5e7eb;
+    border-radius:16px; padding:4px 4px 4px 6px;
+    box-shadow:0 2px 12px rgba(99,102,241,0.06);
+    transition: all 0.3s;
+  }
+  .ci-box:focus-within {
+    border-color: rgba(var(--mood-color),0.3);
+    box-shadow: 0 2px 16px rgba(var(--mood-color),0.08);
+  }
+  .ci-btn {
+    width:40px; height:40px; border-radius:10px; border:none;
+    background:transparent; color:#b0b5c0; font-size:18px;
+    cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+  }
+  .ci-btn:hover { color:#7c3aed; background:#f5f3ff; }
+  .ci-inp {
+    flex:1; border:none; outline:none;
+    font-size:15px; font-family:inherit;
+    color:#1f2937; background:transparent;
+    line-height:24px; padding:8px 4px;
+    resize:none; min-height:24px;
+  }
+  .ci-inp::placeholder { color:#c4c8d0; }
+  .ci-send {
+    width:42px; height:42px; border-radius:50%; border:none;
+    background:#2563EB; color:white;
+    cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+    box-shadow:0 2px 8px rgba(37,99,235,0.25);
+  }
+  .ci-send:hover { background:#1d4ed8; transform:scale(1.05); }
+  .ci-send svg { width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+  .mn { text-align:center; margin-top:6px; font-size:11px; color:#c4c8d0; }
+  .mn span { text-decoration:underline dotted; cursor:pointer; }
+  .mn span:hover { color:rgba(var(--mood-color),0.8); }
+
+  /* ==================== UTILS ==================== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Demo controls */
+  .demo-controls {
+    position: fixed;
+    bottom: 16px; right: 16px;
+    display: flex; gap: 8px;
+    z-index: 100;
+  }
+  .demo-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: #6b7280;
+    transition: all 0.2s;
+  }
+  .demo-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+  .demo-btn.active {
+    background: #2563EB;
+    color: white;
+    border-color: #2563EB;
+  }
+
+  .demo-label {
+    position: fixed;
+    top: 12px; right: 16px;
+    font-size: 11px;
+    color: #d1d5db;
+    z-index: 100;
+    letter-spacing: 1px;
+  }
+
+
+  /* Mood shift toast */
+  .mood-shift-toast {
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    background: white;
+    border-radius: 12px;
+    padding: 10px 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+    color: #374151;
+    z-index: 50;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-left: 3px solid rgba(var(--mood-color), 0.6);
+  }
+  .mood-shift-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .mood-shift-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(var(--mood-color), 0.7);
+    animation: ho 2s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-label">心灵树洞 · Soul Tree Hollow</div>
+
+<!-- ==================== STEP 1 ==================== -->
+<div id="step1" class="step active">
+  <div class="step1-title">如果此刻是一幅画</div>
+  <div class="step1-subtitle">你会走进哪一幅？</div>
+
+  <div class="image-grid">
+    <div class="image-card card-spring" onclick="selectCard(this, 'spring')">
+      <div class="card-bg"></div>
+      <div class="card-overlay">
+        <div class="card-label">春日花开</div>
+        <div class="card-hint">你比自己想象的<br>更接近绽放</div>
+      </div>
+    </div>
+
+    <div class="image-card card-ocean" onclick="selectCard(this, 'ocean')">
+      <div class="card-bg">
+        <div class="wave-l1"></div>
+        <div class="wave-l2"></div>
+        <div class="wave-l3"></div>
+      </div>
+      <div class="card-overlay">
+        <div class="card-label">海浪拍岸</div>
+        <div class="card-hint">翻涌的情绪<br>终会找到岸</div>
+      </div>
+    </div>
+
+    <div class="image-card card-autumn" onclick="selectCard(this, 'autumn')">
+      <div class="card-bg"></div>
+      <div class="card-overlay">
+        <div class="card-label">秋叶飘落</div>
+        <div class="card-hint">放下一些东西<br>才能轻装前行</div>
+      </div>
+    </div>
+
+    <div class="image-card card-rain" onclick="selectCard(this, 'rain')">
+      <div class="card-bg">
+        <div class="rain-s1"></div>
+        <div class="rain-s2"></div>
+      </div>
+      <div class="card-overlay">
+        <div class="card-label">雨天窗边</div>
+        <div class="card-hint">有些心事，像窗上的雨滴<br>需要慢慢滑落</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 2 ==================== -->
+<div id="step2" class="step hidden">
+  <div class="reveal-card" id="revealCard">
+    <div class="card-bg" id="revealBg"></div>
+    <div class="card-overlay"></div>
+  </div>
+  <div class="reveal-text" id="revealText">
+    <div class="reveal-empathy" id="revealEmpathy"></div>
+    <div class="reveal-note" id="revealNote"></div>
+  </div>
+  <div class="reveal-cta" id="revealCta">
+    <button class="cta-button" onclick="goToStep(3)">说给树洞听</button>
+  </div>
+</div>
+
+<!-- ==================== STEP 3 ==================== -->
+<div id="step3" class="step hidden">
+  <div class="register-container" id="registerContainer">
+    <div class="register-header">
+      <h1>心灵树洞</h1>
+      <p>倾诉 · 解压 · 成长</p>
+    </div>
+    <div class="register-body">
+      <div class="form-group">
+        <input type="tel" placeholder="手机号" id="phoneInput">
+      </div>
+      <div class="form-group">
+        <input type="password" placeholder="密码">
+      </div>
+      <div class="form-group">
+        <input type="text" placeholder="邀请码" style="text-transform:uppercase">
+      </div>
+      <button class="register-btn" onclick="goToStep(4)">进入树洞</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STEP 4: CHAT ==================== -->
+<div id="step4" class="step hidden">
+  <div class="chat-container">
+  <div class="mood-bar" id="moodBar"></div>
+  <div class="ambient-light"></div>
+  <div class="ambient-light-2"></div>
+
+  <!-- 聊天 Header：呼吸光球 + 状态 + 计时器 + 离开按钮 -->
+  <div class="ch">
+    <div class="ch-left">
+      <div class="h-orb" id="hOrb" onclick="toggleTip()">
+        <div class="h-orb-inner"></div>
+        <div class="h-orb-hl"></div>
+        <div class="h-orb-ring"></div>
+      </div>
+      <div>
+        <div class="ch-title">心灵树洞</div>
+        <div class="ch-status">
+          <span class="ch-dot"></span>
+          <span id="cStatus">倾听中</span>
+        </div>
+      </div>
+      <div class="orb-tip" id="orbTip">
+        <div class="ot-l">当前状态</div>
+        <div class="ot-v" id="otV">有些沉重</div>
+        <div class="ot-b"><div class="ot-f" id="otF" style="width:35%"></div></div>
+      </div>
+    </div>
+    <div class="ch-right">
+      <div class="ch-dur">
+        <span>⏱</span>
+        <span id="durT">00:00</span>
+      </div>
+      <button class="leave-btn" onclick="showLeaveDialog()">
+        <span>←</span> 离开
+      </button>
+    </div>
+  </div>
+
+  <!-- 消息列表 -->
+  <div class="cm" id="cMsgs">
+    <div class="cm-inner" id="cInner"></div>
+  </div>
+
+  <!-- 输入区：解压工具箱 + 输入框 + 发送按钮 -->
+  <div class="ci">
+    <div class="ci-box">
+      <button class="ci-btn" title="解压工具箱">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">
+          <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>
+        </svg>
+      </button>
+      <textarea class="ci-inp" rows="1" placeholder="输入你的问题或感受..." id="cInp"
+                oninput="autoR(this)"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+      <button class="ci-send" onclick="send()">
+        <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+    <div class="mn">内容由 <span>DeepSeek V3</span> 生成，仅供参考</div>
+  </div>
+  </div>
+</div>
+
+<!-- 离开确认对话框 -->
+<div class="leave-overlay" id="leaveOverlay" onclick="if(event.target===this)closeLeaveDialog()">
+  <div class="leave-dialog">
+    <div class="leave-dialog-orb"></div>
+    <h3>要离开这次对话吗？</h3>
+    <p>每一段倾诉都是了不起的勇气。<br>随时可以回来继续。</p>
+    <div class="leave-dialog-btns">
+      <button class="leave-stay" onclick="closeLeaveDialog()">再聊会儿</button>
+      <button class="leave-go" onclick="confirmLeave()">下次再来</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h3>设置</h3>
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">个人偏好</div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#f3e8ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">个人资料</div>
+          <div class="settings-item-desc">昵称、头像</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fef3c7">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/><circle cx="12" cy="12" r="4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">聊天风格</div>
+          <div class="settings-item-desc">选择你喜欢的沟通方式</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#ecfdf5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">隐私与数据</div>
+          <div class="settings-item-desc">数据管理与导出</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">管理员 <span class="settings-admin-badge">ADMIN</span></div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fef2f2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">评测中心</div>
+          <div class="settings-item-desc">对话质量评估与优化</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#eef2ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">系统 Prompt</div>
+          <div class="settings-item-desc">查看与调整对话提示词</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fdf4ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="1.8" stroke-linecap="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">监控面板</div>
+          <div class="settings-item-desc">Langfuse 对话追踪</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 情绪变化提示 -->
+<div class="mood-shift-toast" id="moodToast">
+  <div class="mood-shift-dot"></div>
+  <span id="moodToastText">情绪正在变化…</span>
+</div>
+
+<!-- Demo Controls -->
+<div class="demo-controls">
+  <button class="demo-btn active" data-step="1" onclick="jumpTo(1)">选择</button>
+  <button class="demo-btn" data-step="2" onclick="jumpTo(2)">揭示</button>
+  <button class="demo-btn" data-step="3" onclick="jumpTo(3)">注册</button>
+  <button class="demo-btn" data-step="4" onclick="jumpTo(4)">聊天</button>
+</div>
+
+<script>
+  // ==================== MOOD CONFIG ====================
+  const MOODS = {
+    default: {
+      color: '99, 102, 241',  // indigo — 中性默认色
+      bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      bgPage: 'linear-gradient(135deg, #f0f1f8 0%, #eef0fa 100%)',
+      empathy: '',
+      master: '',
+      firstMsg: '嘿，想聊点什么？工作、生活、或者只是随便说说都行。',
+      label: '还不错',
+      energy: 50,
+      emotionShift: { label: '状态稳定', energy: 55, color: '110, 115, 230' }
+    },
+    rain: {
+      color: '100, 116, 180',  // slate-blue
+      bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 40%, #4a5568 100%)',
+      bgPage: 'linear-gradient(135deg, #eef0f8 0%, #e8e6f0 100%)',
+      empathy: '有些情绪不需要被解决，\n只需要被看见。',
+      master: '—— 唐纳德·温尼科特',
+      firstMsg: '嘿，刚才那张雨天的画面打动了你。最近是不是有些事压在心里，想找个地方说说？',
+      label: '有些沉重',
+      energy: 35,
+      emotionShift: { label: '慢慢放松', energy: 55, color: '99, 140, 200' }
+    },
+    spring: {
+      color: '234, 150, 140',  // rose
+      bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 30%, #ff9a9e 60%, #fecfef 100%)',
+      bgPage: 'linear-gradient(135deg, #fef7f0 0%, #fdf0ee 100%)',
+      empathy: '你比自己想象的，\n更接近绽放。',
+      master: '—— 卡尔·罗杰斯',
+      firstMsg: '你选了春日花开，感觉你心里有些期待正在生长。最近有什么让你开心的事想聊聊吗？',
+      label: '期待中',
+      energy: 65,
+      emotionShift: { label: '充满活力', energy: 80, color: '220, 130, 110' }
+    },
+    ocean: {
+      color: '60, 130, 190',  // deep blue
+      bg: 'linear-gradient(135deg, #0c3483 0%, #3f7fb5 40%, #6dd5ed 70%, #2193b0 100%)',
+      bgPage: 'linear-gradient(135deg, #f0f5fa 0%, #e8f0f8 100%)',
+      empathy: '翻涌终会过去，\n你只需要一个出口。',
+      master: '—— 欧文·亚隆',
+      firstMsg: '你选了海浪，感觉你心里有些翻涌。想聊聊是什么让你不太平静吗？',
+      label: '有些翻涌',
+      energy: 40,
+      emotionShift: { label: '渐渐平静', energy: 60, color: '80, 160, 210' }
+    },
+    autumn: {
+      color: '200, 140, 80',  // warm amber
+      bg: 'linear-gradient(135deg, #f6d365 0%, #e4954f 40%, #d4805f 70%, #c06c3e 100%)',
+      bgPage: 'linear-gradient(135deg, #fdf6ee 0%, #f8f0e5 100%)',
+      empathy: '放下不是失去，\n是为了更轻地走下去。',
+      master: '—— 维克多·弗兰克尔',
+      firstMsg: '秋叶飘落打动了你。最近是不是有些东西让你觉得累了，想放下又放不下？',
+      label: '想要放下',
+      energy: 45,
+      emotionShift: { label: '释然一些', energy: 60, color: '210, 165, 100' }
+    }
+  };
+
+  let currentMood = null;
+  let currentStep = 1;
+
+  // ==================== STEP TRANSITIONS ====================
+  function goToStep(n) {
+    const current = document.querySelector('.step.active');
+    const next = document.getElementById('step' + n);
+    currentStep = n;
+
+    document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.demo-btn[data-step="${n}"]`).classList.add('active');
+
+    // 聊天页：隐藏右上角标签和 toast；离开时恢复
+    const demoLabel = document.querySelector('.demo-label');
+    const moodToast = document.getElementById('moodToast');
+    if (n === 4) {
+      if (demoLabel) demoLabel.style.display = 'none';
+      if (moodToast) moodToast.style.display = 'none';
+    } else {
+      if (demoLabel) demoLabel.style.display = '';
+      if (moodToast) moodToast.style.display = '';
+      stopDur();
+      tipOpen = false;
+      const tip = document.getElementById('orbTip');
+      if (tip) tip.classList.remove('show');
+    }
+
+    // Two-phase transition: fade out current, then fade in next
+    if (current && current !== next) {
+      current.classList.replace('active', 'fade-out');
+      setTimeout(() => {
+        current.classList.replace('fade-out', 'hidden');
+        next.classList.replace('hidden', 'active');
+        if (n === 2) triggerReveal();
+        if (n === 3) triggerRegister();
+        if (n === 4) triggerChat();
+      }, 400);
+    } else {
+      document.querySelectorAll('.step').forEach(s => {
+        if (s !== next) s.className = 'step hidden';
+      });
+      next.classList.replace('hidden', 'active');
+      if (n === 2) triggerReveal();
+      if (n === 3) triggerRegister();
+      if (n === 4) triggerChat();
+    }
+  }
+
+  function jumpTo(n) {
+    if (!currentMood && n > 1) {
+      // Auto-select rain for demo
+      currentMood = 'rain';
+      applyMoodColor(MOODS.rain.color);
+    }
+    goToStep(n);
+  }
+
+  // ==================== STEP 1: SELECT CARD ====================
+  function selectCard(el, mood) {
+    currentMood = mood;
+    const m = MOODS[mood];
+    applyMoodColor(m.color);
+
+    // Prepare reveal page content before animation
+    const revealBg = document.getElementById('revealBg');
+    revealBg.style.background = m.bg;
+    revealBg.innerHTML = '';
+    if (mood === 'ocean') {
+      revealBg.innerHTML = '<div class="wave-l1"></div><div class="wave-l2"></div><div class="wave-l3"></div>';
+    } else if (mood === 'rain') {
+      revealBg.innerHTML = '<div class="rain-s1"></div><div class="rain-s2"></div>';
+    }
+    const revealCard = document.getElementById('revealCard');
+    revealCard.className = 'reveal-card card-' + mood;
+    revealBg.className = 'card-bg card-' + mood + '-fx';
+
+    // Pre-fill reveal text content so flexbox layout is accurate during measurement
+    document.getElementById('revealEmpathy').innerText = m.empathy;
+    document.getElementById('revealNote').textContent = m.master;
+
+    // Get source card position
+    const srcRect = el.getBoundingClientRect();
+
+    // Temporarily show step2 to measure reveal card's real position
+    const step2 = document.getElementById('step2');
+    step2.style.background = m.bgPage;
+    step2.style.visibility = 'hidden';
+    step2.className = 'step active';
+    revealCard.classList.add('show');
+    // Also show text/cta at final state so layout matches exactly
+    const revealText = document.getElementById('revealText');
+    const revealCta = document.getElementById('revealCta');
+    revealText.classList.add('show');
+    revealCta.classList.add('show');
+    const targetRect = revealCard.getBoundingClientRect();
+    revealCta.classList.remove('show');
+    revealText.classList.remove('show');
+    revealCard.classList.remove('show');
+    step2.className = 'step hidden';
+    step2.style.visibility = '';
+
+    // Calculate transform delta to match reveal card exactly
+    const dx = targetRect.left + targetRect.width / 2 - (srcRect.left + srcRect.width / 2);
+    const dy = targetRect.top + targetRect.height / 2 - (srcRect.top + srcRect.height / 2);
+    const sx = targetRect.width / srcRect.width;
+    const sy = targetRect.height / srcRect.height;
+
+    // Fade out other cards and text with staggered timing
+    document.querySelectorAll('.image-card').forEach(c => {
+      if (c !== el) {
+        c.style.transition = 'opacity 0.4s ease';
+        c.style.opacity = '0';
+      }
+    });
+    document.querySelector('.step1-title').style.cssText = 'animation:none;opacity:0';
+    document.querySelector('.step1-subtitle').style.cssText = 'animation:none;opacity:0';
+    // Fade out text inside the selected card
+    const overlay = el.querySelector('.card-overlay');
+    if (overlay) {
+      overlay.style.transition = 'opacity 0.3s ease';
+      overlay.style.opacity = '0';
+    }
+
+    // Animate selected card via transform
+    el.style.zIndex = '200';
+    el.style.position = 'relative';
+    el.style.transition = 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)';
+    el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+    el.style.borderRadius = '20px';
+
+    // Switch to reveal page when card arrives
+    setTimeout(() => {
+      // Show reveal card instantly (no fade) to avoid flash
+      revealCard.style.transition = 'none';
+      revealCard.classList.add('show');
+
+      // Show step2 first, then hide step1
+      const step2 = document.getElementById('step2');
+      step2.style.background = m.bgPage;
+      step2.className = 'step active';
+      document.getElementById('step1').className = 'step hidden';
+
+      // Restore reveal card transition for future use
+      requestAnimationFrame(() => { revealCard.style.transition = ''; });
+
+      // Animate text and CTA with tight stagger
+      document.getElementById('revealEmpathy').innerText = m.empathy;
+      document.getElementById('revealNote').textContent = m.master;
+      setTimeout(() => document.getElementById('revealText').classList.add('show'), 200);
+      setTimeout(() => document.getElementById('revealCta').classList.add('show'), 450);
+
+      // Reset step1 cards
+      document.querySelectorAll('.image-card').forEach(c => {
+        c.style.cssText = '';
+        const ov = c.querySelector('.card-overlay');
+        if (ov) ov.style.cssText = '';
+      });
+      document.querySelector('.step1-title').style.cssText = '';
+      document.querySelector('.step1-subtitle').style.cssText = '';
+
+      // Update demo buttons
+      document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.demo-btn[data-step="2"]').classList.add('active');
+      currentStep = 2;
+    }, 550);
+  }
+
+  function applyMoodColor(c) {
+    document.documentElement.style.setProperty('--mood-color', c);
+  }
+
+  // ==================== STEP 2: REVEAL ====================
+  function triggerReveal() {
+    const m = MOODS[currentMood];
+    const step2 = document.getElementById('step2');
+    step2.style.background = m.bgPage;
+
+    const card = document.getElementById('revealCard');
+    const bg = document.getElementById('revealBg');
+    bg.style.background = m.bg;
+
+    // Add animated elements based on mood
+    bg.innerHTML = '';
+    if (currentMood === 'ocean') {
+      bg.innerHTML = '<div class="wave-l1"></div><div class="wave-l2"></div><div class="wave-l3"></div>';
+    } else if (currentMood === 'rain') {
+      bg.innerHTML = '<div class="rain-s1"></div><div class="rain-s2"></div>';
+    }
+    // Add card class for ::before/::after animations
+    bg.className = 'card-bg card-' + currentMood + '-fx';
+    card.className = 'reveal-card card-' + currentMood;
+
+    setTimeout(() => card.classList.add('show'), 100);
+
+    const text = document.getElementById('revealText');
+    document.getElementById('revealEmpathy').innerText = m.empathy;
+    document.getElementById('revealNote').textContent = m.master;
+    setTimeout(() => text.classList.add('show'), 600);
+
+    const cta = document.getElementById('revealCta');
+    setTimeout(() => cta.classList.add('show'), 1200);
+  }
+
+  // ==================== STEP 3: REGISTER ====================
+  function triggerRegister() {
+    const m = MOODS[currentMood];
+    document.getElementById('step3').style.background = m.bgPage;
+    setTimeout(() => {
+      document.getElementById('registerContainer').classList.add('show');
+    }, 100);
+  }
+
+  // ==================== STEP 4: CHAT ====================
+  // 聊天安慰文案（思考动画中循环显示）
+  const COMFORTS = ['正在倾听你的心声…','每一种情绪都值得被看见','慢慢来，不着急','你说的我都记住了'];
+  let durSec = 0, durTimer = null, tipOpen = false, cIdx = 0;
+
+  function triggerChat() {
+    const m = MOODS[currentMood];
+
+    // 设置光球状态提示
+    document.getElementById('otV').textContent = m.label;
+    document.getElementById('otF').style.width = m.energy + '%';
+
+    // 清空消息列表
+    const el = document.getElementById('cInner');
+    el.innerHTML = '';
+
+    // 启动计时器
+    startDur();
+
+    // 第一条 AI 消息（基于 onboarding 选择个性化，无 CoT）
+    setTimeout(() => {
+      addMsg('ai', m.firstMsg);
+    }, 800);
+
+    // 自动播放 demo 对话
+    const demoConvo = [
+      { delay: 3500, role: 'user', text: getDemoUserMsg() },
+      { delay: 5500, role: 'thinking' },
+      { delay: 7500, role: 'ai', text: null },
+      { delay: 10000, role: 'shift' },
+      { delay: 12000, role: 'user', text: getDemoUserMsg2() },
+      { delay: 14000, role: 'thinking' },
+      { delay: 16000, role: 'ai', text: null },
+    ];
+
+    let ri = 0;
+    demoConvo.forEach(item => {
+      setTimeout(() => {
+        if (currentStep !== 4) return;
+        if (item.role === 'user') {
+          addMsg('user', item.text);
+        } else if (item.role === 'thinking') {
+          document.getElementById('cStatus').textContent = '思考中…';
+          showTk();
+        } else if (item.role === 'ai') {
+          hideTk();
+          document.getElementById('cStatus').textContent = '倾听中';
+          const replies = DEMO_REPLIES[currentMood] || DEMO_REPLIES.rain;
+          const cots = DEMO_COT[currentMood] || DEMO_COT.rain;
+          addMsg('ai', replies[ri % replies.length], true, cots[ri % cots.length]);
+          ri++;
+        } else if (item.role === 'shift') {
+          triggerMoodShift();
+        }
+      }, item.delay);
+    });
+  }
+
+  function getDemoUserMsg() {
+    const msgs = {
+      rain: '最近工作压力好大，每天都加班到很晚…',
+      spring: '今天终于完成了一个重要项目，心情不错！',
+      ocean: '总感觉有很多事情悬在那里，静不下心来…',
+      autumn: '觉得最近做什么都提不起劲，挺累的。'
+    };
+    return msgs[currentMood] || msgs.rain;
+  }
+
+  function getDemoUserMsg2() {
+    const msgs = {
+      rain: '嗯…说出来确实好一些了',
+      spring: '谢谢你，有人说这些话真的挺暖的',
+      ocean: '你说得对，先说出来再说',
+      autumn: '不急…我试着慢慢来吧'
+    };
+    return msgs[currentMood] || msgs.rain;
+  }
+
+  function triggerMoodShift() {
+    const m = MOODS[currentMood];
+    const shift = m.emotionShift;
+
+    // 显示情绪变化提示
+    const toast = document.getElementById('moodToast');
+    document.getElementById('moodToastText').textContent =
+      `${m.label} → ${shift.label}`;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+
+    // 过渡颜色和状态
+    applyMoodColor(shift.color);
+    document.getElementById('otV').textContent = shift.label;
+    document.getElementById('otF').style.width = shift.energy + '%';
+
+    // 渐变条闪烁
+    const bar = document.getElementById('moodBar');
+    bar.style.height = '6px';
+    setTimeout(() => bar.style.height = '4px', 800);
+  }
+
+  // ==================== 消息渲染 ====================
+  function addMsg(role, text, anim = true, cot = null) {
+    const el = document.getElementById('cInner');
+    const d = document.createElement('div');
+    d.className = `msg ${role}`;
+    if (!anim) d.style.animation = 'none';
+
+    // CoT 放在气泡上方
+    if (role === 'ai' && cot) {
+      const cotId = 'cot-' + Date.now();
+      const cotEl = document.createElement('div');
+      cotEl.innerHTML = `<button class="cot-btn" onclick="toggleCot('${cotId}', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        查看思考过程
+      </button>
+      <div class="cot-detail" id="${cotId}">
+        ${cot.map(r => `<div class="cot-row"><span>${r.icon}</span><span>${r.text}</span></div>`).join('')}
+      </div>`;
+      d.appendChild(cotEl);
+    }
+
+    const b = document.createElement('div');
+    b.className = 'bub';
+    b.textContent = text;
+    d.appendChild(b);
+
+    const t = document.createElement('div');
+    t.className = 'msg-t';
+    t.textContent = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    d.appendChild(t);
+
+    if (role === 'ai') {
+      const f = document.createElement('div');
+      f.className = 'msg-fb';
+      f.innerHTML = '<button class="fb">👍</button><button class="fb">👎</button>';
+      d.appendChild(f);
+    }
+    el.appendChild(d);
+    if (anim) sb();
+  }
+
+  function toggleCot(id, btn) {
+    const el = document.getElementById(id);
+    el.classList.toggle('show');
+    btn.classList.toggle('open');
+    const isOpen = el.classList.contains('show');
+    btn.querySelector('svg').style.transform = isOpen ? 'rotate(180deg)' : '';
+    // 更新按钮文案
+    const textNode = btn.lastChild;
+    textNode.textContent = isOpen ? ' 收起思考过程' : ' 查看思考过程';
+  }
+
+  // 思考动画
+  function showTk() {
+    const el = document.getElementById('cInner');
+    const d = document.createElement('div');
+    d.className = 'tk-wrap'; d.id = 'tkEl';
+    d.innerHTML = `<div class="tk-body">
+      <div class="tk-o"><div class="tk-or"></div><div class="tk-om"></div><div class="tk-oc"></div></div>
+      <div class="tk-txt"><span class="tk-l">正在深入思考...</span><span class="tk-c" id="cTxt">${COMFORTS[0]}</span></div>
+    </div>`;
+    el.appendChild(d); sb();
+    cIdx = 0;
+    window._ci = setInterval(() => {
+      cIdx = (cIdx+1) % COMFORTS.length;
+      const c = document.getElementById('cTxt');
+      if(c){c.style.opacity=0;setTimeout(()=>{c.textContent=COMFORTS[cIdx];c.style.opacity=1;},250);}
+    }, 2500);
+  }
+
+  function hideTk() {
+    clearInterval(window._ci);
+    const t = document.getElementById('tkEl');
+    if(t) t.remove();
+  }
+
+  function sb() {
+    const c = document.getElementById('cMsgs');
+    requestAnimationFrame(() => c.scrollTop = c.scrollHeight);
+  }
+
+  // ==================== DEMO 对话数据 ====================
+  const DEMO_COT = {
+    rain: [
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号，正常对话' },
+        { icon: '🎭', text: '情绪识别: 焦虑(6/10)、疲惫(7/10)' },
+        { icon: '💡', text: '策略: 共情回应 → 正常化压力感受 → 不急于给建议' },
+        { icon: '🧠', text: '记忆: 新用户首次对话，建立信任优先' }
+      ],
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号' },
+        { icon: '🎭', text: '情绪识别: 焦虑(5/10)，情绪有缓和趋势' },
+        { icon: '💡', text: '策略: 适时引入呼吸练习，用户已建立初步信任' },
+        { icon: '🧠', text: '记忆: 用户提到工作加班压力，持续关注' }
+      ]
+    ],
+    spring: [
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号，积极情绪' },
+        { icon: '🎭', text: '情绪识别: 快乐(7/10)、满足(6/10)' },
+        { icon: '💡', text: '策略: 强化积极体验 → 帮助用户锚定正向感受' },
+        { icon: '🧠', text: '记忆: 新用户，情绪基调积极' }
+      ],
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号' },
+        { icon: '🎭', text: '情绪识别: 快乐(7/10)，情绪稳定' },
+        { icon: '💡', text: '策略: 建立长期陪伴预期，降低使用门槛' },
+        { icon: '🧠', text: '记忆: 用户完成重要项目，心情好' }
+      ]
+    ],
+    ocean: [
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号，轻度焦虑' },
+        { icon: '🎭', text: '情绪识别: 焦虑(5/10)、迷茫(6/10)' },
+        { icon: '💡', text: '策略: 接纳情绪 → 肯定表达行为 → 不急于分析原因' },
+        { icon: '🧠', text: '记忆: 新用户，表达意愿较强' }
+      ],
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号' },
+        { icon: '🎭', text: '情绪识别: 焦虑(4/10)，情绪趋于平静' },
+        { icon: '💡', text: '策略: 用意象引导帮助情绪释放' },
+        { icon: '🧠', text: '记忆: 用户感觉事情悬而未决，需要释放' }
+      ]
+    ],
+    autumn: [
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号，低能量状态' },
+        { icon: '🎭', text: '情绪识别: 疲惫(7/10)、低落(5/10)' },
+        { icon: '💡', text: '策略: 温和陪伴 → 肯定自我觉察能力 → 不施压' },
+        { icon: '🧠', text: '记忆: 新用户，能量偏低，节奏放慢' }
+      ],
+      [
+        { icon: '🛡️', text: '安全评估: 无危机信号' },
+        { icon: '🎭', text: '情绪识别: 疲惫(6/10)，略有缓解' },
+        { icon: '💡', text: '策略: 用自然意象传递接纳感，不催促改变' },
+        { icon: '🧠', text: '记忆: 用户提不起劲，需要被允许慢下来' }
+      ]
+    ]
+  };
+
+  const DEMO_REPLIES = {
+    rain: [
+      '嗯，工作压力大的时候，就像连绵不断的雨，让人喘不过气。你说的这种感觉很正常。',
+      '听起来你已经扛了挺久了。如果愿意的话，我们可以试试一个 2 分钟的呼吸练习，帮你先缓一缓？'
+    ],
+    spring: [
+      '春天的感觉真好。有期待的时候，整个人都会明亮起来。这种能量很珍贵。',
+      '继续保持这份好心情吧。如果哪天下雨了也没关系，树洞一直在这里。'
+    ],
+    ocean: [
+      '情绪翻涌的时候确实不好受。不过你能来说出来，这本身就很好。',
+      '有时候，把感受说出来就像让浪花拍上岸——虽然有冲击，但之后会平静很多。'
+    ],
+    autumn: [
+      '想放下又放不下，这种拉扯是最累的。你能觉察到这一点，说明你已经在面对了。',
+      '放下不是一瞬间的事，它像秋叶一样，一片一片慢慢飘落。不急。'
+    ]
+  };
+
+  let replyIndex = 0;
+
+  // ==================== 用户发送消息 ====================
+  function send() {
+    const inp = document.getElementById('cInp');
+    const txt = inp.value.trim();
+    if (!txt) return;
+    addMsg('user', txt);
+    inp.value = ''; autoR(inp);
+    document.getElementById('cStatus').textContent = '思考中…';
+    setTimeout(() => showTk(), 400);
+    setTimeout(() => {
+      hideTk();
+      document.getElementById('cStatus').textContent = '倾听中';
+      // 使用 DEMO_REPLIES 轮流回复
+      const replies = DEMO_REPLIES[currentMood] || DEMO_REPLIES.rain;
+      const cots = DEMO_COT[currentMood] || DEMO_COT.rain;
+      const reply = replies[replyIndex % replies.length];
+      const cot = cots[replyIndex % cots.length];
+      replyIndex++;
+      addMsg('ai', reply, true, cot);
+      // 情绪微调
+      const m = MOODS[currentMood];
+      setTimeout(() => {
+        applyMoodColor(m.emotionShift.color);
+        document.getElementById('otV').textContent = m.emotionShift.label;
+        document.getElementById('otF').style.width = m.emotionShift.energy + '%';
+      }, 800);
+    }, 3500);
+  }
+
+  function autoR(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+  }
+
+  // ==================== 计时器 ====================
+  function startDur() {
+    durSec = 0; updDur();
+    durTimer = setInterval(() => { durSec++; updDur(); }, 1000);
+  }
+  function stopDur() { clearInterval(durTimer); }
+  function updDur() {
+    const m = String(Math.floor(durSec/60)).padStart(2,'0');
+    const s = String(durSec%60).padStart(2,'0');
+    document.getElementById('durT').textContent = `${m}:${s}`;
+  }
+
+  // ==================== 光球提示 ====================
+  function toggleTip() {
+    tipOpen = !tipOpen;
+    document.getElementById('orbTip').classList.toggle('show', tipOpen);
+  }
+
+  // ==================== 离开对话框 ====================
+  function showLeaveDialog() {
+    document.getElementById('leaveOverlay').classList.add('show');
+  }
+  function closeLeaveDialog() {
+    document.getElementById('leaveOverlay').classList.remove('show');
+  }
+  function confirmLeave() {
+    closeLeaveDialog();
+    stopDur();
+    tipOpen = false;
+    document.getElementById('orbTip').classList.remove('show');
+    // 跳转到会话列表页
+    window.location.href = 'demo-pages.html';
+  }
+
+  // ==================== 设置面板 ====================
+  function openSettings() {
+    document.getElementById('settingsOverlay').classList.add('show');
+  }
+  function closeSettings() {
+    document.getElementById('settingsOverlay').classList.remove('show');
+  }
+
+  // 点击外部关闭光球提示
+  document.addEventListener('click', (e) => {
+    if (tipOpen && !e.target.closest('.h-orb') && !e.target.closest('.orb-tip')) {
+      tipOpen = false;
+      document.getElementById('orbTip').classList.remove('show');
+    }
+  });
+</script>
+
+</body>
+</html>

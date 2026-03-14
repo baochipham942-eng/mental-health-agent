@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心灵树洞 — 聊天页 Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
+
+  :root {
+    --mood-color: 100, 116, 180;
+    --mood-color-hex: #6474b4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F7F8FA;
+    color: #1a1a2e;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ======================== HEADER ======================== */
+  .header {
+    flex-shrink: 0;
+    background: white;
+    border-bottom: 1px solid #f0f0f3;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #eef0ff, #e8e4f8);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .header-info { flex: 1; }
+  .header-name { font-size: 15px; font-weight: 500; color: #1f2937; }
+  .header-status { font-size: 12px; color: #9ca3af; }
+  .header-actions { display: flex; gap: 8px; }
+  .header-btn {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    font-size: 16px;
+  }
+  .header-btn:hover { background: #f3f4f6; color: #6b7280; }
+
+  /* ======================== MESSAGES ======================== */
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .messages-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px 20px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Message row */
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+    animation: msgIn 0.35s ease;
+  }
+  .msg.user { align-items: flex-end; }
+  .msg.ai { align-items: flex-start; }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Bubbles */
+  .bubble {
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.75;
+    max-width: 80%;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .msg.user .bubble {
+    background: #2563EB;
+    color: white;
+    border-top-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
+  }
+  .msg.ai .bubble {
+    background: white;
+    color: #374151;
+    border-top-left-radius: 4px;
+    box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.10);
+    border-left: 3px solid rgba(var(--mood-color), 0.4);
+    transition: border-color 1.5s ease, box-shadow 1.5s ease;
+  }
+
+  .msg-time {
+    font-size: 11px;
+    color: #c4c8d0;
+    padding: 0 4px;
+  }
+
+  /* Feedback buttons */
+  .msg-feedback {
+    display: flex;
+    gap: 12px;
+    padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .msg:hover .msg-feedback { opacity: 0.5; }
+  .msg-feedback:hover { opacity: 1 !important; }
+  .fb-btn {
+    background: none; border: none;
+    font-size: 14px; cursor: pointer;
+    color: #c4c8d0;
+    transition: color 0.2s;
+    padding: 2px;
+  }
+  .fb-btn:hover { color: #6366f1; }
+
+  /* ======================== AI THINKING ======================== */
+  .thinking-bubble {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin-bottom: 12px;
+    animation: msgIn 0.35s ease;
+  }
+  .thinking-content {
+    background: white;
+    border-radius: 16px;
+    border-top-left-radius: 4px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.10);
+    border-left: 3px solid rgba(var(--mood-color), 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Shimmer sweep across the bubble */
+  .thinking-content::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; bottom: 0;
+    width: 60%;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(var(--mood-color), 0.04),
+      transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { left: -60%; }
+    100% { left: 120%; }
+  }
+
+  /* Breathing core animation */
+  .thinking-visual {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .thinking-orb-wrap {
+    position: relative;
+    width: 28px; height: 28px;
+    flex-shrink: 0;
+  }
+  .thinking-orb-outer {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--mood-color), 0.2);
+    animation: t-ring 3s ease-in-out infinite;
+  }
+  @keyframes t-ring {
+    0%, 100% { transform: scale(0.85); opacity: 0.3; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+  }
+  .thinking-orb-mid {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: rgba(var(--mood-color), 0.12);
+    animation: t-mid 3s ease-in-out infinite;
+  }
+  @keyframes t-mid {
+    0%, 100% { transform: scale(0.9); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 0.9; }
+  }
+  .thinking-orb-core {
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%,
+      rgba(var(--mood-color), 0.7),
+      rgba(var(--mood-color), 0.4));
+    animation: t-core 3s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(var(--mood-color), 0.3);
+  }
+  @keyframes t-core {
+    0%, 100% { transform: scale(0.85); box-shadow: 0 0 4px rgba(var(--mood-color), 0.2); }
+    50% { transform: scale(1.1); box-shadow: 0 0 14px rgba(var(--mood-color), 0.4); }
+  }
+
+  .thinking-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .thinking-label {
+    font-size: 13px;
+    font-weight: 500;
+    background: linear-gradient(135deg, rgba(var(--mood-color), 1), #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .thinking-comfort {
+    font-size: 12px;
+    color: rgba(var(--mood-color), 0.65);
+    font-style: italic;
+    transition: opacity 0.5s;
+  }
+
+  /* ======================== WELCOME ======================== */
+  .welcome {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .welcome-inner {
+    text-center;
+    max-width: 400px;
+    text-align: center;
+  }
+  .welcome h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+  }
+  .welcome p {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 24px;
+  }
+  .prompt-card {
+    background: linear-gradient(135deg, #eef0ff, #f3eefb);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: left;
+    margin-bottom: 16px;
+  }
+  .prompt-card-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6366f1;
+    margin-bottom: 10px;
+  }
+  .prompt-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    background: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .prompt-btn:last-child { margin-bottom: 0; }
+  .prompt-btn:hover {
+    background: #eef0ff;
+    color: #4f46e5;
+  }
+  .welcome-footer {
+    font-size: 12px;
+    color: #c4c8d0;
+  }
+
+  /* ======================== INPUT AREA ======================== */
+  .input-area {
+    flex-shrink: 0;
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 8px 20px 16px;
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Energy Orb */
+  .energy-orb {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+    animation: orb-breathe 3.5s ease-in-out infinite;
+    transition: all 1.5s ease;
+  }
+  .energy-orb-inner {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      rgba(var(--mood-color), 0.65),
+      rgba(var(--mood-color), 0.3) 60%,
+      rgba(var(--mood-color), 0.1));
+    box-shadow: 0 0 10px rgba(var(--mood-color), 0.2),
+                0 0 3px rgba(var(--mood-color), 0.15);
+    transition: all 1.5s ease;
+  }
+  .energy-orb-highlight {
+    position: absolute;
+    top: 4px; left: 6px;
+    width: 12px; height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.55), transparent);
+  }
+  .energy-orb-ring {
+    position: absolute; inset: -5px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--mood-color), 0.15);
+    animation: orb-ring 3.5s ease-in-out infinite;
+    transition: border-color 1.5s ease;
+  }
+  @keyframes orb-breathe {
+    0%, 100% { transform: scale(0.92); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes orb-ring {
+    0%, 100% { transform: scale(0.95); opacity: 0.3; }
+    50% { transform: scale(1.18); opacity: 0.7; }
+  }
+
+  /* Energy tooltip */
+  .energy-tooltip {
+    position: absolute;
+    bottom: calc(100% + 14px);
+    left: -6px;
+    background: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    width: 180px;
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 20;
+  }
+  .energy-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .energy-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -5px; left: 22px;
+    width: 10px; height: 10px;
+    background: white;
+    transform: rotate(45deg);
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.04);
+  }
+  .et-label { font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
+  .et-value { font-size: 14px; color: #374151; font-weight: 500; }
+  .et-bar { height: 4px; background: #f3f4f6; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .et-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      rgba(var(--mood-color), 0.75),
+      rgba(var(--mood-color), 0.45));
+    transition: width 1.5s ease, background 1.5s ease;
+  }
+
+  /* Input box */
+  .input-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 4px 4px 4px 6px;
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
+    transition: all 0.3s;
+  }
+  .input-box:focus-within {
+    border-color: rgba(var(--mood-color), 0.35);
+    box-shadow: 0 2px 16px rgba(var(--mood-color), 0.1);
+  }
+
+  .tool-btn {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #b0b5c0;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tool-btn:hover {
+    color: #7c3aed;
+    background: #f5f3ff;
+  }
+
+  .input-text {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    font-family: inherit;
+    color: #1f2937;
+    background: transparent;
+    line-height: 24px;
+    min-height: 24px;
+    resize: none;
+    padding: 8px 4px;
+  }
+  .input-text::placeholder { color: #c4c8d0; }
+
+  .voice-btn {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #b0b5c0;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .voice-btn:hover { color: #6366f1; background: #eef0ff; }
+
+  .send-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: #2563EB;
+    color: white;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  }
+  .send-btn:hover {
+    background: #1d4ed8;
+    transform: scale(1.05);
+  }
+  .send-btn:disabled {
+    background: #d1d5db;
+    box-shadow: none;
+    cursor: default;
+    transform: none;
+  }
+  .send-btn svg {
+    width: 18px; height: 18px;
+    fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .model-disclaimer {
+    text-align: center;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #c4c8d0;
+  }
+  .model-disclaimer span {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: pointer;
+  }
+  .model-disclaimer span:hover { color: #6366f1; }
+
+  /* ======================== DEMO CONTROLS ======================== */
+  .demo-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 40px;
+    background: #1e1e2e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 100;
+    padding: 0 16px;
+  }
+  .demo-bar-label {
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 1px;
+    margin-right: 16px;
+  }
+  .demo-chip {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #374151;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .demo-chip:hover { border-color: #6366f1; color: #a5b4fc; }
+  .demo-chip.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+  }
+
+  /* Push content below demo bar */
+  body { padding-top: 40px; }
+</style>
+</head>
+<body>
+
+<!-- ======================== DEMO BAR ======================== -->
+<div class="demo-bar">
+  <span class="demo-bar-label">MOOD</span>
+  <button class="demo-chip active" onclick="setMood('rain')">雨天 · 沉重</button>
+  <button class="demo-chip" onclick="setMood('spring')">春日 · 期待</button>
+  <button class="demo-chip" onclick="setMood('ocean')">海浪 · 翻涌</button>
+  <button class="demo-chip" onclick="setMood('autumn')">秋叶 · 放下</button>
+  <span class="demo-bar-label" style="margin-left:20px">SCENE</span>
+  <button class="demo-chip" onclick="showWelcome()">欢迎</button>
+  <button class="demo-chip active" onclick="showConvo()">对话</button>
+  <button class="demo-chip" onclick="playAutoDemo()">▶ 自动演示</button>
+</div>
+
+<!-- ======================== HEADER ======================== -->
+<div class="header">
+  <div class="header-avatar">🌳</div>
+  <div class="header-info">
+    <div class="header-name">心灵树洞</div>
+    <div class="header-status" id="headerStatus">在线</div>
+  </div>
+  <div class="header-actions">
+    <button class="header-btn" title="历史">📋</button>
+    <button class="header-btn" title="设置">⚙️</button>
+  </div>
+</div>
+
+<!-- ======================== MESSAGES ======================== -->
+<div class="messages-container" id="messagesContainer">
+
+  <!-- Welcome Screen (hidden by default) -->
+  <div class="welcome" id="welcomeScreen" style="display:none">
+    <div class="welcome-inner">
+      <h2>晚上好 🌙</h2>
+      <p>这里是一个安全、私密的空间，你可以随时倾诉你的感受和困扰。</p>
+      <div class="prompt-card">
+        <div class="prompt-card-label">💡 不知道说什么？试试这些：</div>
+        <button class="prompt-btn" onclick="startFromPrompt('最近工作压力好大，不知道怎么排解')">"最近工作压力好大，不知道怎么排解"</button>
+        <button class="prompt-btn" onclick="startFromPrompt('心里有些事一直放不下，想找人聊聊')">"心里有些事一直放不下，想找人聊聊"</button>
+        <button class="prompt-btn" onclick="startFromPrompt('今天心情还不错，想记录一下')">"今天心情还不错，想记录一下"</button>
+      </div>
+      <div class="welcome-footer">🔒 你的对话将被安全保存</div>
+    </div>
+  </div>
+
+  <!-- Conversation -->
+  <div class="messages-inner" id="messagesInner">
+  </div>
+</div>
+
+<!-- ======================== INPUT ======================== -->
+<div class="input-area">
+  <div class="input-row">
+
+    <!-- Energy Orb -->
+    <div style="position:relative; flex-shrink:0;">
+      <div class="energy-orb" id="energyOrb" onclick="toggleTooltip()">
+        <div class="energy-orb-inner"></div>
+        <div class="energy-orb-highlight"></div>
+        <div class="energy-orb-ring"></div>
+      </div>
+      <div class="energy-tooltip" id="energyTooltip">
+        <div class="et-label">当前状态</div>
+        <div class="et-value" id="etValue">有些沉重</div>
+        <div class="et-bar">
+          <div class="et-fill" id="etFill" style="width:35%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Box -->
+    <div class="input-box">
+      <button class="tool-btn" title="解压工具箱">🧩</button>
+      <textarea class="input-text" rows="1" placeholder="输入你的问题或感受..." id="chatInput"
+                oninput="autoResize(this)"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
+      <button class="voice-btn" title="语音输入">🎙️</button>
+      <button class="send-btn" id="sendBtn" onclick="sendMsg()">
+        <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="model-disclaimer">内容由 <span>DeepSeek V3</span> 生成，仅供参考</div>
+</div>
+
+
+<script>
+// ======================== CONFIG ========================
+const MOODS = {
+  rain: {
+    color: '100, 116, 180',
+    label: '有些沉重', energy: 35,
+    shift: { color: '110, 145, 200', label: '慢慢放松', energy: 55 },
+    firstMsg: '嘿，刚才那张雨天的画面打动了你。最近是不是有些事压在心里，想找个地方说说？',
+  },
+  spring: {
+    color: '210, 130, 120',
+    label: '期待中', energy: 65,
+    shift: { color: '200, 120, 130', label: '充满活力', energy: 80 },
+    firstMsg: '你选了春日花开，感觉你心里有些期待正在生长。最近有什么让你开心的事想聊聊吗？',
+  },
+  ocean: {
+    color: '60, 130, 190',
+    label: '有些翻涌', energy: 40,
+    shift: { color: '80, 155, 200', label: '渐渐平静', energy: 60 },
+    firstMsg: '你选了海浪，感觉你心里有些翻涌。想聊聊是什么让你不太平静吗？',
+  },
+  autumn: {
+    color: '195, 140, 80',
+    label: '想要放下', energy: 45,
+    shift: { color: '200, 160, 100', label: '释然一些', energy: 60 },
+    firstMsg: '秋叶飘落打动了你。最近是不是有些东西让你觉得累了，想放下又放不下？',
+  }
+};
+
+const CONVOS = {
+  rain: [
+    { role:'user', text:'最近工作压力好大，每天都加班到很晚，感觉喘不过气…' },
+    { role:'ai', text:'听起来你最近确实承受了不少。每天加班到很晚，身体和心理都会觉得疲惫，这是很正常的反应。\n\n能具体说说是什么让你觉得压力最大吗？是工作量，还是某个具体的事情？' },
+    { role:'user', text:'主要是项目太多了，感觉永远做不完，还总被催' },
+    { role:'ai', text:'被催的感觉确实很不好受，好像自己怎么努力都不够似的。但其实你已经在很努力地扛着了。\n\n要不要试试一个方法：把手头的事情分成"今天必须做"和"可以明天做"两类？有时候，允许自己不把所有事情都做完，反而能减轻不少压力。\n\n如果你现在感觉身体很紧绷，我们也可以先做个 2 分钟的呼吸练习，帮你缓一缓。' },
+  ],
+  spring: [
+    { role:'user', text:'今天完成了一个重要的项目，心情特别好！' },
+    { role:'ai', text:'太棒了！完成一个重要项目的感觉一定很好。这说明你的努力得到了回报。\n\n可以聊聊是什么项目吗？我想听听你的成就感从哪里来。' },
+    { role:'user', text:'是一个筹备了三个月的产品上线，终于发布了' },
+    { role:'ai', text:'三个月的筹备，从构想到上线——这中间一定经历了不少挑战吧。能坚持到发布这一天，说明你的韧性很强。\n\n记住今天这种感觉，它是你能力的证明。下次遇到困难的时候，可以回想一下：你曾经把一个三个月的项目做成了。\n\n想给自己安排一个小小的庆祝吗？' },
+  ],
+  ocean: [
+    { role:'user', text:'最近总是静不下心来，感觉有很多事情悬在那里' },
+    { role:'ai', text:'这种"悬着"的感觉确实让人不安。好像有很多线头纠缠在一起，不知道该先抓哪一个。\n\n你能说说，现在脑子里最经常冒出来的是哪件事吗？有时候把最牵挂的事情说出来，心里会轻松一些。' },
+    { role:'user', text:'工作上有个决定一直做不了，怕选错' },
+    { role:'ai', text:'怕选错是很自然的——说明你在认真对待这件事。但有时候，"怕选错"本身比"选错"更消耗人。\n\n一个小技巧：不妨想想，如果这个决定一年后再回头看，它还会像现在这么重要吗？\n\n很多时候，没有绝对的对错，只有适合当下的选择。你已经在认真思考了，这本身就很好。' },
+  ],
+  autumn: [
+    { role:'user', text:'觉得最近做什么都提不起劲，挺累的' },
+    { role:'ai', text:'提不起劲的时候真的很难受。明明知道有事要做，身体和心却像被按了暂停键。\n\n这种感觉持续多久了？是最近才开始，还是已经有一段时间了？' },
+    { role:'user', text:'大概两三周了吧，可能是之前太拼了' },
+    { role:'ai', text:'两三周，之前又很拼——你的身心可能在告诉你：该休息一下了。\n\n这不是"懒"，是你的身体在保护自己。就像跑了很久的马拉松，总需要停下来补给。\n\n现在最重要的不是"怎么让自己振作起来"，而是允许自己慢一点。如果可以的话，今晚给自己安排一个完全不用做任何事的时间段，哪怕只有半小时。' },
+  ]
+};
+
+const COMFORT_MSGS = [
+  '正在倾听你的心声…',
+  '每一种情绪都值得被看见',
+  '慢慢来，不着急',
+  '你说的我都记住了',
+  '认真感受你的状态…',
+];
+
+let currentMood = 'rain';
+let tooltipVisible = false;
+let comfortIdx = 0;
+
+// ======================== MOOD ========================
+function setMood(mood) {
+  currentMood = mood;
+  const m = MOODS[mood];
+  document.documentElement.style.setProperty('--mood-color', m.color);
+
+  // Update chips
+  document.querySelectorAll('.demo-chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+
+  // Update energy
+  updateEnergy(m.label, m.energy);
+
+  // Show convo for this mood
+  showConvo();
+}
+
+function updateEnergy(label, energy) {
+  document.getElementById('etValue').textContent = label;
+  document.getElementById('etFill').style.width = energy + '%';
+}
+
+// ======================== SCENES ========================
+function showWelcome() {
+  document.getElementById('welcomeScreen').style.display = 'flex';
+  document.getElementById('messagesInner').style.display = 'none';
+  updateSceneChips('欢迎');
+}
+
+function showConvo() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('messagesInner').style.display = 'flex';
+  updateSceneChips('对话');
+  renderConvo(CONVOS[currentMood]);
+}
+
+function updateSceneChips(label) {
+  document.querySelectorAll('.demo-chip').forEach(c => {
+    if (['欢迎','对话','▶ 自动演示'].includes(c.textContent)) {
+      c.classList.toggle('active', c.textContent === label);
+    }
+  });
+}
+
+function startFromPrompt(text) {
+  document.getElementById('chatInput').value = text;
+  showConvo();
+}
+
+// ======================== RENDER ========================
+function renderConvo(msgs) {
+  const el = document.getElementById('messagesInner');
+  el.innerHTML = '';
+  msgs.forEach(m => appendMsg(m.role, m.text, false));
+  scrollBottom();
+}
+
+function appendMsg(role, text, animate = true) {
+  const el = document.getElementById('messagesInner');
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+  if (!animate) msg.style.animation = 'none';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  msg.appendChild(bubble);
+
+  const time = document.createElement('div');
+  time.className = 'msg-time';
+  time.textContent = new Date().toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+  msg.appendChild(time);
+
+  if (role === 'ai') {
+    const fb = document.createElement('div');
+    fb.className = 'msg-feedback';
+    fb.innerHTML = '<button class="fb-btn">👍</button><button class="fb-btn">👎</button>';
+    msg.appendChild(fb);
+  }
+
+  el.appendChild(msg);
+  scrollBottom();
+}
+
+function showThinking() {
+  const el = document.getElementById('messagesInner');
+  const div = document.createElement('div');
+  div.className = 'thinking-bubble';
+  div.id = 'thinkingEl';
+
+  div.innerHTML = `
+    <div class="thinking-content">
+      <div class="thinking-visual">
+        <div class="thinking-orb-wrap">
+          <div class="thinking-orb-outer"></div>
+          <div class="thinking-orb-mid"></div>
+          <div class="thinking-orb-core"></div>
+        </div>
+        <div class="thinking-text-group">
+          <span class="thinking-label">正在深入思考...</span>
+          <span class="thinking-comfort" id="comfortText">${COMFORT_MSGS[0]}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  el.appendChild(div);
+  scrollBottom();
+
+  // Rotate comfort messages
+  comfortIdx = 0;
+  window._comfortTimer = setInterval(() => {
+    comfortIdx = (comfortIdx + 1) % COMFORT_MSGS.length;
+    const ct = document.getElementById('comfortText');
+    if (ct) {
+      ct.style.opacity = 0;
+      setTimeout(() => {
+        ct.textContent = COMFORT_MSGS[comfortIdx];
+        ct.style.opacity = 1;
+      }, 300);
+    }
+  }, 2500);
+}
+
+function hideThinking() {
+  clearInterval(window._comfortTimer);
+  const t = document.getElementById('thinkingEl');
+  if (t) t.remove();
+}
+
+function scrollBottom() {
+  const c = document.getElementById('messagesContainer');
+  requestAnimationFrame(() => c.scrollTop = c.scrollHeight);
+}
+
+// ======================== SEND ========================
+function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendMsg('user', text);
+  input.value = '';
+  autoResize(input);
+
+  document.getElementById('headerStatus').textContent = '正在输入...';
+
+  setTimeout(() => showThinking(), 400);
+
+  // Simulate AI reply
+  setTimeout(() => {
+    hideThinking();
+    document.getElementById('headerStatus').textContent = '在线';
+    appendMsg('ai', '嗯，我听到你了。能多说一些吗？不管是什么感受，在这里都可以自由地表达。');
+
+    // Shift mood slightly
+    const shift = MOODS[currentMood].shift;
+    setTimeout(() => {
+      document.documentElement.style.setProperty('--mood-color', shift.color);
+      updateEnergy(shift.label, shift.energy);
+    }, 800);
+  }, 3500);
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+}
+
+// ======================== TOOLTIP ========================
+function toggleTooltip() {
+  tooltipVisible = !tooltipVisible;
+  document.getElementById('energyTooltip').classList.toggle('show', tooltipVisible);
+}
+document.addEventListener('click', e => {
+  if (tooltipVisible && !e.target.closest('.energy-orb') && !e.target.closest('.energy-tooltip')) {
+    tooltipVisible = false;
+    document.getElementById('energyTooltip').classList.remove('show');
+  }
+});
+
+// ======================== AUTO DEMO ========================
+function playAutoDemo() {
+  const m = MOODS[currentMood];
+  const convo = CONVOS[currentMood];
+  updateEnergy(m.label, m.energy);
+  document.documentElement.style.setProperty('--mood-color', m.color);
+
+  // Reset
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('messagesInner').style.display = 'flex';
+  document.getElementById('messagesInner').innerHTML = '';
+
+  // AI first message from onboarding
+  const timeline = [
+    { t: 500, fn: () => appendMsg('ai', m.firstMsg) },
+    { t: 3000, fn: () => appendMsg('user', convo[0].text) },
+    { t: 3800, fn: () => {
+      document.getElementById('headerStatus').textContent = '正在输入...';
+      showThinking();
+    }},
+    { t: 7000, fn: () => {
+      hideThinking();
+      document.getElementById('headerStatus').textContent = '在线';
+      appendMsg('ai', convo[1].text);
+    }},
+    { t: 10500, fn: () => appendMsg('user', convo[2].text) },
+    { t: 11300, fn: () => {
+      document.getElementById('headerStatus').textContent = '正在输入...';
+      showThinking();
+    }},
+    { t: 14500, fn: () => {
+      hideThinking();
+      document.getElementById('headerStatus').textContent = '在线';
+      appendMsg('ai', convo[3].text);
+      // Mood shift
+      setTimeout(() => {
+        const s = m.shift;
+        document.documentElement.style.setProperty('--mood-color', s.color);
+        updateEnergy(s.label, s.energy);
+      }, 1000);
+    }},
+  ];
+
+  timeline.forEach(item => setTimeout(item.fn, item.t));
+  updateSceneChips('▶ 自动演示');
+}
+
+// ======================== INIT ========================
+setMood('rain');
+showConvo();
+</script>
+
+</body>
+</html>

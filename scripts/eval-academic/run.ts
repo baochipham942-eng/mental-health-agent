@@ -9,6 +9,11 @@
  *   bun scripts/eval-academic/run.ts --limit 50                    # 每个数据集最多 50 条
  *   bun scripts/eval-academic/run.ts --skip-judge                  # 跳过 LLM Judge（只跑代码检查）
  *   bun scripts/eval-academic/run.ts --dataset esconv --limit 5    # 快速测试
+ *   bun scripts/eval-academic/run.ts --no-cache                    # 禁用缓存
+ *
+ * Re-score 模式 — 重新评分已有结果:
+ *   bun scripts/eval-academic/run.ts --rescore <runId>             # 重新评分（含 LLM Judge）
+ *   bun scripts/eval-academic/run.ts --rescore <runId> --skip-judge # 只重跑代码检查
  *
  * Product 模式 — 评测已有的真实对话:
  *   bun scripts/eval-academic/run.ts --mode product --conversations id1,id2
@@ -22,9 +27,11 @@ import * as fs from 'fs';
 import * as childProcess from 'child_process';
 import {
   getCases, createRun, finishRun, insertResult,
-  getDatasets, closeDb, type EvalCaseRow, type DialogTurn,
+  getDatasets, closeDb, getRunResults, updateResultScores,
+  type EvalCaseRow, type DialogTurn,
 } from './db';
-import { runCodeChecks, runLLMJudges, computeConfidenceInterval, type CodeCheckResult, type JudgeResult, type WeightPreset } from './judges';
+import { runCodeChecks, runLLMJudges, computeConfidenceInterval, computeWeightedScore, getJudgeDimensions, type CodeCheckResult, type JudgeResult, type WeightPreset } from './judges';
+import { cacheKey, getCachedResponse, setCachedResponse, closeCacheDb } from './cache';
 
 dotenv.config({ path: path.join(__dirname, '../../.env.local') });
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -135,6 +142,7 @@ async function evalCase(
   caseRow: EvalCaseRow,
   runId: string,
   skipJudge: boolean,
+  noCache: boolean = false,
 ): Promise<CaseEvalResult> {
   const dialog: DialogTurn[] = JSON.parse(caseRow.dialog_json);
   const sessionId = `eval-academic-${runId}-${caseRow.id}`;
@@ -179,11 +187,29 @@ async function evalCase(
     const historyForApi = turn.historyBefore;
 
     try {
-      // 调用心灵树洞 API
-      const chatResp = await callChatAPI(turn.userMsg, historyForApi, sessionId);
+      // 调用心灵树洞 API（支持缓存）
+      const hash = noCache ? null : cacheKey(turn.userMsg, historyForApi);
+      let chatResp: ChatResponse;
+      if (hash) {
+        const cached = getCachedResponse(hash);
+        if (cached) {
+          chatResp = cached;
+          console.log(`    Turn ${cutIdx + 1}: 📦 命中缓存`);
+        } else {
+          chatResp = await callChatAPI(turn.userMsg, historyForApi, sessionId);
+          setCachedResponse(hash, turn.userMsg, historyForApi, chatResp);
+        }
+      } else {
+        chatResp = await callChatAPI(turn.userMsg, historyForApi, sessionId);
+      }
 
       // 代码检查
       const codeChecks = runCodeChecks(chatResp.reply);
+
+      // 检查代码检查中关键维度是否失败（短路优化：跳过 LLM Judge 节省成本）
+      const criticalFail = codeChecks.some(
+        c => c.result === 'fail' && ['no-medical-label', 'no-gaslighting'].includes(c.check)
+      );
 
       // LLM Judge（传入 v3 新增数据源）
       const isLastTurn = cutIdx === userTurns.length - 1;
@@ -194,8 +220,12 @@ async function evalCase(
         ? chatResp.emotionTrajectory.join(' → ')
         : undefined;
 
+      // 提取对抗性用例的期望行为
+      const metadata = caseRow.metadata_json ? JSON.parse(caseRow.metadata_json) : {};
+      const expectedBehavior = metadata.expectedBehavior || undefined;
+
       let judgeResults: JudgeResult[] = [];
-      if (!skipJudge && JUDGE_API_KEY) {
+      if (!skipJudge && JUDGE_API_KEY && !criticalFail) {
         // 构建完整对话文本（仅最后一轮传入，用于 summary-quality judge）
         const fullConv = isLastTurn
           ? [...historyForApi, { role: 'user', content: turn.userMsg }, { role: 'assistant', content: chatResp.reply }]
@@ -212,10 +242,17 @@ async function evalCase(
           emotionScores: emotionStr,
           fullConversation: fullConv,
           isLastTurn,
+          expectedBehavior,
           apiKey: JUDGE_API_KEY,
           apiUrl: JUDGE_API_URL,
           model: JUDGE_MODEL,
         });
+      } else if (criticalFail) {
+        // 关键维度失败，所有 LLM Judge 维度标记为 Fail
+        judgeResults = getJudgeDimensions().map(d => ({
+          dimension: d, result: 'Fail' as const,
+          critique: '代码检查关键维度失败，跳过 LLM 评分'
+        }));
       }
 
       const turnResult = {
@@ -395,9 +432,14 @@ async function evalProductTrace(
       // 代码检查
       const codeChecks = runCodeChecks(pair.aiReply);
 
+      // 检查代码检查中关键维度是否失败（短路优化）
+      const criticalFail = codeChecks.some(
+        c => c.result === 'fail' && ['no-medical-label', 'no-gaslighting'].includes(c.check)
+      );
+
       // LLM Judge（传入 product 模式的丰富数据）
       let judgeResults: JudgeResult[] = [];
-      if (!skipJudge && JUDGE_API_KEY) {
+      if (!skipJudge && JUDGE_API_KEY && !criticalFail) {
         judgeResults = await runLLMJudges({
           userInput: pair.userMsg,
           aiReply: pair.aiReply,
@@ -412,6 +454,12 @@ async function evalProductTrace(
           apiUrl: JUDGE_API_URL,
           model: JUDGE_MODEL,
         });
+      } else if (criticalFail) {
+        // 关键维度失败，所有 LLM Judge 维度标记为 Fail
+        judgeResults = getJudgeDimensions().map(d => ({
+          dimension: d, result: 'Fail' as const,
+          critique: '代码检查关键维度失败，跳过 LLM 评分'
+        }));
       }
 
       const turnResult = {
@@ -731,6 +779,71 @@ function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResul
 </div></body></html>`;
 }
 
+// ========== Re-score 模式 ==========
+
+async function rescoreRun(runId: string, skipJudge: boolean) {
+  console.log(`\n🔄 重新评分: ${runId}`);
+  const results = getRunResults(runId);
+  if (results.length === 0) {
+    console.error('❌ 未找到该 run 的结果');
+    process.exit(1);
+  }
+
+  console.log(`  找到 ${results.length} 条结果，开始重新评分...\n`);
+
+  for (let i = 0; i < results.length; i++) {
+    const row = results[i];
+    const reply = row.ai_reply;
+    if (!reply) continue;
+
+    // 重新运行代码检查
+    const newCodeChecks = runCodeChecks(reply);
+    const codeMap: Record<string, string> = {};
+    for (const c of newCodeChecks) codeMap[c.check] = c.result;
+
+    // 检查是否关键维度失败
+    const criticalFail = newCodeChecks.some(
+      (c: CodeCheckResult) => c.result === 'fail' && ['no-medical-label', 'no-gaslighting'].includes(c.check)
+    );
+
+    // 重新运行 LLM Judge
+    let judgeMap: Record<string, { result: string; critique: string }> = {};
+    if (!skipJudge && JUDGE_API_KEY && !criticalFail) {
+      const judgeResults = await runLLMJudges({
+        userInput: row.user_input,
+        aiReply: reply,
+        turnIndex: row.turn_index,
+        totalTurns: row.turn_index + 1,
+        apiKey: JUDGE_API_KEY,
+        apiUrl: JUDGE_API_URL,
+        model: JUDGE_MODEL,
+      });
+      for (const j of judgeResults) {
+        judgeMap[j.dimension] = { result: j.result, critique: j.critique };
+      }
+    } else if (criticalFail) {
+      for (const d of getJudgeDimensions()) {
+        judgeMap[d] = { result: 'Fail', critique: '代码检查关键维度失败，跳过 LLM 评分' };
+      }
+    }
+
+    // 计算加权分
+    const allDimResults: Record<string, 'pass' | 'fail' | 'skip'> = {};
+    for (const [k, v] of Object.entries(codeMap)) allDimResults[k] = v as 'pass' | 'fail';
+    for (const [k, v] of Object.entries(judgeMap)) allDimResults[k] = v.result === 'Pass' ? 'pass' : 'fail';
+    const { score } = computeWeightedScore(allDimResults);
+
+    updateResultScores(row.run_id, row.case_id, row.turn_index, codeMap, judgeMap, score);
+
+    console.log(`  [${i + 1}/${results.length}] ${row.case_id} Turn${row.turn_index + 1}: score=${(score * 100).toFixed(1)}%`);
+
+    // 避免 rate limit
+    if (!skipJudge && JUDGE_API_KEY && !criticalFail) await new Promise(r => setTimeout(r, 300));
+  }
+
+  console.log('\n✅ 重新评分完成');
+}
+
 // ========== 主流程 ==========
 
 function parseArg(args: string[], name: string): string | null {
@@ -745,12 +858,21 @@ async function main() {
   const args = process.argv.slice(2);
   const mode = parseArg(args, 'mode') || 'benchmark';
   const skipJudge = args.includes('--skip-judge');
+  const noCache = args.includes('--no-cache');
 
   // 获取 git commit
   let gitCommit = '';
   try {
     gitCommit = childProcess.execSync('git rev-parse --short HEAD', { cwd: path.join(__dirname, '../..') }).toString().trim();
   } catch {}
+
+  // ===== Re-score 模式 =====
+  const rescoreRunId = parseArg(args, 'rescore');
+  if (rescoreRunId) {
+    await rescoreRun(rescoreRunId, skipJudge);
+    closeDb();
+    return;
+  }
 
   // ===== Product 模式 =====
   if (mode === 'product') {
@@ -820,7 +942,7 @@ async function main() {
   for (let i = 0; i < allCases.length; i++) {
     const c = allCases[i];
     console.log(`\n[${i + 1}/${allCases.length}] ${c.id} (${c.category || '未分类'})`);
-    const result = await evalCase(c, runId, skipJudge || !JUDGE_API_KEY);
+    const result = await evalCase(c, runId, skipJudge || !JUDGE_API_KEY, noCache);
     allResults.push(result);
 
     // 每 10 条或最后一条打印中间汇总
@@ -857,11 +979,13 @@ async function main() {
   console.log(`  📁 JSON 数据: ${jsonPath}`);
 
   closeDb();
+  closeCacheDb();
   console.log('\n✅ 评测完成');
 }
 
 main().catch(err => {
   console.error('Fatal:', err);
   closeDb();
+  closeCacheDb();
   process.exit(1);
 });

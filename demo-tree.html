@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>心灵树洞</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#F7F8FA;
+    --white:#FFFFFF;
+    --blue:#2563EB;
+    --blue-light:#EFF6FF;
+    --gray-50:#F9FAFB;
+    --gray-100:#F3F4F6;
+    --gray-200:#E5E7EB;
+    --gray-400:#9CA3AF;
+    --gray-500:#6B7280;
+    --gray-700:#374151;
+    --gray-900:#111827;
+    --indigo-50:#EEF2FF;
+    --indigo-100:#E0E7FF;
+    --indigo-400:rgba(99,102,241,0.12);
+    --glow:0 4px 20px -2px rgba(99,102,241,0.10);
+    --glow-warm:0 0 30px rgba(232,180,90,0.25);
+    /* 树的色彩 */
+    --trunk:#7a6548;
+    --trunk-dark:#5c4a32;
+    --hole-warm:#e8b45a;
+    --leaf-green:#6aad6a;
+    --leaf-spring:#88c488;
+    --leaf-autumn:#cda040;
+  }
+  body{
+    font-family:'Noto Sans SC',-apple-system,'PingFang SC',sans-serif;
+    background:var(--bg);
+    color:var(--gray-900);
+    height:100vh;height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ===== 树区域 ===== */
+  .tree-header{
+    position:relative;
+    height:140px;
+    min-height:140px;
+    background:linear-gradient(180deg,#e8edf5 0%,var(--bg) 100%);
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    overflow:hidden;
+    transition:background 2s;
+  }
+  .tree-header.spring{ background:linear-gradient(180deg,#e5f0e5 0%,var(--bg) 100%); }
+  .tree-header.summer{ background:linear-gradient(180deg,#dceede 0%,var(--bg) 100%); }
+  .tree-header.autumn{ background:linear-gradient(180deg,#f0e8da 0%,var(--bg) 100%); }
+  .tree-header.winter{ background:linear-gradient(180deg,#e4e8f0 0%,var(--bg) 100%); }
+
+  /* 季节标签 */
+  .season-text{
+    position:absolute;
+    bottom:8px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:12px;
+    color:var(--gray-400);
+    letter-spacing:1px;
+    transition:all 1s;
+    white-space:nowrap;
+  }
+
+  /* 树洞光晕（树后面的大光圈） */
+  .tree-aura{
+    position:absolute;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+    width:100px;
+    height:80px;
+    border-radius:50%;
+    background:radial-gradient(ellipse,rgba(232,180,90,0.12) 0%,transparent 70%);
+    filter:blur(15px);
+    pointer-events:none;
+    transition:all 1s;
+  }
+  .tree-aura.listening{
+    width:120px;
+    height:100px;
+    background:radial-gradient(ellipse,rgba(232,180,90,0.25) 0%,transparent 70%);
+  }
+
+  /* 年轮提示 */
+  .ring-toast{
+    position:absolute;
+    bottom:35px;left:50%;transform:translateX(-50%);
+    font-size:11px;color:var(--hole-warm);opacity:0;
+    pointer-events:none;letter-spacing:1px;
+    animation:toast-up 2s ease-out forwards;
+  }
+  @keyframes toast-up{
+    0%{opacity:0;transform:translateX(-50%) translateY(0)}
+    20%{opacity:0.8}
+    100%{opacity:0;transform:translateX(-50%) translateY(-25px)}
+  }
+
+  /* ===== 鼓励语 ===== */
+  .encouragement{
+    text-align:center;
+    padding:6px 16px 10px;
+    font-size:12px;
+    color:var(--gray-400);
+    letter-spacing:0.5px;
+    transition:all 0.8s;
+  }
+
+  /* ===== 聊天区 ===== */
+  .chat-area{
+    flex:1;
+    overflow-y:auto;
+    padding:12px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    background:var(--bg);
+  }
+  .chat-area::-webkit-scrollbar{width:4px}
+  .chat-area::-webkit-scrollbar-thumb{background:var(--gray-200);border-radius:2px}
+
+  .msg{
+    max-width:80%;
+    padding:12px 16px;
+    font-size:14px;
+    line-height:1.7;
+    animation:msg-in 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes msg-in{
+    0%{opacity:0;transform:translateY(10px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+  .msg.user{
+    align-self:flex-end;
+    background:var(--blue);
+    color:white;
+    border-radius:16px 16px 4px 16px;
+    box-shadow:0 2px 8px rgba(37,99,235,0.15);
+  }
+  .msg.ai{
+    align-self:flex-start;
+    background:var(--white);
+    color:var(--gray-900);
+    border-radius:16px 16px 16px 4px;
+    box-shadow:var(--glow);
+  }
+
+  /* Loading 动画 */
+  .msg.loading{
+    display:flex;align-items:center;gap:8px;
+    padding:14px 20px;
+  }
+  .breath-dot{
+    position:relative;
+    width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .breath-dot .ping{
+    position:absolute;width:100%;height:100%;
+    background:rgba(99,102,241,0.12);
+    border-radius:50%;
+    animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
+  }
+  .breath-dot .core{
+    width:10px;height:10px;
+    background:#6366f1;
+    border-radius:50%;
+    animation:pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes ping{0%{transform:scale(1);opacity:0.6}100%{transform:scale(1.8);opacity:0}}
+  @keyframes pulse{0%,100%{opacity:0.6;transform:scale(0.85)}50%{opacity:1;transform:scale(1)}}
+
+  .loading-text{font-size:13px;color:var(--gray-400)}
+
+  /* ===== 输入区 ===== */
+  .input-bar{
+    padding:10px 12px 12px;
+    background:var(--white);
+    border-top:1px solid var(--gray-100);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .input-bar .toolbox-btn{
+    width:40px;height:40px;min-width:40px;
+    border-radius:12px;border:none;
+    background:var(--gray-50);
+    color:var(--gray-500);
+    font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all 0.2s;
+  }
+  .input-bar .toolbox-btn:hover{background:var(--gray-100)}
+
+  .input-bar textarea{
+    flex:1;
+    resize:none;
+    border:none;outline:none;
+    background:transparent;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--gray-900);
+    line-height:1.5;
+    min-height:24px;max-height:100px;
+    padding:8px 0;
+  }
+  .input-bar textarea::placeholder{color:var(--gray-400)}
+
+  .input-bar .send-btn{
+    width:44px;height:44px;min-width:44px;
+    border-radius:50%;border:none;
+    background:var(--blue);
+    color:white;
+    font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all 0.3s;
+    box-shadow:0 2px 8px rgba(37,99,235,0.2);
+  }
+  .input-bar .send-btn:hover{box-shadow:0 4px 12px rgba(37,99,235,0.3);transform:scale(1.05)}
+  .input-bar .send-btn:disabled{opacity:0.4;cursor:default;transform:none;box-shadow:none}
+  .input-bar .send-btn.listening{
+    background:var(--hole-warm);
+    box-shadow:0 0 16px rgba(232,180,90,0.3);
+  }
+
+  /* ===== 控制面板（仅demo） ===== */
+  .demo-controls{
+    padding:6px 12px 8px;
+    background:var(--gray-50);
+    border-top:1px solid var(--gray-100);
+    display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;
+  }
+  .demo-controls button{
+    padding:4px 12px;border-radius:16px;
+    border:1px solid var(--gray-200);
+    background:var(--white);
+    color:var(--gray-500);
+    font-size:11px;font-family:inherit;
+    cursor:pointer;transition:all 0.2s;
+  }
+  .demo-controls button:hover{border-color:var(--blue);color:var(--blue)}
+  .demo-controls button.on{background:var(--blue);color:white;border-color:var(--blue)}
+  .demo-controls .sep{width:1px;height:14px;background:var(--gray-200)}
+
+  /* ===== 年轮弹窗 ===== */
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.3);
+    backdrop-filter:blur(6px);
+    z-index:100;
+    display:none;align-items:center;justify-content:center;
+  }
+  .overlay.show{display:flex;animation:fade-in 0.3s ease}
+  @keyframes fade-in{from{opacity:0}to{opacity:1}}
+  .ring-card{
+    background:var(--white);
+    border-radius:20px;
+    padding:28px;
+    width:300px;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.12);
+    animation:card-in 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes card-in{from{opacity:0;transform:scale(0.92) translateY(16px)}}
+  .ring-card h3{font-size:15px;font-weight:500;color:var(--gray-700);margin-bottom:16px;letter-spacing:2px}
+  .ring-card canvas{display:block;margin:0 auto}
+  .ring-card .meta{font-size:12px;color:var(--gray-400);margin-top:12px;line-height:1.6}
+  .ring-card .close{
+    margin-top:16px;padding:6px 20px;border-radius:16px;
+    border:1px solid var(--gray-200);background:transparent;
+    color:var(--gray-500);font-family:inherit;font-size:12px;cursor:pointer;
+  }
+
+  /* ===== 欢迎界面 ===== */
+  .welcome{
+    flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;
+    padding:20px;
+  }
+  .welcome .greeting{font-size:18px;font-weight:500;color:var(--gray-700)}
+  .welcome .subtitle{font-size:13px;color:var(--gray-400);margin-top:-8px}
+  .welcome .prompts{display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-top:8px}
+  .welcome .prompt-btn{
+    padding:10px 16px;border-radius:12px;
+    border:1px solid var(--gray-200);
+    background:var(--white);
+    color:var(--gray-700);
+    font-size:13px;font-family:inherit;
+    cursor:pointer;text-align:left;
+    transition:all 0.2s;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .welcome .prompt-btn:hover{border-color:var(--blue);color:var(--blue);box-shadow:var(--glow)}
+</style>
+</head>
+<body>
+
+<!-- 树区域 -->
+<div class="tree-header winter" id="treeHeader">
+  <div class="tree-aura" id="treeAura"></div>
+  <svg width="160" height="130" viewBox="0 0 160 130" style="position:relative;z-index:1;margin-bottom:-2px">
+    <defs>
+      <radialGradient id="hg" cx="50%" cy="48%">
+        <stop offset="0%" stop-color="#f0d080" stop-opacity="0.7"/>
+        <stop offset="50%" stop-color="#d4a050" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#5c4a32" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="trunkG" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#6a5538"/>
+        <stop offset="40%" stop-color="#8a7558"/>
+        <stop offset="100%" stop-color="#6a5538"/>
+      </linearGradient>
+      <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+
+    <!-- 根系 -->
+    <g id="roots" opacity="0" filter="url(#glow)">
+      <path d="M68 125 Q52 128 38 130" stroke="#7a6548" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+      <path d="M72 127 Q60 132 45 134" stroke="#6a5538" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+      <path d="M92 125 Q108 128 122 130" stroke="#7a6548" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+      <path d="M88 127 Q100 132 115 134" stroke="#6a5538" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+    </g>
+
+    <!-- 树干 — 自然曲线 -->
+    <path d="M72 128 Q70 110 68 95 Q65 78 68 62 Q70 50 74 40
+             Q77 32 80 28 Q82 32 86 40
+             Q90 50 92 62 Q95 78 92 95 Q90 110 88 128 Z"
+          fill="url(#trunkG)" stroke="#5a4830" stroke-width="0.5" opacity="0.95"/>
+    <!-- 树皮细节 -->
+    <path d="M77 120 Q76 100 78 80" stroke="rgba(0,0,0,0.07)" stroke-width="0.8" fill="none"/>
+    <path d="M83 118 Q84 98 82 78" stroke="rgba(0,0,0,0.06)" stroke-width="0.7" fill="none"/>
+
+    <!-- 枝干 — 贝塞尔曲线 -->
+    <g stroke="#7a6548" stroke-linecap="round" fill="none">
+      <!-- 左 -->
+      <path d="M70 68 Q55 55 40 44" stroke-width="3.5"/>
+      <path d="M40 44 Q30 36 24 26" stroke-width="2"/>
+      <path d="M40 44 Q35 32 33 20" stroke-width="1.8"/>
+      <path d="M68 58 Q52 52 42 55" stroke-width="2.5"/>
+      <path d="M42 55 Q34 54 28 48" stroke-width="1.5"/>
+      <!-- 右 -->
+      <path d="M90 68 Q105 55 120 44" stroke-width="3.5"/>
+      <path d="M120 44 Q130 36 136 26" stroke-width="2"/>
+      <path d="M120 44 Q125 32 127 20" stroke-width="1.8"/>
+      <path d="M92 58 Q108 52 118 55" stroke-width="2.5"/>
+      <path d="M118 55 Q126 54 132 48" stroke-width="1.5"/>
+      <!-- 顶 -->
+      <path d="M80 35 Q80 22 78 10" stroke-width="2.5"/>
+      <path d="M78 15 Q72 8 68 2" stroke-width="1.5"/>
+      <path d="M78 15 Q84 6 90 2" stroke-width="1.5"/>
+      <path d="M80 30 Q72 22 65 18" stroke-width="2"/>
+      <path d="M80 30 Q88 22 95 18" stroke-width="2"/>
+    </g>
+
+    <!-- 树洞 -->
+    <ellipse cx="80" cy="93" rx="8" ry="10" fill="#2a1f10"/>
+    <ellipse id="holeLight" cx="80" cy="93" rx="6.5" ry="8.5" fill="url(#hg)" opacity="0.5">
+      <animate attributeName="opacity" values="0.4;0.7;0.4" dur="4s" repeatCount="indefinite"/>
+    </ellipse>
+
+    <!-- 绿叶 -->
+    <g id="leaves" opacity="0" style="transition:opacity 2s">
+      <ellipse cx="32" cy="35" rx="16" ry="12" fill="#6aad6a" opacity="0.55"/>
+      <ellipse cx="25" cy="24" rx="14" ry="10" fill="#7aba7a" opacity="0.5"/>
+      <ellipse cx="80" cy="6" rx="20" ry="12" fill="#6aad6a" opacity="0.55"/>
+      <ellipse cx="68" cy="14" rx="16" ry="10" fill="#7aba7a" opacity="0.5"/>
+      <ellipse cx="92" cy="14" rx="16" ry="10" fill="#7aba7a" opacity="0.5"/>
+      <ellipse cx="128" cy="35" rx="16" ry="12" fill="#6aad6a" opacity="0.55"/>
+      <ellipse cx="135" cy="24" rx="14" ry="10" fill="#7aba7a" opacity="0.5"/>
+      <ellipse cx="50" cy="46" rx="12" ry="9" fill="#88c488" opacity="0.45"/>
+      <ellipse cx="110" cy="46" rx="12" ry="9" fill="#88c488" opacity="0.45"/>
+      <ellipse cx="80" cy="20" rx="14" ry="9" fill="#88c488" opacity="0.4"/>
+    </g>
+
+    <!-- 秋叶 -->
+    <g id="autumnLeaves" opacity="0" style="transition:opacity 2s">
+      <ellipse cx="32" cy="35" rx="15" ry="11" fill="#cda040" opacity="0.55"/>
+      <ellipse cx="25" cy="24" rx="13" ry="9" fill="#d4aa48" opacity="0.5"/>
+      <ellipse cx="80" cy="6" rx="18" ry="11" fill="#c09838" opacity="0.5"/>
+      <ellipse cx="68" cy="16" rx="14" ry="9" fill="#cda040" opacity="0.45"/>
+      <ellipse cx="92" cy="16" rx="14" ry="9" fill="#cda040" opacity="0.45"/>
+      <ellipse cx="128" cy="35" rx="15" ry="11" fill="#cda040" opacity="0.55"/>
+      <ellipse cx="135" cy="24" rx="13" ry="9" fill="#d4aa48" opacity="0.5"/>
+    </g>
+
+    <!-- 花朵 -->
+    <g id="flowers" opacity="0" style="transition:opacity 1.5s" filter="url(#glow)">
+      <g transform="translate(28,20)"><circle cx="0" cy="-3" r="2.5" fill="#e8a0b8" opacity="0.75"/><circle cx="3" cy="0" r="2.5" fill="#e8a0b8" opacity="0.75"/><circle cx="1.5" cy="3" r="2.5" fill="#e8a0b8" opacity="0.75"/><circle cx="-1.5" cy="3" r="2.5" fill="#e8a0b8" opacity="0.75"/><circle cx="-3" cy="0" r="2.5" fill="#e8a0b8" opacity="0.75"/><circle cx="0" cy="0" r="1.5" fill="#f0d060"/></g>
+      <g transform="translate(132,20)"><circle cx="0" cy="-3" r="2.5" fill="#b0a0e0" opacity="0.75"/><circle cx="3" cy="0" r="2.5" fill="#b0a0e0" opacity="0.75"/><circle cx="1.5" cy="3" r="2.5" fill="#b0a0e0" opacity="0.75"/><circle cx="-1.5" cy="3" r="2.5" fill="#b0a0e0" opacity="0.75"/><circle cx="-3" cy="0" r="2.5" fill="#b0a0e0" opacity="0.75"/><circle cx="0" cy="0" r="1.5" fill="#f0d060"/></g>
+    </g>
+
+    <!-- 果实 -->
+    <g id="fruits" opacity="0" style="transition:opacity 1.5s" filter="url(#glow)">
+      <circle cx="48" cy="42" r="4" fill="#e06040" opacity="0.8"/>
+      <circle cx="112" cy="42" r="4" fill="#e89030" opacity="0.8"/>
+    </g>
+  </svg>
+  <span class="season-text" id="seasonText">每一次倾诉，都是了解自己的开始</span>
+</div>
+
+<!-- 聊天区 -->
+<div class="chat-area" id="chatArea">
+  <!-- 欢迎界面 -->
+  <div class="welcome" id="welcome">
+    <div class="greeting" id="greeting">晚上好 🌙</div>
+    <div class="subtitle">想说什么都可以，树洞在听</div>
+    <div class="prompts">
+      <button class="prompt-btn" onclick="quickSend('最近工作压力好大')">💭 最近工作压力好大</button>
+      <button class="prompt-btn" onclick="quickSend('今天心情还不错')">✨ 今天心情还不错</button>
+      <button class="prompt-btn" onclick="quickSend('有点焦虑，睡不着')">🌙 有点焦虑，睡不着</button>
+    </div>
+  </div>
+</div>
+
+<!-- 输入 -->
+<div class="input-bar">
+  <button class="toolbox-btn" title="解压工具箱">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+  </button>
+  <textarea id="chatInput" rows="1" placeholder="向树洞说点什么..." oninput="autoResize(this)"></textarea>
+  <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+  </button>
+</div>
+
+<!-- Demo控制 -->
+<div class="demo-controls">
+  <button class="on" onclick="setSeason('winter',this)">冬</button>
+  <button onclick="setSeason('spring',this)">春</button>
+  <button onclick="setSeason('summer',this)">夏</button>
+  <button onclick="setSeason('autumn',this)">秋</button>
+  <div class="sep"></div>
+  <button onclick="useSkill('roots')">呼吸·根</button>
+  <button onclick="useSkill('flowers')">五感·花</button>
+  <button onclick="useSkill('fruits')">重构·果</button>
+  <div class="sep"></div>
+  <button onclick="showRings()">年轮</button>
+  <button onclick="resetDemo()">重置</button>
+</div>
+
+<!-- 年轮弹窗 -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="ring-card">
+    <h3>你 的 年 轮</h3>
+    <canvas id="ringCanvas" width="200" height="200"></canvas>
+    <div class="meta" id="ringMeta">还没有年轮<br>每一次对话都会留下痕迹</div>
+    <button class="close" onclick="document.getElementById('overlay').classList.remove('show')">关闭</button>
+  </div>
+</div>
+
+<script>
+let season='winter', rings=[], skills={}, welcomed=true;
+const EC={'焦虑':'#6a9fd8','抑郁':'#8a8aaa','愤怒':'#d88a6a','悲伤':'#8a9ab8','恐惧':'#9a7ab0','快乐':'#e8c675','平静':'#7abfa0'};
+const RESP={
+  positive:[{t:'能感受到你现在心情不错呢，这种时刻值得好好记住。',e:'快乐',s:8},{t:'听起来今天有些好事发生？跟我说说？',e:'快乐',s:7}],
+  stress:[{t:'嗯，工作压力大的时候确实不好受。你现在还好吗？',e:'焦虑',s:3},{t:'加班到很晚吧...说出来就好，我在这里。',e:'焦虑',s:4}],
+  sad:[{t:'听起来今天不太容易。不用急着好起来，慢慢来。',e:'悲伤',s:3},{t:'这种感觉确实不好受。但你愿意说出来，已经很好了。',e:'悲伤',s:4}],
+  sleep:[{t:'睡不着的时候脑子容易转个不停。要不要试试深呼吸？',e:'焦虑',s:4},{t:'夜深了还清醒着...我陪你待一会儿。',e:'平静',s:5}],
+  default:[{t:'嗯，我在听。继续说说？',e:'平静',s:5},{t:'谢谢你愿意告诉我这些。',e:'平静',s:6},{t:'每个人都会有这样的时候，你不是一个人。',e:'平静',s:5}]
+};
+const SEASON_TEXT={winter:'树木在冬季积蓄能量',spring:'新芽正在生长',summer:'阳光透过树叶',autumn:'金色的季节也很美'};
+
+// 问候
+(function(){
+  const h=new Date().getHours();
+  const g=document.getElementById('greeting');
+  if(h>=22||h<5)g.textContent='夜深了 🌙';
+  else if(h<9)g.textContent='早上好 🌅';
+  else if(h<12)g.textContent='上午好 ☀️';
+  else if(h<14)g.textContent='中午好 🌤';
+  else if(h<18)g.textContent='下午好 ☕';
+  else g.textContent='晚上好 🌙';
+})();
+
+function autoResize(el){el.style.height='24px';el.style.height=Math.min(el.scrollHeight,100)+'px'}
+
+function setSeason(s,btn){
+  season=s;
+  document.getElementById('treeHeader').className='tree-header '+s;
+  document.getElementById('leaves').style.opacity=(s==='spring'?0.6:s==='summer'?1:0);
+  document.getElementById('autumnLeaves').style.opacity=(s==='autumn'?1:0);
+  document.getElementById('seasonText').textContent=SEASON_TEXT[s];
+  document.querySelectorAll('.demo-controls button').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+}
+
+function quickSend(text){
+  document.getElementById('welcome').remove();
+  welcomed=false;
+  addMsg(text,'user');
+  doReply(text);
+}
+
+function sendMessage(){
+  const ta=document.getElementById('chatInput');
+  const text=ta.value.trim();
+  if(!text)return;
+  if(welcomed){document.getElementById('welcome')?.remove();welcomed=false;}
+  addMsg(text,'user');
+  ta.value='';ta.style.height='24px';
+  doReply(text);
+}
+
+function doReply(text){
+  const btn=document.getElementById('sendBtn');
+  btn.classList.add('listening');
+  document.getElementById('holeLight').setAttribute('opacity','0.9');
+  document.getElementById('treeAura').classList.add('listening');
+
+  // 加载中
+  const loading=document.createElement('div');
+  loading.className='msg ai loading';
+  loading.innerHTML='<div class="breath-dot"><div class="ping"></div><div class="core"></div></div><span class="loading-text">正在思考...</span>';
+  document.getElementById('chatArea').appendChild(loading);
+  scrollBottom();
+
+  setTimeout(()=>{
+    btn.classList.remove('listening');
+    document.getElementById('holeLight').setAttribute('opacity','0.5');
+    document.getElementById('treeAura').classList.remove('listening');
+    loading.remove();
+
+    let pool=RESP.default;
+    if(/开心|高兴|不错|棒|哈哈/.test(text))pool=RESP.positive;
+    else if(/加班|累|压力|烦|焦虑|崩|忙/.test(text))pool=RESP.stress;
+    else if(/难过|伤心|哭|失落|无助|孤独/.test(text))pool=RESP.sad;
+    else if(/睡不着|失眠|焦虑/.test(text))pool=RESP.sleep;
+    const r=pool[Math.floor(Math.random()*pool.length)];
+    addMsg(r.t,'ai');
+
+    rings.push({color:EC[r.e],emotion:r.e,score:r.s,width:2+Math.random()*3});
+    // 年轮提示
+    const toast=document.createElement('div');
+    toast.className='ring-toast';toast.textContent='年轮 +1';
+    document.getElementById('treeHeader').appendChild(toast);
+    setTimeout(()=>toast.remove(),2000);
+
+    autoSeason();
+  },1200+Math.random()*600);
+}
+
+function addMsg(text,type){
+  const d=document.createElement('div');
+  d.className='msg '+type;d.textContent=text;
+  document.getElementById('chatArea').appendChild(d);
+  scrollBottom();
+}
+function scrollBottom(){const a=document.getElementById('chatArea');a.scrollTop=a.scrollHeight}
+
+function autoSeason(){
+  const r=rings.slice(-5);if(r.length<3)return;
+  const avg=r.reduce((s,x)=>s+x.score,0)/r.length;
+  let s;
+  if(avg>=7)s='summer';else if(avg>=5)s='spring';else if(avg>=3)s='autumn';else s='winter';
+  if(s!==season)setSeason(s);
+}
+
+function useSkill(sk){
+  if(skills[sk])return;skills[sk]=true;
+  document.getElementById(sk).style.opacity='1';
+  const names={roots:'深呼吸...感受根系在地下延伸，稳稳地支撑着你。',flowers:'试着去感受周围——看、听、闻、触、尝。像花朵一样打开。',fruits:'换一个角度看这件事，也许会发现不一样的东西。'};
+  if(welcomed){document.getElementById('welcome')?.remove();welcomed=false;}
+  addMsg(names[sk],'ai');
+  if(season==='winter')setSeason('spring');
+}
+
+function showRings(){
+  document.getElementById('overlay').classList.add('show');
+  const c=document.getElementById('ringCanvas').getContext('2d');
+  const cx=100,cy=100;c.clearRect(0,0,200,200);
+  const grad=c.createRadialGradient(cx,cy,0,cx,cy,85);
+  grad.addColorStop(0,'#e8dfd0');grad.addColorStop(1,'#d4c8b8');
+  c.beginPath();c.arc(cx,cy,85,0,Math.PI*2);c.fillStyle=grad;c.fill();
+  if(!rings.length){document.getElementById('ringMeta').innerHTML='还没有年轮<br>每一次对话都会留下痕迹';return;}
+  const n=Math.min(rings.length,20);
+  for(let i=0;i<n;i++){
+    const ring=rings[rings.length-n+i],r=12+(i/n)*68;
+    c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);
+    c.strokeStyle=ring.color;c.lineWidth=ring.width*0.7;
+    c.globalAlpha=0.3+(i/n)*0.55;c.stroke();
+  }
+  c.globalAlpha=1;c.beginPath();c.arc(cx,cy,6,0,Math.PI*2);c.fillStyle='#c4b8a8';c.fill();
+  document.getElementById('ringMeta').innerHTML=`${rings.length} 圈年轮<br>每一圈都是你留下的痕迹`;
+}
+
+function resetDemo(){
+  rings=[];skills={};welcomed=true;season='winter';
+  ['roots','flowers','fruits'].forEach(s=>document.getElementById(s).style.opacity='0');
+  setSeason('winter',document.querySelector('.demo-controls button'));
+  document.getElementById('chatArea').innerHTML=`<div class="welcome" id="welcome"><div class="greeting" id="greeting">晚上好 🌙</div><div class="subtitle">想说什么都可以，树洞在听</div><div class="prompts"><button class="prompt-btn" onclick="quickSend('最近工作压力好大')">💭 最近工作压力好大</button><button class="prompt-btn" onclick="quickSend('今天心情还不错')">✨ 今天心情还不错</button><button class="prompt-btn" onclick="quickSend('有点焦虑，睡不着')">🌙 有点焦虑，睡不着</button></div></div>`;
+  document.getElementById('seasonText').textContent='每一次倾诉，都是了解自己的开始';
+}
+
+document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});
+</script>
+</body>
+</html>

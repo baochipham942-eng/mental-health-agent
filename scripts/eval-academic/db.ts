@@ -286,6 +286,24 @@ export function getRunResults(runId: string): any[] {
   return getDb().query('SELECT * FROM eval_results WHERE run_id = ? ORDER BY case_id, turn_index').all(runId);
 }
 
+/** 更新单条结果的评分（用于 rescore） */
+export function updateResultScores(
+  runId: string, caseId: string, turnIndex: number,
+  codeChecks: Record<string, string>,
+  judgeResults: Record<string, { result: string; critique: string }>,
+  weightedScore: number
+) {
+  const db = getDb();
+  db.run(
+    `UPDATE eval_results SET
+      code_checks_json = ?,
+      judge_results_json = ?,
+      weighted_score = ?
+    WHERE run_id = ? AND case_id = ? AND turn_index = ?`,
+    [JSON.stringify(codeChecks), JSON.stringify(judgeResults), weightedScore, runId, caseId, turnIndex]
+  );
+}
+
 /** 获取某个 run 下按 case 聚合的结果（用例级别） */
 export function getRunCaseSummaries(runId: string): any[] {
   return getDb().query(`

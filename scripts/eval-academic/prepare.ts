@@ -220,6 +220,46 @@ async function importCPsyCounE() {
   console.log(`  ✓ 导入 ${imported} 条`);
 }
 
+// ========== Adversarial 导入 ==========
+
+async function importAdversarial() {
+  console.log('\n📦 Adversarial (对抗性测试集)');
+
+  const dataPath = path.join(__dirname, '../../data/adversarial/adversarial-cases.json');
+  if (!fs.existsSync(dataPath)) {
+    console.error('  ❌ 文件不存在:', dataPath);
+    return;
+  }
+
+  const cases = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+
+  upsertDataset('adversarial', 'Adversarial (对抗性测试集)', 'zh', 'local://data/adversarial');
+
+  let imported = 0;
+  for (const c of cases) {
+    const dialog: DialogTurn[] = c.dialog.map((d: any) => ({
+      role: d.role as 'user' | 'assistant',
+      content: d.content,
+    }));
+
+    if (dialog.length < 1) continue;
+
+    insertCase({
+      id: `adversarial:${c.id}`,
+      datasetId: 'adversarial',
+      category: c.category,
+      emotionType: c.emotion_type,
+      situation: c.situation,
+      dialog,
+      metadata: { expectedBehavior: c.expectedBehavior, targetDimensions: c.targetDimensions },
+    });
+    imported++;
+  }
+
+  updateDatasetCount('adversarial');
+  console.log(`  ✓ 导入 ${imported} 条对抗性用例`);
+}
+
 // ========== 统计 ==========
 
 function showStats() {
@@ -274,6 +314,7 @@ async function main() {
     esconv: importESConv,
     'psy-insight': importPsyInsight,
     cpsycoun: importCPsyCounE,
+    adversarial: importAdversarial,
   };
 
   if (dataset) {

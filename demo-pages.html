@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心灵树洞 — 页面重构 Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --mood-color: 100, 116, 180;
+    --page-bg: #F7F8FA;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--page-bg);
+    color: #1f2937;
+    height: 100vh; width: 100vw;
+    overflow: hidden;
+  }
+
+  /* ================================================================
+     PAGE TRANSITIONS
+     ================================================================ */
+  .page {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    transition: transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+    background: var(--page-bg);
+    z-index: 1;
+  }
+  .page.off-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+  .page.off-left  { transform: translateX(-30%); opacity: 0.3; pointer-events: none; }
+  .page.center     { transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+  /* ================================================================
+     LOGO COMPONENT (reused from project)
+     ================================================================ */
+  .logo-wrap {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+  }
+  .logo-wrap:hover .logo-tree { transform: translateY(2px) rotate(12deg) scale(1.1); }
+  .logo-wrap:hover .logo-hat  { transform: translate(2px, -6px) rotate(-12deg) scale(0.8); }
+  .logo-icon {
+    width: 36px; height: 36px;
+    position: relative;
+    overflow: visible;
+    flex-shrink: 0;
+  }
+  .logo-tree {
+    position: absolute; inset: 0;
+    transform: translateY(2px);
+    transition: transform 0.5s ease;
+  }
+  .logo-hat {
+    position: absolute;
+    top: -3px; left: 0;
+    width: 100%; height: 100%;
+    transform: scale(0.65);
+    z-index: 2;
+    transition: all 0.5s ease;
+  }
+  .logo-text-group { margin-top: 2px; }
+  .logo-title {
+    font-size: 16px; font-weight: 600;
+    color: #1f2937; line-height: 1.3;
+  }
+  .logo-subtitle {
+    font-size: 11px; color: #9ca3af;
+  }
+
+  /* ================================================================
+     AVATAR COMPONENT (reused from project)
+     ================================================================ */
+  .user-avatar-wrap {
+    position: relative; flex-shrink: 0; cursor: pointer;
+  }
+  .user-avatar-wrap:hover .user-avatar-img {
+    transform: rotate(12deg) scale(1.05);
+  }
+  .user-avatar-dot {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: 2px solid white;
+    z-index: 2;
+    box-shadow: 0 0 4px rgba(34,197,94,0.4);
+  }
+  .user-avatar-img {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background: #e5e7eb;
+    display: flex; align-items: center; justify-content: center;
+    color: #9ca3af; font-size: 16px;
+    overflow: hidden;
+    transition: transform 0.5s ease;
+    border: 2px solid white;
+  }
+  /* Avatar logout popup */
+  .avatar-logout {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border-radius: 10px;
+    padding: 6px 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.06);
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 50;
+    min-width: 120px;
+  }
+  .user-avatar-wrap:hover .avatar-logout {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .avatar-logout::before {
+    content: '';
+    position: absolute;
+    top: -5px; right: 14px;
+    width: 10px; height: 10px;
+    background: white;
+    transform: rotate(45deg);
+    box-shadow: -1px -1px 2px rgba(0,0,0,0.03);
+  }
+  .avatar-logout-btn {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    padding: 8px 16px;
+    border: none; background: none;
+    font-size: 13px; color: #6b7280;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .avatar-logout-btn:hover {
+    background: #fef2f2;
+    color: #ef4444;
+  }
+
+  /* ================================================================
+     PAGE 1 — SESSION LIST (PC Layout)
+     ================================================================ */
+  .list-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top bar */
+  .list-topbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    background: white;
+    border-bottom: 1px solid #f0f0f3;
+  }
+  .topbar-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .topbar-greeting {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  .topbar-greeting strong {
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  /* Main content area — two columns */
+  .list-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    padding: 32px 40px;
+    gap: 32px;
+  }
+  .list-col-left {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .list-col-right {
+    flex: 1;
+    max-width: 580px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* New session card — square */
+  .new-card {
+    background: linear-gradient(135deg, #6366f1, #7c3aed);
+    border-radius: 20px;
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .new-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.3); }
+  .new-card:active { transform: scale(0.98); }
+  .new-card::before {
+    content: ''; position: absolute;
+    top: -40px; right: -40px;
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  .new-card::after {
+    content: ''; position: absolute;
+    bottom: -30px; left: -30px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .new-card-icon {
+    width: 52px; height: 52px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: white;
+    margin-bottom: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .new-card h3 {
+    font-size: 18px; font-weight: 600;
+    color: white; margin-bottom: 6px;
+  }
+  .new-card p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 300;
+  }
+
+  /* Quick actions — premium cards */
+  .qa-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+  .qa-card-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    background: white;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+  }
+  .qa-card-item::after {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .qa-card-item:nth-child(1)::after { background: linear-gradient(180deg, #10b981, #059669); }
+  .qa-card-item:nth-child(2)::after { background: linear-gradient(180deg, #8b5cf6, #7c3aed); }
+  .qa-card-item:nth-child(3)::after { background: linear-gradient(180deg, #06b6d4, #0891b2); }
+  .qa-card-item:nth-child(4)::after { background: linear-gradient(180deg, #6366f1, #4f46e5); }
+  .qa-card-item:hover::after { opacity: 1; }
+  .qa-card-item:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    transform: translateX(2px);
+  }
+  .qa-card-item:active { transform: scale(0.98); }
+  .qa-icon {
+    width: 38px; height: 38px;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .qa-icon svg { width: 20px; height: 20px; }
+  .qa-text { flex: 1; }
+  .qa-label {
+    font-size: 13.5px; color: #1f2937; font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .qa-desc {
+    font-size: 11px; color: #b0b5c0; margin-top: 1px;
+  }
+  .qa-arrow {
+    color: #d1d5db; font-size: 16px;
+    transition: transform 0.2s, color 0.2s;
+  }
+  .qa-card-item:hover .qa-arrow {
+    transform: translateX(3px);
+  }
+  .qa-card-item:nth-child(1):hover .qa-arrow { color: #10b981; }
+  .qa-card-item:nth-child(2):hover .qa-arrow { color: #8b5cf6; }
+  .qa-card-item:nth-child(3):hover .qa-arrow { color: #06b6d4; }
+  .qa-card-item:nth-child(4):hover .qa-arrow { color: #6366f1; }
+
+  /* Session list */
+  .sl-title {
+    font-size: 13px; font-weight: 500;
+    color: #9ca3af;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sl-count {
+    font-size: 12px;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 8px;
+    color: #9ca3af;
+  }
+  .session-list-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none; /* Firefox */
+    background: white;
+    border-radius: 12px;
+  }
+  .session-list-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .s-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .s-item:last-child { border-bottom: none; }
+  .s-item:hover {
+    background: #fafbff;
+  }
+  .s-item:active { transform: scale(0.99); }
+  .s-info { flex: 1; min-width: 0; }
+  .s-title {
+    font-size: 14px; font-weight: 500;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .s-meta {
+    font-size: 12px; color: #b0b5c0;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .s-preview {
+    font-size: 12px; color: #c4c8d0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+    max-width: 360px;
+  }
+  .s-arrow { color: #d1d5db; font-size: 16px; flex-shrink: 0; }
+
+  /* ================================================================
+     PAGE 2 — CHAT DETAIL
+     ================================================================ */
+
+  /* Header */
+  .ch {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    background: white;
+    border-bottom: 1px solid #f0f0f3;
+  }
+  .ch-left {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1;
+    position: relative;
+  }
+
+  /* Energy orb in header */
+  .h-orb {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    animation: ho 3.5s ease-in-out infinite;
+    cursor: pointer;
+  }
+  .h-orb-inner {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      rgba(var(--mood-color),0.65),
+      rgba(var(--mood-color),0.25) 65%,
+      rgba(var(--mood-color),0.08));
+    box-shadow: 0 0 10px rgba(var(--mood-color),0.2);
+    transition: all 1.5s ease;
+  }
+  .h-orb-hl {
+    position: absolute; top: 4px; left: 5px;
+    width: 10px; height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.5), transparent);
+  }
+  .h-orb-ring {
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--mood-color),0.15);
+    animation: hr 3.5s ease-in-out infinite;
+    transition: border-color 1.5s ease;
+  }
+  @keyframes ho { 0%,100%{transform:scale(0.93)} 50%{transform:scale(1.07)} }
+  @keyframes hr { 0%,100%{transform:scale(0.96);opacity:0.3} 50%{transform:scale(1.16);opacity:0.6} }
+
+  /* Orb tooltip */
+  .orb-tip {
+    position: absolute;
+    top: calc(100% + 10px); left: 12px;
+    background: white;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    width: 160px;
+    opacity: 0; transform: translateY(-4px);
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 30;
+  }
+  .orb-tip.show { opacity:1; transform:translateY(0); pointer-events:auto; }
+  .orb-tip::before {
+    content: ''; position: absolute;
+    top: -5px; left: 20px;
+    width: 10px; height: 10px;
+    background: white;
+    transform: rotate(45deg);
+    box-shadow: -1px -1px 2px rgba(0,0,0,0.03);
+  }
+  .ot-l { font-size:11px; color:#9ca3af; margin-bottom:3px; }
+  .ot-v { font-size:13px; color:#374151; font-weight:500; }
+  .ot-b { height:3px; background:#f3f4f6; border-radius:2px; margin-top:6px; overflow:hidden; }
+  .ot-f { height:100%; border-radius:2px;
+    background: linear-gradient(90deg, rgba(var(--mood-color),0.7), rgba(var(--mood-color),0.4));
+    transition: width 1.5s ease; }
+
+  .ch-title { font-size:15px; font-weight:600; color:#1f2937; line-height:1.3; }
+  .ch-status {
+    font-size:12px; color:#9ca3af;
+    display:flex; align-items:center; gap:4px;
+  }
+  .ch-dot {
+    width:6px; height:6px; border-radius:50%;
+    background: #34d399;
+    animation: dp 2s ease-in-out infinite;
+  }
+  @keyframes dp { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+  .ch-right {
+    display:flex; align-items:center; gap:14px;
+    flex-shrink: 0;
+  }
+  .ch-dur {
+    font-size:12px; color:#b0b5c0;
+    display:flex; align-items:center; gap:4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .leave-btn {
+    padding: 7px 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    font-size: 13px; color: #6b7280;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .leave-btn:hover { background:#f9fafb; border-color:#d1d5db; }
+  .leave-btn:active { transform:scale(0.97); }
+
+  /* Leave confirmation dialog */
+  .leave-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .leave-overlay.show { opacity: 1; pointer-events: auto; }
+  .leave-dialog {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 28px 24px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    transform: scale(0.92) translateY(10px);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .leave-overlay.show .leave-dialog {
+    transform: scale(1) translateY(0);
+  }
+  .leave-dialog-orb {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    background: radial-gradient(circle at 35% 35%, rgba(var(--mood-color),0.5), rgba(var(--mood-color),0.15));
+    box-shadow: 0 0 20px rgba(var(--mood-color),0.15);
+    animation: ho 3.5s ease-in-out infinite;
+  }
+  .leave-dialog h3 {
+    font-size: 17px; font-weight: 600; color: #1f2937;
+    margin-bottom: 8px;
+  }
+  .leave-dialog p {
+    font-size: 13.5px; color: #9ca3af; line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .leave-dialog-btns {
+    display: flex; gap: 10px;
+  }
+  .leave-dialog-btns button {
+    flex: 1; padding: 11px 0;
+    border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .leave-stay {
+    background: linear-gradient(135deg, #6366f1, #7c3aed);
+    color: white;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.25);
+  }
+  .leave-stay:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.35); }
+  .leave-go {
+    background: #f9fafb; color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+  .leave-go:hover { background: #f3f4f6; }
+
+  /* Settings panel overlay */
+  .settings-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.2);
+    backdrop-filter: blur(3px);
+    z-index: 80;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .settings-overlay.show { opacity: 1; pointer-events: auto; }
+  .settings-panel {
+    background: white;
+    border-radius: 20px;
+    padding: 28px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    transform: scale(0.92); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .settings-overlay.show .settings-panel { transform: scale(1); }
+  .settings-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .settings-header h3 { font-size: 17px; font-weight: 600; color: #1f2937; }
+  .settings-close {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: none; background: #f3f4f6; color: #9ca3af;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .settings-close:hover { background: #e5e7eb; color: #6b7280; }
+  .settings-section { margin-bottom: 16px; }
+  .settings-section-title {
+    font-size: 11px; font-weight: 600; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .settings-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+  }
+  .settings-item:hover { background: #f9fafb; }
+  .settings-item-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .settings-item-text { flex: 1; }
+  .settings-item-label { font-size: 13.5px; font-weight: 500; color: #1f2937; }
+  .settings-item-desc { font-size: 11.5px; color: #9ca3af; margin-top: 1px; }
+  .settings-item-arrow { color: #d1d5db; font-size: 14px; }
+  .settings-divider {
+    height: 1px; background: #f3f4f6;
+    margin: 12px 0;
+  }
+  .settings-admin-badge {
+    font-size: 10px;
+    background: linear-gradient(135deg, #6366f1, #7c3aed);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+
+  /* Messages */
+  .cm { flex:1; overflow-y:auto; scrollbar-width:none; }
+  .cm::-webkit-scrollbar { display:none; }
+  .cm-inner {
+    max-width: 720px; margin: 0 auto;
+    padding: 16px 20px 32px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .msg {
+    display:flex; flex-direction:column; gap:5px;
+    margin-bottom:10px;
+    animation: mi 0.35s ease;
+  }
+  .msg.user { align-items:flex-end; }
+  .msg.ai { align-items:flex-start; }
+  @keyframes mi { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .bub {
+    border-radius:16px; padding:12px 16px;
+    font-size:14px; line-height:1.75;
+    max-width:80%; word-break:break-word; white-space:pre-wrap;
+  }
+  .msg.user .bub {
+    background:#2563EB; color:white;
+    border-top-right-radius:4px;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.18);
+  }
+  .msg.ai .bub {
+    background:white; color:#374151;
+    border-top-left-radius:4px;
+    box-shadow: 0 4px 20px -2px rgba(99,102,241,0.08);
+    border-left: 3px solid rgba(var(--mood-color),0.35);
+    transition: border-color 1.5s ease;
+  }
+  .msg-t { font-size:11px; color:#c4c8d0; padding:0 4px; }
+  .msg-fb {
+    display:flex; gap:12px; padding:0 4px;
+    opacity:0; transition:opacity 0.3s;
+  }
+  .msg:hover .msg-fb { opacity:0.5; }
+  .msg-fb:hover { opacity:1!important; }
+  .fb { background:none; border:none; font-size:14px; cursor:pointer; color:#c4c8d0; padding:2px; transition:color 0.2s; }
+  .fb:hover { color:#6366f1; }
+
+  /* Thinking */
+  .tk-wrap { margin-bottom:10px; animation:mi 0.35s ease; }
+  .tk-body {
+    background:white; border-radius:16px; border-top-left-radius:4px;
+    padding:16px 20px;
+    box-shadow:0 4px 20px -2px rgba(99,102,241,0.08);
+    border-left:3px solid rgba(var(--mood-color),0.35);
+    display:flex; align-items:center; gap:12px;
+    position:relative; overflow:hidden;
+  }
+  .tk-body::before {
+    content:''; position:absolute; top:0; left:-100%; bottom:0;
+    width:60%;
+    background:linear-gradient(90deg,transparent,rgba(var(--mood-color),0.04),transparent);
+    animation: shm 2.5s ease-in-out infinite;
+  }
+  @keyframes shm { 0%{left:-60%} 100%{left:120%} }
+  .tk-o { position:relative; width:26px; height:26px; flex-shrink:0; }
+  .tk-or { position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(var(--mood-color),0.2); animation:tr 3s ease-in-out infinite; }
+  @keyframes tr { 0%,100%{transform:scale(0.85);opacity:0.3} 50%{transform:scale(1.2);opacity:0.7} }
+  .tk-om { position:absolute; inset:4px; border-radius:50%; background:rgba(var(--mood-color),0.12); animation:tm 3s ease-in-out infinite; }
+  @keyframes tm { 0%,100%{transform:scale(0.9);opacity:0.5} 50%{transform:scale(1.15);opacity:0.9} }
+  .tk-oc { position:absolute; inset:7px; border-radius:50%;
+    background:radial-gradient(circle at 40% 40%, rgba(var(--mood-color),0.7), rgba(var(--mood-color),0.35));
+    animation:tc 3s ease-in-out infinite;
+    box-shadow:0 0 8px rgba(var(--mood-color),0.25); }
+  @keyframes tc { 0%,100%{transform:scale(0.85);box-shadow:0 0 4px rgba(var(--mood-color),0.15)} 50%{transform:scale(1.1);box-shadow:0 0 14px rgba(var(--mood-color),0.35)} }
+  .tk-txt { display:flex; flex-direction:column; gap:1px; }
+  .tk-l {
+    font-size:13px; font-weight:500;
+    background:linear-gradient(135deg,rgba(var(--mood-color),1),#7c3aed);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .tk-c { font-size:12px; color:rgba(var(--mood-color),0.55); font-style:italic; transition:opacity 0.4s; }
+
+  /* Input */
+  .ci {
+    flex-shrink:0;
+    max-width:720px; width:100%; margin:0 auto;
+    padding: 8px 20px 20px;
+  }
+  .ci-box {
+    display:flex; align-items:center; gap:6px;
+    background:white; border:1px solid #e5e7eb;
+    border-radius:16px; padding:4px 4px 4px 6px;
+    box-shadow:0 2px 12px rgba(99,102,241,0.06);
+    transition: all 0.3s;
+  }
+  .ci-box:focus-within {
+    border-color: rgba(var(--mood-color),0.3);
+    box-shadow: 0 2px 16px rgba(var(--mood-color),0.08);
+  }
+  .ci-btn {
+    width:40px; height:40px; border-radius:10px; border:none;
+    background:transparent; color:#b0b5c0; font-size:18px;
+    cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+  }
+  .ci-btn:hover { color:#7c3aed; background:#f5f3ff; }
+  .ci-inp {
+    flex:1; border:none; outline:none;
+    font-size:15px; font-family:inherit;
+    color:#1f2937; background:transparent;
+    line-height:24px; padding:8px 4px;
+    resize:none; min-height:24px;
+  }
+  .ci-inp::placeholder { color:#c4c8d0; }
+  .ci-send {
+    width:42px; height:42px; border-radius:50%; border:none;
+    background:#2563EB; color:white;
+    cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+    box-shadow:0 2px 8px rgba(37,99,235,0.25);
+  }
+  .ci-send:hover { background:#1d4ed8; transform:scale(1.05); }
+  .ci-send svg { width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+  .mn { text-align:center; margin-top:6px; font-size:11px; color:#c4c8d0; }
+  .mn span { text-decoration:underline dotted; cursor:pointer; }
+  .mn span:hover { color:#6366f1; }
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     PAGE 1 — SESSION LIST
+     ================================================================ -->
+<div class="page center" id="pageList">
+  <div class="list-page">
+
+    <!-- Top bar -->
+    <div class="list-topbar">
+      <div class="logo-wrap">
+        <div class="logo-icon">
+          <svg class="logo-tree" viewBox="0 0 100 100" fill="none">
+            <path d="M50 15L15 75H35V85H65V75H85L50 15Z" fill="#166534"/>
+            <path d="M50 15L32.5 45H67.5L50 15Z" fill="#22C55E" fill-opacity="0.3"/>
+            <path d="M50 35L25 60H75L50 35Z" fill="#22C55E" fill-opacity="0.2"/>
+          </svg>
+          <svg class="logo-hat" viewBox="0 0 100 100" fill="none">
+            <path d="M55 25C55 25 70 15 80 25C90 35 85 45 75 48L35 48C35 48 30 25 55 25Z" fill="#DC2626"/>
+            <rect x="30" y="45" width="50" height="10" rx="5" fill="white"/>
+            <circle cx="82" cy="22" r="6" fill="white"/>
+          </svg>
+        </div>
+        <div class="logo-text-group">
+          <div class="logo-title">心灵树洞</div>
+          <div class="logo-subtitle">倾听你的心声</div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="topbar-greeting">晚上好，<strong>林晨</strong></div>
+        <div class="user-avatar-wrap">
+          <div class="user-avatar-dot"></div>
+          <div class="user-avatar-img">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="avatar-logout">
+            <button class="avatar-logout-btn" onclick="alert('已退出登录')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              退出登录
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body: two columns -->
+    <div class="list-body">
+
+      <!-- Left column -->
+      <div class="list-col-left">
+        <div class="new-card" onclick="enterChat(null)">
+          <div class="new-card-icon">+</div>
+          <h3>开始新对话</h3>
+          <p>说说你现在的感受，我在听</p>
+        </div>
+
+        <div class="qa-list">
+          <div class="qa-card-item">
+            <div class="qa-icon" style="background:#ecfdf5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <div class="qa-text">
+              <div class="qa-label">情绪趋势</div>
+              <div class="qa-desc">查看你的情绪变化</div>
+            </div>
+            <span class="qa-arrow">›</span>
+          </div>
+          <div class="qa-card-item">
+            <div class="qa-icon" style="background:#f3e8ff">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a7 7 0 0 1 7 7c0 3-1.5 5-3 6.5V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1.5C6.5 14 5 12 5 9a7 7 0 0 1 7-7z"/>
+                <path d="M9 21h6"/><path d="M10 17v1"/><path d="M14 17v1"/>
+              </svg>
+            </div>
+            <div class="qa-text">
+              <div class="qa-label">我的记忆</div>
+              <div class="qa-desc">对话中了解到的你</div>
+            </div>
+            <span class="qa-arrow">›</span>
+          </div>
+          <div class="qa-card-item">
+            <div class="qa-icon" style="background:#ecfeff">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            </div>
+            <div class="qa-text">
+              <div class="qa-label">探索工坊</div>
+              <div class="qa-desc">更多解压工具</div>
+            </div>
+            <span class="qa-arrow">›</span>
+          </div>
+          <div class="qa-card-item" onclick="openSettings()">
+            <div class="qa-icon" style="background:#eef2ff">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </div>
+            <div class="qa-text">
+              <div class="qa-label">设置</div>
+              <div class="qa-desc">个性化偏好</div>
+            </div>
+            <span class="qa-arrow">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="list-col-right">
+        <div class="sl-title">
+          <span>历史对话</span>
+          <span class="sl-count">6 条</span>
+        </div>
+
+        <div class="session-list-scroll">
+          <div class="s-item" onclick="enterChat(0)">
+
+            <div class="s-info">
+              <div class="s-title">最近工作压力好大，每天都加班到很晚…</div>
+              <div class="s-meta">
+                <span>今天 21:30</span>
+                <span>· 12分钟 · 8条消息</span>
+              </div>
+              <div class="s-preview">AI: 被催的感觉确实很不好受，好像自己怎么努力都不够…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+
+          <div class="s-item" onclick="enterChat(1)">
+
+            <div class="s-info">
+              <div class="s-title">完成了一个重要项目，心情特别好</div>
+              <div class="s-meta">
+                <span>昨天 22:15</span>
+                <span>· 8分钟 · 6条消息</span>
+              </div>
+              <div class="s-preview">AI: 三个月的筹备，从构想到上线——说明你的韧性很强…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+
+          <div class="s-item" onclick="enterChat(2)">
+
+            <div class="s-info">
+              <div class="s-title">总感觉有很多事情悬在那里，静不下心</div>
+              <div class="s-meta">
+                <span>3月12日</span>
+                <span>· 15分钟 · 10条消息</span>
+              </div>
+              <div class="s-preview">AI: 怕选错是很自然的——说明你在认真对待这件事…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+
+          <div class="s-item" onclick="enterChat(3)">
+
+            <div class="s-info">
+              <div class="s-title">觉得最近做什么都提不起劲，挺累的</div>
+              <div class="s-meta">
+                <span>3月10日</span>
+                <span>· 20分钟 · 12条消息</span>
+              </div>
+              <div class="s-preview">AI: 这不是"懒"，是你的身体在保护自己…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+
+          <div class="s-item" onclick="enterChat(0)">
+
+            <div class="s-info">
+              <div class="s-title">和领导沟通很不顺，不知道怎么处理</div>
+              <div class="s-meta">
+                <span>3月8日</span>
+                <span>· 18分钟 · 14条消息</span>
+              </div>
+              <div class="s-preview">AI: 沟通不顺的时候容易自我怀疑，但问题不一定在你…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+
+          <div class="s-item" onclick="enterChat(1)">
+
+            <div class="s-info">
+              <div class="s-title">最近失眠比较严重，想聊聊</div>
+              <div class="s-meta">
+                <span>3月6日</span>
+                <span>· 25分钟 · 16条消息</span>
+              </div>
+              <div class="s-preview">AI: 睡前试试 4-7-8 呼吸法，很多人反馈有效…</div>
+            </div>
+            <span class="s-arrow">›</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     PAGE 2 — CHAT DETAIL
+     ================================================================ -->
+<div class="page off-right" id="pageChat">
+
+  <div class="ch">
+    <div class="ch-left">
+      <div class="h-orb" id="hOrb" onclick="toggleTip()">
+        <div class="h-orb-inner"></div>
+        <div class="h-orb-hl"></div>
+        <div class="h-orb-ring"></div>
+      </div>
+      <div>
+        <div class="ch-title">心灵树洞</div>
+        <div class="ch-status">
+          <span class="ch-dot"></span>
+          <span id="cStatus">倾听中</span>
+        </div>
+      </div>
+      <div class="orb-tip" id="orbTip">
+        <div class="ot-l">当前状态</div>
+        <div class="ot-v" id="otV">有些沉重</div>
+        <div class="ot-b"><div class="ot-f" id="otF" style="width:35%"></div></div>
+      </div>
+    </div>
+    <div class="ch-right">
+      <div class="ch-dur">
+        <span>⏱</span>
+        <span id="durT">00:00</span>
+      </div>
+      <button class="leave-btn" onclick="showLeaveDialog()">
+        <span>←</span> 离开
+      </button>
+    </div>
+  </div>
+
+  <div class="cm" id="cMsgs">
+    <div class="cm-inner" id="cInner"></div>
+  </div>
+
+  <div class="ci">
+    <div class="ci-box">
+      <button class="ci-btn" title="解压工具箱">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </button>
+      <textarea class="ci-inp" rows="1" placeholder="输入你的问题或感受..." id="cInp"
+                oninput="autoR(this)"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+      <button class="ci-send" onclick="send()">
+        <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+    <div class="mn">内容由 <span>DeepSeek V3</span> 生成，仅供参考</div>
+  </div>
+</div>
+
+<!-- Leave confirmation dialog -->
+<div class="leave-overlay" id="leaveOverlay" onclick="if(event.target===this)closeLeaveDialog()">
+  <div class="leave-dialog">
+    <div class="leave-dialog-orb"></div>
+    <h3>要离开这次对话吗？</h3>
+    <p>每一段倾诉都是了不起的勇气。<br>你的对话记录会安全保存，<br>随时可以回来继续。</p>
+    <div class="leave-dialog-btns">
+      <button class="leave-stay" onclick="closeLeaveDialog()">再聊一会儿</button>
+      <button class="leave-go" onclick="confirmLeave()">下次再来</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="settings-header">
+      <h3>设置</h3>
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">个人偏好</div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#f3e8ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">个人资料</div>
+          <div class="settings-item-desc">昵称、头像</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fef3c7">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/><circle cx="12" cy="12" r="4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">聊天风格</div>
+          <div class="settings-item-desc">选择你喜欢的沟通方式</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#ecfdf5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">隐私与数据</div>
+          <div class="settings-item-desc">数据管理与导出</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">管理员 <span class="settings-admin-badge">ADMIN</span></div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fef2f2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">评测中心</div>
+          <div class="settings-item-desc">对话质量评估与优化</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#eef2ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">系统 Prompt</div>
+          <div class="settings-item-desc">查看与调整对话提示词</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+      <div class="settings-item">
+        <div class="settings-item-icon" style="background:#fdf4ff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="1.8" stroke-linecap="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        </div>
+        <div class="settings-item-text">
+          <div class="settings-item-label">监控面板</div>
+          <div class="settings-item-desc">Langfuse 对话追踪</div>
+        </div>
+        <span class="settings-item-arrow">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MOODS = {
+  0: { c:'100,116,180', l:'有些沉重', e:35, s:{c:'110,145,200',l:'慢慢放松',e:55} },
+  1: { c:'210,130,120', l:'心情不错', e:70, s:{c:'200,120,130',l:'充满活力',e:80} },
+  2: { c:'60,130,190',  l:'有些翻涌', e:40, s:{c:'80,155,200',l:'渐渐平静',e:60} },
+  3: { c:'195,140,80',  l:'想要放下', e:45, s:{c:'200,160,100',l:'释然一些',e:60} },
+};
+
+const CONVOS = [
+  [
+    {r:'ai',t:'嘿，感觉你有些事想说。最近怎么样？'},
+    {r:'user',t:'最近工作压力好大，每天都加班到很晚，感觉喘不过气…'},
+    {r:'ai',t:'听起来你最近确实承受了不少。每天加班到很晚，身体和心理都会觉得疲惫，这是很正常的反应。\n\n能具体说说是什么让你觉得压力最大吗？是工作量，还是某个具体的事情？'},
+    {r:'user',t:'主要是项目太多了，感觉永远做不完，还总被催'},
+    {r:'ai',t:'被催的感觉确实很不好受，好像自己怎么努力都不够似的。但其实你已经在很努力地扛着了。\n\n要不要试试一个方法：把手头的事情分成"今天必须做"和"可以明天做"两类？有时候，允许自己不把所有事情都做完，反而能减轻不少压力。'},
+  ],
+  [
+    {r:'ai',t:'你好呀，今天看起来状态不错。发生什么好事了吗？'},
+    {r:'user',t:'今天完成了一个重要的项目，心情特别好！'},
+    {r:'ai',t:'太棒了！完成一个重要项目的感觉一定很好。这说明你的努力得到了回报。\n\n可以聊聊是什么项目吗？我想听听你的成就感从哪里来。'},
+    {r:'user',t:'是一个筹备了三个月的产品上线，终于发布了'},
+    {r:'ai',t:'三个月的筹备，从构想到上线——这中间一定经历了不少挑战。能坚持到发布这一天，说明你的韧性很强。\n\n记住今天这种感觉，它是你能力的证明。'},
+  ],
+  [
+    {r:'ai',t:'嘿，最近好吗？有什么想聊聊的吗？'},
+    {r:'user',t:'最近总是静不下心来，感觉有很多事情悬在那里'},
+    {r:'ai',t:'这种"悬着"的感觉确实让人不安。好像有很多线头纠缠在一起，不知道该先抓哪一个。\n\n你能说说，现在脑子里最经常冒出来的是哪件事吗？'},
+    {r:'user',t:'工作上有个决定一直做不了，怕选错'},
+    {r:'ai',t:'怕选错是很自然的——说明你在认真对待这件事。但有时候，"怕选错"本身比"选错"更消耗人。\n\n一个小技巧：想想如果一年后再回头看，它还会像现在这么重要吗？'},
+  ],
+  [
+    {r:'ai',t:'你好，今天想聊点什么？'},
+    {r:'user',t:'觉得最近做什么都提不起劲，挺累的'},
+    {r:'ai',t:'提不起劲的时候真的很难受。明明知道有事要做，身体和心却像被按了暂停键。\n\n这种感觉持续多久了？'},
+    {r:'user',t:'大概两三周了吧，可能是之前太拼了'},
+    {r:'ai',t:'两三周，之前又很拼——你的身心可能在告诉你：该休息一下了。\n\n这不是"懒"，是你的身体在保护自己。如果可以的话，今晚给自己安排一个完全不用做任何事的时间段，哪怕只有半小时。'},
+  ],
+];
+
+const COMFORTS = ['正在倾听你的心声…','每一种情绪都值得被看见','慢慢来，不着急','你说的我都记住了'];
+
+let curConvo = 0, durSec = 0, durTimer = null, tipOpen = false, cIdx = 0;
+
+// Navigation
+function enterChat(idx) {
+  if (idx === null) idx = 0;
+  curConvo = idx;
+  const m = MOODS[idx] || MOODS[0];
+  document.documentElement.style.setProperty('--mood-color', m.c);
+  document.getElementById('otV').textContent = m.l;
+  document.getElementById('otF').style.width = m.e + '%';
+
+  document.getElementById('pageList').className = 'page off-left';
+  document.getElementById('pageChat').className = 'page center';
+
+  renderMsgs(CONVOS[idx] || CONVOS[0]);
+  startDur();
+}
+
+function showLeaveDialog() {
+  document.getElementById('leaveOverlay').classList.add('show');
+}
+function closeLeaveDialog() {
+  document.getElementById('leaveOverlay').classList.remove('show');
+}
+function confirmLeave() {
+  closeLeaveDialog();
+  stopDur();
+  tipOpen = false;
+  document.getElementById('orbTip').classList.remove('show');
+  document.getElementById('pageList').className = 'page center';
+  document.getElementById('pageChat').className = 'page off-right';
+}
+
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('show');
+}
+
+// Messages
+function renderMsgs(msgs) {
+  const el = document.getElementById('cInner');
+  el.innerHTML = '';
+  msgs.forEach(m => addMsg(m.r, m.t, false));
+  sb();
+}
+
+function addMsg(role, text, anim = true) {
+  const el = document.getElementById('cInner');
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  if (!anim) d.style.animation = 'none';
+
+  const b = document.createElement('div');
+  b.className = 'bub';
+  b.textContent = text;
+  d.appendChild(b);
+
+  const t = document.createElement('div');
+  t.className = 'msg-t';
+  t.textContent = new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  d.appendChild(t);
+
+  if (role === 'ai') {
+    const f = document.createElement('div');
+    f.className = 'msg-fb';
+    f.innerHTML = '<button class="fb">👍</button><button class="fb">👎</button>';
+    d.appendChild(f);
+  }
+  el.appendChild(d);
+  if (anim) sb();
+}
+
+function showTk() {
+  const el = document.getElementById('cInner');
+  const d = document.createElement('div');
+  d.className = 'tk-wrap'; d.id = 'tkEl';
+  d.innerHTML = `<div class="tk-body">
+    <div class="tk-o"><div class="tk-or"></div><div class="tk-om"></div><div class="tk-oc"></div></div>
+    <div class="tk-txt"><span class="tk-l">正在深入思考...</span><span class="tk-c" id="cTxt">${COMFORTS[0]}</span></div>
+  </div>`;
+  el.appendChild(d); sb();
+  cIdx = 0;
+  window._ci = setInterval(() => {
+    cIdx = (cIdx+1) % COMFORTS.length;
+    const c = document.getElementById('cTxt');
+    if(c){c.style.opacity=0;setTimeout(()=>{c.textContent=COMFORTS[cIdx];c.style.opacity=1;},250);}
+  }, 2500);
+}
+
+function hideTk() {
+  clearInterval(window._ci);
+  const t = document.getElementById('tkEl');
+  if(t) t.remove();
+}
+
+function sb() {
+  const c = document.getElementById('cMsgs');
+  requestAnimationFrame(() => c.scrollTop = c.scrollHeight);
+}
+
+// Send
+function send() {
+  const inp = document.getElementById('cInp');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  addMsg('user', txt);
+  inp.value = ''; autoR(inp);
+  document.getElementById('cStatus').textContent = '思考中…';
+  setTimeout(() => showTk(), 400);
+  setTimeout(() => {
+    hideTk();
+    document.getElementById('cStatus').textContent = '倾听中';
+    addMsg('ai', '嗯，我听到你了。能多说一些吗？不管是什么感受，在这里都可以自由地表达。');
+    const m = MOODS[curConvo] || MOODS[0];
+    setTimeout(() => {
+      document.documentElement.style.setProperty('--mood-color', m.s.c);
+      document.getElementById('otV').textContent = m.s.l;
+      document.getElementById('otF').style.width = m.s.e + '%';
+    }, 800);
+  }, 3500);
+}
+
+function autoR(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+}
+
+// Duration
+function startDur() {
+  durSec = 0; updDur();
+  durTimer = setInterval(() => { durSec++; updDur(); }, 1000);
+}
+function stopDur() { clearInterval(durTimer); }
+function updDur() {
+  const m = String(Math.floor(durSec/60)).padStart(2,'0');
+  const s = String(durSec%60).padStart(2,'0');
+  document.getElementById('durT').textContent = `${m}:${s}`;
+}
+
+// Tooltip
+function toggleTip() {
+  tipOpen = !tipOpen;
+  document.getElementById('orbTip').classList.toggle('show', tipOpen);
+}
+document.addEventListener('click', e => {
+  if (tipOpen && !e.target.closest('.h-orb') && !e.target.closest('.orb-tip')) {
+    tipOpen = false;
+    document.getElementById('orbTip').classList.remove('show');
+  }
+});
+</script>
+
+</body>
+</html>
