@@ -71,71 +71,10 @@ ${toolNames}
 - technique-appropriateness: 技术匹配 — 回应技术是否匹配当前场景`;
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const { runId } = await req.json();
-    if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
-
-    // 检查是否已有缓存
-    const cacheFile = path.join(ANALYSIS_DIR, `analysis-${runId.replace(/[^a-zA-Z0-9-_]/g, '_')}.json`);
-    if (fs.existsSync(cacheFile)) {
-      return NextResponse.json(JSON.parse(fs.readFileSync(cacheFile, 'utf-8')));
-    }
-
-    // 读取实验数据
-    const files = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('.json') && !f.includes('.status'));
-    let runData: any = null;
-    for (const f of files) {
-      try {
-        const data = JSON.parse(fs.readFileSync(path.join(RESULTS_DIR, f), 'utf-8'));
-        if (data.runId === runId) { runData = data; break; }
-      } catch { continue; }
-    }
-    if (!runData) return NextResponse.json({ error: 'Run not found' }, { status: 404 });
-
-    // 提取失败案例
-    const failCases: any[] = [];
-    for (const result of runData.results || []) {
-      for (const turn of result.turnResults || []) {
-        const codeFails = (turn.codeChecks || []).filter((c: any) => c.result !== 'pass');
-        const judgeFails = (turn.judgeResults || []).filter((j: any) => j.result !== 'Pass');
-        if (codeFails.length > 0 || judgeFails.length > 0) {
-          failCases.push({
-            caseId: result.caseId,
-            turnIndex: turn.turnIndex,
-            userInput: turn.userInput?.slice(0, 200),
-            aiReply: turn.aiReply?.slice(0, 300),
-            referenceReply: turn.referenceReply?.slice(0, 200),
-            referenceStrategy: turn.referenceStrategy,
-            codeFails: codeFails.map((c: any) => ({ check: c.check, detail: c.detail })),
-            judgeFails: judgeFails.map((j: any) => ({ dimension: j.dimension, critique: j.critique })),
-          });
-        }
-      }
-    }
-
-    if (failCases.length === 0) {
-      const result = { suggestions: [], summary: '所有评测项均通过，无需改进。' };
-      fs.writeFileSync(cacheFile, JSON.stringify(result, null, 2));
-      return NextResponse.json(result);
-    }
-
-    // 统计失败维度分布
-    const dimCounts: Record<string, number> = {};
-    for (const fc of failCases) {
-      for (const cf of fc.codeFails) dimCounts[cf.check] = (dimCounts[cf.check] || 0) + 1;
-      for (const jf of fc.judgeFails) dimCounts[jf.dimension] = (dimCounts[jf.dimension] || 0) + 1;
-    }
-    const dimSummary = Object.entries(dimCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([dim, count]) => `${dim}: ${count} 次失败`)
-      .join('\n');
-
-    // 构建分析 prompt
-    const systemContext = getSystemContext();
-    const failSample = failCases.slice(0, 15); // 最多 15 个失败案例
-
-    const analysisPrompt = `你是一个 AI 产品专家，擅长从评测结果中诊断 AI 应用的问题并给出结构化改进建议。
+/** 整体实验分析 prompt（原逻辑） */
+function buildRunAnalysisPrompt(systemContext: string, failCases: any[], dimSummary: string): string {
+  const failSample = failCases.slice(0, 15);
+  return `你是一个 AI 产品专家，擅长从评测结果中诊断 AI 应用的问题并给出结构化改进建议。
 
 ## 当前系统配置
 ${systemContext}
@@ -176,6 +115,133 @@ ${JSON.stringify(failSample, null, 2)}
 }
 
 只输出 JSON 数组，不要其他文字。按优先级从高到低排序。`;
+}
+
+/** 单用例深度分析 prompt */
+function buildCaseAnalysisPrompt(systemContext: string, caseId: string, allTurns: any[], _failCases: any[], dimSummary: string): string {
+  return `你是一个 AI 产品专家，擅长从单个对话用例中诊断 AI 回复的问题并给出针对性改进建议。
+
+## 当前系统配置
+${systemContext}
+
+## 分析对象
+用例 ID: ${caseId}
+
+## 完整对话轮次（共 ${allTurns.length} 轮）
+${JSON.stringify(allTurns, null, 2)}
+
+## 失败维度分布
+${dimSummary}
+
+## 你的任务
+
+深入分析这个用例的对话过程，给出**针对该用例**的具体改进建议。
+
+对每一轮失败的回复：
+1. **诊断根因**：为什么 AI 的回复不好？是共情不足、过早给建议、语言生硬、还是上下文断裂？
+2. **改写示例**：给出更好的回复示例（1-2 句话）
+3. **改进层级**：需要在哪个层面修改才能避免这类问题
+
+以 JSON 数组格式输出，每个元素结构:
+{
+  "layer": "prompt|model|tool|orchestration|guardrail|evaluator|data|engineering",
+  "title": "简短标题（针对具体轮次的问题）",
+  "description": "诊断根因 + 改进操作描述",
+  "betterReply": "更好的回复示例（可选）",
+  "turnIndex": 轮次编号,
+  "affectedDimensions": ["empathy-accuracy"],
+  "priority": "high|medium|low",
+  "failCount": 1
+}
+
+只输出 JSON 数组，不要其他文字。按轮次顺序排列。`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { runId, caseId } = await req.json();
+    if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
+
+    // 缓存键区分整体分析 vs 单用例分析
+    const sanitized = runId.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const cacheSuffix = caseId ? `-case-${caseId.replace(/[^a-zA-Z0-9-_:]/g, '_')}` : '';
+    const cacheFile = path.join(ANALYSIS_DIR, `analysis-${sanitized}${cacheSuffix}.json`);
+    if (fs.existsSync(cacheFile)) {
+      return NextResponse.json(JSON.parse(fs.readFileSync(cacheFile, 'utf-8')));
+    }
+
+    // 读取实验数据
+    const files = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('.json') && !f.includes('.status'));
+    let runData: any = null;
+    for (const f of files) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(RESULTS_DIR, f), 'utf-8'));
+        if (data.runId === runId) { runData = data; break; }
+      } catch { continue; }
+    }
+    if (!runData) return NextResponse.json({ error: 'Run not found' }, { status: 404 });
+
+    // 提取失败案例（如果指定 caseId 则只取该用例）
+    const failCases: any[] = [];
+    const allTurns: any[] = []; // 用于单用例模式，保存所有轮次（含通过的）
+    for (const result of runData.results || []) {
+      if (caseId && result.caseId !== caseId) continue;
+      for (const turn of result.turnResults || []) {
+        const codeFails = (turn.codeChecks || []).filter((c: any) => c.result !== 'pass');
+        const judgeFails = (turn.judgeResults || []).filter((j: any) => j.result !== 'Pass');
+
+        if (caseId) {
+          // 单用例模式：保存所有轮次的完整信息
+          allTurns.push({
+            turnIndex: turn.turnIndex,
+            userInput: turn.userInput?.slice(0, 300),
+            aiReply: turn.aiReply?.slice(0, 500),
+            referenceReply: turn.referenceReply?.slice(0, 300),
+            referenceStrategy: turn.referenceStrategy,
+            codeFails: codeFails.map((c: any) => ({ check: c.check, detail: c.detail })),
+            judgeFails: judgeFails.map((j: any) => ({ dimension: j.dimension, critique: j.critique })),
+            passed: codeFails.length === 0 && judgeFails.length === 0,
+          });
+        }
+
+        if (codeFails.length > 0 || judgeFails.length > 0) {
+          failCases.push({
+            caseId: result.caseId,
+            turnIndex: turn.turnIndex,
+            userInput: turn.userInput?.slice(0, 200),
+            aiReply: turn.aiReply?.slice(0, 300),
+            referenceReply: turn.referenceReply?.slice(0, 200),
+            referenceStrategy: turn.referenceStrategy,
+            codeFails: codeFails.map((c: any) => ({ check: c.check, detail: c.detail })),
+            judgeFails: judgeFails.map((j: any) => ({ dimension: j.dimension, critique: j.critique })),
+          });
+        }
+      }
+    }
+
+    if (failCases.length === 0) {
+      const result = { suggestions: [], summary: caseId ? `用例 ${caseId} 所有评测项均通过，无需改进。` : '所有评测项均通过，无需改进。' };
+      fs.writeFileSync(cacheFile, JSON.stringify(result, null, 2));
+      return NextResponse.json(result);
+    }
+
+    // 统计失败维度分布
+    const dimCounts: Record<string, number> = {};
+    for (const fc of failCases) {
+      for (const cf of fc.codeFails) dimCounts[cf.check] = (dimCounts[cf.check] || 0) + 1;
+      for (const jf of fc.judgeFails) dimCounts[jf.dimension] = (dimCounts[jf.dimension] || 0) + 1;
+    }
+    const dimSummary = Object.entries(dimCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([dim, count]) => `${dim}: ${count} 次失败`)
+      .join('\n');
+
+    // 构建分析 prompt
+    const systemContext = getSystemContext();
+
+    const analysisPrompt = caseId
+      ? buildCaseAnalysisPrompt(systemContext, caseId, allTurns, failCases, dimSummary)
+      : buildRunAnalysisPrompt(systemContext, failCases, dimSummary);
 
     // 调用 DeepSeek 分析
     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -210,7 +276,9 @@ ${JSON.stringify(failSample, null, 2)}
     if (jsonMatch) {
       try {
         suggestions = JSON.parse(jsonMatch[0]);
-        summary = `共分析 ${failCases.length} 个失败案例，生成 ${suggestions.length} 条改进建议。`;
+        summary = caseId
+          ? `用例 ${caseId} 共 ${failCases.length} 个失败轮次，生成 ${suggestions.length} 条改进建议。`
+          : `共分析 ${failCases.length} 个失败案例，生成 ${suggestions.length} 条改进建议。`;
       } catch {
         summary = `分析完成但 JSON 解析失败。原始输出：${text.slice(0, 500)}`;
       }

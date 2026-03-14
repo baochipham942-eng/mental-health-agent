@@ -4,7 +4,7 @@ import { SafetyAssessmentSchema } from '../schemas';
 
 export type SafetyAssessment = z.infer<typeof SafetyAssessmentSchema>;
 
-const SAFETY_OBSERVER_PROMPT = `你是一位专业的心理安全观察员。你的唯一任务是分析用户输入，检测潜在的自伤、自杀、暴力或严重的心理危机风险。
+export const SAFETY_OBSERVER_PROMPT = `你是一位专业的心理安全观察员。你的唯一任务是分析用户输入，检测潜在的自伤、自杀、暴力或严重的心理危机风险。
 
 **评估标准**：
 1. **风险等级**：

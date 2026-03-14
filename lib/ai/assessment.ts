@@ -19,7 +19,7 @@ const FINISH_ASSESSMENT_TOOL = {
 /**
  * 心理评估持续对话 Prompt (MVP Simplified)
  */
-const ASSESSMENT_LOOP_PROMPT = `你是一位专业的心理咨询师。目前处于初步了解阶段，你的任务是温和地引导用户分享。
+export const ASSESSMENT_LOOP_PROMPT = `你是一位专业的心理咨询师。目前处于初步了解阶段，你的任务是温和地引导用户分享。
 
 **核心原则**：
 1. **循序渐进**：每次回复只关注 1 个核心点（情境、想法、情绪或行为）。不要一次性列出所有问题，以免让用户感到压力。

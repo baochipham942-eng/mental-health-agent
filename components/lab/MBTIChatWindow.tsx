@@ -8,7 +8,7 @@ import { IconSend, IconClose, IconUser } from '@arco-design/web-react/icon';
 import { MBTIPersona } from '@/lib/ai/mbti/personas';
 import { cn } from '@/lib/utils/cn';
 import ReactMarkdown from 'react-markdown';
-import { VoiceInputButton } from '@/components/chat/VoiceInputButton';
+// VoiceInputButton not used in lab chat
 
 interface MBTIChatWindowProps {
     userMbti: string; // The user's own type
@@ -98,9 +98,9 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-white animate-fade-in"
         >
-            <div className="w-full md:max-w-2xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] max-h-none md:max-h-[800px] border border-gray-200">
+            <div className="w-full bg-white overflow-hidden flex flex-col h-[100dvh]">
 
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex items-center justify-between ${headerClass} sticky top-0 z-10`}>
@@ -137,14 +137,14 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                         <div
                             key={m.id}
                             className={cn(
-                                "flex gap-4 max-w-[90%]",
-                                m.role === 'user' ? "ml-auto flex-row-reverse" : ""
+                                "flex gap-3 mb-4",
+                                m.role === 'user' ? "max-w-[80%] ml-auto flex-row-reverse" : "max-w-[85%]"
                             )}
                         >
                             {/* Avatar */}
                             <div className={cn(
                                 "flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border shadow-sm",
-                                m.role === 'user' ? "bg-indigo-600 border-indigo-600" : "bg-white border-gray-200"
+                                m.role === 'user' ? "bg-blue-600 border-blue-600" : "bg-white border-gray-200"
                             )}>
                                 {m.role === 'user' ? (
                                     <IconUser className="text-white text-sm" />
@@ -156,10 +156,10 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             {/* Message Bubble */}
                             <div
                                 className={cn(
-                                    "px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm border",
+                                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-sm",
                                     m.role === 'user'
-                                        ? "bg-indigo-600 text-white border-indigo-600 rounded-tr-sm"
-                                        : "bg-gray-50 text-gray-800 border-gray-100 rounded-tl-sm"
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-white text-gray-900 shadow-glow border border-indigo-50/50 msg-bubble-ai"
                                 )}
                             >
                                 {m.role === 'user' ? (
@@ -183,20 +183,22 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             if (!input.trim()) { e.preventDefault(); return; }
                             handleSubmit(e);
                         }}
-                        className="flex gap-3 relative"
+                        className="flex gap-2 items-center"
                     >
-                        <Input
-                            value={input}
-                            onChange={(e) => handleInputChange({ target: { value: e } } as any)}
-                            placeholder={`作为 ${userMbti}，你想对 TA 说...`}
-                            className="px-4 py-3 h-12 rounded-xl bg-gray-50 border-transparent hover:bg-white hover:border-indigo-300 focus:bg-white focus:border-indigo-500 transition-all text-base"
-                            autoFocus
-                        />
-                        {/* VoiceInputButton removed for Lab chat - not needed here */}
+                        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5">
+                            <Input
+                                value={input}
+                                onChange={(e) => handleInputChange({ target: { value: e } } as any)}
+                                placeholder={`作为 ${userMbti}，你想对 TA 说...`}
+                                className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
+                                autoFocus
+                            />
+                        </div>
                         <Button
                             type="primary"
                             htmlType="submit"
-                            className="h-12 w-12 rounded-xl flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-md transition-all"
+                            shape="circle"
+                            className="w-11 h-11 flex-shrink-0"
                             icon={<IconSend />}
                             loading={isLoading}
                             disabled={!input.trim() || isLoading}

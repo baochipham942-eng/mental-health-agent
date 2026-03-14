@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, Tag, Table, Spin, Empty, Button, Tabs, Message, Input, Modal, Progress } from '@arco-design/web-react';
-import { IconArrowLeft, IconLeft, IconRight } from '@arco-design/web-react/icon';
+import { IconLeft, IconRight } from '@arco-design/web-react/icon';
 import type { ColumnProps } from '@arco-design/web-react/es/Table';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 const TabPane = Tabs.TabPane;
 
@@ -72,7 +72,7 @@ function humanStatusTag(s: string | null) {
 
 export default function ExperimentDetailPage() {
   const params = useParams();
-  const router = useRouter();
+
   const searchParams = useSearchParams();
   const runId = decodeURIComponent(params.runId as string);
 
@@ -91,10 +91,14 @@ export default function ExperimentDetailPage() {
   const [annotNote, setAnnotNote] = useState('');
   const [annotSaving, setAnnotSaving] = useState(false);
 
-  // AI 分析
+  // AI 分析（实验级）
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
+
+  // AI 分析（用例级）
+  const [caseAnalysisData, setCaseAnalysisData] = useState<any>(null);
+  const [caseAnalysisLoading, setCaseAnalysisLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -145,12 +149,33 @@ export default function ExperimentDetailPage() {
     finally { setLoading(false); }
   };
 
+  const runCaseAiAnalysis = async (targetCaseId: string) => {
+    setCaseAnalysisLoading(true);
+    try {
+      const res = await fetch('/api/eval/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ runId, caseId: targetCaseId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCaseAnalysisData(data);
+        if ((data.suggestions || []).length > 0) Message.success(`生成 ${data.suggestions.length} 条建议`);
+      } else {
+        const err = await res.json();
+        Message.error(err.error || 'AI 分析失败');
+      }
+    } catch { Message.error('请求失败'); }
+    finally { setCaseAnalysisLoading(false); }
+  };
+
   const openCase = async (caseId: string) => {
     setCaseModalVisible(true);
     setCaseLoading(true);
     setAnnotStatus('');
     setAnnotTags('');
     setAnnotNote('');
+    setCaseAnalysisData(null);
 
     try {
       const res = await fetch(`/api/eval/runs/${encodeURIComponent(runId)}/cases?caseId=${encodeURIComponent(caseId)}`);
@@ -294,21 +319,15 @@ export default function ExperimentDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
-      {/* 返回 + 标题 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button icon={<IconArrowLeft />} size="small" onClick={() => router.push('/dashboard/optimization')} />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-gray-900">{runId.replace('academic-', '').slice(0, 25)}</h2>
-              {runMeta?.mode && <Tag color={runMeta.mode === 'product' ? 'purple' : 'arcoblue'} size="small">{runMeta.mode}</Tag>}
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              模型: {runMeta?.model || '-'} | 数据集: {runMeta?.dataset || '-'} | 创建: {runMeta?.timestamp || '-'}
-            </div>
-          </div>
+      {/* 标题 */}
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900">{runId.replace('academic-', '').slice(0, 25)}</h2>
+          {runMeta?.mode && <Tag color={runMeta.mode === 'product' ? 'purple' : 'arcoblue'} size="small">{runMeta.mode}</Tag>}
         </div>
-        <Button size="small" onClick={() => router.push('/dashboard/optimization')}>返回</Button>
+        <div className="text-xs text-gray-400 mt-0.5">
+          模型: {runMeta?.model || '-'} | 数据集: {runMeta?.dataset || '-'} | 创建: {runMeta?.timestamp || '-'}
+        </div>
       </div>
 
       {/* 统计卡片 */}
@@ -453,28 +472,34 @@ export default function ExperimentDetailPage() {
         visible={caseModalVisible}
         onCancel={() => { setCaseModalVisible(false); setSelectedCase(null); }}
         footer={null}
+        closable={false}
         style={{ width: 960, maxWidth: '95vw', top: 40 }}
         unmountOnExit
       >
         <Spin loading={caseLoading}>
           {selectedCase && (
             <div className="space-y-4">
-              {/* 头部：用例 ID + 导航 */}
+              {/* 头部：用例 ID + 导航 + 关闭 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold">用例 {selectedCase.caseId.includes(':') ? selectedCase.caseId.split(':').pop() : selectedCase.caseId}</h3>
                   {humanStatusTag(selectedCase.results?.[0]?.human_status)}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <Button icon={<IconLeft />} size="small" disabled={!selectedCase.navigation.prev}
                     onClick={() => navigateCase('prev')}>上一个</Button>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 mx-1">
                     {selectedCase.navigation.current}/{selectedCase.navigation.total}
                   </span>
                   <Button size="small" disabled={!selectedCase.navigation.next}
                     onClick={() => navigateCase('next')}>
                     下一个 <IconRight />
                   </Button>
+                  <div className="w-px h-5 bg-gray-200 mx-1.5" />
+                  <Button size="small" type="text"
+                    onClick={() => { setCaseModalVisible(false); setSelectedCase(null); }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >✕</Button>
                 </div>
               </div>
 
@@ -517,7 +542,7 @@ export default function ExperimentDetailPage() {
                     <span>状态: <b className="text-gray-700">{runMeta?.status || '-'}</b></span>
                   </div>
                   <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-                    {selectedCase.results.map(t => {
+                    {selectedCase.results.map((t, idx) => {
                       const judges = t.judge_results_json ? JSON.parse(t.judge_results_json) : {};
                       const codes = t.code_checks_json ? JSON.parse(t.code_checks_json) : {};
                       const fails = [
@@ -529,7 +554,7 @@ export default function ExperimentDetailPage() {
                       return (
                         <div key={t.turn_index} className="border rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-2">
-                            <Tag size="small" color="gray">Turn {t.turn_index + 1}</Tag>
+                            <Tag size="small" color="gray">第 {idx + 1} 轮</Tag>
                             <Tag size="small" color={allPass ? 'green' : 'red'}>{allPass ? 'PASS' : 'FAIL'}</Tag>
                             <span className="text-xs text-gray-400">{t.ttft_ms}ms</span>
                             {t.route_type && <Tag size="small" color="cyan">{t.route_type}</Tag>}
@@ -595,6 +620,69 @@ export default function ExperimentDetailPage() {
                         </Card>
                       );
                     })}
+                  </div>
+                </TabPane>
+
+                <TabPane key="ai-analysis" title="AI 分析">
+                  <div className="max-h-[60vh] overflow-y-auto">
+                    {!caseAnalysisData && !caseAnalysisLoading && (
+                      <div className="flex flex-col items-center justify-center py-10">
+                        <p className="text-sm text-gray-400 mb-3">对当前用例进行 AI 深度分析</p>
+                        <Button type="primary" size="small" onClick={() => runCaseAiAnalysis(selectedCase.caseId)}>
+                          开始分析
+                        </Button>
+                      </div>
+                    )}
+                    {caseAnalysisLoading && (
+                      <div className="flex items-center justify-center py-10">
+                        <Spin size={24} />
+                        <span className="text-xs text-gray-400 ml-2">正在分析用例...</span>
+                      </div>
+                    )}
+                    {caseAnalysisData && (
+                      <div className="space-y-3">
+                        {caseAnalysisData.summary && (
+                          <div className="text-xs text-gray-500 mb-2">{caseAnalysisData.summary}</div>
+                        )}
+                        {(caseAnalysisData.suggestions || []).map((s: any, i: number) => {
+                          const layerColors: Record<string, string> = {
+                            prompt: 'purple', model: 'orange', tool: 'cyan', orchestration: 'arcoblue',
+                            guardrail: 'red', evaluator: 'gray', data: 'green', engineering: 'gold',
+                          };
+                          const priorityColors: Record<string, string> = { high: 'red', medium: 'orange', low: 'gray' };
+                          return (
+                            <div key={i} className="border border-gray-100 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <Tag size="small" color={layerColors[s.layer] || 'gray'}>{s.layer}</Tag>
+                                <Tag size="small" color={priorityColors[s.priority] || 'gray'}>{s.priority}</Tag>
+                                {s.turnIndex !== undefined && <Tag size="small" color="gray">Turn {s.turnIndex + 1}</Tag>}
+                                <span className="font-medium text-sm text-gray-900">{s.title}</span>
+                              </div>
+                              <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
+                              {s.betterReply && (
+                                <div className="bg-green-50 border border-green-100 rounded-lg p-2.5 mb-1.5">
+                                  <div className="text-xs text-green-700 font-medium mb-1">更好的回复示例</div>
+                                  <div className="text-xs text-green-800">{s.betterReply}</div>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {(s.affectedDimensions || []).map((d: string) => (
+                                  <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {(caseAnalysisData.suggestions || []).length === 0 && (
+                          <div className="text-sm text-green-600 text-center py-6">所有评测项均通过，无需改进</div>
+                        )}
+                        <div className="pt-2">
+                          <Button size="small" type="text" onClick={() => { setCaseAnalysisData(null); runCaseAiAnalysis(selectedCase.caseId); }}>
+                            重新分析
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabPane>
 

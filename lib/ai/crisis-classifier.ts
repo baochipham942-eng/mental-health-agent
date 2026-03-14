@@ -21,7 +21,7 @@ export interface CrisisClassificationResult {
 
 // ========== Layer 1: Few-shot 快速危机检测 ==========
 
-const CRISIS_FEW_SHOT_PROMPT = `判断用户消息是否包含明确的自杀、自伤或结束生命的意图。只回答 YES 或 NO。
+export const CRISIS_FEW_SHOT_PROMPT = `判断用户消息是否包含明确的自杀、自伤或结束生命的意图。只回答 YES 或 NO。
 注意：仅当消息中有明确的死亡/自伤意愿时才回答 YES。普通的负面情绪、压力、低落不算。
 
 YES 的例子（有明确自杀/自伤意图）：
@@ -160,7 +160,7 @@ export interface DeescalationResult {
     reason: string;
 }
 
-const DEESCALATION_FEW_SHOT_PROMPT = `你是心理危机评估专家。用户当前处于危机状态，请根据用户的最新消息和对话历史，判断用户是否**真正**脱离了危机。
+export const DEESCALATION_FEW_SHOT_PROMPT = `你是心理危机评估专家。用户当前处于危机状态，请根据用户的最新消息和对话历史，判断用户是否**真正**脱离了危机。
 
 **判断原则**：
 1. 宁可保守也不能轻率脱离危机状态

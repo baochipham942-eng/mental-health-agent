@@ -44,7 +44,7 @@ const DEFAULT_QUALITY: QualityOutput = {
     suggestions: [],
 };
 
-const QUALITY_PROMPT = `你是AI心理咨询回复质检专家。快速评估回复质量，输出JSON。
+export const QUALITY_PROMPT = `你是AI心理咨询回复质检专家。快速评估回复质量，输出JSON。
 
 检查项：
 1. 回复是否匹配当前对话阶段（support不做评估，assessment不做闲聊）

@@ -31,7 +31,7 @@ const DEFAULT_SAFE: SafetyAssessment = {
     constraints: [],
 };
 
-const SAFETY_PROMPT = `你是一位专业的心理安全深度评估专家。Triage 阶段已初步检测到潜在风险信号，你需要进行更深入的分析。
+export const SAFETY_AGENT_PROMPT = `你是一位专业的心理安全深度评估专家。Triage 阶段已初步检测到潜在风险信号，你需要进行更深入的分析。
 
 **评估维度**：
 1. **即时风险**：是否有明确的自伤/自杀计划或正在实施？
@@ -57,7 +57,7 @@ class SafetyAgentImpl extends BaseAgent<SafetyInput, SafetyAssessment> {
         super({
             name: 'safety',
             model: 'deepseek-chat',
-            systemPrompt: SAFETY_PROMPT,
+            systemPrompt: SAFETY_AGENT_PROMPT,
             timeout: 5000,
             fallbackData: DEFAULT_SAFE,
         });

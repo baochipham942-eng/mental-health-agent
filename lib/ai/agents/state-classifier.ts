@@ -32,7 +32,7 @@ export const StateClassificationSchema = z.object({
 export type SCEBProgress = z.infer<typeof SCEBProgressSchema>;
 export type StateClassification = z.infer<typeof StateClassificationSchema>;
 
-const STATE_CLASSIFIER_PROMPT = `你是一位对话状态分析专家。你的任务是分析心理咨询对话的进展，判断 SCEB 要素的收集完成度。
+export const STATE_CLASSIFIER_PROMPT = `你是一位对话状态分析专家。你的任务是分析心理咨询对话的进展，判断 SCEB 要素的收集完成度。
 
 **SCEB 要素**：
 - **Situation（情境）**：用户遇到的具体情况、事件、场景

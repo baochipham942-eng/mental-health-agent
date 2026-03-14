@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Modal, Message as ArcoMessage, Avatar } from '@arco-design/web-react';
-import { IconDelete, IconBulb } from '@arco-design/web-react/icon';
+import { IconDelete, IconSettings } from '@arco-design/web-react/icon';
 import { useChatStore } from '@/store/chatStore';
 import { completeSession } from '@/lib/actions/chat';
 import { generateSummaryForSession } from '@/lib/actions/summary';
 import { Logo } from '@/components/logo/Logo';
-import { signOut } from 'next-auth/react';
+import { SettingsPanel } from './SettingsPanel';
 
 interface Session {
   id: string;
@@ -63,7 +63,7 @@ const QUICK_ACTIONS = [
   {
     key: 'lab',
     label: '探索工坊',
-    desc: '更多成长工具',
+    desc: '大师对话 · MBTI · 圆桌',
     path: '/dashboard/lab',
     iconBg: 'bg-cyan-50',
     iconColor: 'text-cyan-600',
@@ -97,6 +97,7 @@ export function SessionListPage({
   isAdmin,
 }: SessionListPageProps) {
   const { isConsulting, currentSessionId, resetConversation } = useChatStore();
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const handleNewChat = () => {
     if (isConsulting && currentSessionId) {
@@ -134,33 +135,37 @@ export function SessionListPage({
   return (
     <div className="h-full flex flex-col bg-[#F7F8FA]">
       {/* 顶部栏 */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 md:px-10 py-5 bg-white border-b border-gray-100">
+      <div className="flex-shrink-0 flex items-center justify-between px-6 md:px-10 py-4 bg-white border-b border-gray-100">
         <Logo />
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 hidden md:inline">
-            {greeting}，<strong className="text-gray-800">{displayName}</strong>
+            {greeting}
           </span>
-          {/* 用户头像 + 退出 */}
-          <div className="relative group cursor-pointer">
-            <Avatar size={34} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
+          {/* 头像+昵称整体，点击打开设置 */}
+          <button
+            onClick={() => setSettingsVisible(true)}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            <Avatar size={32} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
               {avatar ? (
                 <img src={avatar} alt={displayName} />
               ) : (
                 displayName[0]?.toUpperCase() || 'U'
               )}
             </Avatar>
-            <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[120px] opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all z-50">
-              <div className="absolute -top-1.5 right-4 w-3 h-3 bg-white border-l border-t border-gray-100 rotate-45" />
-              <button
-                onClick={() => signOut()}
-                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
-                退出登录
-              </button>
-            </div>
-          </div>
+            <span className="text-sm font-medium text-gray-800 hidden md:inline">{displayName}</span>
+          </button>
         </div>
       </div>
+
+      {/* 设置面板 */}
+      <SettingsPanel
+        visible={settingsVisible}
+        onClose={() => setSettingsVisible(false)}
+        nickname={nickname || ''}
+        avatar={avatar || ''}
+        isAdmin={isAdmin}
+      />
 
       {/* 主内容 — 双栏 */}
       <div className="flex-1 overflow-hidden flex justify-center px-6 md:px-10 py-6 md:py-8 gap-6 md:gap-8">
@@ -200,21 +205,20 @@ export function SessionListPage({
               </Link>
             ))}
 
-            {/* 管理员入口 */}
-            {isAdmin && (
-              <Link
-                href="/dashboard/optimization"
-                className="flex items-center gap-3.5 px-4 py-3 bg-white rounded-2xl cursor-pointer transition-all hover:shadow-md border border-transparent hover:border-amber-200 flex-1 min-h-0"
-              >
-                <div className="w-[38px] h-[38px] rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
-                  <IconBulb style={{ fontSize: 20 }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-800">评测中心</div>
-                  <div className="text-[11px] text-gray-400 mt-0.5">管理员</div>
-                </div>
-              </Link>
-            )}
+            {/* 设置入口 */}
+            <button
+              onClick={() => setSettingsVisible(true)}
+              className="flex items-center gap-3.5 px-4 py-3 bg-white rounded-2xl cursor-pointer transition-all hover:shadow-md border border-transparent hover:border-gray-200 flex-1 min-h-0 w-full text-left"
+            >
+              <div className="w-[38px] h-[38px] rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center flex-shrink-0">
+                <IconSettings style={{ fontSize: 20 }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-800">设置</div>
+                <div className="text-[11px] text-gray-400 mt-0.5">个人偏好与管理</div>
+              </div>
+              <span className="text-gray-300 text-base flex-shrink-0">›</span>
+            </button>
           </div>
         </div>
 
@@ -360,7 +364,7 @@ function SessionItem({
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <span>{session.relativeDate}</span>
           {session.status === 'COMPLETED' && (
-            <span className="text-emerald-500">已完成</span>
+            <span className="text-gray-400">已结束</span>
           )}
         </div>
       </div>

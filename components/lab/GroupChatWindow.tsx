@@ -133,9 +133,9 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-white animate-fade-in"
         >
-            <div className="w-full md:max-w-3xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[90vh] max-h-none md:max-h-[900px] border border-gray-200">
+            <div className="w-full bg-white overflow-hidden flex flex-col h-[100dvh]">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b bg-gradient-to-r from-violet-50 to-indigo-50 sticky top-0 z-10">
@@ -198,11 +198,11 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 
                             {/* 消息渲染 */}
                             {msg.role === 'user' ? (
-                                <div className="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
-                                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center border border-indigo-600 shadow-sm">
+                                <div className="flex gap-3 max-w-[80%] ml-auto flex-row-reverse">
+                                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center border border-blue-600 shadow-sm">
                                         <IconUser className="text-white text-sm" />
                                     </div>
-                                    <div className="px-4 py-3 rounded-2xl rounded-tr-sm bg-indigo-600 text-white text-[15px] leading-relaxed shadow-sm border border-indigo-600">
+                                    <div className="px-4 py-3 rounded-xl bg-blue-600 text-white text-[15px] leading-relaxed shadow-sm">
                                         {msg.content}
                                     </div>
                                 </div>
@@ -263,25 +263,28 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="flex items-center gap-3">
-                        <Input
-                            value={input}
-                            onChange={(val) => setInput(val)}
-                            placeholder="发送新话题或追问..."
-                            className="flex-1 px-4 py-3 h-12 !rounded-xl bg-gray-50 border border-gray-200 hover:border-violet-300 focus:bg-white focus:border-violet-400 focus:shadow-[0_0_0_2px_rgba(139,92,246,0.1)] transition-all text-base"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
-                                    e.preventDefault();
-                                    handleSubmit();
-                                }
-                            }}
-                            disabled={isLoading}
-                        />
+                    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5">
+                            <Input
+                                value={input}
+                                onChange={(val) => setInput(val)}
+                                placeholder="发送新话题或追问..."
+                                className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                                        e.preventDefault();
+                                        handleSubmit();
+                                    }
+                                }}
+                                disabled={isLoading}
+                            />
+                        </div>
                         {isLoading ? (
                             <Button
                                 type="outline"
                                 onClick={stop}
-                                className="h-12 w-12 !rounded-xl flex-shrink-0"
+                                shape="circle"
+                                className="w-11 h-11 flex-shrink-0"
                             >
                                 ■
                             </Button>
@@ -289,7 +292,8 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                             <Button
                                 type="primary"
                                 htmlType="submit"
-                                className="h-12 w-12 !rounded-xl flex-shrink-0 !bg-violet-600 hover:!bg-violet-700 shadow-md transition-all"
+                                shape="circle"
+                                className="w-11 h-11 flex-shrink-0"
                                 icon={<IconSend />}
                                 disabled={!input.trim()}
                             />
@@ -380,7 +384,7 @@ function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStream
                 </div>
 
                 <div className={cn(
-                    "px-4 py-3 rounded-2xl rounded-tl-sm text-[15px] leading-relaxed shadow-sm border",
+                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-sm border",
                     bubbleColor
                 )}>
                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 text-gray-800">

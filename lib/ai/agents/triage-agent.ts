@@ -33,7 +33,7 @@ const CONSERVATIVE_TRIAGE: QuickAnalysis = {
     safetyReasoning: '分析服务不可用，采用保守策略',
 };
 
-const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输出 JSON，不要任何解释。
+export const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输出 JSON，不要任何解释。
 
 返回格式：
 {

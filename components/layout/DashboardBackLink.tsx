@@ -1,18 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 /**
- * Dashboard 返回按钮 — 仅在非 optimization 子页面显示
- * optimization 有自己的 EvalNav 已内置返回
+ * Dashboard 返回按钮 — 所有 dashboard 子页面统一显示
  */
 export function DashboardBackLink() {
-    const pathname = usePathname();
-
-    // optimization 子页面由 EvalNav 处理返回
-    if (pathname.startsWith('/dashboard/optimization')) return null;
-
     return (
         <div className="flex-shrink-0 px-6 pt-3 pb-1">
             <Link
