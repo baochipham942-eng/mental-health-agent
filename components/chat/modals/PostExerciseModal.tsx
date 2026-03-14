@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Modal, Button, Input } from '@arco-design/web-react';
 
 interface PostExerciseModalProps {
     isOpen: boolean;
@@ -13,59 +14,66 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
     const [score, setScore] = useState<number | null>(null);
     const [feedback, setFeedback] = useState('');
 
-    if (!isOpen) return null;
-
-    const handleScoreSubmit = (s: number) => {
+    function handleScoreSubmit(s: number) {
         setScore(s);
         setStep('feedback');
-    };
+    }
 
-    const handleFinalSubmit = () => {
+    function handleFinalSubmit() {
         if (score !== null) {
             onSubmit(score, feedback);
         }
-    };
+    }
+
+    function handleClose() {
+        setStep('score');
+        setScore(null);
+        setFeedback('');
+        onClose();
+    }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">练习完成！</h3>
-
-                {step === 'score' ? (
-                    <>
-                        <p className="text-sm text-gray-600 mb-4">你现在感觉如何？（0=非常糟糕，10=非常棒）</p>
-                        <div className="grid grid-cols-6 gap-2 mb-4">
-                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => handleScoreSubmit(s)}
-                                    className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-xl font-medium transition-colors"
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={onClose} className="w-full text-sm text-gray-400">跳过</button>
-                    </>
-                ) : (
-                    <>
-                        <p className="text-sm text-gray-600 mb-2">有什么想记录的吗？（可选）</p>
-                        <textarea
-                            className="w-full p-2 border border-gray-300 rounded-xl mb-4 text-sm"
-                            rows={3}
-                            placeholder="写下你的感受..."
-                            value={feedback}
-                            onChange={(e) => setFeedback(e.target.value)}
-                        />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500">跳过</button>
-                            <button onClick={handleFinalSubmit} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm">
-                                提交
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
+        <Modal
+            title="练习完成！"
+            visible={isOpen}
+            onCancel={handleClose}
+            footer={null}
+            maskClosable={false}
+            style={{ width: 480, maxWidth: '95vw' }}
+        >
+            {step === 'score' ? (
+                <>
+                    <p className="text-sm text-gray-500 mb-4">你现在感觉如何？（0=非常糟糕，10=非常棒）</p>
+                    <div className="grid grid-cols-6 gap-2 mb-4">
+                        {Array.from({ length: 11 }, (_, i) => i).map(s => (
+                            <Button
+                                key={s}
+                                type="secondary"
+                                size="small"
+                                onClick={() => handleScoreSubmit(s)}
+                            >
+                                {s}
+                            </Button>
+                        ))}
+                    </div>
+                    <Button type="text" long onClick={handleClose} className="text-gray-400">跳过</Button>
+                </>
+            ) : (
+                <>
+                    <p className="text-sm text-gray-500 mb-2">有什么想记录的吗？（可选）</p>
+                    <Input.TextArea
+                        placeholder="写下你的感受..."
+                        rows={3}
+                        value={feedback}
+                        onChange={setFeedback}
+                        className="mb-4"
+                    />
+                    <div className="flex justify-end gap-2">
+                        <Button onClick={handleClose}>跳过</Button>
+                        <Button type="primary" onClick={handleFinalSubmit}>提交</Button>
+                    </div>
+                </>
+            )}
+        </Modal>
     );
 }

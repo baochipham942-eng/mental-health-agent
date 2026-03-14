@@ -112,7 +112,7 @@ export default function BatchEvaluateModal({
             onCancel={evaluating ? undefined : onClose}
             onOk={handleSubmit}
             confirmLoading={evaluating}
-            style={{ width: 800 }}
+            style={{ width: 720, maxWidth: '95vw' }}
             okText={evaluating ? '评估中...' : '开始评估'}
             cancelText="取消"
             maskClosable={!evaluating}

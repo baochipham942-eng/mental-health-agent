@@ -72,9 +72,9 @@ export function PromptViewer({ data }: { data: PromptData }) {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 h-full flex flex-col overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
             {/* Header Level 1: Categories (按执行顺序) */}
-            <div className="flex-none px-6 py-4 bg-slate-50 border-b border-slate-200">
+            <div className="flex-none px-6 py-4 bg-gray-50 border-b border-gray-200">
                 <Radio.Group
                     type="button"
                     name="category"
@@ -91,7 +91,7 @@ export function PromptViewer({ data }: { data: PromptData }) {
             </div>
 
             {/* Header Level 2: Items in Category */}
-            <div className="flex-none px-4 pt-1 border-b border-slate-100 bg-white shadow-sm overflow-x-auto">
+            <div className="flex-none px-4 pt-1 border-b border-gray-100 bg-white shadow-sm overflow-x-auto">
                 <Tabs activeTab={activeTab} onChange={setActiveTab} type="line">
                     {currentCategory.items.map(item => (
                         <TabPane key={item} title={ITEM_LABELS[item] || item} />
@@ -106,7 +106,7 @@ export function PromptViewer({ data }: { data: PromptData }) {
                 </p>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-slate-50/50">
+            <div className="flex-1 overflow-auto p-4 bg-gray-50/50">
                 <div className="bg-slate-900 rounded-lg p-4 shadow-inner min-h-full">
                     <pre className="text-sm font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed">
                         {data[activeTab as keyof PromptData]}

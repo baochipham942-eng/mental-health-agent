@@ -148,11 +148,11 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                         <div className="absolute -inset-4 bg-sky-200/30 rounded-full blur-xl -z-10" />
                     </motion.div>
 
-                    <h3 className="text-lg font-bold text-slate-700 mb-2">呼吸练习</h3>
-                    <p className="text-[13px] text-slate-400 max-w-[220px] leading-[1.8] mb-6">
+                    <h3 className="text-lg font-bold text-gray-700 mb-2">呼吸练习</h3>
+                    <p className="text-[13px] text-gray-400 max-w-[220px] leading-[1.8] mb-6">
                         跟随圆圈的节奏呼吸<br />
                         吸气 4 秒 · 屏气 4 秒 · 呼气 6 秒<br />
-                        <span className="text-slate-300">建议完成 4 组</span>
+                        <span className="text-gray-300">建议完成 4 组</span>
                     </p>
 
                     <button
@@ -173,7 +173,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
         <div className="relative h-[380px] rounded-2xl overflow-hidden select-none">
             {/* 动态背景 — 随阶段变色 */}
             <motion.div
-                className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white"
+                className="absolute inset-0 bg-gradient-to-b from-gray-50 to-white"
                 key={phase}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -256,7 +256,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                             />
                         );
                     })}
-                    <span className="text-[11px] text-slate-400 ml-1">
+                    <span className="text-[11px] text-gray-400 ml-1">
                         {cycleCount < 4 ? `${cycleCount}/4 组` : `已完成 ${cycleCount} 组`}
                     </span>
                 </div>

@@ -328,11 +328,7 @@ main {
   }
 }
 
-/* ========================================
-   Arco Design Modal 样式优化 - 更紧凑
-   ======================================== */
-
-/* 减少 Modal 内边距 */
+/* Arco Design Modal — 紧凑样式 */
 .arco-modal {
   border-radius: 12px !important;
 }
@@ -344,6 +340,8 @@ main {
 
 .arco-modal-content {
   padding: 0 16px 8px !important;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
 }
 
 .arco-modal-footer {
@@ -351,36 +349,33 @@ main {
   border-top: none !important;
 }
 
-/* 确认弹窗专用 - 极度紧凑 */
-/* 直接针对 .arco-modal-simple 设置 padding */
+/* Arco Design Modal.confirm — 极度紧凑 */
 .arco-modal-simple {
   padding: 0 16px !important;
-  /* 上下0，左右减半(原32px) */
 }
 
-.arco-modal-confirm .arco-modal-confirm-wrapper,
-.arco-modal .arco-modal-confirm-wrapper,
 .arco-modal-confirm-wrapper {
   padding: 0 !important;
 }
 
-.arco-modal-confirm .arco-modal-confirm-title,
 .arco-modal-confirm-title {
   margin-bottom: 6px !important;
   padding-top: 0 !important;
 }
 
-.arco-modal-confirm .arco-modal-confirm-content,
 .arco-modal-confirm-content {
   margin-top: 0 !important;
   margin-bottom: 4px !important;
-  /* 减少与按钮的间距 */
   padding: 0 !important;
 }
 
-.arco-modal-confirm .arco-modal-confirm-btns,
 .arco-modal-confirm-btns {
   margin-top: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+}
+
+/* Arco Table — 危机管理 PENDING 行高亮 */
+.arco-table-tr.bg-red-50\/50 td {
+  background-color: rgb(254 242 242 / 0.5) !important;
 }

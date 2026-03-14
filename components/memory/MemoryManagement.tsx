@@ -135,7 +135,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
                     {items.map(memory => (
                         <div
                             key={memory.id}
-                            className="group bg-slate-50 rounded-lg p-3 hover:bg-slate-100 transition-colors"
+                            className="group bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors"
                         >
                             {editingId === memory.id ? (
                                 <div className="space-y-3">
@@ -195,7 +195,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
     return (
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             {/* 头部 */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <span className="text-xl">🧠</span>
                     <h2 className="text-lg font-semibold text-gray-800">我的记忆</h2>
@@ -232,8 +232,8 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
                         icon={<span className="text-4xl">🌱</span>}
                         description={
                             <div className="text-center">
-                                <p className="text-slate-500">还没有记忆</p>
-                                <p className="text-xs text-slate-400 mt-1">
+                                <p className="text-gray-500">还没有记忆</p>
+                                <p className="text-xs text-gray-400 mt-1">
                                     聊天过程中，我会记住对你重要的信息
                                 </p>
                             </div>
@@ -260,8 +260,8 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
             </div>
 
             {/* 底部说明 */}
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex-shrink-0">
-                <p className="text-xs text-slate-500 text-center">
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex-shrink-0">
+                <p className="text-xs text-gray-500 text-center">
                     💡 记忆帮助我更好地了解你，你可以随时编辑或删除
                 </p>
             </div>

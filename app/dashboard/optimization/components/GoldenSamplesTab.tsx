@@ -176,7 +176,7 @@ export default function GoldenSamplesTab({ onRowClick }: GoldenSamplesTabProps) 
 
             {samples.length === 0 ? (
                 <Empty
-                    icon={<IconStar style={{ fontSize: 48, color: '#ffc53d' }} />}
+                    icon={<IconStar className="text-yellow-400" style={{ fontSize: 48 }} />}
                     description="暂无黄金样本，用户点赞的回复会自动收集到这里"
                 />
             ) : (

@@ -30,19 +30,19 @@ function getEncouragement(timeline: ProgressTimeline): { text: string; sub: stri
 // 根据趋势返回主题色
 function getTheme(trend: 'improving' | 'stable' | 'worsening') {
   if (trend === 'improving') return {
-    bg: 'from-emerald-50 via-teal-50/50 to-slate-50',
+    bg: 'from-emerald-50 via-teal-50/50 to-gray-50',
     accent: 'text-emerald-600',
     badge: 'bg-emerald-100 text-emerald-700',
     badgeLabel: '好转中',
   };
   if (trend === 'worsening') return {
-    bg: 'from-amber-50 via-orange-50/30 to-slate-50',
+    bg: 'from-amber-50 via-orange-50/30 to-gray-50',
     accent: 'text-amber-600',
     badge: 'bg-amber-100 text-amber-700',
     badgeLabel: '需要关注',
   };
   return {
-    bg: 'from-indigo-50 via-purple-50/30 to-slate-50',
+    bg: 'from-indigo-50 via-purple-50/30 to-gray-50',
     accent: 'text-indigo-600',
     badge: 'bg-indigo-100 text-indigo-700',
     badgeLabel: '平稳',

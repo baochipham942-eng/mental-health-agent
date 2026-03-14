@@ -418,7 +418,7 @@ export default function InvitesPage() {
     };
 
     return (
-        <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 to-indigo-50">
+        <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-50 to-indigo-50">
             <div className="max-w-7xl mx-auto p-6 space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -544,6 +544,8 @@ export default function InvitesPage() {
                 onOk={handleCreate}
                 confirmLoading={creating}
                 okText="生成"
+                maskClosable={false}
+                style={{ width: 480, maxWidth: '95vw' }}
             >
                 <Form form={createForm} layout="vertical">
                     <FormItem
@@ -597,6 +599,8 @@ export default function InvitesPage() {
                 onOk={handleUpdate}
                 confirmLoading={updating}
                 okText="保存"
+                maskClosable={false}
+                style={{ width: 480, maxWidth: '95vw' }}
             >
                 <Form form={editForm} layout="vertical">
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg">

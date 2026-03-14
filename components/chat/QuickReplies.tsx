@@ -25,7 +25,7 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
 
     return (
       <div className="mt-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <p className="text-xs text-slate-500 mb-2 font-medium ml-1">
+        <p className="text-xs text-gray-500 mb-2 font-medium ml-1">
           关于自伤念头，目前的真实情况是：
         </p>
         <div className="flex flex-wrap gap-2 text-left">
@@ -56,7 +56,7 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
       <div className="mt-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
         <p className="text-xs text-gray-500 mb-2 font-medium ml-1">
           {scaleContext ? `请评估你的${scaleContext}: ` : ''}
-          <span className="text-slate-400 font-normal">(0 = 最低, 10 = 最高)</span>
+          <span className="text-gray-400 font-normal">(0 = 最低, 10 = 最高)</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: 11 }, (_, i) => i).map((num) => (
@@ -69,7 +69,7 @@ export function QuickReplies({ mode, onPick, options = [], scaleContext, disable
                 'bg-white text-gray-700 border border-gray-200',
                 'hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200',
                 // Highlight ends
-                (num === 0 || num === 10) && 'border-indigo-100 bg-slate-50',
+                (num === 0 || num === 10) && 'border-indigo-100 bg-gray-50',
                 'transition-all duration-200',
                 'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
                 disabled && 'opacity-50 cursor-not-allowed'

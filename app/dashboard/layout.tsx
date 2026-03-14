@@ -59,7 +59,7 @@ export default async function DashboardLayout({
     }));
 
     return (
-        <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-slate-50">
+        <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-gray-50">
             <AuthSync />
             {/* 侧边栏 (响应式：Mobile Drawer / Desktop Sidebar) */}
             <SidebarMobileWrapper

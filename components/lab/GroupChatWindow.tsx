@@ -133,8 +133,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 
     return createPortal(
         <div
-            className="fixed z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
-            style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
         >
             <div className="w-full md:max-w-3xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[90vh] max-h-none md:max-h-[900px] border border-gray-200">
 

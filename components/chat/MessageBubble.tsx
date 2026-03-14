@@ -537,7 +537,7 @@ export function MessageBubble({
                 ) : (
                   <>
                     {/* 其他阶段：正常渲染 message.content */}
-                    <div style={{ color: '#111827' }}>
+                    <div className="text-gray-900">
                       <ReactMarkdown remarkPlugins={[remarkBreaks]}>{displayContent || ''}</ReactMarkdown>
                     </div>
                     {/* Debug: 如果没内容，显示提示 */}

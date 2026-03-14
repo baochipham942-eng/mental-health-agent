@@ -126,7 +126,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                         flex items-center gap-2 rounded-lg p-2.5 text-sm font-medium transition-all
                         ${isActive
                             ? 'bg-indigo-50 text-indigo-700'
-                            : 'hover:bg-slate-50 text-gray-700 hover:text-indigo-600'
+                            : 'hover:bg-gray-50 text-gray-700 hover:text-indigo-600'
                         }
                     `}
                     style={{
@@ -150,7 +150,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                     </span>
                     <span className={`
                         text-xs flex-shrink-0 transition-opacity
-                        ${isActive ? 'text-indigo-400' : 'text-slate-400 group-hover:text-indigo-400'}
+                        ${isActive ? 'text-indigo-400' : 'text-gray-400 group-hover:text-indigo-400'}
                         group-hover:opacity-0
                     `}
                         style={{ fontSize: '12px', flexShrink: 0, color: isActive ? '#818cf8' : '#94a3b8' }}

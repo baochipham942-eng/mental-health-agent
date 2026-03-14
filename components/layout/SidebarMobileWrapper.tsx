@@ -39,7 +39,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
 
     // 管理员菜单项
     const adminItems = isAdmin ? [
-        { key: 'optimization', label: 'Prompt 优化', path: '/dashboard/optimization', icon: <IconBulb /> },
+        { key: 'optimization', label: '评测中心', path: '/dashboard/optimization', icon: <IconBulb /> },
         { key: 'prompts', label: '系统 Prompt', path: '/dashboard/prompts', icon: <IconDashboard /> },
     ] : [];
 
@@ -97,14 +97,14 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                     {header}
                     <div className="flex grow flex-col min-h-0 space-y-2 overflow-hidden">
                         <div className="flex flex-col min-h-0 grow">
-                            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider mt-5 mb-2 px-1">
+                            <div className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mt-5 mb-2 px-1">
                                 历史记录
                             </div>
                             <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin">
                                 {history}
                             </div>
                         </div>
-                        <div className="flex-shrink-0 mt-auto pt-3 border-t border-slate-100">
+                        <div className="flex-shrink-0 mt-auto pt-3 border-t border-gray-100">
                             {userMenu}
                         </div>
                     </div>

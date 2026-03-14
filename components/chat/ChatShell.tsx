@@ -431,7 +431,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   const handleEndSession = useCallback(() => {
     Modal.confirm({
       title: <div style={{ textAlign: 'center', width: '100%' }}>确定要结束当前对话吗？</div>,
-      content: <div style={{ textAlign: 'center', color: '#4b5563' }}>结束后将返回列表页，当前对话记录会被保存。</div>,
+      content: <div className="text-center text-gray-600">结束后将返回列表页，当前对话记录会被保存。</div>,
       okText: '确定结束',
       cancelText: '继续聊天',
       icon: null, // 不显示图标
@@ -943,7 +943,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   return (
     <ChatActionProvider value={{ sendMessage: (content) => handleSend(content), isLoading }}>
       <div
-        className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50 relative"
+        className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50 relative"
         style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
       >
 
@@ -992,7 +992,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* P5: 治疗师选择器（仅手动打开时显示，不再首次自动弹出） */}
         {showTherapistSelector && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-50/95 backdrop-blur-sm">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/95 backdrop-blur-sm">
             <TherapistSelector
               onSelect={() => setShowTherapistSelector(false)}
               onSkip={() => setShowTherapistSelector(false)}
@@ -1037,7 +1037,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                     <div className="space-y-6">
                       {/* Emotion Change */}
                       {(summary.emotionInitial && summary.emotionFinal) && (
-                        <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-between border border-slate-100">
+                        <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-100">
                           <div className="text-center flex-1">
                             <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">开始心情</div>
                             <div className="font-semibold text-gray-700 text-lg">
@@ -1134,7 +1134,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* 输入框 */}
         <footer
-          className="w-full bg-slate-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
+          className="w-full bg-gray-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
           style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
         >
           <div className="mx-auto w-full max-w-4xl px-4 py-3">

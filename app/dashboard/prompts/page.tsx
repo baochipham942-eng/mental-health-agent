@@ -42,12 +42,12 @@ export default async function PromptsDashboardPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <header className="flex-none px-6 py-4 bg-white border-b border-slate-200 hidden md:block">
+        <div className="flex flex-col h-full bg-gray-50">
+            <header className="flex-none px-6 py-4 bg-white border-b border-gray-200 hidden md:block">
                 <div className="flex items-center justify-between max-w-5xl mx-auto">
                     <div>
-                        <h1 className="text-xl font-bold text-slate-800">系统 Prompt 看板</h1>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <h1 className="text-2xl font-bold text-gray-900">系统 Prompt 看板</h1>
+                        <p className="text-sm text-gray-500 mt-1">
                             实时查看系统核心提示词配置 (仅管理员可见)
                         </p>
                     </div>

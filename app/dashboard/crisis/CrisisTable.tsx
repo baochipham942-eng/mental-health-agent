@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { Table, Tag, Button, Empty, Modal, Input, Message } from '@arco-design/web-react';
+import type { ColumnProps } from '@arco-design/web-react/es/Table';
 
 interface Escalation {
     id: string;
@@ -26,6 +28,23 @@ interface CrisisTableProps {
     escalations: Escalation[];
 }
 
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+    PENDING: { label: '待处理', color: 'red' },
+    ACKNOWLEDGED: { label: '已确认', color: 'orange' },
+    RESOLVED: { label: '已解决', color: 'green' },
+    DISMISSED: { label: '已忽略', color: 'gray' },
+};
+
+function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    return d.toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 export function CrisisTable({ escalations: initialEscalations }: CrisisTableProps) {
     const [escalations, setEscalations] = useState(initialEscalations);
     const [filter, setFilter] = useState<string>('ALL');
@@ -46,7 +65,7 @@ export function CrisisTable({ escalations: initialEscalations }: CrisisTableProp
 
             if (!res.ok) {
                 const err = await res.json();
-                alert(`操作失败: ${err.error}`);
+                Message.error(`操作失败: ${err.error}`);
                 return;
             }
 
@@ -54,144 +73,121 @@ export function CrisisTable({ escalations: initialEscalations }: CrisisTableProp
             setEscalations(prev =>
                 prev.map(e => e.id === id ? { ...e, ...escalation } : e)
             );
-        } catch (error) {
-            alert('网络错误，请重试');
+            Message.success('状态已更新');
+        } catch {
+            Message.error('网络错误，请重试');
         } finally {
             setLoading(null);
         }
     }
 
     function handleResolve(id: string) {
-        const resolution = prompt('请输入处理说明（可选）:');
-        updateStatus(id, 'RESOLVED', resolution || undefined);
-    }
-
-    const riskBadge = (level: string) => {
-        if (level === 'crisis') {
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">危机</span>;
-        }
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">紧急</span>;
-    };
-
-    const statusBadge = (status: string) => {
-        const map: Record<string, string> = {
-            PENDING: 'bg-red-100 text-red-800',
-            ACKNOWLEDGED: 'bg-yellow-100 text-yellow-800',
-            RESOLVED: 'bg-green-100 text-green-800',
-            DISMISSED: 'bg-gray-100 text-gray-800',
-        };
-        const labelMap: Record<string, string> = {
-            PENDING: '待处理',
-            ACKNOWLEDGED: '已确认',
-            RESOLVED: '已解决',
-            DISMISSED: '已忽略',
-        };
-        return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
-                {labelMap[status] || status}
-            </span>
-        );
-    };
-
-    function formatTime(dateStr: string) {
-        const d = new Date(dateStr);
-        return d.toLocaleString('zh-CN', {
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
+        let resolutionText = '';
+        Modal.confirm({
+            title: '处理说明',
+            content: (
+                <Input.TextArea
+                    placeholder="请输入处理说明（可选）"
+                    onChange={v => { resolutionText = v; }}
+                    autoSize={{ minRows: 2 }}
+                />
+            ),
+            onOk: () => updateStatus(id, 'RESOLVED', resolutionText || undefined),
         });
     }
 
+    const columns: ColumnProps<Escalation>[] = [
+        {
+            title: '时间', dataIndex: 'createdAt', width: 120,
+            render: (v: string) => <span className="text-sm text-gray-600">{formatTime(v)}</span>,
+        },
+        {
+            title: '用户', dataIndex: 'user', width: 120,
+            render: (_: any, record: Escalation) => (
+                <span className="text-sm">{record.user?.nickname || record.user?.username || record.userId.slice(0, 8)}</span>
+            ),
+        },
+        {
+            title: '触发消息', dataIndex: 'triggerMessage', ellipsis: true,
+            render: (v: string) => <span className="text-sm text-gray-700">{v}</span>,
+        },
+        {
+            title: '风险', dataIndex: 'riskLevel', width: 80,
+            render: (v: string) => (
+                <Tag size="small" color={v === 'crisis' ? 'red' : 'orange'}>
+                    {v === 'crisis' ? '危机' : '紧急'}
+                </Tag>
+            ),
+        },
+        {
+            title: '安全分', dataIndex: 'safetyScore', width: 80, align: 'center',
+            render: (v: number) => <span className="text-sm text-gray-600">{v}</span>,
+        },
+        {
+            title: '状态', dataIndex: 'status', width: 90,
+            render: (v: string) => {
+                const conf = STATUS_CONFIG[v] || { label: v, color: 'gray' };
+                return <Tag size="small" color={conf.color}>{conf.label}</Tag>;
+            },
+            filters: Object.entries(STATUS_CONFIG).map(([k, v]) => ({ text: v.label, value: k })),
+            onFilter: (value: string, record: Escalation) => record.status === value,
+        },
+        {
+            title: '操作', width: 160,
+            render: (_: any, record: Escalation) => (
+                <div className="flex gap-2">
+                    {record.status === 'PENDING' && (
+                        <Button size="mini" type="outline" status="warning"
+                            loading={loading === record.id}
+                            onClick={() => updateStatus(record.id, 'ACKNOWLEDGED')}>
+                            确认
+                        </Button>
+                    )}
+                    {(record.status === 'PENDING' || record.status === 'ACKNOWLEDGED') && (
+                        <Button size="mini" type="outline" status="success"
+                            loading={loading === record.id}
+                            onClick={() => handleResolve(record.id)}>
+                            解决
+                        </Button>
+                    )}
+                    {record.resolution && (
+                        <span className="text-xs text-gray-500 self-center" title={record.resolution}>
+                            {record.resolution.slice(0, 20)}
+                        </span>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
+    const FILTER_OPTIONS = [
+        { key: 'ALL', label: '全部' },
+        ...Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label })),
+    ];
+
     return (
         <div>
-            {/* 筛选 */}
             <div className="mb-4 flex gap-2">
-                {['ALL', 'PENDING', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED'].map(s => (
-                    <button
-                        key={s}
-                        onClick={() => setFilter(s)}
-                        className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                            filter === s
-                                ? 'bg-gray-900 text-white border-gray-900'
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
+                {FILTER_OPTIONS.map(s => (
+                    <Button
+                        key={s.key}
+                        size="small"
+                        type={filter === s.key ? 'primary' : 'secondary'}
+                        onClick={() => setFilter(s.key)}
                     >
-                        {s === 'ALL' ? '全部' : { PENDING: '待处理', ACKNOWLEDGED: '已确认', RESOLVED: '已解决', DISMISSED: '已忽略' }[s]}
-                    </button>
+                        {s.label}
+                    </Button>
                 ))}
             </div>
 
-            {/* 表格 */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">时间</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">用户</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">触发消息</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">风险</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">安全分</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {filtered.length === 0 && (
-                                <tr>
-                                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                                        暂无记录
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map(e => (
-                                <tr key={e.id} className={e.status === 'PENDING' ? 'bg-red-50/50' : ''}>
-                                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                                        {formatTime(e.createdAt)}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-900">
-                                        {e.user?.nickname || e.user?.username || e.userId.slice(0, 8)}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={e.triggerMessage}>
-                                        {e.triggerMessage.slice(0, 80)}{e.triggerMessage.length > 80 ? '...' : ''}
-                                    </td>
-                                    <td className="px-4 py-3">{riskBadge(e.riskLevel)}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">{e.safetyScore}</td>
-                                    <td className="px-4 py-3">{statusBadge(e.status)}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex gap-2">
-                                            {e.status === 'PENDING' && (
-                                                <button
-                                                    onClick={() => updateStatus(e.id, 'ACKNOWLEDGED')}
-                                                    disabled={loading === e.id}
-                                                    className="px-2.5 py-1 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-300 rounded hover:bg-yellow-100 disabled:opacity-50"
-                                                >
-                                                    确认
-                                                </button>
-                                            )}
-                                            {(e.status === 'PENDING' || e.status === 'ACKNOWLEDGED') && (
-                                                <button
-                                                    onClick={() => handleResolve(e.id)}
-                                                    disabled={loading === e.id}
-                                                    className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 border border-green-300 rounded hover:bg-green-100 disabled:opacity-50"
-                                                >
-                                                    解决
-                                                </button>
-                                            )}
-                                            {e.resolution && (
-                                                <span className="text-xs text-gray-500 self-center" title={e.resolution}>
-                                                    {e.resolution.slice(0, 20)}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <Table
+                columns={columns}
+                data={filtered}
+                rowKey="id"
+                pagination={filtered.length > 20 ? { pageSize: 20 } : false}
+                noDataElement={<Empty description="暂无记录" />}
+                rowClassName={(record) => record.status === 'PENDING' ? 'bg-red-50/50' : ''}
+            />
         </div>
     );
 }

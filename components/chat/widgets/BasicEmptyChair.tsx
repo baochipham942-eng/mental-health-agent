@@ -164,11 +164,11 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 </motion.div>
                             </div>
 
-                            <h3 className="text-lg font-bold text-slate-700 mb-2">空椅子对话</h3>
-                            <p className="text-[13px] text-slate-400 leading-[1.8] mb-6">
+                            <h3 className="text-lg font-bold text-gray-700 mb-2">空椅子对话</h3>
+                            <p className="text-[13px] text-gray-400 leading-[1.8] mb-6">
                                 想象面前有一把空椅子<br />
                                 你想邀请谁坐在这里？<br />
-                                <span className="text-slate-300">可以是某个人，或者过去的自己</span>
+                                <span className="text-gray-300">可以是某个人，或者过去的自己</span>
                             </p>
 
                             <div className="space-y-3">
@@ -183,7 +183,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                         }
                                     }}
                                     placeholder="例如：我的父亲 / 高中的自己"
-                                    className="w-full px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-amber-200/50 text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-300/40 focus:border-amber-300/60 text-center text-[14px] transition-all"
+                                    className="w-full px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-amber-200/50 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-300/40 focus:border-amber-300/60 text-center text-[14px] transition-all"
                                     autoFocus
                                 />
                                 <button
@@ -214,14 +214,14 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 </div>
                                 <div className="flex-1">
                                     <div className="text-[13px] font-semibold text-rose-600">你 → {targetName}</div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">把藏在心里的话说出来</div>
+                                    <div className="text-[11px] text-gray-400 mt-0.5">把藏在心里的话说出来</div>
                                 </div>
                             </div>
 
                             <textarea
                                 value={userContent}
                                 onChange={(e) => setUserContent(e.target.value)}
-                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-rose-200/40 text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-200/40 focus:border-rose-300/50 resize-none text-[14px] leading-relaxed transition-all"
+                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-rose-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-rose-200/40 focus:border-rose-300/50 resize-none text-[14px] leading-relaxed transition-all"
                                 placeholder="我想对你说……"
                                 autoFocus
                             />
@@ -259,8 +259,8 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 </div>
                             </motion.div>
 
-                            <h3 className="text-lg font-bold text-slate-700 mb-3">角色互换</h3>
-                            <p className="text-[13px] text-slate-400 leading-[1.8] mb-6">
+                            <h3 className="text-lg font-bold text-gray-700 mb-3">角色互换</h3>
+                            <p className="text-[13px] text-gray-400 leading-[1.8] mb-6">
                                 深呼吸，在心里走到对面<br />
                                 <b className="text-indigo-500">坐到那把椅子上</b><br />
                                 <br />
@@ -293,14 +293,14 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 </div>
                                 <div className="flex-1 text-right">
                                     <div className="text-[13px] font-semibold text-teal-600">{targetName} → 你</div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">听到这些，你想说什么？</div>
+                                    <div className="text-[11px] text-gray-400 mt-0.5">听到这些，你想说什么？</div>
                                 </div>
                             </div>
 
                             <textarea
                                 value={targetContent}
                                 onChange={(e) => setTargetContent(e.target.value)}
-                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-teal-200/40 text-slate-600 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-200/40 focus:border-teal-300/50 resize-none text-[14px] leading-relaxed transition-all"
+                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-teal-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-200/40 focus:border-teal-300/50 resize-none text-[14px] leading-relaxed transition-all"
                                 placeholder="其实我想说……"
                                 autoFocus
                             />
@@ -336,15 +336,15 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 </div>
                             </motion.div>
 
-                            <h3 className="text-lg font-bold text-slate-700 mb-3">练习完成</h3>
-                            <p className="text-[13px] text-slate-400 leading-[1.8] mb-6">
+                            <h3 className="text-lg font-bold text-gray-700 mb-3">练习完成</h3>
+                            <p className="text-[13px] text-gray-400 leading-[1.8] mb-6">
                                 深呼吸，慢慢回到自己的身体里<br />
                                 <br />
                                 刚才的对话可能并不完美<br />
                                 但你已经迈出了勇敢的一步
                             </p>
 
-                            <div className="bg-white/60 backdrop-blur-sm rounded-xl px-4 py-3 border border-violet-100/50 text-[12px] text-slate-400 inline-block">
+                            <div className="bg-white/60 backdrop-blur-sm rounded-xl px-4 py-3 border border-violet-100/50 text-[12px] text-gray-400 inline-block">
                                 点击右上角 <b className="text-violet-500">完成练习</b> 记录你的感受
                             </div>
                         </motion.div>

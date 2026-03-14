@@ -356,7 +356,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ height: { type: 'spring', stiffness: 500, damping: 40 }, opacity: { duration: 0.25, ease: 'easeInOut' } }}
-            className="border-t border-gray-100 bg-slate-50"
+            className="border-t border-gray-100 bg-gray-50"
           >
             <div className="p-5">
               {/* 这里的布局根据内容动态调整 */}

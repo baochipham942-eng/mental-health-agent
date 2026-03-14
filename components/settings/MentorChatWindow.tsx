@@ -17,6 +17,7 @@ interface MentorChatWindowProps {
 export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
+    const labSessionIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -32,7 +33,8 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
         api: '/api/chat/mentor',
         body: {
             mentorId: mentor.id,
-            customMentor: mentor, // Pass full mentor object for custom personas
+            customMentor: mentor,
+            sessionId: labSessionIdRef.current,
         },
         initialMessages: [
             {
@@ -41,11 +43,15 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                 content: mentor.openingMessage,
             }
         ],
+        onResponse: (response) => {
+            // 捕获后端返回的 LabSession ID，后续请求复用
+            const sid = response.headers.get('X-Lab-Session-Id');
+            if (sid) labSessionIdRef.current = sid;
+        },
         onError: (error) => {
             Message.error(`连接中断: ${error.message}`);
         },
         onFinish: () => {
-            // Ensure UI updates when streaming completes
             console.log('[MentorChat] Stream finished');
         },
     });
@@ -108,8 +114,7 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
 
     return createPortal(
         <div
-            className="fixed z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
-            style={{ top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 animate-fade-in"
         >
             <div className="w-full md:max-w-2xl bg-white rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[85vh] max-h-none md:max-h-[800px] border border-gray-200">
 

@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" className="h-full">
-      <body className="h-full min-h-dvh bg-slate-50 text-slate-900 antialiased">
+      <body className="h-full min-h-dvh bg-gray-50 text-gray-900 antialiased">
         <NextAuthSessionProvider>
           <WeChatFontHandler />
           <ArcoConfigProvider>

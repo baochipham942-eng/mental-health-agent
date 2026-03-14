@@ -255,7 +255,7 @@ export default function EvaluationDetailModal({
             }
             visible={visible}
             onCancel={onClose}
-            style={{ width: 1000 }}
+            style={{ width: 960, maxWidth: '95vw' }}
             className="evaluation-detail-modal"
             wrapClassName="flex items-center justify-center"
             footer={

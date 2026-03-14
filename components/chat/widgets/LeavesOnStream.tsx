@@ -119,8 +119,8 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
             </motion.div>
           </div>
 
-          <h3 className="text-lg font-bold text-slate-700 mb-3">放飞念头</h3>
-          <p className="text-[13px] text-slate-400 max-w-[240px] leading-[1.8] mb-8">
+          <h3 className="text-lg font-bold text-gray-700 mb-3">放飞念头</h3>
+          <p className="text-[13px] text-gray-400 max-w-[240px] leading-[1.8] mb-8">
             把脑海中的念头写在气球上<br />
             轻轻松手，看它飘向远方<br />
             你不需要抓住每一个想法
@@ -198,7 +198,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 }
               }}
               placeholder="写下一个念头…"
-              className="flex-1 px-4 py-2.5 rounded-xl bg-transparent text-slate-600 placeholder:text-slate-300 focus:outline-none text-[13px]"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-transparent text-gray-600 placeholder:text-gray-300 focus:outline-none text-[13px]"
               autoComplete="off"
             />
             <button

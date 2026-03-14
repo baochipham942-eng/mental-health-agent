@@ -106,7 +106,7 @@ export function ProfileEditModal({
             footer={null}
             closable={!loading}
             maskClosable={!loading}
-            style={{ maxWidth: 420 }}
+            style={{ width: 480, maxWidth: '95vw' }}
             wrapClassName="profile-edit-modal"
         >
             <div className="py-2">

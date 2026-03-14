@@ -17,7 +17,7 @@ export default async function MemoryPage() {
     }
 
     return (
-        <div className="h-full flex flex-col bg-slate-50">
+        <div className="h-full flex flex-col bg-gray-50">
             <MemoryPageContent />
         </div>
     );

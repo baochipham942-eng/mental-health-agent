@@ -249,7 +249,7 @@ export function MemoryPageContent() {
     );
 
     return (
-        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-50">
+        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50">
             {/* 页面头部 - 与会话页保持一致的毛玻璃效果 */}
             <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
