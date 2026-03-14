@@ -7,6 +7,7 @@ import {
 } from '@/lib/ai/deepseek';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText as sdkStreamText } from 'ai';
+import { withResilience } from './resilience';
 
 export type { ChatMessage, ToolCall };
 
@@ -493,19 +494,23 @@ export async function generateText(
   messages: ChatMessage[],
   options?: GenerateTextOptions
 ): Promise<{ reply: string; toolCalls?: ToolCall[] }> {
-  switch (resolveProvider(options?.provider)) {
-    case 'openrouter':
-      return openrouterGenerateText(messages, options);
-    case 'glm':
-      return glmGenerateText(messages, options);
-    case 'kimi':
-      return kimiGenerateText(messages, options);
-    case 'openai':
-      return openaiGenerateText(messages, options);
-    case 'deepseek':
-    default:
-      return deepseekChatCompletion(messages, options);
-  }
+  const provider = resolveProvider(options?.provider);
+  const fn = () => {
+    switch (provider) {
+      case 'openrouter':
+        return openrouterGenerateText(messages, options);
+      case 'glm':
+        return glmGenerateText(messages, options);
+      case 'kimi':
+        return kimiGenerateText(messages, options);
+      case 'openai':
+        return openaiGenerateText(messages, options);
+      case 'deepseek':
+      default:
+        return deepseekChatCompletion(messages, options);
+    }
+  };
+  return withResilience(fn, { label: `${provider}-generateText` });
 }
 
 export async function generateStructured<T>(
@@ -513,19 +518,23 @@ export async function generateStructured<T>(
   schema: { parse: (val: any) => T },
   options?: Omit<GenerateTextOptions, 'responseFormat' | 'tools' | 'toolChoice'>
 ): Promise<T> {
-  switch (resolveProvider(options?.provider)) {
-    case 'openrouter':
-      return openrouterGenerateStructured(messages, schema, options);
-    case 'glm':
-      return glmGenerateStructured(messages, schema, options);
-    case 'kimi':
-      return kimiGenerateStructured(messages, schema, options);
-    case 'openai':
-      return openaiGenerateStructured(messages, schema, options);
-    case 'deepseek':
-    default:
-      return deepseekStructuredCompletion(messages, schema, options);
-  }
+  const provider = resolveProvider(options?.provider);
+  const fn = () => {
+    switch (provider) {
+      case 'openrouter':
+        return openrouterGenerateStructured(messages, schema, options);
+      case 'glm':
+        return glmGenerateStructured(messages, schema, options);
+      case 'kimi':
+        return kimiGenerateStructured(messages, schema, options);
+      case 'openai':
+        return openaiGenerateStructured(messages, schema, options);
+      case 'deepseek':
+      default:
+        return deepseekStructuredCompletion(messages, schema, options);
+    }
+  };
+  return withResilience(fn, { label: `${provider}-generateStructured` });
 }
 
 export async function streamText(

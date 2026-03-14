@@ -8,6 +8,7 @@ import { generateSFBTQuery } from '@/lib/ai/sfbt';
 import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/detection/stuck-loop';
 import { triggerQualityCheck } from '@/lib/ai/agents/orchestrator';
 import { createCrisisEscalation } from '@/lib/ai/crisis-escalation';
+import { assessCrisisDeescalation } from '@/lib/ai/crisis-classifier';
 import { logInfo } from '@/lib/observability/logger';
 import type { DialogueContext } from '@/lib/ai/dialogue/state-machine';
 import type { AdaptiveMode } from '@/lib/ai/persona-manager';
@@ -119,11 +120,24 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     emotionObj,
   } = params;
 
-  const isExplicitSafety = /我没事了|感觉好多了|已经不处在危险中了|放心吧|删除.*记忆|不聊了|换个话题/.test(message);
   const isAnalysedSafe = safetyData.label === 'normal';
 
-  if (state === 'in_crisis' && (isExplicitSafety || isAnalysedSafe)) {
-    console.log('[API] De-escalating crisis state based on validation:', { isExplicitSafety, isAnalysedSafe });
+  // LLM 语义评估是否真正脱离危机（替代硬编码正则）
+  let isDeescalated = false;
+  if (state === 'in_crisis' && isAnalysedSafe) {
+    const deescalation = await assessCrisisDeescalation(message, history);
+    isDeescalated = deescalation.isSafe;
+    logInfo('crisis-deescalation-check', {
+      sessionId, userId,
+      isSafe: deescalation.isSafe,
+      confidence: deescalation.confidence,
+      reason: deescalation.reason,
+      safetyLabel: safetyData.label,
+    });
+  }
+
+  if (state === 'in_crisis' && isDeescalated) {
+    console.log('[API] De-escalating crisis state based on LLM assessment');
     data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
     const onFinishWithMeta = async (text: string, toolCalls?: any[]) => {

@@ -149,6 +149,92 @@ export async function classifyCrisisIntent(
     }
 }
 
+// ========== Layer 4: 危机脱离评估 ==========
+
+/**
+ * 危机脱离评估结果
+ */
+export interface DeescalationResult {
+    isSafe: boolean;
+    confidence: 'high' | 'medium' | 'low';
+    reason: string;
+}
+
+const DEESCALATION_FEW_SHOT_PROMPT = `你是心理危机评估专家。用户当前处于危机状态，请根据用户的最新消息和对话历史，判断用户是否**真正**脱离了危机。
+
+**判断原则**：
+1. 宁可保守也不能轻率脱离危机状态
+2. 用户说"我没事了"不一定真的没事——要结合上下文判断是否是伪装、敷衍或回避
+3. 只有当用户表现出明确的情绪好转、具体的安全计划或合理的后续打算时，才判定为安全
+4. "换个话题"、"不聊了"等回避性表达不等于脱离危机
+
+**返回 JSON**：
+{
+  "isSafe": boolean,
+  "confidence": "high" | "medium" | "low",
+  "reason": "简短的判定理由"
+}
+
+**示例**：
+用户（危机中）："我没事了" → {"isSafe": false, "confidence": "medium", "reason": "仅有简单否认，缺乏具体好转证据"}
+用户（危机中）："谢谢你陪我聊，我打算先去洗个澡，明天跟朋友约了吃饭" → {"isSafe": true, "confidence": "high", "reason": "有具体的后续计划和社交支持"}
+用户（危机中）："不聊了，烦" → {"isSafe": false, "confidence": "high", "reason": "回避性表达，情绪仍然负面"}
+用户（危机中）："我刚才太冲动了，现在冷静下来了，不会做傻事的" → {"isSafe": true, "confidence": "medium", "reason": "表达了自我反思和承诺，但需继续观察"}`;
+
+const DeescalationSchema = {
+    parse: (val: unknown) => {
+        const obj = val as Record<string, unknown>;
+        return {
+            isSafe: Boolean(obj.isSafe),
+            confidence: (obj.confidence as 'high' | 'medium' | 'low') || 'low',
+            reason: String(obj.reason || ''),
+        };
+    },
+};
+
+/**
+ * Layer 4: 基于 LLM 的危机脱离评估
+ * 替代硬编码正则，用语义理解判断用户是否真正脱离危机
+ * 超时降级：保守地保持危机状态（宁可多保护）
+ */
+export async function assessCrisisDeescalation(
+    message: string,
+    history: Array<{ role: string; content: string }>,
+    timeoutMs = Number(process.env.DEESCALATION_TIMEOUT_MS || 2000),
+): Promise<DeescalationResult> {
+    try {
+        const recentHistory = history.slice(-6).map(m => `${m.role}: ${m.content}`).join('\n');
+        const userPrompt = recentHistory
+            ? `对话历史（最近几轮）：\n${recentHistory}\n\n用户最新消息：${message}`
+            : `用户最新消息：${message}`;
+
+        const resultPromise = chatStructuredCompletion(
+            [
+                { role: 'system', content: DEESCALATION_FEW_SHOT_PROMPT },
+                { role: 'user', content: userPrompt },
+            ],
+            DeescalationSchema,
+            { temperature: 0, max_tokens: 150 },
+        );
+
+        const result = await Promise.race([
+            resultPromise,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+        ]);
+
+        if (!result) {
+            console.log('[Deescalation] LLM timeout, staying in crisis (conservative)');
+            return { isSafe: false, confidence: 'low', reason: 'LLM 评估超时，保守保持危机状态' };
+        }
+
+        console.log('[Deescalation] LLM assessment:', result);
+        return result;
+    } catch (error) {
+        console.warn('[Deescalation] LLM failed, staying in crisis:', error instanceof Error ? error.message : error);
+        return { isSafe: false, confidence: 'low', reason: 'LLM 评估失败，保守保持危机状态' };
+    }
+}
+
 // ========== 向后兼容 ==========
 
 /**
