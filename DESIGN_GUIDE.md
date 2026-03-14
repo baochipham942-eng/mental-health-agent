@@ -84,7 +84,7 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 
 | 用途 | Tailwind 类名 | 像素值 | 字重 | 行高 | 示例 |
 |------|---------------|--------|------|------|------|
-| **标题（H1）** | `text-xl` | 20px | `font-bold` (700) | `leading-tight` (1.25) | 页面主标题 |
+| **标题（H1）** | `text-2xl` | 24px | `font-bold` (700) | `leading-tight` (1.25) | 页面主标题 |
 | **副标题** | `text-sm` | 14px | `font-medium` (500) | `leading-normal` (1.5) | 页面副标题 |
 | **正文** | `text-base` | 16px | `font-normal` (400) | `leading-relaxed` (1.625) | 消息内容 |
 | **辅助文字** | `text-xs` | 12px | `font-medium` (500) | `leading-normal` (1.5) | 时间戳、提示 |
@@ -313,18 +313,20 @@ className="text-xs px-2 font-medium text-gray-600"
 - 动画：`animate-bounce`
 - 延迟：0ms, 150ms, 300ms（依次弹跳）
 
-### 7. 错误提示（Error）
+### 7. 错误/警告提示（Alert）
+
+使用 Arco `Alert` 组件，不手写 div+border 样式：
 
 ```tsx
-className="bg-red-50 border-l-4 border-red-500 text-red-700 
-  px-4 py-3 mx-4 mt-4 rounded"
+import { Alert } from '@arco-design/web-react';
+
+<Alert type="error" title="标题" content="详情内容" closable />
 ```
 
 **规范**：
-- 背景：`bg-red-50`
-- 左侧边框：`border-l-4 border-red-500` (4px)
-- 文字：`text-red-700`
-- 圆角：`rounded` (4px)
+- 使用 Arco Alert 的 `type` 属性：`error` / `warning` / `info` / `success`
+- 可关闭：`closable` + `onClose`
+- 禁止手写 `border-l-4` 风格的 alert
 
 ### 8. 头部（Header）
 
@@ -339,7 +341,57 @@ className="bg-white border-b border-gray-200 shadow-sm
 - 阴影：`shadow-sm`
 - 内边距：`px-4 py-3` (16px × 12px)
 
-## 七、交互规范
+## 七、弹窗规范（Modal）
+
+### 宽度三档制
+
+| 档位 | 宽度 | 适用场景 | 示例 |
+|------|------|---------|------|
+| **S (Small)** | 480px | 简单确认、评分、设置 | PreExerciseModal, ProfileEditModal |
+| **M (Medium)** | 720px | 列表选择、数据展示 | SelectConversationModal, MemoryButton |
+| **L (Large)** | 960px | 复杂表单、详情对比 | EvaluationDetailModal |
+
+**通用规则**：
+- 所有弹窗必须添加 `maxWidth: '95vw'` 移动端适配
+- 表单类弹窗设置 `maskClosable={false}` 防止误关
+- 使用 Arco `Modal` 组件，禁止手写 `div + fixed + z-index` 浮层
+- 全屏沉浸式聊天窗口（MentorChat/GroupChat）例外，使用 `createPortal`
+
+### 全局 CSS（globals.css）
+
+```css
+.arco-modal { border-radius: 12px !important; }
+.arco-modal-header { padding: 16px 16px 8px !important; border-bottom: none !important; }
+.arco-modal-content { padding: 0 16px 8px !important; max-height: calc(100vh - 200px); overflow: hidden; }
+.arco-modal-footer { padding: 8px 16px 16px !important; border-top: none !important; }
+```
+
+### 滚动处理
+
+- 全局 `.arco-modal-content` 设置 `overflow: hidden`（避免双层滚动条）
+- 需要滚动的弹窗在**内部容器**上设置 `overflow-y-auto` + `max-h-[60vh]`
+
+## 八、Arco Design 组件使用规范
+
+### 必须使用 Arco 的场景
+
+| 场景 | Arco 组件 | 禁止的替代写法 |
+|------|-----------|---------------|
+| 弹窗 | `Modal` | `div + fixed + z-index` |
+| 表格（Dashboard） | `Table` | `<table>` 原生 HTML |
+| 标签/徽章（Dashboard） | `Tag` | `<span>` 手写 badge |
+| 通知 | `Message.success/error` | `alert()` |
+| 确认对话 | `Modal.confirm` | `window.confirm/prompt` |
+| 警告横幅 | `Alert` | 手写 `div + border-l-4` |
+| 表单输入 | `Input / Input.TextArea` | `<input> / <textarea>`（Dashboard） |
+| 按钮（Dashboard） | `Button` | `<button>`（Dashboard） |
+| 空状态 | `Empty` | 自定义空状态 div |
+
+### C 端组件例外
+
+聊天 Widget（BreathingExercise, BasicEmptyChair 等）因沉浸式设计需求，允许使用原生元素 + 自定义样式（毛玻璃、渐变、动画等）。
+
+## 九、交互规范
 
 ### 1. 过渡动画
 
@@ -373,7 +425,7 @@ className="bg-white border-b border-gray-200 shadow-sm
 - **Shift + Enter**：换行
 - **Tab**：切换焦点（支持键盘导航）
 
-## 八、响应式设计
+## 十、响应式设计
 
 ### 断点规范
 
@@ -389,7 +441,7 @@ className="bg-white border-b border-gray-200 shadow-sm
 - **输入框**：全宽，最小高度 44px
 - **头部**：全宽，固定高度
 
-## 九、无障碍设计
+## 十一、无障碍设计
 
 ### 对比度标准
 
@@ -412,7 +464,7 @@ className="bg-white border-b border-gray-200 shadow-sm
 - 提供适当的 `aria-label`（如需要）
 - 确保表单元素有正确的 `label` 关联
 
-## 十、代码实现规范
+## 十二、代码实现规范
 
 ### Tailwind CSS 类名组织
 
@@ -428,18 +480,32 @@ className={cn(
 
 ### 颜色使用
 
-**✅ 正确**：使用预定义的颜色常量
+**✅ 正确**：使用 Tailwind gray 色系 + 预定义常量
 
 ```tsx
 import { EMOTION_COLORS } from '@/lib/constants';
 className={cn('px-3 py-1.5 rounded-md border-2', EMOTION_COLORS[label])}
 ```
 
-**❌ 错误**：硬编码颜色值
+**❌ 错误**：使用 slate 色系（项目已统一为 gray）
 
 ```tsx
-className="px-3 py-1.5 rounded-md border-2 bg-yellow-200 text-yellow-900"
+// 禁止 — 使用 slate
+className="text-slate-500 bg-slate-50 border-slate-200"
+// 正确 — 使用 gray
+className="text-gray-500 bg-gray-50 border-gray-200"
 ```
+
+**❌ 错误**：硬编码十六进制颜色
+
+```tsx
+// 禁止
+style={{ color: '#4b5563' }}
+// 正确
+className="text-gray-600"
+```
+
+> **例外**：主题配置映射（如 MentorChatWindow 的 `slate:` 变体）和深色代码块背景（`bg-slate-900`）允许保留 slate。
 
 ### 组件样式复用
 
@@ -453,7 +519,7 @@ export const BUTTON_STYLES = {
 };
 ```
 
-## 十一、设计检查清单
+## 十三、设计检查清单
 
 在创建新组件或修改现有组件时，请检查：
 
@@ -488,7 +554,7 @@ export const BUTTON_STYLES = {
 - [ ] 语义化 HTML 标签
 - [ ] 对比度符合标准
 
-## 十二、常见问题与解决方案
+## 十四、常见问题与解决方案
 
 ### Q1: Placeholder 文字看不清怎么办？
 
@@ -520,11 +586,12 @@ input::placeholder {
 3. 使用 `cn()` 工具函数组织类名
 4. 定期检查设计检查清单
 
-## 十三、更新日志
+## 十五、更新日志
 
 | 日期 | 版本 | 更新内容 |
 |------|------|---------|
 | 2024-12-12 | 1.0 | 初始版本，定义完整的设计风格规范 |
+| 2026-03-14 | 2.0 | 新增弹窗三档规范、Arco 组件使用规范、颜色统一规则（gray-only）、标题字号更新 |
 
 ---
 
