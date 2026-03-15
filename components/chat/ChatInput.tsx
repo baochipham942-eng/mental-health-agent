@@ -197,8 +197,8 @@ export function ChatInput({
 
   return (
     <div className="w-full">
-      {/* 输入框容器 - items-center 让所有元素垂直居中 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-center">
+      {/* 输入框容器 - items-end 让按钮始终贴底，避免多行输入时按钮跳动 */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5 flex gap-2 items-end">
         {/* Tool Kit Trigger - Responsive */}
         {/* Feature Layers:
            Layer 0（默认入口）: 自由聊天、情绪倾诉、日常解压
@@ -313,8 +313,8 @@ export function ChatInput({
           </Drawer>
         </div>
 
-        {/* 输入框包装器 - self-center 使输入框在 items-end 容器中居中 */}
-        <div className="flex-1 flex items-center min-h-[44px] min-w-0 self-center">
+        {/* 输入框包装器 */}
+        <div className="flex-1 flex items-center min-h-[44px] min-w-0">
           <textarea
             ref={textareaRef}
             value={value}

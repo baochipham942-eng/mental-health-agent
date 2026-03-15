@@ -88,7 +88,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   }
 
   const endRef = useRef<HTMLDivElement>(null);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const lastMessageCountRef = useRef(messages.length);
   const lastMessageRoleRef = useRef<string | null>(
     messages.length > 0 ? messages[messages.length - 1].role : null
@@ -133,17 +132,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     }
   }, [getScrollContainer]);
 
-  // 处理滚动事件
-  useEffect(() => {
-    const container = getScrollContainer();
-    if (!container) return;
-    const handleScroll = () => {
-      setShowScrollToBottom(!checkIfNearBottom());
-    };
-    container.addEventListener('scroll', handleScroll);
-    handleScroll();
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [checkIfNearBottom, getScrollContainer]);
 
   // 自动滚动逻辑
   useEffect(() => {
@@ -156,7 +144,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
       requestAnimationFrame(() => {
         setTimeout(() => {
           scrollToBottom('smooth');
-          setShowScrollToBottom(false);
         }, 100);
       });
       lastMessageCountRef.current = messages.length;
@@ -166,8 +153,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     } else if (isLoading || isSending) {
       if (checkIfNearBottom()) {
         requestAnimationFrame(() => scrollToBottom('smooth'));
-      } else {
-        setShowScrollToBottom(true);
       }
     }
   }, [messages, isLoading, isSending, checkIfNearBottom, scrollToBottom]);
@@ -253,7 +238,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
   // 有消息，显示消息列表
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-32" ref={containerRef}>
+    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-4" ref={containerRef}>
       <div className="relative w-full space-y-2 min-h-full">
         {messages.map((message) => {
           const extras = messageExtras?.get(message.id);
@@ -281,17 +266,6 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
         <div ref={endRef} />
 
-        {showScrollToBottom && (
-          <button
-            onClick={() => {
-              scrollToBottom('smooth');
-              setShowScrollToBottom(false);
-            }}
-            className="fixed bottom-32 right-4 z-40 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl shadow-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            回到最新
-          </button>
-        )}
       </div>
     </div>
   );

@@ -193,6 +193,16 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
                     </div>
                 )}
 
+                {/* 开始按钮 */}
+                {!isRunning && (
+                    <button
+                        onClick={handleStart}
+                        className="mt-2 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full text-sm font-semibold shadow-md hover:shadow-lg hover:from-purple-600 hover:to-indigo-600 transition-all active:scale-95"
+                    >
+                        开始冥想
+                    </button>
+                )}
+
                 {/* 环境音控制条 */}
                 {isRunning && (
                     <div className="mt-3 flex justify-center">

@@ -470,13 +470,28 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
       if (msg.role === 'assistant') {
         const msgData = (msg as any).metadata;
         if (msgData) {
+          // 从 toolCalls 恢复 actionCards（刷新页面后 actionCards 未持久化到 DB，需从 toolCalls 重建）
+          let actionCards = msgData.actionCards;
+          const allToolCalls = msgData.toolCalls || (msg as any).toolCalls;
+          if (!actionCards && allToolCalls && allToolCalls.length > 0) {
+            allToolCalls.forEach((call: any) => {
+              try {
+                const name = call.toolName || call.function?.name;
+                const args = call.args || (typeof call.function?.arguments === 'string' ? JSON.parse(call.function.arguments) : call.function?.arguments);
+                if (name === 'recommend_skill_card' && args?.card) {
+                  if (!actionCards) actionCards = [];
+                  actionCards.push(args.card);
+                }
+              } catch {}
+            });
+          }
           extras.set(msg.id, {
             routeType: msgData.routeType,
             assessmentStage: msgData.assessmentStage,
-            actionCards: msgData.actionCards,
+            actionCards,
             assistantQuestions: msgData.assistantQuestions,
             validationError: msgData.validationError,
-            toolCalls: msgData.toolCalls || (msg as any).toolCalls,
+            toolCalls: allToolCalls,
           });
         }
       }
@@ -1019,12 +1034,14 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
                 </div>
               )}
               {/* 离开按钮 */}
-              {!isReadOnly && !isSessionEnded && internalSessionId && (
+              {!isReadOnly && !isSessionEnded && (
                 <button
                   onClick={() => {
-                    // 空会话（0条消息）直接返回，不弹确认框，不做总结
-                    if (messages.length === 0) {
-                      hideSession(internalSessionId).catch(() => {});
+                    // 无会话ID或空会话（0条消息）直接返回，不弹确认框
+                    if (!internalSessionId || messages.length === 0) {
+                      if (internalSessionId) {
+                        hideSession(internalSessionId).catch(() => {});
+                      }
                       resetConversation();
                       router.push('/');
                       return;
@@ -1038,7 +1055,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
               )}
               {(isReadOnly || isSessionEnded) && (
                 <>
-                  <Tag color="gray" size="small" className="!rounded-xl">已完成</Tag>
+                  <Tag color="gray" size="small" className="!rounded-xl">已结束</Tag>
                   <button
                     onClick={() => router.push('/')}
                     className="px-3 py-[6px] rounded-[10px] border border-gray-200 bg-white text-[13px] text-gray-500 cursor-pointer flex items-center gap-1 transition-all duration-200 hover:bg-gray-50"
@@ -1195,10 +1212,10 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* 输入框 */}
         <footer
-          className="w-full bg-gray-50 z-30 shrink-0 pb-[env(safe-area-inset-bottom)] border-t border-gray-100"
-          style={{ flexShrink: 0, width: '100%', zIndex: 30, backgroundColor: '#f8fafc' }}
+          className="w-full z-30 shrink-0 pb-[env(safe-area-inset-bottom)]"
+          style={{ flexShrink: 0, width: '100%', zIndex: 30 }}
         >
-          <div className="mx-auto w-full max-w-4xl px-4 py-3">
+          <div className="mx-auto w-full max-w-4xl px-4 pt-1 pb-2">
             <ChatInput
               key={internalSessionId || 'new-session'}
               value={draft}
@@ -1210,6 +1227,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
               disabled={isReadOnly || isSessionEnded}
               placeholder={isSessionEnded ? "本次会话已结束" : undefined}
               autoFocus={!isReadOnly && !isSessionEnded}
+              showDisclaimer={true}
             />
           </div>
         </footer>
