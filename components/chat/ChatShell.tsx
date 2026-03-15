@@ -10,8 +10,6 @@ import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
 import { DebugDrawer } from './DebugDrawer';
 import { Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
-import { IconArrowRight } from '@arco-design/web-react/icon';
-import { generateSummaryForSession } from '@/lib/actions/summary';
 import { hideSession } from '@/lib/actions/chat';
 import { TherapistSelector } from './TherapistSelector';
 import { BreathingOrb } from './BreathingOrb';
@@ -590,10 +588,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  // ★ 摘要获取逻辑
-  const [summary, setSummary] = useState<any>(null);
-  const [summaryFailed, setSummaryFailed] = useState(false);
-  // 会话结束时自动滚动到底部，展示完成卡片
+  // 会话结束时自动滚动到底部
   useEffect(() => {
     if (isSessionEnded) {
       setTimeout(() => {
@@ -604,39 +599,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
       }, 300);
     }
   }, [isSessionEnded]);
-
-  useEffect(() => {
-    // 只有当会话结束且有会话ID且本地无摘要时才获取
-    if (isSessionEnded && internalSessionId && !summary) {
-      console.log('[ChatShell] Fetching summary for ended session:', internalSessionId);
-      // 超时计时器：15 秒后若仍无摘要则显示 fallback
-      const fallbackTimer = setTimeout(() => {
-        setSummaryFailed(true);
-      }, 15000);
-
-      generateSummaryForSession(internalSessionId)
-        .then(data => {
-          clearTimeout(fallbackTimer);
-          if (data) {
-            console.log('[ChatShell] Summary fetched successfully');
-            setSummary(data);
-            setTimeout(() => {
-              scrollContainerRef.current?.scrollTo({
-                top: scrollContainerRef.current.scrollHeight,
-                behavior: 'smooth',
-              });
-            }, 100);
-          } else {
-            setSummaryFailed(true);
-          }
-        })
-        .catch(err => {
-          clearTimeout(fallbackTimer);
-          console.error('[ChatShell] Failed to fetch summary:', err);
-          setSummaryFailed(true);
-        });
-    }
-  }, [isSessionEnded, internalSessionId]);
 
   // 同步会话状态到全局 Store (用于导航拦截)
   // Note: sessionStatus and isConsulting are INTENTIONALLY excluded from deps to prevent infinite loops.
@@ -1094,118 +1056,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             sessionId={internalSessionId || sessionIdRef.current || ''}
           />
           {isSessionEnded && (
-            <div className="mx-4 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-indigo-50/50 relative overflow-hidden">
-                {/* Background Decoration */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-50/50 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
-
-                <div className="relative z-10">
-                  {/* Header */}
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transform rotate-3">
-                      <span className="text-3xl">🌱</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">本次对话已完成</h3>
-                    <p className="text-gray-500 text-sm">感谢你的信任，希望这次对话对你有所帮助</p>
-                  </div>
-
-                  {/* Summary Content */}
-                  {summary ? (
-                    <div className="space-y-6">
-                      {/* Emotion Change */}
-                      {(summary.emotionInitial && summary.emotionFinal) && (
-                        <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between border border-gray-100">
-                          <div className="text-center flex-1">
-                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">开始心情</div>
-                            <div className="font-semibold text-gray-700 text-lg">
-                              {summary.emotionInitial.label}
-                              <span className="text-xs text-gray-400 ml-1 font-normal">({summary.emotionInitial.score})</span>
-                            </div>
-                          </div>
-                          <div className="text-gray-300 px-2">
-                            <IconArrowRight />
-                          </div>
-                          <div className="text-center flex-1">
-                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">结束心情</div>
-                            <div className="font-semibold text-gray-700 text-lg">
-                              {summary.emotionFinal.label}
-                              <span className="text-xs text-gray-400 ml-1 font-normal">({summary.emotionFinal.score})</span>
-                            </div>
-                          </div>
-                          <div className="text-center flex-1 border-l border-gray-200 pl-4">
-                            <div className="text-xs text-gray-400 mb-1 uppercase tracking-wider">变化</div>
-                            <div className={`font-bold text-lg ${summary.moodChange > 0 ? 'text-green-500' : summary.moodChange < 0 ? 'text-amber-500' : 'text-gray-400'}`}>
-                              {summary.moodChange > 0 ? `+${summary.moodChange}` : summary.moodChange}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {/* Key Insights */}
-                        {summary.keyInsights && summary.keyInsights.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                              <span className="w-1 h-4 bg-amber-400 rounded-full"></span>
-                              核心洞察
-                            </h4>
-                            <ul className="space-y-3">
-                              {summary.keyInsights.map((insight: string, idx: number) => (
-                                <li key={idx} className="text-sm text-gray-600 flex items-start gap-2.5 leading-relaxed bg-amber-50/30 p-2.5 rounded-lg border border-amber-50">
-                                  <span className="text-amber-500 mt-0.5 text-xs">●</span>
-                                  <span>{insight}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Action Items */}
-                        {summary.actionItems && summary.actionItems.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                              <span className="w-1 h-4 bg-green-500 rounded-full"></span>
-                              行动建议
-                            </h4>
-                            <div className="space-y-3">
-                              {summary.actionItems.map((item: string, idx: number) => (
-                                <div key={idx} className="text-sm text-gray-600 bg-green-50/30 p-2.5 rounded-lg border border-green-50 flex items-start gap-2.5 leading-relaxed">
-                                  <span className="text-green-600 mt-0.5">✓</span>
-                                  <span>{item}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Therapist Note */}
-                      {summary.therapistNote && (
-                        <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50 text-sm text-gray-600 leading-relaxed shadow-sm">
-                          <span className="font-bold text-indigo-700 block mb-2 flex items-center gap-2">
-                            💌 小结
-                          </span>
-                          {summary.therapistNote}
-                        </div>
-                      )}
-
-                    </div>
-                  ) : summaryFailed ? (
-                    // Fallback: 生成失败或超时
-                    <div className="py-6 text-center space-y-3">
-                      <p className="text-sm text-gray-500">本次对话已安全保存</p>
-                      <p className="text-xs text-gray-400">小结生成暂时不可用，你可以开始新对话</p>
-                    </div>
-                  ) : (
-                    // Loading State
-                    <div className="py-8 text-center space-y-3">
-                      <div className="mx-auto w-8 h-8 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin"></div>
-                      <p className="text-sm text-gray-400 animate-pulse">正在为你生成对话小结...</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="mx-4 mb-8 py-6 text-center animate-in fade-in duration-500">
+              <p className="text-sm text-gray-400">本次对话已结束，感谢你的信任</p>
             </div>
           )}
         </section>
@@ -1254,12 +1106,6 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           onStay={() => setShowLeaveDialog(false)}
           onLeave={async () => {
             setShowLeaveDialog(false);
-            // 生成摘要（后台异步）
-            if (internalSessionId && messages.length > 0) {
-              generateSummaryForSession(internalSessionId).catch((e) => {
-                console.error('[ChatShell] Summary generation failed:', e);
-              });
-            }
             setTimeLeft(0);
             ArcoMessage.success('对话已完成');
             // 返回会话列表

@@ -41,7 +41,7 @@ export function ChatInput({
   onSend,
   isLoading = false,
   disabled = false,
-  placeholder = "输入你的问题或感受...",
+  placeholder = "说说你现在的感受...",
   showDisclaimer = true,
   autoFocus = true,
 }: ChatInputProps) {
