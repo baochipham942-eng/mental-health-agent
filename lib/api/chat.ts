@@ -146,6 +146,7 @@ export async function sendChatMessage(options: {
   onDataChunk?: (data: any) => void;
   sessionId?: string;
   model?: string;
+  provider?: string;
 }): Promise<{ response: ValidatedChatResponse; error: ChatApiError | null }> {
   const {
     message,
@@ -158,6 +159,7 @@ export async function sendChatMessage(options: {
     onDataChunk,
     sessionId,
     model,
+    provider,
   } = options;
   try {
     const request: ChatRequest = {
@@ -170,6 +172,7 @@ export async function sendChatMessage(options: {
       } : undefined),
       sessionId,
       model,
+      provider,
     };
 
     const res = await fetch('/api/chat', {

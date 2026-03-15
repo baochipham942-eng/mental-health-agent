@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useChatStore } from '@/store/chatStore';
+import { useChatStore, CHAT_MODELS } from '@/store/chatStore';
 import { sendChatMessage } from '@/lib/api/chat';
 import { Message, SessionStatus } from '@/types/chat';
 import { useRouter } from 'next/navigation';
@@ -780,7 +780,8 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           initialMessage: currentInitialMessage,
           meta: requestPayload.meta,
           sessionId: currentSessionId,
-          model: currentModel,
+          model: CHAT_MODELS[currentModel]?.modelName || currentModel,
+          provider: currentModel,
           onTextChunk: (chunk) => {
             if (chunk) {
               localAccumulatedContent += chunk;
