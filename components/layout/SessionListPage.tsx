@@ -54,15 +54,7 @@ const QUICK_ACTIONS = [
     iconBg: 'bg-violet-50',
     iconColor: 'text-violet-600',
     hoverBorder: 'hover:border-violet-200',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2C9 2 7 4.7 7 7c0 1.5.8 2.8 2 3.5V12h6v-1.5c1.2-.7 2-2 2-3.5 0-2.3-2-5-5-5z" />
-        <path d="M9 12v1c0 1.7 1.3 3 3 3s3-1.3 3-3v-1" />
-        <path d="M12 18v3" />
-        <path d="M8 21h8" />
-        <path d="M9.5 7.5c.5-1 1.5-1.5 2.5-1.5" />
-      </svg>
-    ),
+    icon: <span className="text-xl leading-none">🧠</span>,
   },
   {
     key: 'lab',
@@ -72,16 +64,7 @@ const QUICK_ACTIONS = [
     iconBg: 'bg-cyan-50',
     iconColor: 'text-cyan-600',
     hoverBorder: 'hover:border-cyan-200',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 21h6" />
-        <path d="M8 21L5 22v-5l3-3V8a4 4 0 0 1 8 0v6l3 3v5l-3-1" />
-        <path d="M10 4.5V2" />
-        <path d="M14 4.5V2" />
-        <circle cx="12" cy="8" r="1.5" fill="currentColor" />
-        <path d="M8 14h8" />
-      </svg>
-    ),
+    icon: <span className="text-xl leading-none">🏛️</span>,
   },
 ];
 
