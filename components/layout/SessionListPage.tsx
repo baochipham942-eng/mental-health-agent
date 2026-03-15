@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Modal, Message as ArcoMessage, Avatar } from '@arco-design/web-react';
 import { IconDelete } from '@arco-design/web-react/icon';
@@ -82,6 +82,8 @@ export function SessionListPage({
   isAdmin,
 }: SessionListPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDebug = searchParams.get('debug') === '1';
   const { isConsulting, currentSessionId, resetConversation } = useChatStore();
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -164,15 +166,19 @@ export function SessionListPage({
           >
             {/* 光晕背景 */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/5" />
-            {/* 装饰元素 */}
-            <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/[0.07] blur-sm" />
-            <div className="absolute top-1/3 -right-6 w-20 h-20 rounded-full bg-purple-400/20 blur-md" />
-            <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-indigo-400/10 blur-sm" />
+            {/* 装饰元素（debug 模式下跳过 blur 避免 CDP 截图超时） */}
+            {!isDebug && (
+              <>
+                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/[0.07] blur-sm" />
+                <div className="absolute top-1/3 -right-6 w-20 h-20 rounded-full bg-purple-400/20 blur-md" />
+                <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-indigo-400/10 blur-sm" />
+              </>
+            )}
             {/* 微光扫过动画 */}
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent translate-x-[-100%] group-hover:translate-x-[100%]" style={{ transition: 'opacity 0.7s, transform 1s' }} />
             {/* 内容 */}
             <div className="relative z-10">
-              <div className="w-[52px] h-[52px] rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white mb-5 group-hover:bg-white/20 transition-colors">
+              <div className={`w-[52px] h-[52px] rounded-2xl bg-white/15 ${isDebug ? '' : 'backdrop-blur-md'} border border-white/20 flex items-center justify-center text-white mb-5 group-hover:bg-white/20 transition-colors`}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                 </svg>

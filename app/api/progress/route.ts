@@ -14,6 +14,27 @@ export const dynamic = 'force-dynamic';
 const cache = new Map<string, { data: any; ts: number }>();
 const CACHE_TTL = 60_000; // 60 秒
 
+const DB_TIMEOUT_MS = 10_000;
+const MAX_RETRIES = 2;
+
+/** 判断是否为可重试的数据库/网络错误 */
+function isRetryableDbError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message;
+  return /ECONNREFUSED|ECONNRESET|ETIMEDOUT|timeout|fetch failed|Can't reach database|Connection terminated/i.test(msg);
+}
+
+/** 带超时的 Promise */
+function withTimeout<T>(fn: () => Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`DB query timeout after ${ms}ms`)), ms);
+    fn().then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
@@ -30,16 +51,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    const timeline = await getProgressTimeline(session.user.id, days);
+    // 带超时 + 重试查询，防御 Neon 冷启动
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const timeline = await withTimeout(
+          () => getProgressTimeline(session.user.id, days),
+          DB_TIMEOUT_MS,
+        );
 
-    cache.set(cacheKey, { data: timeline, ts: Date.now() });
-    // 防止缓存无限增长
-    if (cache.size > 100) {
-      const oldest = cache.keys().next().value;
-      if (oldest) cache.delete(oldest);
+        cache.set(cacheKey, { data: timeline, ts: Date.now() });
+        if (cache.size > 100) {
+          const oldest = cache.keys().next().value;
+          if (oldest) cache.delete(oldest);
+        }
+
+        return NextResponse.json(timeline);
+      } catch (error) {
+        lastError = error;
+        if (attempt < MAX_RETRIES && isRetryableDbError(error)) {
+          const backoffMs = 1000 * (attempt + 1);
+          console.warn(`[Progress] Attempt ${attempt + 1} failed, retrying in ${backoffMs}ms:`,
+            error instanceof Error ? error.message : error);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
+        }
+        break;
+      }
     }
 
-    return NextResponse.json(timeline);
+    console.error('[Progress] GET error after retries:', lastError);
+    return NextResponse.json(
+      { error: lastError instanceof Error ? lastError.message : 'Database unavailable' },
+      { status: 503 },
+    );
   } catch (error: any) {
     console.error('[Progress] GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
