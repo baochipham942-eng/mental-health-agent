@@ -1,615 +1,370 @@
-# 心灵树洞项目总结
+# 心灵树洞 — 项目总结
+
+> 最后更新：2026-03-15
 
 ## 一、项目概述
 
-**项目名称**：心灵树洞（Mental Health Agent）  
-**项目类型**：基于认知行为疗法（CBT）的AI心理咨询聊天机器人  
-**技术栈**：Next.js 14 + TypeScript + Tailwind CSS + DeepSeek API  
-**部署平台**：Vercel  
-**开发状态**：MVP阶段已完成
+**项目名称**：心灵树洞（Mental Health Agent）
+**产品定位**：AI 陪伴式解压工具，"职场解压搭子"
+**核心理念**：表层去医疗化的轻松陪伴，底层保留完整 CBT 专业能力
+**技术栈**：Next.js 14 + TypeScript + PostgreSQL + DeepSeek（多 LLM 支持）
+**部署平台**：Vercel（预览）+ 阿里云 FC（生产）
+**开发状态**：多个完整功能模块上线，持续迭代中
 
 ---
 
-## 二、核心能力
+## 二、产品设计
 
-### 2.1 智能对话咨询
-- **功能描述**：基于DeepSeek模型提供专业的心理咨询对话
-- **技术实现**：
-  - 使用DeepSeek Chat API (`deepseek-chat`模型)
-  - 系统提示词定义AI角色为专业心理咨询师
-  - 支持多轮对话，保持上下文连贯性（最近10轮对话）
-  - 回复长度控制在200字以内，简洁专业
-- **特点**：
-  - 使用第二人称"你"，拉近距离
-  - 避免专业术语，语言通俗易懂
-  - 适时提问，引导用户深入思考
+### 2.1 产品重定位历程
 
-### 2.2 情绪识别分析
-- **功能描述**：实时识别用户输入的情绪类型和强度
-- **识别的情绪类型**（7种）：
-  - 焦虑、抑郁、愤怒、悲伤、恐惧、快乐、平静
-- **技术实现**：
-  - 主要方法：调用DeepSeek API进行情绪分析（JSON格式返回）
-  - 后备方案：关键词匹配（当API解析失败时）
-  - 情绪强度评分：0-10分（0=几乎没有，10=非常强烈）
-- **显示方式**：
-  - 情绪标签（带颜色标识）
-  - 情绪强度进度条
-  - 显示在用户消息气泡中
+项目经历了从"AI 心理咨询师"到"职场解压搭子"的重大定位转变：
 
-### 2.3 CBT干预技术
-- **功能描述**：运用认知行为疗法帮助用户调整认知模式
-- **核心原则**：
-  1. **共情理解**：首先理解并共情用户的感受
-  2. **专业引导**：识别和改变不合理的认知模式
-  3. **温和鼓励**：用温和、鼓励的语气，避免说教
-  4. **结构化思考**：引导用户从情境-认知-情绪-行为（SCEB）角度分析
-  5. **实用建议**：提供具体、可操作的建议和练习
-- **识别的认知扭曲类型**：
-  - 灾难化思维、过度概括、非黑即白思维
-  - 情绪化推理、应该思维、标签化、心理过滤
-- **干预方法**：
-  - 认知重构：帮助用户看到不同视角，挑战不合理信念
-  - 行为建议：行为激活、放松训练、暴露练习
+| 阶段 | 定位 | 特点 |
+|------|------|------|
+| MVP | AI 心理咨询聊天机器人 | 专业导向、CBT 干预、localStorage |
+| Phase 2-4 | AI 心理健康助手 | 加入认证、数据库、记忆系统 |
+| Phase 5+ | **职场解压搭子** | 去医疗化、陪伴导向、渐进暴露专业能力 |
 
-### 2.4 对话历史管理
-- **功能描述**：本地存储对话历史，无需注册登录
-- **技术实现**：
-  - 使用浏览器localStorage存储
-  - 自动保存每次对话
-  - 页面刷新后自动恢复历史记录
-  - 支持手动清空对话历史
-- **隐私保护**：
-  - 数据仅存储在用户本地浏览器
-  - 无需服务器数据库
-  - 无需用户注册认证
+### 2.2 功能分层（渐进暴露）
 
-### 2.5 响应式UI设计
-- **功能描述**：支持移动端和桌面端访问
-- **UI组件**：
-  - ChatContainer：主容器，管理整体布局
-  - MessageList：消息列表，自动滚动到底部
-  - MessageBubble：消息气泡，区分用户和AI消息样式
-  - ChatInput：输入框，支持多行输入（Enter发送，Shift+Enter换行）
-  - EmotionIndicator：情绪指示器，显示情绪标签和强度
-- **设计特点**：
-  - 使用Tailwind CSS实现现代化UI
-  - 情绪标签使用不同颜色区分（符合WCAG对比度要求）
-  - 加载状态和错误提示完善
+| Layer | 用户感知 | 实际能力 | 触达方式 |
+|-------|---------|---------|---------|
+| L0 | 自由聊天、情绪倾诉 | Multi-Agent 编排（Triage + Safety + Counselor）| 默认入口 |
+| L1 | 呼吸练习、正念冥想、情绪记录 | ExerciseEngine + SFBT + Widget 组件 | 自然发现（技能卡） |
+| L2 | 探索工坊（导师对话、MBTI、圆桌论道） | Mentor Personas + Group Chat | 主动探索 |
+| L3 | 情绪健康度 / 压力指数 | PHQ-9 / GAD-7 对话式收集 | 用户触发或系统温和建议 |
+
+### 2.3 用户体验设计
+
+**Onboarding（目的导向）**：
+- 4 张情境卡片：心情不太好 / 压力有点大 / 想理清思路 / 随便聊聊
+- 点击后翻转显示共情文案，设置情绪主题色
+- 完成后进入双栏首页，下次进入跳过
+
+**首页（双栏布局）**：
+- 左栏：新对话卡片 + 快捷导航（情绪趋势 / 记忆 / 探索工坊 / 设置）
+- 右栏：历史对话列表（按日期分组，带状态 badge）
+- 移动端响应式（768px 断点）
+
+**设置面板（5 标签页）**：
+- 个人资料：8 种预设头像 + 昵称
+- 主题色：4 种情绪主题
+- 聊天风格：3 种治疗师 persona
+- 隐私与数据
+- 管理员（仅特定账号可见）
+
+### 2.4 文案规范（去医疗化）
+
+| 禁用词 | 替代词 |
+|--------|--------|
+| 咨询 | 对话 / 聊天 |
+| 心理咨询 | 聊聊 |
+| 咨询师 | 我（第一人称）|
+| 疗愈 | 成长 |
+| PHQ-9 抑郁评分 | 情绪健康度 |
+| GAD-7 焦虑评分 | 压力指数 |
+| 心理评估 | 深度了解 |
+| 症状 | 状态 |
 
 ---
 
-## 三、系统架构
+## 三、核心功能模块
 
-### 3.1 技术架构
+### 3.1 智能对话
+
+- Multi-Agent 编排：Triage（分类）→ Safety（安全）→ Counselor（回复）
+- 流式响应 + 并行预取（记忆 / 分类 / 安全同时进行，~800ms 节省）
+- 极速技能路径：直接 skill 请求跳过所有 LLM 调用
+- 情绪识别：7 类情绪 + 0-10 强度评分
+- 对话状态机：SCEB 要素收集 + 状态转移
+- 危机检测：LLM 语义评估（替代关键词硬匹配）+ 安全回复 + 热线展示
+- **统一人格约束**（PERSONA_INVARIANTS）：跨所有路径（support/crisis/exercise）强制语气、称谓、禁词、篇幅、格式一致性
+- **首轮优化**：首轮跳过 therapist/activeExercise 查询 + triage soft wait，目标 <800ms
+- **次日回访**：首轮自动检测 24-48h 内完成但无后续的练习，AI 主动提及
+
+### 3.2 技能系统（8 种）
+
+**Widget 型（前端驱动）**：
+1. 4-7-8 呼吸法 — 带动画定时器
+2. 正念冥想 — 5 分钟引导
+3. 情绪记录 — 选择情绪 + 强度 + 触发因素
+4. 溪流落叶 — 脱钩练习动画
+
+**Guided 型（AI 多轮对话）**：
+5. 五感着陆 — 5 步感官觉察
+6. 认知重构 — 4 步思维挑战
+7. 行为激活 — 3 步微行动
+8. 空椅子技术 — 4 步未竟对话
+
+技能通过自然语言检测触发（`detectDirectSkillRequest()`），也可通过技能卡片面板手动选择。
+
+**技能推荐场景化**（Pilot 优化）：
+- 职场急救包（工作压力 → breathing/reframing）
+- 入睡安眠包（失眠 → breathing）
+- 心结化解包（放不下 → empty_chair）
+- 思绪整理包（想太多 → leaves_stream/meditation）
+
+**练习后闭环**：
+- SFBT 个人化总结：练习完成后 AI 附"本次小结"（练习名 + 感受变化 + 鼓励）
+- 转化漏斗埋点：`l0_chat_start` → `l1_skill_recommended` → `l1_skill_clicked` → `l1_skill_completed` → `l2_lab_entered`
+
+### 3.3 探索工坊
+
+探索工坊是 L2 层的核心功能，位于 `/dashboard/lab`，包含 4 个标签：
+
+#### 智慧殿堂 — 10 位历史先驱对话
+苏格拉底、荣格、阿德勒、塞利格曼、萨提亚、卡尼曼、维特根斯坦、萨特、纳瓦尔、哈耶克。每位导师有独特 persona、主题色和 emoji 头像。
+
+#### 镜像回廊 — 16 种 MBTI 人格互动
+完整 16 型 MBTI persona，支持选择"我是"的类型 + 随机匹配。按 Analyst/Diplomat/Sentinel/Explorer 分色展示。
+
+#### 圆桌论道 — 多人群组对话
+选 2-4 位大师，输入话题，支持讨论模式（互相补充）和辩论模式（正反交锋）。
+
+#### 自定义大师
+用户可创建自定义导师 persona（开发中）。
+
+### 3.4 情绪追踪
+
+- **实时反馈**：每条消息显示情绪标签 + 强度进度条
+- **趋势面板**：7/30 天情绪折线图 + 趋势徽章
+- **统计摘要**：对话数 + 练习数 + 探索数
+- **成长记录**：里程碑追踪
+
+### 3.5 评估系统
+
+- 情绪健康度检查（PHQ-9）— 对话式自然收集
+- 压力指数检查（GAD-7）— 对话式自然收集
+- 触发方式：明确关键词（"情绪健康度"/"压力自评"/"压力指数"/"PHQ"/"GAD"），泛化触发词已收窄
+- 设置页提供"压力自评"快捷入口
+- 进度追踪与成长记录面板
+
+### 3.6 安全防线
+
+- **输入安全**：Guardrails 拦截有害内容
+- **Safety Agent**：深度安全评估 + 约束生成
+- **危机检测**：LLM 语义评估（few-shot），替代关键词硬匹配
+- **危机升级**：展示热线号码，措辞去医疗化
+- **设置页安全资源**：底部常驻热线（400-161-9995 / 400-821-1215）
+- **敏感信息**：自动脱敏
+
+### 3.7 记忆系统
 
 ```
-前端层 (Next.js App Router)
-  ├── 页面组件 (app/page.tsx)
-  ├── UI组件 (components/chat/)
-  └── 自定义Hooks (hooks/useChat.ts)
+短期记忆
+  └─ 最近 10 轮对话历史
+
+长期记忆 V2 (PostgreSQL) — 两层并行 + 三个补充源
+  ├─ Layer 1: ProfileMemory — 5 种 kind（trigger/preference/coping/relationship/identity）
+  │   └─ 关键词匹配 + kind 权重 + priority/confidence 打分，取 Top 6
+  ├─ Layer 2: SessionSummaryV2 — 按时间取最近 2 条
+  ├─ 补充 A: 练习回访（首轮，查 24-48h 内完成但无后续的练习）
+  ├─ 补充 B: 7 天情绪趋势摘要（非首轮）
+  └─ Fallback: Legacy memoryManager（V2 为空或报错时降级）
+
+记忆注入增强（Pilot 优化）
+  ├─ 探索工坊发现标注：lab_ 来源的 ProfileMemory 标注"(探索工坊发现)"
+  └─ 记忆使用指南：引导 AI 用"我记得你说过..."自然引用
+
+生命周期
+  ├─ 提取：异步 MemoryExtractor
+  ├─ 检索：Memory V2（profile + summary 两路并行合并）
+  └─ 遗忘：Forgetting Curve（间隔重复衰减）
+```
+
+---
+
+## 四、系统架构
+
+### 4.1 对话引擎
+
+```
+用户消息
+  → 0.0 极速技能路径（直接 skill → 跳过 LLM）
+  → 0.1 输入安全检测
+  → 0.2 认证 + 会话恢复
+  → 0.5 并行预取（记忆 / Triage / Safety / 评估历史 / 危机检查）
+  → 0.6 对话状态机（SCEB）
+  → 0.7 练习状态检测
+  → 路由决策（crisis / assessment / support）
+  → 异步后处理（记忆提取 + 质量抽检）
+```
+
+### 4.2 Multi-Agent 编排
+
+| Agent | 职责 | 模型 | 超时 |
+|-------|------|------|------|
+| TriageAgent | 情绪/意图/安全快速分类 | DeepSeek | 5s |
+| CounselorAgent | 生成回复 | 可切换 | 30s |
+| SafetyAgent | 深度安全评估 + 约束生成 | DeepSeek | 5s |
+| QualityAgent | 回复质量抽检 | DeepSeek | 10s |
+
+### 4.3 LLM Provider 层
+
+统一接口 `lib/llm/index.ts`，支持 5 个 provider + 运行时模型切换：
+- DeepSeek（默认，高性价比）
+- OpenAI（英文基线，指令遵循）
+- Kimi（中文长上下文）
+- OpenRouter（Claude / Gemini 等）
+- GLM（备选）
+
+自动推断规则：`gpt-*` → openai、`kimi-*` → kimi、`deepseek-*` → deepseek、含 `/` → openrouter、`glm-*` → glm
+
+### 4.4 评测系统
+
+学术数据集驱动的自动化评测 + 定性分析闭环：
+
+**数据集**：
+- ESConv（195 条，英文情感支持）
+- CPsyCounE（35 条，中文心理咨询）
+- Psy-Insight CN（431 条，双语心理咨询）
+
+**双层评分**：
+- Layer 1：代码规则（no-medical-label / no-gaslighting / reply-length）
+- Layer 2：LLM Judge（8 维度：empathy / safety / coherence / persona 等）
+
+**定性分析（扎根理论）**：
+1. 开放编码 — 两阶段 LLM 辅助标签提取
+2. 主轴编码 — 标签聚类为 3-6 个主题
+3. AI 改进分析 — 生成可操作优化建议
+
+---
+
+## 五、技术架构
+
+### 5.1 整体分层
+
+```
+前端（Next.js 14 App Router）
+  Chat UI ←→ Dashboard（评测中心 / 记忆 / 危机 / 进度 / 探索工坊）
+        │
+        │ API Routes
         ↓
-API层 (Next.js API Routes)
-  └── /api/chat (app/api/chat/route.ts)
+后端（Serverless Functions）
+  Chat API │ Memory │ Auth │ Eval │ Mentor │ Group │ MBTI
+        │
         ↓
-业务逻辑层 (lib/)
-  ├── AI集成 (lib/ai/)
-  │   ├── deepseek.ts - DeepSeek API封装
-  │   ├── emotion.ts - 情绪分析入口
-  │   └── prompts.ts - 提示词模板
-  └── 工具函数 (lib/utils/)
+Multi-Agent 对话引擎 + LLM Provider 层
+  DeepSeek │ OpenAI │ Kimi │ OpenRouter │ GLM
+        │
         ↓
-外部服务
-  └── DeepSeek API (https://api.deepseek.com)
+数据层
+  PostgreSQL (Neon) │ Prisma ORM │ SQLite (评测) │ Langfuse
 ```
 
-### 3.2 数据流
+### 5.2 项目目录结构
 
 ```
-用户输入消息
-  ↓
-ChatInput组件捕获
-  ↓
-useChat Hook (sendMessage函数)
-  ├── 添加用户消息到状态
-  ├── 保存到localStorage
-  └── 发送POST请求到 /api/chat
-        ↓
-API Route处理 (app/api/chat/route.ts)
-  ├── 验证消息内容
-  └── 并行执行两个任务：
-        ├── analyzeEmotion() - 情绪分析
-        └── generateCounselingReply() - 生成咨询回复
-              ↓
-DeepSeek API调用
-  ├── 情绪分析API调用（temperature: 0.3, max_tokens: 200）
-  └── 咨询回复API调用（temperature: 0.8, max_tokens: 500）
-        ↓
-返回结果
-  ├── emotion: { label, score }
-  └── reply: string
-        ↓
-API Route组装响应
-  └── 返回 { reply, emotion, timestamp }
-        ↓
-useChat Hook接收响应
-  ├── 添加AI消息到状态
-  ├── 保存到localStorage
-  └── 更新UI
-        ↓
-MessageList组件渲染
-  └── 显示消息和情绪指示器
+app/
+  (chat)/
+    page.tsx                    # 首页（双栏布局 / Onboarding）
+    c/[sessionId]/page.tsx      # 对话界面
+  api/
+    chat/route.ts               # 主对话 API
+    chat/mentor/route.ts        # 导师对话 API
+    chat/group/route.ts         # 圆桌群组 API
+    chat/mbti/route.ts          # MBTI 对话 API
+    memory/                     # 记忆管理
+    eval/                       # 评测系统
+    progress/                   # 进度追踪
+    auth/[...nextauth]/         # 认证
+  dashboard/
+    optimization/               # 评测中心
+    memory/                     # 记忆管理
+    crisis/                     # 危机管理
+    progress/                   # 进度追踪
+    lab/                        # 探索工坊
+
+components/
+  onboarding/                   # Onboarding 流程
+  layout/                       # 首页布局、设置面板
+  chat/                         # 对话组件、消息气泡、技能卡
+    widgets/                    # 呼吸/冥想/情绪记录/溪流落叶 Widget
+  lab/                          # 探索工坊（MBTI/群聊/自定义大师）
+  settings/                     # 导师区域（智慧殿堂）
+  progress/                     # 情绪趋势面板
+
+lib/
+  llm/index.ts                  # 统一 LLM 层（5 provider）
+  ai/
+    agents/                     # Agent 编排（triage/counselor/safety/quality）
+    skills.ts                   # 技能检测 + 配置
+    exercise-engine.ts          # 练习引擎
+    emotion.ts                  # 情绪分析
+    mentors/personas.ts         # 10 位导师 persona
+    mbti/personas.ts            # 16 种 MBTI persona
+    dialogue/                   # 对话状态机
+    guardrails/                 # 安全防线
+    crisis-classifier.ts        # 危机检测
+    persona/                    # 治疗师风格
+  memory/                       # 记忆系统
+  observability/                # Langfuse 监控
+
+scripts/eval-academic/          # 评测 Runner
+tests/eval/                     # 评测数据 + 结果
 ```
 
-### 3.3 核心模块详解
+### 5.3 API 端点清单
 
-#### 3.3.1 API路由 (`app/api/chat/route.ts`)
-- **功能**：处理对话请求的HTTP端点
-- **请求格式**：
-  ```typescript
-  {
-    message: string;  // 用户消息
-    history?: Array<{  // 可选：对话历史（最近10轮）
-      role: 'user' | 'assistant';
-      content: string;
-    }>;
-  }
-  ```
-- **响应格式**：
-  ```typescript
-  {
-    reply: string;  // AI回复
-    emotion?: {  // 可选：情绪分析结果
-      label: string;  // 情绪类型
-      score: number;  // 0-10分
-    };
-    timestamp: string;  // ISO时间戳
-  }
-  ```
-- **特点**：
-  - 并行执行情绪分析和回复生成（使用Promise.all）
-  - 完整的错误处理
-  - 输入验证
+| 端点 | 用途 |
+|------|------|
+| POST `/api/chat` | 主对话（support / assessment / crisis） |
+| POST `/api/chat/mentor` | 单个导师对话 |
+| POST `/api/chat/mentor/generate-opening` | 导师开场白生成 |
+| POST `/api/chat/group` | 圆桌群组对话 |
+| POST `/api/chat/mbti` | MBTI 人格对话 |
+| `/api/memory` | 记忆管理 |
+| `/api/progress` | 进度追踪 |
+| POST `/api/progress/funnel` | 转化漏斗事件上报 |
+| `/api/eval/*` | 评测系统 |
+| `/api/auth/[...nextauth]` | 认证 |
 
-#### 3.3.2 DeepSeek集成 (`lib/ai/deepseek.ts`)
-- **核心函数**：
-  1. `chatCompletion()`: 通用DeepSeek API调用函数
-     - 支持自定义temperature、max_tokens、stream参数
-     - 完整的错误处理
-  2. `generateCounselingReply()`: 生成心理咨询回复
-     - 使用SYSTEM_PROMPT定义AI角色
-     - 支持对话历史上下文
-     - temperature: 0.8（平衡创造性和准确性）
-     - max_tokens: 500（控制回复长度）
-  3. `analyzeEmotion()`: 分析用户情绪
-     - 使用EMOTION_ANALYSIS_PROMPT
-     - 尝试解析JSON格式响应
-     - 失败时使用关键词匹配后备方案
-     - temperature: 0.3（更确定性）
-     - max_tokens: 200
+### 5.4 可观测性
 
-#### 3.3.3 提示词工程 (`lib/ai/prompts.ts`)
-- **SYSTEM_PROMPT**：定义心理咨询师角色
-  - 工作原则（共情、专业引导、温和鼓励等）
-  - 回复要求（简洁、通俗、提问引导等）
-- **CBT_PROMPT**：CBT干预专用提示词
-  - 认知扭曲类型列表
-  - 认知重构方法
-  - 行为建议类型
-- **EMOTION_ANALYSIS_PROMPT**：情绪分析提示词
-  - 7种情绪类型定义
-  - 情绪强度评分标准
-  - JSON格式返回要求
-
-#### 3.3.4 聊天Hook (`hooks/useChat.ts`)
-- **状态管理**：
-  - `messages`: Message[] - 消息列表
-  - `isLoading`: boolean - 加载状态
-  - `error`: string | null - 错误信息
-- **核心方法**：
-  - `sendMessage()`: 发送消息
-    - 构建对话历史（最近10轮）
-    - 调用API
-    - 更新状态和localStorage
-  - `clearHistory()`: 清空对话历史
-- **持久化**：
-  - 组件挂载时从localStorage加载历史
-  - 每次消息更新后保存到localStorage
-
-#### 3.3.5 UI组件架构
-- **ChatContainer**：主容器
-  - 管理整体布局（头部、消息列表、输入框）
-  - 处理清空历史功能
-  - 显示错误提示
-- **MessageList**：消息列表
-  - 渲染所有消息
-  - 自动滚动到底部（新消息）
-  - 显示加载动画
-- **MessageBubble**：消息气泡
-  - 区分用户和AI消息样式
-  - 显示情绪指示器（仅用户消息）
-  - 显示时间戳
-- **ChatInput**：输入框
-  - 多行文本输入
-  - Enter发送，Shift+Enter换行
-  - 加载时禁用
-- **EmotionIndicator**：情绪指示器
-  - 显示情绪标签（带颜色）
-  - 显示情绪强度进度条（0-10分）
-
-### 3.4 数据存储
-
-#### 3.4.1 本地存储（localStorage）
-- **存储键**：`chat_history`
-- **存储内容**：Message[]数组（JSON序列化）
-- **Message结构**：
-  ```typescript
-  {
-    id: string;  // 唯一ID
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: string;  // ISO格式
-    emotion?: {  // 仅用户消息可能有
-      label: string;
-      score: number;
-    };
-  }
-  ```
-- **特点**：
-  - 仅存储在用户浏览器
-  - 页面刷新后自动恢复
-  - 支持手动清空
-
-#### 3.4.2 无服务器端存储
-- 不使用数据库
-- 不使用用户认证系统
-- 所有数据在客户端
-
-### 3.5 部署架构
-
-```
-Vercel Platform
-  ├── Next.js App (SSR/SSG)
-  │   ├── 静态页面 (app/page.tsx)
-  │   └── API Routes (Serverless Functions)
-  │       └── /api/chat (超时限制：Hobby 10s, Pro 60s)
-  ├── Static Assets (CDN)
-  └── Environment Variables
-        ├── DEEPSEEK_API_KEY (必需)
-        └── DEEPSEEK_API_URL (可选，有默认值)
-              ↓
-DeepSeek API (外部服务)
-  └── https://api.deepseek.com/v1/chat/completions
-              ↓
-localStorage (客户端存储)
-  └── 浏览器本地存储
-```
+| 工具 | 用途 |
+|------|------|
+| Langfuse | LLM 调用追踪、成本监控、对话质量分析 |
+| 结构化日志 | logInfo/logWarn（session / user / route / duration）|
+| StreamData | 前端实时接收 metadata（emotion / safety / state / memory）|
 
 ---
 
-## 四、技术栈详情
+## 六、部署架构
 
-### 4.1 前端技术
-- **框架**：Next.js 14 (App Router)
-  - 使用最新的App Router架构
-  - 支持Server Components和Client Components
-  - 内置API Routes
-- **语言**：TypeScript 5.3.3
-  - 完整的类型定义
-  - 类型安全
-- **UI框架**：Tailwind CSS 3.4.1
-  - 实用优先的CSS框架
-  - 响应式设计
-  - 自定义配置
-- **React版本**：18.3.0
-  - 使用Hooks（useState, useEffect, useCallback）
-  - Client Components（'use client'指令）
+### 双环境部署
 
-### 4.2 AI服务
-- **模型**：DeepSeek Chat API
-  - 模型名称：`deepseek-chat`
-  - API地址：`https://api.deepseek.com/v1/chat/completions`
-  - 特点：中文理解能力强，价格合理，响应速度快
+| 环境 | 平台 | 域名 | 触发方式 |
+|------|------|------|---------|
+| 预览 | Vercel | mental-health-agent-tawny.vercel.app | git push 自动 |
+| 生产 | 阿里云 FC | mental.llmxy.xyz | `bun run deploy:build && s deploy` 手动 |
 
-### 4.3 工具库
-- **clsx**：条件类名工具
-- **tailwind-merge**：Tailwind类名合并工具
+### 关键约束
 
-### 4.4 开发工具
-- **TypeScript**：类型检查
-- **PostCSS + Autoprefixer**：CSS处理
-- **ESLint**：代码检查（Next.js默认配置）
+- 生产构建必须用 `bun run deploy:build`（复制 public + static 到 standalone）
+- Middleware 必须排除静态资源路径
+- 改 package.json 后必须 `pnpm install --lockfile-only` 同步 lockfile
+- 禁止 Ghost Deploy（不 push 就 deploy）
 
 ---
 
-## 五、环境配置
+## 七、技术决策记录
 
-### 5.1 必需环境变量
-```bash
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-```
-
-### 5.2 可选环境变量
-```bash
-DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
-# 如果不设置，使用默认值
-```
-
-### 5.3 配置文件
-- `next.config.js`：Next.js配置
-- `tailwind.config.ts`：Tailwind CSS配置
-- `tsconfig.json`：TypeScript配置
-- `postcss.config.js`：PostCSS配置
-- `vercel.json`：Vercel部署配置（设置函数超时时间）
+| 决策 | 原因 |
+|------|------|
+| 产品重定位为"解压搭子" | 用户研究表明目标人群厌恶医疗标签 |
+| 渐进暴露分层 | 降低使用门槛，专业能力按需展现 |
+| Multi-Agent 架构 | 职责分离（分类/回复/安全/质量独立） |
+| 5 Provider 统一层 | 支持评测对比 + 成本优化 + 供应商冗余 |
+| 危机检测从关键词改 LLM | 关键词匹配误报率高，LLM 语义理解更准确 |
+| 学术数据集评测 | 标准化可复现，支持跨模型横评 |
+| 统一人格约束（PERSONA_INVARIANTS） | 跨路径（support/crisis/exercise）强制一致的语气/称谓/禁词/格式 |
+| 转化漏斗埋点 | 量化 L0→L1→L2 各环节转化率，数据驱动优化 |
+| 量表触发收窄 | 泛化词不再自动进入评估，减少误触发 |
+| 扎根理论定性分析 | 系统性发现改进方向，避免拍脑袋优化 |
+| bun 开发 + pnpm 部署 | bun 速度快适合本地，Vercel 原生支持 pnpm |
+| PostgreSQL + pgvector | 关系数据 + 向量检索一体化 |
+| Onboarding 改为目的导向 | 情绪意象选择让用户困惑，目的导向更直觉 |
 
 ---
 
-## 六、项目结构
-
-```
-心理疗愈agent/
-├── app/                          # Next.js App Router
-│   ├── api/
-│   │   └── chat/
-│   │       └── route.ts          # 对话API端点
-│   ├── layout.tsx                # 根布局
-│   ├── page.tsx                  # 首页（聊天界面）
-│   └── globals.css               # 全局样式
-│
-├── components/                   # React组件
-│   └── chat/
-│       ├── ChatContainer.tsx     # 聊天主容器
-│       ├── MessageList.tsx       # 消息列表
-│       ├── MessageBubble.tsx     # 消息气泡
-│       ├── ChatInput.tsx         # 输入框
-│       └── EmotionIndicator.tsx  # 情绪指示器
-│
-├── lib/                          # 核心库
-│   ├── ai/
-│   │   ├── deepseek.ts          # DeepSeek API封装
-│   │   ├── emotion.ts            # 情绪分析入口
-│   │   └── prompts.ts            # 提示词模板
-│   ├── utils/
-│   │   ├── cn.ts                 # className工具函数
-│   │   └── format.ts             # 格式化工具（生成ID等）
-│   └── constants.ts              # 常量定义（情绪标签、颜色等）
-│
-├── hooks/                        # 自定义Hooks
-│   └── useChat.ts                # 聊天逻辑Hook
-│
-├── types/                        # TypeScript类型定义
-│   ├── chat.ts                   # 聊天相关类型（Message, ChatRequest等）
-│   └── emotion.ts                # 情绪相关类型（EmotionLabel, EmotionAnalysis）
-│
-├── public/                       # 静态资源（如果有）
-│
-├── package.json                  # 项目依赖和脚本
-├── tsconfig.json                 # TypeScript配置
-├── tailwind.config.ts            # Tailwind配置
-├── next.config.js                # Next.js配置
-├── vercel.json                   # Vercel部署配置
-└── README.md                     # 项目说明文档
-```
-
----
-
-## 七、核心功能实现细节
-
-### 7.1 对话上下文管理
-- **历史记录限制**：仅保留最近10轮对话（20条消息）
-- **原因**：控制API调用token数量，保持响应速度
-- **实现位置**：`hooks/useChat.ts` 的 `sendMessage` 函数
-  ```typescript
-  const recentHistory = messages.slice(-10).map(msg => ({
-    role: msg.role,
-    content: msg.content,
-  }));
-  ```
-
-### 7.2 情绪分析双重保障
-- **主要方法**：DeepSeek API分析（JSON格式返回）
-- **后备方案**：关键词匹配
-  - 当API解析失败时自动降级
-  - 预定义关键词库（7种情绪类型）
-  - 默认返回"平静"情绪（score: 5）
-- **实现位置**：`lib/ai/deepseek.ts` 的 `analyzeEmotion` 和 `matchEmotionByKeywords` 函数
-
-### 7.3 并行处理优化
-- **实现**：使用 `Promise.all` 并行执行情绪分析和回复生成
-- **优势**：减少总响应时间（两个API调用同时进行）
-- **实现位置**：`app/api/chat/route.ts`
-  ```typescript
-  const [emotion, reply] = await Promise.all([
-    analyzeEmotion(message),
-    generateCounselingReply(message, history),
-  ]);
-  ```
-
-### 7.4 错误处理机制
-- **API层**：捕获异常，返回友好的错误信息
-- **Hook层**：设置error状态，在UI中显示错误提示
-- **DeepSeek层**：API调用失败时使用后备方案（关键词匹配）
-
----
-
-## 八、已实现功能（MVP）
-
-✅ **基础对话功能**
-- 用户输入消息
-- AI生成心理咨询回复
-- 多轮对话支持
-
-✅ **情绪识别**
-- 7种情绪类型识别
-- 情绪强度评分（0-10分）
-- 情绪可视化显示
-
-✅ **CBT反馈**
-- 基于认知行为疗法的专业回复
-- 共情理解
-- 认知重构引导
-
-✅ **对话历史本地存储**
-- 自动保存对话
-- 页面刷新后恢复
-- 支持清空历史
-
-✅ **响应式UI**
-- 移动端和桌面端适配
-- 现代化界面设计
-- 情绪可视化
-
----
-
-## 九、待开发功能（后续迭代）
-
-### 短期计划
-- [ ] 流式响应（Streaming）：实时显示AI回复生成过程
-- [ ] 情绪识别准确度优化：改进提示词和解析逻辑
-- [ ] 更多CBT技术：添加更多认知行为疗法技术
-- [ ] UI/UX改进：优化交互体验
-
-### 中期计划
-- [ ] 数据库集成（Supabase）：支持跨设备同步
-- [ ] 用户认证（可选）：支持多用户使用
-- [ ] 情绪趋势分析：可视化情绪变化趋势
-- [ ] 危机检测功能：识别严重心理危机并引导求助
-
-### 长期计划
-- [ ] 多模态输入：支持语音、图片输入
-- [ ] 个性化推荐：基于用户历史提供个性化建议
-- [ ] 心理测评工具：集成专业心理测评量表
-- [ ] 专业咨询师转介：严重情况转介到专业机构
-
----
-
-## 十、技术决策说明
-
-### 10.1 为什么选择Next.js？
-- Vercel原生支持，部署简单
-- App Router提供现代化开发体验
-- API Routes内置，无需单独后端
-- 性能优化（SSR/SSG）
-
-### 10.2 为什么选择DeepSeek？
-- 中文理解能力强
-- API价格合理
-- 易于集成
-- 响应速度快
-
-### 10.3 为什么使用localStorage？
-- MVP阶段简化架构
-- 无需数据库服务
-- 保护用户隐私（数据不离开用户设备）
-- 零成本
-
-### 10.4 为什么不用用户认证？
-- MVP阶段快速上线
-- 降低使用门槛
-- 保护隐私（无需注册）
-- 简化架构
-
----
-
-## 十一、API调用参数
-
-### 11.1 咨询回复生成
-```typescript
-{
-  model: 'deepseek-chat',
-  messages: [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...history,
-    { role: 'user', content: userMessage }
-  ],
-  temperature: 0.8,  // 平衡创造性和准确性
-  max_tokens: 500,   // 控制回复长度（约200字）
-  stream: false
-}
-```
-
-### 11.2 情绪分析
-```typescript
-{
-  model: 'deepseek-chat',
-  messages: [
-    { role: 'system', content: EMOTION_ANALYSIS_PROMPT },
-    { role: 'user', content: `请分析以下文本的情绪：\n\n${userMessage}` }
-  ],
-  temperature: 0.3,  // 更确定性，减少随机性
-  max_tokens: 200,   // 简短响应
-  stream: false
-}
-```
-
----
-
-## 十二、注意事项和限制
-
-### 12.1 部署限制
-- **Vercel Hobby计划**：Serverless Functions最大超时10秒
-- **Vercel Pro计划**：最大超时60秒（已配置）
-- **建议**：如果遇到超时，考虑升级到Pro计划或优化API调用
-
-### 12.2 隐私和安全
-- 对话历史仅存储在用户浏览器
-- 不收集用户个人信息
-- 不进行用户认证
-- API密钥存储在环境变量中（不暴露给客户端）
-
-### 12.3 使用限制
-- 本项目仅供学习和研究使用
-- **不能替代专业心理咨询服务**
-- 如遇严重心理危机，请及时寻求专业帮助
-
-### 12.4 技术限制
-- 对话历史限制为最近10轮（控制token使用）
-- 情绪分析依赖API，网络问题可能影响准确性
-- 无流式响应，需等待完整回复
-
----
-
-## 十三、开发命令
-
-```bash
-# 安装依赖
-npm install
-
-# 开发模式
-npm run dev
-
-# 构建生产版本
-npm run build
-
-# 启动生产服务器
-npm start
-
-# 代码检查
-npm run lint
-```
-
----
-
-## 十四、总结
-
-这是一个**功能完整的MVP版本**的心理疗愈AI助手，核心能力包括：
-
-1. **智能对话咨询**：基于DeepSeek模型的专业心理咨询
-2. **情绪识别分析**：7种情绪类型识别和强度评分
-3. **CBT干预技术**：认知行为疗法引导
-4. **对话历史管理**：本地存储，保护隐私
-5. **现代化UI**：响应式设计，情绪可视化
-
-**技术架构**采用Next.js全栈框架，前后端一体化，部署在Vercel平台，使用DeepSeek API提供AI能力，数据存储在客户端localStorage。
-
-**项目特点**：
-- 零配置使用（无需注册）
-- 隐私保护（数据本地存储）
-- 专业性强（基于CBT疗法）
-- 易于扩展（模块化架构）
-
----
-
-*本文档生成时间：2024年*  
-*项目版本：0.1.0 (MVP)*
-
+*本文档对应项目版本：2026-03-15*

@@ -168,7 +168,7 @@ Identifies 7 emotion types with 0-10 intensity scoring:
 - **压力指数检查**（GAD-7）— 用户看到的名称
 - 对话状态机（SCEB 要素收集）
 - 进度追踪与成长记录
-- 触发方式：用户说"了解一下自己"/"测一下" 或连续 3+ 次同类情绪话题时温和建议
+- 触发方式：明确关键词（"情绪健康度"/"压力自评"/"压力指数"/"PHQ"/"GAD"），泛化触发词已收窄；设置页提供"压力自评"快捷入口
 
 ### Safety Features
 - Crisis detection and classification（后台保持专业术语）

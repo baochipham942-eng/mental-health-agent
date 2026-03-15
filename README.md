@@ -1,32 +1,39 @@
-# 心灵树洞
+# 心灵树洞 — 你的解压搭子
 
-> **🔴 重要提示**：在部署前，请务必阅读 [PROJECT_CONSTITUTION.md](./PROJECT_CONSTITUTION.md) 以了解核心部署规则 (The Dual Deployment Rule) 和开发原则。
+> AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊天陪伴体验，底层保留完整的 CBT 专业能力。
 
-基于认知行为疗法（CBT）的AI心理咨询聊天机器人，使用DeepSeek模型提供专业的心理健康支持。
+**产品定位**：用户厌恶医疗标签，偏好轻松陪伴式交互。产品表面去医疗化，专业能力按需渐进暴露。
 
-## 功能特性
+## 功能亮点
 
-- 🤖 **智能对话咨询**：基于DeepSeek模型，提供专业的心理咨询对话
-- 😊 **情绪识别分析**：实时识别用户情绪类型和强度
-- 🧠 **CBT干预**：运用认知行为疗法，帮助用户调整认知模式
-- 💬 **多轮对话**：支持上下文理解，保持对话连贯性
-- 📱 **响应式设计**：支持移动端和桌面端
-- 🔒 **隐私保护**：对话历史本地存储，无需注册登录
+- **轻松陪伴对话** — 去医疗化文案，像朋友一样聊天
+- **8 种解压技能** — 呼吸练习、正念冥想、认知重构、空椅子技术等
+- **探索工坊** — 与 10 位历史先驱对话、16 种 MBTI 人格互动、圆桌论道
+- **情绪洞察** — 实时情绪识别 + 7/30 天趋势追踪
+- **专业评估** — 情绪健康度 (PHQ-9)、压力指数 (GAD-7)，对话式自然收集
+- **多 LLM 支持** — DeepSeek / OpenAI / Kimi / OpenRouter / GLM 可切换
+- **学术评测** — 3 套学术数据集 + 双层评分 + 定性分析
 
 ## 技术栈
 
-- **前端框架**：Next.js 14 (App Router)
-- **UI样式**：Tailwind CSS
-- **AI模型**：DeepSeek API
-- **语言**：TypeScript
-- **部署**：Vercel
+| 层 | 技术 |
+|----|------|
+| 前端 | Next.js 14 + React 18 + TypeScript + TailwindCSS + ArcoDesign + Framer Motion |
+| 状态 | Zustand 4.4 |
+| 后端 | Next.js API Routes (Serverless) |
+| 认证 | NextAuth 5.0.0-beta.30 |
+| 数据库 | PostgreSQL (Neon) + Prisma ORM + SQLite (评测) |
+| AI | DeepSeek + OpenAI + Kimi + OpenRouter + GLM（lib/llm 统一层）|
+| AI SDK | Vercel AI SDK 3.4 |
+| 监控 | Langfuse 3.38 |
+| 包管理 | bun (开发) + pnpm (Vercel 部署) |
 
 ## 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-npm install
+bun install
 ```
 
 ### 2. 配置环境变量
@@ -34,170 +41,81 @@ npm install
 创建 `.env.local` 文件：
 
 ```bash
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
+DEEPSEEK_API_KEY=your_key
+DATABASE_URL=postgresql://...
 ```
 
-### 3. 运行开发服务器
+完整环境变量列表见 [CLAUDE.md](./CLAUDE.md) 的 Environment Variables 部分。
+
+### 3. 初始化数据库
 
 ```bash
-npm run dev
+bun prisma generate
+bun prisma migrate deploy
 ```
 
-打开 [http://localhost:3000](http://localhost:3000) 查看应用。
-
-### 4. 构建生产版本
+### 4. 运行开发服务器
 
 ```bash
-npm run build
-npm start
+bun dev
 ```
 
-## 部署到Vercel
+打开 [http://localhost:3002](http://localhost:3002) 查看应用。
 
-### 方法一：通过Vercel Dashboard部署（推荐）
+## 功能分层
 
-1. **准备代码仓库**
-   - 将代码推送到 GitHub、GitLab 或 Bitbucket
+| Layer | 用户感知 | 实际能力 |
+|-------|---------|---------|
+| L0 默认入口 | 自由聊天、情绪倾诉 | Triage + Safety + Counselor Agent |
+| L1 自然发现 | 呼吸练习、正念冥想、情绪记录 | ExerciseEngine + SFBT + Widget |
+| L2 主动探索 | 探索工坊（导师/MBTI/圆桌） | Mentor Personas + Group Chat |
+| L3 专业评估 | 情绪健康度 / 压力指数 | PHQ-9 / GAD-7 对话式收集 |
 
-2. **导入项目到Vercel**
-   - 访问 [Vercel Dashboard](https://vercel.com/dashboard)
-   - 点击 "Add New..." → "Project"
-   - 选择你的代码仓库
-   - Vercel 会自动检测 Next.js 项目
+## 部署
 
-3. **配置项目设置**
-   - **Framework Preset**: Next.js（自动检测）
-   - **Root Directory**: `./`（默认）
-   - **Build Command**: `npm run build`（默认）
-   - **Output Directory**: `.next`（默认）
-   - **Install Command**: `npm install`（默认）
+本项目采用**双环境部署**：
 
-4. **配置环境变量**
-   在 "Environment Variables" 中添加：
-   ```
-   DEEPSEEK_API_KEY=your_deepseek_api_key_here
-   DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
-   ```
-   > 注意：`DEEPSEEK_API_URL` 是可选的，如果不设置会使用默认值
+| 环境 | 平台 | 域名 | 触发方式 |
+|------|------|------|---------|
+| 预览 | Vercel | mental-health-agent-tawny.vercel.app | git push 自动 |
+| 生产 | 阿里云 FC | mental.llmxy.xyz | 手动 |
 
-5. **部署**
-   - 点击 "Deploy" 按钮
-   - 等待构建完成（通常需要 1-3 分钟）
-   - 部署成功后，Vercel 会提供一个 URL（如：`your-project.vercel.app`）
-
-### 方法二：通过Vercel CLI部署
-
-1. **安装Vercel CLI**
-   ```bash
-   npm i -g vercel
-   ```
-
-2. **登录Vercel**
-   ```bash
-   vercel login
-   ```
-
-3. **部署项目**
-   ```bash
-   vercel
-   ```
-   首次部署会提示配置：
-   - 是否链接到现有项目？选择 `N`（新建项目）
-   - 项目名称：输入项目名称
-   - 目录：直接回车（使用当前目录）
-   - 是否覆盖设置？选择 `N`
-
-4. **配置环境变量**
-   ```bash
-   vercel env add DEEPSEEK_API_KEY
-   vercel env add DEEPSEEK_API_URL
-   ```
-
-5. **生产环境部署**
-   ```bash
-   vercel --prod
-   ```
-
-### 重要提示
-
-⚠️ **API超时限制**：
-- Vercel Hobby（免费）计划：Serverless Functions 最大超时时间为 **10秒**
-- Vercel Pro 计划：最大超时时间为 **60秒**（已配置）
-
-如果遇到超时问题：
-1. 升级到 Vercel Pro 计划
-2. 或者优化 API 调用，减少响应时间
-
-📝 **环境变量配置**：
-- 确保在 Vercel Dashboard 中为所有环境（Production、Preview、Development）都配置了环境变量
-- 环境变量名称必须与代码中的 `process.env.XXX` 完全一致
-
-🔍 **调试部署问题**：
-- 查看 Vercel Dashboard 中的 "Deployments" → "Functions" 日志
-- 检查构建日志中的错误信息
-
-## 项目结构
-
-```
-心理疗愈agent/
-├── app/                    # Next.js App Router
-│   ├── api/               # API路由
-│   │   └── chat/          # 对话API
-│   ├── layout.tsx         # 根布局
-│   ├── page.tsx           # 首页
-│   └── globals.css        # 全局样式
-├── components/            # React组件
-│   └── chat/             # 聊天相关组件
-├── lib/                  # 核心库
-│   ├── ai/              # AI相关（DeepSeek集成）
-│   └── utils/           # 工具函数
-├── hooks/               # 自定义Hooks
-├── types/               # TypeScript类型定义
-└── public/              # 静态资源
+```bash
+# 生产部署
+bun run deploy:build && s deploy
 ```
 
-## 核心功能说明
+> 部署规则详见 [PROJECT_CONSTITUTION.md](./PROJECT_CONSTITUTION.md)
 
-### 情绪识别
+## 核心命令
 
-系统会自动分析用户输入的情绪，识别以下类型：
-- 焦虑、抑郁、愤怒、悲伤、恐惧、快乐、平静
+```bash
+bun dev                  # 启动开发服务器 (port 3002)
+bun run build            # 构建（含 Prisma 迁移）
+bun run deploy:build     # 阿里云 FC 部署构建
+bun test:unit            # 单元测试 (Vitest)
+bun smoke                # 性能冒烟测试
+bun ci:check             # 完整 CI 检查
+bun typecheck            # TypeScript 类型检查
+```
 
-并给出0-10分的情绪强度评分。
+## 文档导航
 
-### CBT干预
-
-AI咨询师会：
-1. 共情理解用户的感受
-2. 识别认知扭曲模式
-3. 引导认知重构
-4. 提供行为建议
-
-## 开发计划
-
-### MVP阶段 ✅
-- [x] 基础对话功能
-- [x] 情绪识别
-- [x] CBT反馈
-- [x] 对话历史本地存储
-
-### 后续迭代
-- [ ] 情绪趋势分析
-- [ ] 危机检测与干预
-- [ ] 心理测评工具
-- [ ] 多模态输入（语音）
+| 文档 | 内容 |
+|------|------|
+| [CLAUDE.md](./CLAUDE.md) | 项目配置、目录结构、环境变量 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 系统架构、对话引擎、评测系统 |
+| [PROJECT_CONSTITUTION.md](./PROJECT_CONSTITUTION.md) | 部署规则、构建宪法、CI/CD |
+| [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) | 项目全貌、功能清单、技术决策 |
+| [DESIGN_GUIDE.md](./DESIGN_GUIDE.md) | 设计系统、颜色、弹窗规范 |
+| [docs/](./docs/) | 变更日志、操作手册、设计文档 |
 
 ## 注意事项
 
 - 本项目仅供学习和研究使用
 - 不能替代专业心理咨询服务
-- 如遇严重心理危机，请及时寻求专业帮助
+- 如遇严重心理危机，请及时拨打心理援助热线
 
 ## License
 
 MIT
-
-
-
-

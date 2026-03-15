@@ -58,32 +58,26 @@
 
 ### 1.1 包管理器规范 (Package Manager)
 
-> **必须使用 pnpm**：本项目使用 pnpm 作为包管理器，不使用 npm 或 yarn。
+本项目采用**双包管理器**策略：
 
-**优势**：
-- 硬链接机制，节省磁盘空间
-- 多项目共享依赖包
-- 更快的安装速度
+| 场景 | 包管理器 | 说明 |
+|------|---------|------|
+| 本地开发 | **bun** | 速度快，日常开发使用 |
+| Vercel 部署 | **pnpm** | Vercel 原生支持，自动使用 |
 
-**常用命令**：
+**本地常用命令**：
 ```bash
-# 安装依赖（替代 npm install）
-pnpm install
-
-# 添加新包（替代 npm install xxx）
-pnpm add xxx
-
-# 运行脚本（替代 npm run xxx）
-pnpm dev
-pnpm build
-
-# 清理无用缓存
-pnpm store prune
+bun install              # 安装依赖
+bun add xxx              # 添加新包
+bun dev                  # 启动开发服务器
+bun run build            # 构建
+bun run deploy:build     # 阿里云 FC 部署构建
 ```
 
 **严禁行为**：
-- 禁止使用 `npm install` 安装依赖
+- 禁止使用 `npm install` 或 `yarn` 安装依赖
 - 禁止删除 `pnpm-lock.yaml` 文件
+- 修改 `package.json` 后必须运行 `pnpm install --lockfile-only` 同步 lockfile
 
 ## 2. 双重部署原则 (The Dual Deployment Rule)
 
@@ -108,8 +102,8 @@ pnpm store prune
 2.  **第二步：发布生产 (更新阿里云)**
     ```bash
     # ⚠️ 只有执行这一步，用户访问的主域名才会更新！
-    npm run deploy:build
-    s deploy -y
+    bun run deploy:build
+    s deploy
     ```
     - **作用**：将最新代码推送到阿里云函数计算，服务于 `mental.llmxy.xyz` 真实用户。
 
@@ -121,12 +115,12 @@ pnpm store prune
 ## 3. 构建宪法 (Build Constitution)
 
 ### 🚫 禁止行为
-严禁在生产部署时仅运行 `npm run build` 或 `next build`。
+严禁在生产部署时仅运行 `bun run build` 或 `next build`。
 
 ### ✅ 必须行为
 **必须**使用专门的构建脚本：
 ```bash
-npm run deploy:build
+bun run deploy:build
 ```
 
 ### 📜 理由
@@ -205,7 +199,7 @@ export const config = {
 ## 8. CI/CD 宪法 (CI/CD Constitution)
 
 ### 8.1 必经之路
-- **合并红线**：任何代码合并主分支前，**必须**通过完整 CI 检查 (`npm run ci:check`)。
+- **合并红线**：任何代码合并主分支前，**必须**通过完整 CI 检查 (`bun ci:check`)。
 - **配置一致性**：CI 环境强制开启 `Strict Mode`，零容忍配置差异。
 
 > 🛠 **详细指南**：见 [CI 检查与配置对齐文档](./docs/ci.md)

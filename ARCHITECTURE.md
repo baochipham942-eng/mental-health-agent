@@ -1,6 +1,6 @@
 # 项目架构文档
 
-> 最后更新：2026-03-14
+> 最后更新：2026-03-15
 
 ## 一、系统概览
 
@@ -9,7 +9,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    前端（Next.js 14）                  │
-│  Chat UI  ←→  Dashboard（评测中心/记忆/危机/进度）       │
+│  Chat UI  ←→  Dashboard（评测中心/记忆/危机/进度/探索工坊）  │
 └────────────────────┬────────────────────────────────┘
                      │ API Routes
 ┌────────────────────┴────────────────────────────────┐
@@ -50,25 +50,28 @@
   ↓
 0.2 认证 + 会话恢复
   ↓
-0.5 并行预取（~800ms 节省）
-  ├─ 记忆检索（Memory V2: profile + summary + semantic）
-  ├─ Triage Agent（情绪/意图/安全快速分析）
+0.5 并行预取（~800ms 节省，首轮跳过 therapist/activeExercise）
+  ├─ 记忆检索（Memory V2: profile + summary 两层并行）
+  ├─ Triage Agent（情绪/意图/安全快速分析，首轮跳过 soft wait）
   ├─ Safety Agent（深度安全评估）
   ├─ 评估历史 + 用户偏好
-  └─ 危机快速检查
+  ├─ 危机快速检查
+  ├─ [首轮] 练习回访检测（24-48h 内完成但无后续的练习）
+  └─ [非首轮] 7 天情绪趋势摘要
   ↓
 0.6 对话状态机（SCEB 要素收集 + 状态转移）
   ↓
-0.7 练习状态检测（SFBT 引导）
+0.7 练习状态检测（SFBT 引导 + 练习后个人化总结）
   ↓
 路由决策（规则优先，LLM 辅助）
   ├─ crisis  → 危机处理（热线 + 安全回复）
-  ├─ assessment → 评估收集（PHQ-9/GAD-7 对话式）
-  └─ support → 支持回复（CounselorAgent 流式输出）
+  ├─ assessment → 评估收集（PHQ-9/GAD-7，触发词已收窄）
+  └─ support → 支持回复（CounselorAgent 流式输出 + 场景化技能推荐）
   ↓
 异步后处理
   ├─ 记忆提取（长期记忆沉淀）
-  └─ 质量检查（QualityAgent 抽检）
+  ├─ 质量检查（QualityAgent 抽检）
+  └─ 转化漏斗埋点（l1_skill_recommended 等）
 ```
 
 ### 2.2 Multi-Agent 编排（lib/ai/agents/）
@@ -109,12 +112,77 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 |-------|---------|---------|
 | L0 默认入口 | 自由聊天、情绪倾诉 | Triage + Safety + Counselor |
 | L1 自然发现 | 呼吸练习、正念冥想 | ExerciseEngine + SFBT |
-| L2 主动探索 | 对话排练、成长记录 | StateMachine + Memory |
+| L2 主动探索 | 探索工坊（导师/MBTI/圆桌） | Mentor Personas + Group Chat |
 | L3 专业评估 | 情绪健康度/压力指数 | PHQ-9/GAD-7 对话式收集 |
 
-## 三、评测系统架构
+## 三、探索工坊架构
 
-### 3.1 整体设计
+探索工坊（`/dashboard/lab`）是 L2 主动探索层的核心模块，提供多种非传统对话体验。
+
+### 2.5 模块组成
+
+```
+探索工坊 (LabContent.tsx)
+  ├─ 智慧殿堂 🏛️ — 10 位历史先驱 1v1 对话
+  │   ├─ Personas: lib/ai/mentors/personas.ts
+  │   ├─ Chat UI: components/settings/MentorChatWindow.tsx
+  │   └─ API: /api/chat/mentor/route.ts
+  │
+  ├─ 镜像回廊 🪞 — 16 种 MBTI 人格互动
+  │   ├─ Personas: lib/ai/mbti/personas.ts
+  │   ├─ Chat UI: components/lab/MBTIChatWindow.tsx
+  │   └─ API: /api/chat/mbti/route.ts
+  │
+  ├─ 圆桌论道 🎭 — 2-4 位大师群组对话
+  │   ├─ UI: components/lab/GroupChatSection.tsx
+  │   ├─ Chat UI: components/lab/GroupChatWindow.tsx
+  │   ├─ API: /api/chat/group/route.ts
+  │   └─ 模式: 讨论（互补）/ 辩论（交锋）
+  │
+  └─ 自定义大师 ✨ — 用户创建导师 persona
+      └─ UI: components/lab/CustomMasterSection.tsx
+```
+
+### 2.6 导师 Persona 列表
+
+| 导师 | Emoji | 标签 | 视角 |
+|------|-------|------|------|
+| 苏格拉底 | 🏛️ | 智慧助产士 | 提问引导自我发现 |
+| 荣格 | 🌑 | 灵魂炼金术士 | 潜意识与原型分析 |
+| 阿德勒 | 🔥 | 勇气导师 | 自卑超越与社会兴趣 |
+| 塞利格曼 | 🌟 | 积极心理学之父 | 优势与幸福感 |
+| 萨提亚 | ❤️ | 家庭治疗之母 | 家庭系统与沟通 |
+| 卡尼曼 | ⚖️ | 认知决策大师 | 思维偏误与决策 |
+| 维特根斯坦 | 📐 | 语言边界探索者 | 语言哲学 |
+| 萨特 | 🚬 | 存在主义旗手 | 自由与责任 |
+| 纳瓦尔 | 📡 | 硅谷禅师 | 财富与幸福 |
+| 哈耶克 | 📊 | 自由秩序守护者 | 自发秩序 |
+
+### 2.7 技能系统
+
+8 种技能分为两类：
+
+**Widget 型（前端驱动，无需 LLM）**：
+| 技能 | 组件 | 说明 |
+|------|------|------|
+| breathing | BreathingExercise.tsx | 4-7-8 呼吸法定时器 |
+| meditation | MeditationExercise.tsx | 5 分钟正念引导 |
+| mood_tracker | MoodTracker.tsx | 情绪选择 + 强度 + 触发因素 |
+| leaves_stream | LeavesOnStream.tsx | 溪流落叶脱钩练习 |
+
+**Guided 型（AI 多轮对话）**：
+| 技能 | 步数 | 说明 |
+|------|------|------|
+| grounding | 5 步 | 五感着陆（视觉→触觉→听觉→嗅觉→味觉）|
+| reframing | 4 步 | 认知重构（思维→证据→替代→感受）|
+| activation | 3 步 | 行为激活（选择→执行→下一步）|
+| empty_chair | 4 步 | 空椅子技术（设定→表达→互换→整合）|
+
+**极速路径**：`detectDirectSkillRequest()` 在 API 入口 (0.0) 直接返回技能卡，跳过所有 LLM 调用。
+
+## 四、评测系统架构
+
+### 4.1 整体设计
 
 评测系统采用学术数据集驱动的自动化评测 + 定性分析闭环：
 
@@ -155,7 +223,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 └─────────────────────────────────────────────────┘
 ```
 
-### 3.2 评测数据流
+### 4.2 评测数据流
 
 ```
 学术数据集 (SQLite)
@@ -185,7 +253,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
   Dashboard 展示 + 定性分析
 ```
 
-### 3.3 模型切换评测
+### 4.3 模型切换评测
 
 评测系统支持在不同模型间对比效果：
 
@@ -196,7 +264,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 | OpenAI | GPT-5.4, GPT-5, GPT-5 Mini | 英文基线，指令遵循 |
 | OpenRouter | Claude Opus/Sonnet 4.6, Gemini 3.1 Pro/Flash Lite | 安全性对比，多模型横评 |
 
-### 3.4 定性分析方法论
+### 4.4 定性分析方法论
 
 采用扎根理论 (Grounded Theory) 三阶段编码：
 
@@ -213,24 +281,38 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
    - 基于主题生成可操作的优化建议（prompt 调整、规则新增等）
    - 结果持久化缓存，避免重复生成
 
-## 四、记忆系统
+## 五、记忆系统
 
 ```
 短期记忆
   └─ 最近 10 轮对话历史（request body）
 
-长期记忆 (Prisma + PostgreSQL)
-  ├─ Profile Memory（用户画像：姓名、职业、关注点）
-  ├─ Session Summary（会话摘要，定期刷新）
-  └─ Semantic Memory（语义检索，pgvector）
+长期记忆 V2 (Prisma + PostgreSQL) — 两层并行 + 三个补充源
+  ├─ Layer 1: ProfileMemory — 5 种 kind
+  │   ├─ trigger (权重 30)      — 情绪触发点
+  │   ├─ preference (权重 20)   — 用户偏好
+  │   ├─ coping (权重 15)       — 应对方式
+  │   ├─ relationship (权重 10) — 人际关系
+  │   └─ identity (权重 5)      — 身份信息
+  │   排序: 关键词匹配分 + kindWeight + priority×0.5 + confidence×20，取 Top 6
+  │
+  ├─ Layer 2: SessionSummaryV2 — 按时间倒序取最近 2 条
+  │
+  ├─ 补充 A: 练习回访（仅首轮，查 24-48h 内完成但无后续的练习）
+  ├─ 补充 B: 7 天情绪趋势摘要（仅非首轮）
+  └─ Fallback: Legacy memoryManager（V2 为空或报错时降级）
+
+记忆注入增强
+  ├─ 探索工坊发现标注：lab_ 来源标注"(探索工坊发现)"
+  └─ 记忆使用指南：引导 AI 自然引用（"我记得你说过..."）
 
 记忆生命周期
   ├─ 提取：异步 MemoryExtractor（每次对话后触发）
-  ├─ 检索：Memory V2（profile + summary + semantic 三路合并）
+  ├─ 检索：Memory V2（profile + summary 两层并行）
   └─ 遗忘：Forgetting Curve（间隔重复衰减）
 ```
 
-## 五、部署架构
+## 六、部署架构
 
 ### 双环境部署
 
@@ -246,15 +328,16 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 - 改 package.json 后必须 `pnpm install --lockfile-only` 同步 lockfile
 - 禁止 Ghost Deploy（不 push 就 deploy）
 
-## 六、可观测性
+## 七、可观测性
 
 | 工具 | 用途 |
 |------|------|
 | Langfuse | LLM 调用追踪、成本监控、对话质量分析 |
 | 结构化日志 | logInfo/logWarn（session/user/route/duration） |
 | StreamData | 前端实时接收 metadata（emotion/safety/state/memory） |
+| 转化漏斗 | `l0_chat_start` → `l1_skill_recommended` → `l1_skill_clicked` → `l1_skill_completed` → `l2_lab_entered`（写入 ProgressMetric） |
 
-## 七、技术栈
+## 八、技术栈
 
 | 层 | 技术 |
 |----|------|
