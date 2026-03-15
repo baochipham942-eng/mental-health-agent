@@ -126,6 +126,7 @@
 
 ### 3.4 情绪追踪
 
+- **情绪类型扩展**：11 种（原 7 种 + 未表达/压力/疲惫/情绪低落），与 triage-agent prompt 对齐
 - **实时反馈**：每条消息显示情绪标签 + 强度进度条
 - **趋势面板**：7/30 天情绪折线图 + 趋势徽章
 - **统计摘要**：对话数 + 练习数 + 探索数
@@ -142,11 +143,17 @@
 ### 3.6 安全防线
 
 - **输入安全**：Guardrails 拦截有害内容
+- **输出安全**：`guardOutput()` 已接入生产链路，unsafe 回复自动替换为安全文本
 - **Safety Agent**：深度安全评估 + 约束生成
 - **危机检测**：LLM 语义评估（few-shot），替代关键词硬匹配
-- **危机升级**：展示热线号码，措辞去医疗化
+- **危机升级**：展示热线号码，措辞去医疗化；Telegram 通知已脱敏（仅发 userId + riskLevel + 时间戳）
 - **设置页安全资源**：底部常驻热线（400-161-9995 / 400-821-1215）
 - **敏感信息**：自动脱敏
+- **集中式管理员认证**：`lib/auth/admin.ts` 统一 20+ 处硬编码检查，保留昵称机制防越权
+- **API 路由加固**：eval/start、speech/transcribe、optimization/* 均已添加认证
+- **LLM provider 限制**：非管理员禁止 override provider/model，防成本失控
+- **Error Boundary**：chat + dashboard 均有 error.tsx，防异常白屏
+- **无障碍基础**：ChatInput（aria-label）、CrisisBanner（role="alert"）、ThinkingIndicator（aria-live）
 
 ### 3.7 记忆系统
 
@@ -154,22 +161,22 @@
 短期记忆
   └─ 最近 10 轮对话历史
 
-长期记忆 V2 (PostgreSQL) — 两层并行 + 三个补充源
+长期记忆 V2 (PostgreSQL) — 两层并行 + 三个补充源（已统一，V1 已删除）
   ├─ Layer 1: ProfileMemory — 5 种 kind（trigger/preference/coping/relationship/identity）
   │   └─ 关键词匹配 + kind 权重 + priority/confidence 打分，取 Top 6
   ├─ Layer 2: SessionSummaryV2 — 按时间取最近 2 条
   ├─ 补充 A: 练习回访（首轮，查 24-48h 内完成但无后续的练习）
   ├─ 补充 B: 7 天情绪趋势摘要（非首轮）
-  └─ Fallback: Legacy memoryManager（V2 为空或报错时降级）
+  └─ 补充 C: SessionMetadata（会话元数据）
 
-记忆注入增强（Pilot 优化）
+记忆注入增强
   ├─ 探索工坊发现标注：lab_ 来源的 ProfileMemory 标注"(探索工坊发现)"
   └─ 记忆使用指南：引导 AI 用"我记得你说过..."自然引用
 
 生命周期
-  ├─ 提取：异步 MemoryExtractor
+  ├─ 提取：异步 MemoryExtractor（lab-extractor 独立处理探索工坊）
   ├─ 检索：Memory V2（profile + summary 两路并行合并）
-  └─ 遗忘：Forgetting Curve（间隔重复衰减）
+  └─ 定时清理：/api/cron/prune-memory（90 天 + 置信度 < 0.5）
 ```
 
 ---
@@ -223,10 +230,11 @@
 - Layer 1：代码规则（no-medical-label / no-gaslighting / reply-length）
 - Layer 2：LLM Judge（8 维度：empathy / safety / coherence / persona 等）
 
-**定性分析（扎根理论）**：
-1. 开放编码 — 两阶段 LLM 辅助标签提取
-2. 主轴编码 — 标签聚类为 3-6 个主题
-3. AI 改进分析 — 生成可操作优化建议
+**6 层根因诊断**（取代原有扎根理论编码）：
+- 诊断瀑布：编排&架构 → 工程&代码 → 防护规则 → 评估器 → 数据/模型 → 提示词
+- 每条建议含 dismissal_reason（排除上层理由）+ 失败模式标签
+- 建议生命周期：采纳/拒绝/搁置 + 备注持久化
+- 根因总览页只读缓存，不触发 LLM 调用
 
 ---
 
@@ -360,7 +368,13 @@ tests/eval/                     # 评测数据 + 结果
 | 统一人格约束（PERSONA_INVARIANTS） | 跨路径（support/crisis/exercise）强制一致的语气/称谓/禁词/格式 |
 | 转化漏斗埋点 | 量化 L0→L1→L2 各环节转化率，数据驱动优化 |
 | 量表触发收窄 | 泛化词不再自动进入评估，减少误触发 |
-| 扎根理论定性分析 | 系统性发现改进方向，避免拍脑袋优化 |
+| 集中式管理员认证 | 消除 20+ 处硬编码，统一入口防越权 |
+| guardOutput 接入生产 | LLM 输出安全检测从形同虚设到实际生效 |
+| 危机通知脱敏 | Telegram 不再发送用户原文，只发元数据 |
+| 非管理员 provider 限制 | 防止客户端任意指定昂贵模型 |
+| 6 层根因诊断（取代扎根理论） | 强制从架构→代码→规则→评估器→数据→提示词逐层排除，避免所有建议都是"改 prompt" |
+| 建议生命周期管理 | 采纳/拒绝/搁置 + 备注，跟踪优化进展 |
+| 记忆系统 V2 统一 | 删除 V1 遗忘曲线/consolidator/retriever，简化为 profile+summary 两层 |
 | bun 开发 + pnpm 部署 | bun 速度快适合本地，Vercel 原生支持 pnpm |
 | PostgreSQL + pgvector | 关系数据 + 向量检索一体化 |
 | Onboarding 改为目的导向 | 情绪意象选择让用户困惑，目的导向更直觉 |

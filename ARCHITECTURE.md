@@ -48,7 +48,7 @@
   ↓
 0.1 输入安全检测（guardrails）
   ↓
-0.2 认证 + 会话恢复
+0.2 认证 + 会话恢复 + provider 限制（非管理员清除 override）
   ↓
 0.5 并行预取（~800ms 节省，首轮跳过 therapist/activeExercise）
   ├─ 记忆检索（Memory V2: profile + summary 两层并行）
@@ -69,6 +69,7 @@
   └─ support → 支持回复（CounselorAgent 流式输出 + 场景化技能推荐）
   ↓
 异步后处理
+  ├─ 输出安全检测（guardOutput → unsafe 则替换为安全文本）
   ├─ 记忆提取（长期记忆沉淀）
   ├─ 质量检查（QualityAgent 抽检）
   └─ 转化漏斗埋点（l1_skill_recommended 等）
@@ -184,12 +185,12 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 
 ### 4.1 整体设计
 
-评测系统采用学术数据集驱动的自动化评测 + 定性分析闭环：
+评测系统采用学术数据集驱动的自动化评测 + 根因诊断闭环：
 
 ```
 ┌─────────────────────────────────────────────────┐
 │              评测中心 Dashboard                    │
-│  实验列表 │ 数据集管理 │ 评分器 │ 定性分析          │
+│  实验列表 │ 数据集管理 │ 评分器 │ 根因总览 │ 校准   │
 └────────┬────────────────────────────────────────┘
          │
     ┌────┴────┐
@@ -208,18 +209,23 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 └────────┬────────────────────────────────────────┘
          │
 ┌────────┴────────────────────────────────────────┐
-│         定性分析 (Grounded Theory)                │
+│      6 层根因诊断 (Layered Root Cause Diagnosis)  │
 │                                                   │
-│  开放编码 (Open Coding)                           │
-│    阶段1: 提取每条失败的一句话问题描述              │
-│    阶段2: 统一归类到 8-15 个精简标签               │
+│  诊断瀑布（必须从上往下排除）：                     │
+│    L1 编排 & 架构 → L2 工程 & 代码 →              │
+│    L3 防护规则 → L4 评估器 →                      │
+│    L5 数据/模型 → L6 提示词                       │
 │                                                   │
-│  主轴编码 (Axial Coding)                          │
-│    将标签聚类为 3-6 个主题                         │
+│  每条建议包含：                                    │
+│    layer + title + description                    │
+│    dismissal_reason（排除上层的理由）              │
+│    tags（失败模式标签，4-8 字）                    │
+│    targetFile + affectedDimensions + priority     │
 │                                                   │
-│  AI 改进分析                                      │
-│    基于主题生成可操作的优化建议                      │
-│    结果缓存到 data/coding/analysis-{runId}.json   │
+│  建议生命周期管理：                                │
+│    status: accepted / rejected / deferred         │
+│    note: 人工备注（进展记录）                      │
+│    持久化到 data/coding/analysis-{runId}.json     │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -264,22 +270,37 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 | OpenAI | GPT-5.4, GPT-5, GPT-5 Mini | 英文基线，指令遵循 |
 | OpenRouter | Claude Opus/Sonnet 4.6, Gemini 3.1 Pro/Flash Lite | 安全性对比，多模型横评 |
 
-### 4.4 定性分析方法论
+### 4.4 6 层根因诊断
 
-采用扎根理论 (Grounded Theory) 三阶段编码：
+取代原有的扎根理论三阶段编码，采用层级化诊断瀑布：
 
-1. **开放编码**（两阶段 LLM 辅助）
-   - 阶段 1：每条失败案例提取一句话问题描述（纯事实）
-   - 阶段 2：全局视角归类到 8-15 个互不重叠的精简标签
-   - 标签要求：4-8 字，可操作，不针对具体案例
+**诊断瀑布**（强制从上往下排除，≤30% 建议落在提示词层）：
 
-2. **主轴编码**（LLM 聚类）
-   - 将开放编码标签聚类为 3-6 个高层主题
-   - 识别主题间的因果/关联关系
+| 层级 | 名称 | 诊断范围 |
+|------|------|---------|
+| L1 | 编排 & 架构 | Agent 流程、状态机、路由逻辑 |
+| L2 | 工程 & 代码 | 具体代码实现 bug、接口问题 |
+| L3 | 防护规则 | Guardrails、安全检测规则 |
+| L4 | 评估器 | Judge 标准偏差、维度定义 |
+| L5 | 数据 / 模型 | 测试用例偏差、模型能力限制 |
+| L6 | 提示词 | Prompt 措辞调整（最后手段）|
 
-3. **AI 改进分析**
-   - 基于主题生成可操作的优化建议（prompt 调整、规则新增等）
-   - 结果持久化缓存，避免重复生成
+**每条建议必须包含**：
+- `dismissal_reason`：为什么问题不在更上层
+- `tags`：失败模式标签（4-8 字，从案例中自然提取）
+- `targetFile`：建议修改的代码文件
+- `priority`：high / medium / low
+
+**建议生命周期管理**：
+- 状态标记：采纳 / 拒绝 / 搁置（toggle 交互）
+- 备注功能：记录优化进展，支持持续更新
+- 持久化：写入 `data/coding/analysis-{runId}.json`
+- API：`POST /api/eval/analyze` with `action: 'update-status'`
+
+**性能优化**：
+- 根因总览页使用 `cacheOnly: true` 只读缓存，不触发 LLM
+- LLM 分析仅在实验详情页手动触发
+- `timeoutMs: 60000` 防止长 prompt 超时
 
 ## 五、记忆系统
 
@@ -287,7 +308,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 短期记忆
   └─ 最近 10 轮对话历史（request body）
 
-长期记忆 V2 (Prisma + PostgreSQL) — 两层并行 + 三个补充源
+长期记忆 V2 (Prisma + PostgreSQL) — 两层并行（V1 已删除）
   ├─ Layer 1: ProfileMemory — 5 种 kind
   │   ├─ trigger (权重 30)      — 情绪触发点
   │   ├─ preference (权重 20)   — 用户偏好
@@ -299,36 +320,74 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
   ├─ Layer 2: SessionSummaryV2 — 按时间倒序取最近 2 条
   │
   ├─ 补充 A: 练习回访（仅首轮，查 24-48h 内完成但无后续的练习）
-  ├─ 补充 B: 7 天情绪趋势摘要（仅非首轮）
-  └─ Fallback: Legacy memoryManager（V2 为空或报错时降级）
+  └─ 补充 B: 7 天情绪趋势摘要（仅非首轮）
 
 记忆注入增强
   ├─ 探索工坊发现标注：lab_ 来源标注"(探索工坊发现)"
   └─ 记忆使用指南：引导 AI 自然引用（"我记得你说过..."）
 
-记忆生命周期
+记忆生命周期（V2 统一，V1 遗忘曲线/consolidator/retriever 已删除）
   ├─ 提取：异步 MemoryExtractor（每次对话后触发）
   ├─ 检索：Memory V2（profile + summary 两层并行）
-  └─ 遗忘：Forgetting Curve（间隔重复衰减）
+  └─ 定时清理：/api/cron/prune-memory（maxAge: 90 天, minConfidence: 0.5）
 ```
 
-## 六、部署架构
+## 六、安全架构
 
-### 双环境部署
+### 6.1 认证与授权
+
+```
+lib/auth/admin.ts — 集中式管理员认证（替代 20+ 处硬编码）
+  ├─ isAdmin()         — async，调 auth() 返回 { admin, session }
+  ├─ isAdminSession()  — sync，已有 session 时直接判断
+  └─ RESERVED_NICKNAMES — 保留昵称列表，防普通用户越权
+
+API 路由认证矩阵：
+  ├─ 管理员限定：eval/start, optimization/*, admin/*, crisis GET
+  ├─ 登录即可：speech/transcribe, chat, memory
+  └─ Cron 鉴权：cron/* (Bearer CRON_SECRET)
+```
+
+### 6.2 安全防线（5 层）
+
+```
+Layer 1: 输入安全 — guardrails 拦截有害内容
+Layer 2: Safety Agent — 深度安全评估 + 约束生成
+Layer 3: 输出安全 — guardOutput() 检测 LLM 回复，unsafe → 替换安全文本
+Layer 4: 危机处理 — LLM 语义检测 + 热线展示 + Telegram 通知（已脱敏）
+Layer 5: 运行时限制 — 非管理员禁止 provider/model override
+```
+
+### 6.3 前端防护
+
+- Error Boundary: `app/(chat)/error.tsx` + `app/dashboard/error.tsx`（防异常白屏）
+- 无障碍: ChatInput aria-label, CrisisBanner role="alert", ThinkingIndicator aria-live
+- 移动端: 删除按钮 `max-md:opacity-100`（触屏可发现）
+
+### 6.4 健康检查
+
+`/api/health` — 含 DB 连通性检测（`SELECT 1`），失败返回 503
+
+---
+
+## 七、部署架构
+
+### 7.1 双环境部署
 
 | 环境 | 平台 | 域名 | 触发方式 |
 |------|------|------|---------|
 | 预览 | Vercel | mental-health-agent-tawny.vercel.app | git push 自动 |
 | 生产 | 阿里云 FC | mental.llmxy.xyz | `bun run deploy:build && s deploy` 手动 |
 
-### 关键约束
+### 7.2 关键约束
 
 - 生产构建必须用 `bun run deploy:build`（复制 public + static 到 standalone）
 - Middleware 必须排除静态资源路径
 - 改 package.json 后必须 `pnpm install --lockfile-only` 同步 lockfile
 - 禁止 Ghost Deploy（不 push 就 deploy）
+- s.yaml 敏感值全部用 `${env()}` 引用，已加入 .gitignore
 
-## 七、可观测性
+## 八、可观测性
 
 | 工具 | 用途 |
 |------|------|
@@ -337,7 +396,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 | StreamData | 前端实时接收 metadata（emotion/safety/state/memory） |
 | 转化漏斗 | `l0_chat_start` → `l1_skill_recommended` → `l1_skill_clicked` → `l1_skill_completed` → `l2_lab_entered`（写入 ProgressMetric） |
 
-## 八、技术栈
+## 九、技术栈
 
 | 层 | 技术 |
 |----|------|

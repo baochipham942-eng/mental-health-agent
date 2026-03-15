@@ -44,13 +44,17 @@ app/
     chat/handlers.ts        # Route handlers (crisis/support/assessment)
     chat/prefetch.ts        # Parallel prefetch (memory/triage/safety)
     memory/                 # Memory management APIs
+    cron/
+      prune-memory/route.ts #   定时清理过期/低置信度记忆
+      retry-memory/route.ts #   定时重试失败的记忆提取
     eval/                   # Eval system APIs
       start/route.ts        #   启动评测（spawn child process）
       status/[runId]/       #   轮询评测状态
       runs/route.ts         #   实验列表
       datasets/route.ts     #   数据集/用例查询
-      coding/route.ts       #   开放编码（两阶段标签生成）
-      coding/axial/route.ts #   主轴编码（标签聚类）
+      coding/route.ts       #   (已废弃) 开放编码
+      coding/axial/route.ts #   (已废弃) 主轴编码
+      analyze/route.ts      #   AI 根因诊断 + 建议生命周期管理
     optimization/           # Prompt optimization APIs
     auth/[...nextauth]/     # Authentication
   dashboard/
@@ -59,13 +63,15 @@ app/
       exp/[runId]/page.tsx  #   实验详情（维度/对话/评分/AI分析）
       datasets/             #   数据集管理
       graders/              #   评分器配置
-      analysis/             #   定性分析（开放编码/主轴编码）
+      analysis/             #   根因总览（6 层诊断 + 建议生命周期）
     memory/                 # 记忆管理 Dashboard
     crisis/                 # 危机管理 Dashboard
     progress/               # 进度追踪 Dashboard
   page.tsx                  # Home page (chat interface)
 
 lib/
+  auth/
+    admin.ts                # Centralized admin auth (isAdmin/isAdminSession/RESERVED_NICKNAMES)
   llm/
     index.ts                # Unified LLM layer (5 providers: deepseek/openai/kimi/openrouter/glm)
     config.ts               # Provider env config
@@ -83,9 +89,9 @@ lib/
     support.ts              # Support reply (streamSupportReply)
     skills.ts               # Skill cards detection + config
   memory/
-    manager.ts              # Memory lifecycle
-    extractor.ts            # Information extraction
-    forgetting-curve.ts     # Spaced repetition
+    index.ts                # Memory V2 统一入口（profile + summary 两层）
+    lab-extractor.ts        # 探索工坊记忆提取
+    session-summary-v2-writer.ts  # 会话摘要写入
   observability/
     langfuse.ts             # LLM monitoring
 
@@ -154,8 +160,8 @@ SKILL_MODE=                 # off/cards_only/steps_and_cards
 - 用户可在设置中切换风格（延迟发现）
 
 ### 情绪识别（后台）
-Identifies 7 emotion types with 0-10 intensity scoring:
-- Anxiety, Depression, Anger, Sadness, Fear, Happiness, Calm
+Identifies 11 emotion types with 0-10 intensity scoring:
+- Anxiety, Depression, Anger, Sadness, Fear, Happiness, Calm, 未表达, 压力, 疲惫, 情绪低落
 
 ### CBT 能力（后台，用户不可见术语）
 - Empathetic understanding
@@ -172,14 +178,20 @@ Identifies 7 emotion types with 0-10 intensity scoring:
 
 ### Safety Features
 - Crisis detection and classification（后台保持专业术语）
-- Input/output safety guardrails
+- Input/output safety guardrails（guardOutput 已接入生产链路）
 - Sensitive information redaction
 - 危机资源展示（保留热线号码，措辞去医疗化）
+- 危机通知脱敏（Telegram 只发 userId + riskLevel，不含用户原文）
+- 集中式管理员认证（`lib/auth/admin.ts`，替代 20+ 处硬编码）
+- 非管理员禁止 LLM provider/model override
+- Error Boundary 防白屏（chat + dashboard）
+- 无障碍基础（aria-label、role="alert"、aria-live）
 
 ### Memory System
 - Multi-turn conversation support (last 10 turns)
 - Session memory management
 - Memory consolidation with forgetting curve
+- 定时清理 cron（`/api/cron/prune-memory`，90 天 + 置信度 < 0.5）
 
 ## 用户可见文案规范
 
