@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Modal, Message as ArcoMessage, Avatar } from '@arco-design/web-react';
-import { IconDelete, IconSettings } from '@arco-design/web-react/icon';
+import { IconDelete } from '@arco-design/web-react/icon';
 import { useChatStore } from '@/store/chatStore';
 import { completeSession } from '@/lib/actions/chat';
 import { generateSummaryForSession } from '@/lib/actions/summary';
@@ -38,13 +38,7 @@ const QUICK_ACTIONS = [
     iconBg: 'bg-emerald-50',
     iconColor: 'text-emerald-600',
     hoverBorder: 'hover:border-emerald-200',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <path d="M7 16l4-6 4 4 5-8" />
-        <circle cx="20" cy="6" r="1.5" fill="currentColor" />
-      </svg>
-    ),
+    icon: <span className="text-xl leading-none">📈</span>,
   },
   {
     key: 'memory',
@@ -213,7 +207,7 @@ export function SessionListPage({
               className="flex items-center gap-3.5 px-4 py-3 bg-white rounded-2xl cursor-pointer transition-all hover:shadow-md border border-transparent hover:border-gray-200 flex-1 min-h-0 w-full text-left"
             >
               <div className="w-[38px] h-[38px] rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center flex-shrink-0">
-                <IconSettings style={{ fontSize: 20 }} />
+                <span className="text-xl leading-none">⚙️</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-800">设置</div>
