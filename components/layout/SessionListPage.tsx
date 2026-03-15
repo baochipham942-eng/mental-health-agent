@@ -39,9 +39,10 @@ const QUICK_ACTIONS = [
     iconColor: 'text-emerald-600',
     hoverBorder: 'hover:border-emerald-200',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-        <polyline points="17 6 23 6 23 12" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="M7 16l4-6 4 4 5-8" />
+        <circle cx="20" cy="6" r="1.5" fill="currentColor" />
       </svg>
     ),
   },
@@ -54,9 +55,13 @@ const QUICK_ACTIONS = [
     iconColor: 'text-violet-600',
     hoverBorder: 'hover:border-violet-200',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
-        <path d="M20.5 7.5L12 12" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" />
+        <path d="M12 2c3 2.5 4.5 6 4.5 10s-1.5 7.5-4.5 10" />
+        <path d="M12 2c-3 2.5-4.5 6-4.5 10s1.5 7.5 4.5 10" />
+        <path d="M2 12h20" />
+        <path d="M4 7h16" />
+        <path d="M4 17h16" />
       </svg>
     ),
   },
@@ -69,9 +74,11 @@ const QUICK_ACTIONS = [
     iconColor: 'text-cyan-600',
     hoverBorder: 'hover:border-cyan-200',
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 3h6v7l4 8H5l4-8V3z" />
-        <path d="M10 3h4" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 2v6.292a4 4 0 0 1-1.17 2.829L4 16h16l-4.83-4.879A4 4 0 0 1 14 8.292V2" />
+        <path d="M8.5 2h7" />
+        <path d="M7 16l-1 6h12l-1-6" />
+        <circle cx="12" cy="18" r="1" fill="currentColor" />
       </svg>
     ),
   },
@@ -96,6 +103,7 @@ export function SessionListPage({
   avatar,
   isAdmin,
 }: SessionListPageProps) {
+  const router = useRouter();
   const { isConsulting, currentSessionId, resetConversation } = useChatStore();
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -120,13 +128,13 @@ export function SessionListPage({
           } catch {
             resetConversation();
           }
-          window.location.href = '/c/new';
+          router.push('/c/new');
         },
       });
       return;
     }
     resetConversation();
-    window.location.href = '/c/new';
+    router.push('/c/new');
   };
 
   const displayName = nickname || userName;
@@ -174,16 +182,24 @@ export function SessionListPage({
           {/* 新对话卡片 */}
           <div
             onClick={handleNewChat}
-            className="relative bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] overflow-hidden aspect-square flex flex-col justify-end"
+            className="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/25 active:scale-[0.97] overflow-hidden aspect-square flex flex-col justify-end group"
           >
-            {/* 装饰圆 */}
-            <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/[0.08]" />
-            <div className="absolute -bottom-8 -left-8 w-24 h-24 rounded-full bg-white/[0.05]" />
-            <div className="w-[52px] h-[52px] rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl text-white mb-5">
-              +
+            {/* 光晕背景 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/5" />
+            {/* 装饰元素 */}
+            <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/[0.07] blur-sm" />
+            <div className="absolute top-1/3 -right-6 w-20 h-20 rounded-full bg-purple-400/20 blur-md" />
+            <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-indigo-400/10 blur-sm" />
+            {/* 微光扫过动画 */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent translate-x-[-100%] group-hover:translate-x-[100%]" style={{ transition: 'opacity 0.7s, transform 1s' }} />
+            {/* 内容 */}
+            <div className="relative z-10">
+              <div className="w-[52px] h-[52px] rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-2xl text-white mb-5 group-hover:bg-white/20 transition-colors">
+                +
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-1.5">开始新对话</h3>
+              <p className="text-sm text-white/60 font-light">说说你现在的感受，我在听</p>
             </div>
-            <h3 className="text-lg font-semibold text-white mb-1.5">开始新对话</h3>
-            <p className="text-sm text-white/70 font-light">说说你现在的感受，我在听</p>
           </div>
 
           {/* 快捷功能 */}

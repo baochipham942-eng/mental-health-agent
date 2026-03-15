@@ -237,7 +237,6 @@ export function ChatInput({
                 { key: "空椅子", emoji: "🪑", label: "空椅子", desc: "释放情绪" },
                 { key: "着陆技术", emoji: "🦶", label: "五感着陆", desc: "缓解恐慌" },
                 { key: "溪流落叶", emoji: "🎈", label: "放飞念头", desc: "改善纠结" },
-                { key: "认知重构", emoji: "🧠", label: "认知重构", desc: "转换视角" },
                 { key: "行为激活", emoji: "⚡️", label: "行为激活", desc: "提升动力" },
                 { key: "情绪记录", emoji: "🌡️", label: "情绪记录", desc: "觉察当下" },
               ].map((skill) => (
@@ -296,7 +295,6 @@ export function ChatInput({
                 { key: "空椅子", emoji: "🪑", label: "空椅子", gradient: "from-amber-50 to-amber-100" },
                 { key: "着陆技术", emoji: "🦶", label: "五感着陆", gradient: "from-teal-50 to-teal-100" },
                 { key: "溪流落叶", emoji: "🎈", label: "放飞念头", gradient: "from-sky-50 to-violet-100" },
-                { key: "认知重构", emoji: "🧠", label: "认知重构", gradient: "from-indigo-50 to-indigo-100" },
                 { key: "行为激活", emoji: "⚡️", label: "行为激活", gradient: "from-orange-50 to-orange-100" },
                 { key: "情绪记录", emoji: "🌡️", label: "情绪记录", gradient: "from-rose-50 to-rose-100" },
               ].map((skill) => (

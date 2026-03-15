@@ -1103,6 +1103,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         {/* 离开确认弹窗 */}
         <LeaveDialog
           visible={showLeaveDialog}
+          moodTheme={currentMoodTheme}
           onStay={() => setShowLeaveDialog(false)}
           onLeave={async () => {
             setShowLeaveDialog(false);

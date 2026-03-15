@@ -151,8 +151,8 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                                 label: '新对话',
                                 icon: <IconPlus />,
                                 onClick: () => {
-                                    if (pathname === '/') window.location.href = '/';
-                                    else router.push('/');
+                                    useChatStore.getState().resetConversation();
+                                    router.push('/c/new');
                                 }
                             }}
                         />
