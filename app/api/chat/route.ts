@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
       preStreamDurationMs,
       authDurationMs,
       prefetchDurationMs,
-      memoryContextSource: typeof retrievalResult === 'string' ? 'legacy' : (retrievalResult as any)?.source,
+      memoryContextSource: (retrievalResult as any)?.source ?? 'memory-v2',
       memoryContextDurationMs: retrievalMetrics?.totalDurationMs,
       profileMemoryQueryDurationMs: retrievalMetrics?.profileQueryDurationMs,
       sessionSummaryQueryDurationMs: retrievalMetrics?.summaryQueryDurationMs,

@@ -54,8 +54,18 @@ const TOPIC_CONFIG: Record<string, {
 // Tab顺序
 const TAB_ORDER = ['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning'];
 
+// V2 ProfileMemory kind → 前端 topic 映射
+const KIND_TO_TOPIC: Record<string, string> = {
+    trigger: 'trigger_warning',
+    coping: 'coping_preference',
+    preference: 'coping_preference',
+    identity: 'personal_context',
+    relationship: 'personal_context',
+};
+
 interface Memory {
     id: string;
+    kind?: string;
     topic: string;
     content: string;
     confidence: number;
@@ -107,7 +117,12 @@ export function MemoryPageContent() {
             const res = await fetch('/api/memory');
             if (!res.ok) throw new Error('获取记忆失败');
             const data = await res.json();
-            setMemories(data.memories || []);
+            // API 返回 ProfileMemory（kind 字段），映射为前端 topic
+            const mapped = (data.memories || []).map((m: any) => ({
+                ...m,
+                topic: m.topic || KIND_TO_TOPIC[m.kind] || 'personal_context',
+            }));
+            setMemories(mapped);
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -174,9 +189,9 @@ export function MemoryPageContent() {
         setEditContent('');
     };
 
-    // 按topic分组
+    // 按topic分组（兼容 V2 kind 字段）
     const groupedMemories = memories.reduce((acc, memory) => {
-        const topic = memory.topic;
+        const topic = memory.topic || KIND_TO_TOPIC[memory.kind || ''] || 'personal_context';
         if (!acc[topic]) acc[topic] = [];
         acc[topic].push(memory);
         return acc;

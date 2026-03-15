@@ -188,11 +188,12 @@ export function SettingsPanel({
       title={null}
       footer={null}
       closable={false}
-      style={{ width: 680, maxWidth: '95vw', top: 60 }}
+      style={{ width: 680, maxWidth: '95vw' }}
+      alignCenter
       unmountOnExit
       wrapClassName="settings-panel-modal"
     >
-      <div className="flex h-[520px]">
+      <div className="flex h-[min(580px,75vh)]">
         {/* 左侧标签栏 */}
         <div className="w-[180px] border-r border-gray-100 pr-2 py-4 flex-shrink-0 flex flex-col">
           <h2 className="text-lg font-bold text-gray-900 px-3 mb-4">设置</h2>

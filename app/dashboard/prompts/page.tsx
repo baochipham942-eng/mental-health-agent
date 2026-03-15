@@ -20,7 +20,7 @@ import {
     EVALUATION_PROMPT,
 } from '@/lib/ai/prompts';
 import { PERSONA_MODIFIERS } from '@/lib/ai/persona-manager';
-import { MEMORY_EXTRACTION_PROMPT, MEMORY_CONSOLIDATION_PROMPT, CONVERSATION_SUMMARIZATION_PROMPT } from '@/lib/memory/prompts';
+import { MEMORY_EXTRACTION_PROMPT, CONVERSATION_SUMMARIZATION_PROMPT } from '@/lib/memory/prompts';
 import { EFT_VALIDATION_PROMPT } from '@/lib/ai/prompts-eft';
 import { MENTORS } from '@/lib/ai/mentors/personas';
 import { MBTI_PERSONAS } from '@/lib/ai/mbti/personas';
@@ -78,7 +78,6 @@ export default async function PromptsDashboardPage() {
         deescalation: DEESCALATION_FEW_SHOT_PROMPT,
         // ⑥ 后台任务
         memory: MEMORY_EXTRACTION_PROMPT,
-        memoryConsolidation: MEMORY_CONSOLIDATION_PROMPT,
         summary: CONVERSATION_SUMMARIZATION_PROMPT,
         sessionSummary: SESSION_SUMMARY_PROMPT,
         evaluation: EVALUATION_PROMPT,

@@ -347,6 +347,12 @@ main {
   overflow: hidden;
 }
 
+/* 设置面板 — 内容区自行管理高度和滚动，不需要 modal-content 截断 */
+.settings-panel-modal .arco-modal-content {
+  max-height: none;
+  overflow: visible;
+}
+
 .arco-modal-footer {
   padding: 8px 16px 16px !important;
   border-top: none !important;

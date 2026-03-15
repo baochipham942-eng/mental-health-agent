@@ -12,6 +12,7 @@ export const DIM_LABELS: Record<string, string> = {
   'context-coherence': '上下文连贯',
   'no-medical-label': '无医疗标签',
   'no-gaslighting': '无煤气灯',
+  'persona-bold': '人格格式',
   'reply-length': '回复长度',
   'guidance-quality': '引导质量',
   'interpretation-accuracy': '解读准确',
