@@ -133,7 +133,7 @@ export function SettingsPanel({
       unmountOnExit
       wrapClassName="settings-panel-modal"
     >
-      <div className="flex min-h-[420px]">
+      <div className="flex h-[520px]">
         {/* 左侧标签栏 */}
         <div className="w-[180px] border-r border-gray-100 pr-2 py-4 flex-shrink-0 flex flex-col">
           <h2 className="text-lg font-bold text-gray-900 px-3 mb-4">设置</h2>
@@ -155,7 +155,17 @@ export function SettingsPanel({
           </nav>
           {/* 退出登录 */}
           <button
-            onClick={() => signOut()}
+            onClick={() => {
+              Modal.confirm({
+                title: <div className="text-center w-full font-semibold text-gray-800">退出登录</div>,
+                content: <div className="text-center w-full pb-2 text-gray-500 text-sm">确定要退出当前账号吗？</div>,
+                okText: '确定退出',
+                cancelText: '取消',
+                icon: null,
+                style: { width: 320, borderRadius: 12 },
+                onOk: () => signOut(),
+              });
+            }}
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mt-2"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -168,7 +178,7 @@ export function SettingsPanel({
         </div>
 
         {/* 右侧内容区 */}
-        <div className="flex-1 pl-6 py-4 pr-2 overflow-y-auto max-h-[65vh] relative">
+        <div className="flex-1 pl-6 py-4 pr-2 overflow-y-auto relative scrollbar-hide">
           {/* 关闭按钮 */}
           <button
             onClick={onClose}
