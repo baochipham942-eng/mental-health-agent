@@ -261,7 +261,7 @@ export function SettingsPanel({
                 {/* 头像选择 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">头像</label>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 gap-3 p-1">
                     {USER_PROFILES.map((profile) => (
                       <button
                         key={profile.id}
