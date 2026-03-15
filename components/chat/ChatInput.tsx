@@ -1,6 +1,7 @@
 'use client';
 
 import { KeyboardEvent, useRef, useEffect, useCallback, useState } from 'react';
+import Link from 'next/link';
 import { Button, Drawer } from '@arco-design/web-react';
 import { IconSend, IconLoading } from '@arco-design/web-react/icon';
 import { cn } from '@/lib/utils/cn';
@@ -253,6 +254,16 @@ export function ChatInput({
                 </div>
               ))}
             </div>
+            <Link
+              href="/dashboard/lab"
+              className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors group"
+            >
+              <span className="text-lg">🏛️</span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-gray-500 group-hover:text-indigo-600 transition-colors">探索工坊</div>
+                <div className="text-[11px] text-gray-400">和大师聊聊，换个视角看问题</div>
+              </div>
+            </Link>
           </div>
         </div>
 
@@ -310,6 +321,17 @@ export function ChatInput({
                 </div>
               ))}
             </div>
+            <Link
+              href="/dashboard/lab"
+              className="mx-1 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-50/60 border border-indigo-100/50 transition-colors active:scale-[0.98]"
+              onClick={() => setSkillsOpen(false)}
+            >
+              <span className="text-2xl">🏛️</span>
+              <div>
+                <div className="text-sm font-medium text-indigo-700">探索工坊</div>
+                <div className="text-[11px] text-gray-500">和大师聊聊，换个视角看问题</div>
+              </div>
+            </Link>
           </Drawer>
         </div>
 
