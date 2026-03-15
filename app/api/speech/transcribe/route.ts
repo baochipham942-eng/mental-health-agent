@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import { auth } from '@/auth';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
@@ -118,6 +119,11 @@ async function transcribeWithBaidu(audioFile: File): Promise<string> {
  */
 export async function POST(request: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: '未登录' }, { status: 401 });
+        }
+
         const formData = await request.formData();
         const audioFile = formData.get('audio') as File;
 

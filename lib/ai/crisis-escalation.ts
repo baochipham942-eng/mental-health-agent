@@ -15,7 +15,7 @@ export async function createCrisisEscalation(params: {
     });
 
     // Telegram 通知（fire-and-forget）
-    sendTelegramNotification(params).catch(e =>
+    sendTelegramNotification({ userId: params.userId, riskLevel: params.riskLevel }).catch(e =>
         console.error('[CrisisEscalation] Telegram notification failed:', e)
     );
 
@@ -28,7 +28,6 @@ export async function createCrisisEscalation(params: {
 async function sendTelegramNotification(params: {
     userId: string;
     riskLevel: string;
-    triggerMessage: string;
 }): Promise<void> {
     const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -36,7 +35,7 @@ async function sendTelegramNotification(params: {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
 
     const emoji = params.riskLevel === 'crisis' ? '\u{1F6A8}' : '\u{26A0}\u{FE0F}';
-    const text = `${emoji} 危机升级通知\n\n风险等级: ${params.riskLevel.toUpperCase()}\n用户ID: ${params.userId}\n触发消息: ${params.triggerMessage.slice(0, 200)}`;
+    const text = `${emoji} 危机升级通知\n\n风险等级: ${params.riskLevel.toUpperCase()}\n用户ID: ${params.userId}\n时间: ${new Date().toISOString()}`;
 
     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',

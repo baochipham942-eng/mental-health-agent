@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server.js';
 import { StreamData } from 'ai';
 import { auth } from '@/lib/runtime/chat-auth';
+import { isAdminSession } from '@/lib/auth/admin';
 import { ChatRequest, RouteType } from '@/types/chat';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import type { LlmProviderName } from '@/lib/llm';
-import { logInfo, logWarn } from '@/lib/observability/logger';
+import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { detectQuestionnaireRequest } from '@/lib/ai/assessment/questionnaire';
 import { ChatService } from '@/lib/services/chat-service';
 import { determinePersonaMode } from '@/lib/ai/persona-manager';
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     // =================================================================================
     const directSkillType = detectDirectSkillRequest(message);
     if (directSkillType) {
-      console.log('[API] FAST PATH: Direct skill request detected, bypassing all LLM calls:', directSkillType);
+      logInfo('fast-skill-path', { skillType: directSkillType });
       const skill = SKILL_CARDS[directSkillType];
 
       // 异步保存消息（不阻塞）
@@ -129,6 +130,11 @@ export async function POST(request: NextRequest) {
     finalUserId = session?.user?.id;
     const sessionId = finalSessionId;
     const userId = finalUserId;
+
+    // 非管理员不允许覆盖 LLM provider/model
+    const isAdminUser = isAdminSession(session);
+    const effectiveProviderOverride = isAdminUser ? providerOverride : undefined;
+    const effectiveModelOverride = isAdminUser ? modelOverride : undefined;
 
     logInfo('chat-request', {
       hasSession: !!session,
@@ -254,7 +260,7 @@ export async function POST(request: NextRequest) {
       intent: analysis.stateReasoning // Using reasoning or mapping route? Groq intent logic.
     }, assessmentHistory);
 
-    console.log('[Persona] Adaptive Mode:', adaptiveMode);
+    logInfo('persona-mode', { adaptiveMode });
 
     // Check if retrievalResult is string (old return) or object
     if (typeof retrievalResult === 'string') {
@@ -337,8 +343,8 @@ export async function POST(request: NextRequest) {
         : undefined
     };
 
-    console.log('[Groq] Quick analysis result:', analysis);
-    console.log('[Safety] Assessment:', safetyData);
+    logInfo('groq-analysis', { analysis });
+    logInfo('safety-assessment', { safetyData });
 
     // Append analysis and dialogue metadata to stream
     data.append({
@@ -392,7 +398,7 @@ export async function POST(request: NextRequest) {
         activeExercise.metadata as Record<string, any> | undefined
       );
       routeType = 'support'; // 练习进行中强制走 support 路由
-      console.log('[Exercise] Active exercise detected:', activeExercise.exerciseType, `step ${activeExercise.currentStep}/${activeExercise.totalSteps}`);
+      logInfo('exercise-detected', { exerciseType: activeExercise.exerciseType, currentStep: activeExercise.currentStep, totalSteps: activeExercise.totalSteps });
     }
 
     // =================================================================================
@@ -413,7 +419,7 @@ export async function POST(request: NextRequest) {
       routeReason: routeDecision.reason,
       triageResolved: !!softOrchestrationResult,
     });
-    console.log('[API] Route decision:', { routeType, state, message: message.substring(0, 50) });
+    logInfo('route-decision', { routeType, state, messagePreview: message.substring(0, 50) });
     if (state === 'in_crisis' || routeType === 'crisis') {
       return await handleCrisisRoute({
         data,
@@ -460,8 +466,8 @@ export async function POST(request: NextRequest) {
         memoryContext,
         userTherapistPref,
         userPreferences,
-        providerOverride,
-        modelOverride,
+        providerOverride: effectiveProviderOverride,
+        modelOverride: effectiveModelOverride,
       });
     }
 
@@ -493,7 +499,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unexpected route match' }, { status: 500 });
 
   } catch (error: any) {
-    console.error('Chat API Error:', error);
+    logError('chat-api-error', { error: error.message, stack: error.stack });
     return NextResponse.json({ error: error.message || 'Error processing request' }, { status: 500 });
   } finally {
     // =================================================================================

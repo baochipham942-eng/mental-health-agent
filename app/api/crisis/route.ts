@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db/prisma';
+import { isAdmin as checkAdminAuth } from '@/lib/auth/admin';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * 检查管理员权限
- */
-async function checkAdminAuth() {
-    const session = await auth();
-    const userPhone = (session?.user as any)?.phone;
-    const isAdmin = session?.user?.name === 'demo' ||
-                   userPhone === '15110203706' ||
-                   userPhone === '18717878760' ||
-                   session?.user?.name === '15110203706';
-    return { isAdmin, session };
-}
 
 /**
  * GET /api/crisis - 获取危机升级列表（仅管理员）
@@ -23,9 +11,9 @@ async function checkAdminAuth() {
  */
 export async function GET(request: NextRequest) {
     try {
-        const { isAdmin } = await checkAdminAuth();
+        const { admin: isAdminUser } = await checkAdminAuth();
 
-        if (!isAdmin) {
+        if (!isAdminUser) {
             return NextResponse.json({ error: '无权限' }, { status: 403 });
         }
 
@@ -78,7 +66,7 @@ export async function POST(request: NextRequest) {
 
         const escalation = await prisma.crisisEscalation.create({
             data: {
-                userId,
+                userId: session.user.id,
                 conversationId,
                 triggerMessage,
                 riskLevel,
@@ -99,9 +87,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
     try {
-        const { isAdmin } = await checkAdminAuth();
+        const { admin: isAdminUser } = await checkAdminAuth();
 
-        if (!isAdmin) {
+        if (!isAdminUser) {
             return NextResponse.json({ error: '无权限' }, { status: 403 });
         }
 

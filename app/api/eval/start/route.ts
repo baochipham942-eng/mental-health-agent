@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { isAdmin } from '@/lib/auth/admin';
 
 // 存储运行中的进程状态
 const STATUS_DIR = path.join(process.cwd(), 'tests/eval/results/.status');
 
 export async function POST(req: NextRequest) {
   try {
+    const { admin } = await isAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       datasets = ['esconv'],

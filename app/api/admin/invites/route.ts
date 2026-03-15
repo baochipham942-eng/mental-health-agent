@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
-import { auth } from '@/auth';
+import { isAdmin } from '@/lib/auth/admin';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * 检查管理员权限
- */
-async function checkAdminAuth() {
-    const session = await auth();
-    const userPhone = (session?.user as any)?.phone;
-    const isAdmin = session?.user?.name === 'demo' ||
-                   userPhone === '15110203706' ||
-                   userPhone === '18717878760' ||
-                   session?.user?.name === '15110203706';
-    return isAdmin;
-}
 
 /**
  * 生成随机邀请码
@@ -37,7 +24,7 @@ function generateCode(): string {
  */
 export async function GET(request: NextRequest) {
     try {
-        if (!(await checkAdminAuth())) {
+        if (!(await isAdmin()).admin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -153,7 +140,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        if (!(await checkAdminAuth())) {
+        if (!(await isAdmin()).admin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -227,7 +214,7 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
     try {
-        if (!(await checkAdminAuth())) {
+        if (!(await isAdmin()).admin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -304,7 +291,7 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
     try {
-        if (!(await checkAdminAuth())) {
+        if (!(await isAdmin()).admin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 

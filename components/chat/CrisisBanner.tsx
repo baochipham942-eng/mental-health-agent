@@ -11,7 +11,7 @@ export function CrisisBanner({ isVisible, onDismiss }: CrisisBannerProps) {
     if (!isVisible) return null;
 
     return (
-        <div className="mb-4">
+        <div className="mb-4" role="alert" aria-live="assertive">
             <Alert
                 type="error"
                 title="安全资源"

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
-import { auth } from '@/auth';
+import { isAdmin as checkAdmin } from '@/lib/auth/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         // 验证管理员权限
-        const session = await auth();
-        const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
+        const { admin: isAdmin } = await checkAdmin();
 
         if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

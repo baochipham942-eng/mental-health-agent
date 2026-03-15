@@ -9,7 +9,8 @@ import { analyzeConversationForStuckLoop, createStuckLoopEvent } from '@/lib/ai/
 import { triggerQualityCheck } from '@/lib/ai/agents/orchestrator';
 import { createCrisisEscalation } from '@/lib/ai/crisis-escalation';
 import { assessCrisisDeescalation } from '@/lib/ai/crisis-classifier';
-import { logInfo } from '@/lib/observability/logger';
+import { logInfo, logWarn } from '@/lib/observability/logger';
+import { guardOutput } from '@/lib/ai/guardrails/output-guard';
 import { trackFunnel } from '@/lib/observability/funnel';
 import { recordMetric } from '@/lib/ai/progress/tracker';
 import type { DialogueContext } from '@/lib/ai/dialogue/state-machine';
@@ -72,22 +73,33 @@ function createOnFinishCallback(params: {
   } = params;
 
   return async (text: string, toolCalls?: any[]) => {
-    saveAssistantMessage(text, {
+    // Output guard — 检测有害内容/PII/系统泄露
+    const guardResult = guardOutput(text);
+    const safeText = guardResult.safe ? text : guardResult.redactedResponse;
+    if (!guardResult.safe) {
+      logWarn('output-guard-triggered', {
+        issues: guardResult.issues,
+        sessionId,
+        routeType,
+      });
+    }
+
+    saveAssistantMessage(safeText, {
       toolCalls,
       safety: safetyData,
       ...extraMeta,
-    }).catch(e => console.error('[DB] Failed to save assistant message:', e));
+    }).catch(e => logWarn('db-save-failed', { error: String(e) }));
 
-    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: text });
+    scheduleConversationSummaryRefresh({ userId, sessionId, history, message, assistantReply: safeText });
 
     logInfo('chat-response-finished', {
       sessionId, userId, routeType,
       totalDurationMs: Date.now() - requestStartedAt,
-      responseLength: text.length,
+      responseLength: safeText.length,
     });
 
     data.append({
-      reply: text,
+      reply: safeText,
       toolCalls,
       safety: safetyData,
       ...extraStreamData,
@@ -216,7 +228,7 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
   }
 
   if (state === 'in_crisis' && isDeescalated) {
-    console.log('[API] De-escalating crisis state based on LLM assessment');
+    logInfo('crisis-deescalation', { sessionId, userId });
     data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
 
     const onDeescalateFinish = createOnFinishCallback({

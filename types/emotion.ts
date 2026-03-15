@@ -5,7 +5,11 @@ export type EmotionLabel =
   | '悲伤'
   | '恐惧'
   | '快乐'
-  | '平静';
+  | '平静'
+  | '未表达'
+  | '压力'
+  | '疲惫'
+  | '情绪低落';
 
 export interface EmotionAnalysis {
   label: EmotionLabel;

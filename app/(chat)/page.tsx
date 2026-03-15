@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { isAdminSession } from '@/lib/auth/admin';
 import { getSessionHistory, hideSession } from '@/lib/actions/chat';
 import { HomePageClient } from '@/components/layout/HomePageClient';
 
@@ -34,7 +35,7 @@ export default async function HomePage() {
     }
 
     const userName = session.user.name || session.user.email?.split('@')[0] || '用户';
-    const isAdmin = userName === 'demo' || (session.user as any)?.phone === '15110203706' || userName === '15110203706' || (session.user as any)?.phone === '18717878760';
+    const isAdmin = isAdminSession(session);
 
     // 获取会话列表
     const sessions = await getSessionHistory();

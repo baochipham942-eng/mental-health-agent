@@ -54,7 +54,7 @@ function ThinkingIndicator() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-300" aria-live="polite">
       <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50 msg-bubble-ai">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-4">

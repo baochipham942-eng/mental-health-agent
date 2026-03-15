@@ -4,7 +4,7 @@ import { orchestrate } from '@/lib/ai/agents/orchestrator';
 import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { checkFollowupNeeded } from '@/lib/ai/followup-check';
 import { getProgressSummaryForChat } from '@/lib/ai/progress/tracker';
-import { logInfo } from '@/lib/observability/logger';
+import { logInfo, logWarn } from '@/lib/observability/logger';
 import type { ChatMessage } from '@/lib/ai/deepseek';
 
 /**
@@ -23,7 +23,7 @@ export function startEarlyPrefetch(params: {
     history: history as ChatMessage[],
     recentHistory: recentContext,
   }).catch((error) => {
-    console.error('[Prefetch] Orchestration failed:', error);
+    logWarn('prefetch-orchestration-failed', { error: String(error) });
     return null;
   });
 
@@ -52,7 +52,7 @@ export async function buildChatPrefetchContext(params: {
       try {
         return await memoryContextService.getContext(userId, message);
       } catch (e) {
-        console.error('[Memory] Failed:', e);
+        logWarn('memory-context-failed', { error: String(e) });
       }
       return { injectedText: '', source: 'legacy' as const, profileMemories: [], recentSummaries: [] };
     })()
@@ -118,7 +118,7 @@ export async function buildChatPrefetchContext(params: {
       orderBy: { createdAt: 'desc' },
       select: { meta: true },
     }).catch((error) => {
-      console.error('[StateMachine] Failed to query last assistant message:', error);
+      logWarn('state-machine-query-failed', { error: String(error) });
       return null;
     })
     : Promise.resolve(null);

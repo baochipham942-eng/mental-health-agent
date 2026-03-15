@@ -338,6 +338,7 @@ export function ChatInput({
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
+            aria-label="输入消息"
             spellCheck="false"
             data-lpignore="true"
             data-form-type="other"
@@ -376,6 +377,7 @@ export function ChatInput({
           type="primary"
           size="large"
           shape="circle"
+          aria-label="发送"
           disabled={!canSend || disabled}
           icon={
             isLoading ? (

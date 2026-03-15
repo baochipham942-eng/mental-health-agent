@@ -369,7 +369,7 @@ function SessionItem({
       <button
         onClick={handleDelete}
         disabled={isHiding}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0"
+        className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0"
       >
         <IconDelete style={{ fontSize: 14 }} />
       </button>

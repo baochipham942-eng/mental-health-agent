@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { isAdminSession } from '@/lib/auth/admin';
 import { prisma } from '@/lib/db/prisma';
 import { CrisisTable } from './CrisisTable';
 
@@ -16,11 +17,7 @@ export default async function CrisisDashboardPage() {
     }
 
     // 管理员权限检查
-    const userPhone = (session.user as any)?.phone;
-    const isAdmin = session.user.name === 'demo' ||
-                   userPhone === '15110203706' ||
-                   userPhone === '18717878760' ||
-                   session.user.name === '15110203706';
+    const isAdmin = isAdminSession(session);
 
     if (!isAdmin) {
         redirect('/dashboard');

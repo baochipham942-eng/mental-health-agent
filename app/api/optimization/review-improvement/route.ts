@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { isAdmin as checkAdmin } from '@/lib/auth/admin';
 import { prisma } from '@/lib/db/prisma';
 import { applyImprovements, revokeImprovements } from '@/lib/ai/optimization';
 
@@ -15,8 +15,7 @@ type ReviewAction = 'adopt' | 'reject' | 'revoke';
  */
 export async function POST(request: NextRequest) {
     try {
-        const session = await auth();
-        const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
+        const { admin: isAdmin, session } = await checkAdmin();
 
         if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

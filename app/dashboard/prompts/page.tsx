@@ -1,6 +1,7 @@
 
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { isAdminSession } from '@/lib/auth/admin';
 import { PromptViewer } from './PromptViewer';
 import { SUPPORT_PROMPT } from '@/lib/ai/support';
 import { CRISIS_PROMPT } from '@/lib/ai/crisis';
@@ -41,7 +42,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PromptsDashboardPage() {
     const session = await auth();
-    const isAdmin = session?.user?.name === 'demo' || (session?.user as any)?.phone === '15110203706' || session?.user?.name === '15110203706' || (session?.user as any)?.phone === '18717878760';
+    const isAdmin = isAdminSession(session);
 
     if (!isAdmin) {
         redirect('/dashboard');

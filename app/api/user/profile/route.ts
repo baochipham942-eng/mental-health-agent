@@ -3,6 +3,7 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/db/prisma';
 import { USER_PROFILES } from '@/lib/constants/userProfiles';
 import { checkProfanity } from '@/lib/utils/profanity';
+import { RESERVED_NICKNAMES } from '@/lib/auth/admin';
 
 // 允许的头像路径列表
 const ALLOWED_AVATARS = USER_PROFILES.map(p => p.avatar);
@@ -71,6 +72,14 @@ export async function PATCH(request: Request) {
             if (profanityCheck.hasProfanity) {
                 return NextResponse.json(
                     { error: `昵称${profanityCheck.reason}，请修改`, code: 'PROFANITY' },
+                    { status: 400 }
+                );
+            }
+
+            // 检查保留昵称
+            if (RESERVED_NICKNAMES.includes(trimmedNickname.toLowerCase())) {
+                return NextResponse.json(
+                    { error: '该昵称为系统保留名称', code: 'RESERVED_NICKNAME' },
                     { status: 400 }
                 );
             }
