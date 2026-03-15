@@ -1,0 +1,119 @@
+{
+  "suggestions": [
+    {
+      "layer": "orchestration",
+      "title": "结束信号检测与状态机流转缺失",
+      "description": "系统缺乏对用户明确结束信号（如'谢谢'、'Thanks for listening'）的检测机制，导致状态机无法从当前状态正确切换到 WRAP_UP 状态。Counselor Agent 在用户意图结束对话时仍继续引导探索，造成上下文断裂和过度解读。应在 Triage Agent 或 Counselor Agent 的预处理逻辑中，加入对结束意图的检测，并强制触发状态机向 WRAP_UP 流转。",
+      "dismissal_reason": "这不是代码实现的具体bug，而是系统流程设计上缺少对特定用户意图（结束对话）的识别和状态响应路径。",
+      "tags": [
+        "结束信号处理",
+        "状态机流转"
+      ],
+      "targetFile": "lib/ai/orchestrator/state-machine.ts",
+      "affectedDimensions": [
+        "context-coherence",
+        "empathy-accuracy",
+        "guidance-quality",
+        "technique-appropriateness"
+      ],
+      "priority": "high",
+      "failCount": 3,
+      "status": "accepted",
+      "statusUpdatedAt": "2026-03-15T15:30:16.265Z",
+      "note": "已在 state-machine.ts 添加结束信号检测"
+    },
+    {
+      "layer": "orchestration",
+      "title": "多轮对话上下文管理策略缺陷",
+      "description": "当前系统可能采用了固定轮数或简单截断的上下文管理策略，导致 Counselor Agent 在处理长对话时遗忘关键历史信息（如案例1中鹦鹉已死亡的事实）。应优化上下文窗口管理，采用基于关键信息提取或摘要的智能上下文维护策略，确保核心事实在多轮对话中得以保留。",
+      "dismissal_reason": "问题根源在于信息在Agent间或对话轮次间的传递与保留策略，而非单个Agent的代码逻辑错误。",
+      "tags": [
+        "上下文遗忘",
+        "长对话管理"
+      ],
+      "targetFile": "lib/ai/orchestrator/context-manager.ts",
+      "affectedDimensions": [
+        "context-coherence"
+      ],
+      "priority": "medium",
+      "failCount": 1
+    },
+    {
+      "layer": "engineering",
+      "title": "收尾场景回复生成缺乏约束",
+      "description": "在用户发出结束信号且状态机应进入 WRAP_UP 时，Counselor Agent 的生成逻辑缺乏针对收尾场景的特定约束。当前提示词虽有格式要求，但未明确禁止在收尾时进行新的情绪解读或引导探索。应在工程层面，当状态为 WRAP_UP 时，为 Counselor Agent 动态注入更简洁、肯定、不展开的回复风格指令。",
+      "dismissal_reason": "状态机设计（L1）负责识别和切换状态，而本建议针对的是在特定状态（WRAP_UP）下，代码逻辑如何执行相应的回复生成策略。",
+      "tags": [
+        "收尾场景策略",
+        "回复生成约束"
+      ],
+      "targetFile": "lib/ai/agents/counselor.ts",
+      "affectedDimensions": [
+        "empathy-accuracy",
+        "guidance-quality",
+        "technique-appropriateness"
+      ],
+      "priority": "high",
+      "failCount": 2,
+      "status": "rejected",
+      "statusUpdatedAt": "2026-03-15T15:29:46.070Z"
+    },
+    {
+      "layer": "evaluator",
+      "title": "empathy-accuracy 维度在收尾场景标准过严",
+      "description": "评估器在用户说'谢谢'等收尾语时，对'共情准确性'的评判可能过于严格。在对话自然结束时，AI进行温和的总结性共情（如案例2）是合理的陪伴行为，不应被判定为'过度解读'或'硬塞情感标签'。需要校准该维度在 WRAP_UP 状态下的评估标准，区分'探索阶段'的精准共情和'结束阶段'的总结性共情。",
+      "dismissal_reason": "问题不在于架构流程或代码bug，而在于评估标准本身与产品在特定场景下的预期行为存在偏差。",
+      "tags": [
+        "评估标准校准",
+        "场景化评估"
+      ],
+      "targetFile": "lib/evaluation/judge-prompts.ts",
+      "affectedDimensions": [
+        "empathy-accuracy"
+      ],
+      "priority": "medium",
+      "failCount": 2
+    },
+    {
+      "layer": "data",
+      "title": "测试用例过度集中于对话结束场景",
+      "description": "提供的3个失败案例中，有2个半（案例2、3及案例1的部分问题）都与对话收尾相关，这可能导致诊断结果向'结束场景处理'过度倾斜，可能掩盖了其他场景（如深度探索、危机干预）的潜在问题。建议补充更多样化的失败案例，以确保根因诊断的全面性。",
+      "dismissal_reason": "这是提供给诊断过程的数据样本特性问题，而非系统本身在架构、工程或规则层面的缺陷。",
+      "tags": [
+        "样本偏差",
+        "场景覆盖度"
+      ],
+      "targetFile": "N/A (测试用例集)",
+      "affectedDimensions": [
+        "context-coherence",
+        "empathy-accuracy",
+        "guidance-quality",
+        "technique-appropriateness"
+      ],
+      "priority": "low",
+      "failCount": 3
+    }
+  ],
+  "summary": "共分析 3 个失败案例，生成 5 条改进建议。",
+  "provider": "deepseek",
+  "failCount": 3,
+  "dimCounts": {
+    "context-coherence": 2,
+    "empathy-accuracy": 2,
+    "guidance-quality": 1,
+    "technique-appropriateness": 1
+  },
+  "tagSummary": {
+    "结束信号处理": 3,
+    "状态机流转": 3,
+    "上下文遗忘": 1,
+    "长对话管理": 1,
+    "收尾场景策略": 2,
+    "回复生成约束": 2,
+    "评估标准校准": 2,
+    "场景化评估": 2,
+    "样本偏差": 3,
+    "场景覆盖度": 3
+  },
+  "analyzedAt": "2026-03-15T15:00:16.742Z"
+}

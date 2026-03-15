@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, Tag, Empty, Spin, Select } from '@arco-design/web-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, Tag, Empty, Spin, Select, Input, Message } from '@arco-design/web-react';
 import { useRouter } from 'next/navigation';
 import { DIM_LABELS } from '@/lib/eval/constants';
 
@@ -24,6 +24,9 @@ interface Suggestion {
   affectedDimensions: string[];
   priority: string;
   failCount: number;
+  status?: 'accepted' | 'rejected' | 'deferred';
+  note?: string;
+  statusUpdatedAt?: string;
 }
 
 interface AnalysisResult {
@@ -55,6 +58,20 @@ const LAYER_COLORS: Record<string, string> = {
 
 const PRIORITY_COLORS: Record<string, string> = { high: 'red', medium: 'orange', low: 'gray' };
 
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  accepted: { label: '已采纳', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+  rejected: { label: '已拒绝', color: 'text-red-500', bg: 'bg-red-50 border-red-200' },
+  deferred: { label: '搁置', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
+};
+
+/** 过滤 LLM 编造的无效 targetFile */
+function isValidTargetFile(f?: string): boolean {
+  if (!f) return false;
+  if (/^N\/A/i.test(f)) return false;
+  if (!/\.\w+$/.test(f)) return false; // 没有文件扩展名
+  return true;
+}
+
 /* ---------- Component ---------- */
 
 export default function RootCauseOverviewPage() {
@@ -64,6 +81,36 @@ export default function RootCauseOverviewPage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState<number | null>(null); // suggestion 全局 index
+  const [noteInput, setNoteInput] = useState('');
+
+  // 更新建议状态
+  const updateSuggestionStatus = useCallback(async (globalIndex: number, status: string) => {
+    if (!selectedRun || !analysis) return;
+    const updated = { ...analysis, suggestions: [...analysis.suggestions] };
+    updated.suggestions[globalIndex] = { ...updated.suggestions[globalIndex], status: status as any, statusUpdatedAt: new Date().toISOString() };
+    setAnalysis(updated);
+    await fetch('/api/eval/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runId: selectedRun, action: 'update-status', index: globalIndex, status, provider: analysis.provider }),
+    });
+  }, [selectedRun, analysis]);
+
+  // 保存备注
+  const saveNote = useCallback(async (globalIndex: number) => {
+    if (!selectedRun || !analysis) return;
+    const updated = { ...analysis, suggestions: [...analysis.suggestions] };
+    updated.suggestions[globalIndex] = { ...updated.suggestions[globalIndex], note: noteInput, statusUpdatedAt: new Date().toISOString() };
+    setAnalysis(updated);
+    setEditingNote(null);
+    await fetch('/api/eval/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runId: selectedRun, action: 'update-status', index: globalIndex, note: noteInput, provider: analysis.provider }),
+    });
+    Message.success('备注已保存');
+  }, [selectedRun, analysis, noteInput]);
 
   // 加载实验列表
   useEffect(() => {
@@ -106,20 +153,21 @@ export default function RootCauseOverviewPage() {
     })();
   }, [selectedRun]);
 
-  // 按层级分组
+  // 按层级分组（保留全局 index 用于状态更新）
   const groupedByLayer = (() => {
     if (!analysis) return [];
-    const suggestions = filterTag
-      ? analysis.suggestions.filter(s => (s.tags || []).includes(filterTag))
-      : analysis.suggestions;
-    const groups: Array<{ layer: string; items: Suggestion[] }> = [];
+    type IndexedSuggestion = Suggestion & { _globalIndex: number };
+    const indexed: IndexedSuggestion[] = analysis.suggestions.map((s, i) => ({ ...s, _globalIndex: i }));
+    const filtered = filterTag
+      ? indexed.filter(s => (s.tags || []).includes(filterTag))
+      : indexed;
+    const groups: Array<{ layer: string; items: IndexedSuggestion[] }> = [];
     for (const layer of LAYER_ORDER) {
-      const items = suggestions.filter(s => s.layer === layer);
+      const items = filtered.filter(s => s.layer === layer);
       if (items.length > 0) groups.push({ layer, items });
     }
-    // 未知 layer 兜底
     const knownLayers = new Set(LAYER_ORDER);
-    const unknown = suggestions.filter(s => !knownLayers.has(s.layer));
+    const unknown = filtered.filter(s => !knownLayers.has(s.layer));
     if (unknown.length > 0) groups.push({ layer: 'other', items: unknown });
     return groups;
   })();
@@ -248,36 +296,55 @@ export default function RootCauseOverviewPage() {
                 <span className="text-xs text-gray-400">{items.length} 条建议</span>
               </div>
               <div className="space-y-2.5">
-                {items.map((s, i) => (
-                  <div key={i} className="border border-gray-100 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Tag size="small" color={PRIORITY_COLORS[s.priority] || 'gray'}>{s.priority}</Tag>
-                      <span className="font-medium text-sm text-gray-900">{s.title}</span>
-                      <span className="text-xs text-gray-400 ml-auto">{s.failCount} 例</span>
+                {items.map((s) => {
+                  const gi = s._globalIndex;
+                  const statusCfg = s.status ? STATUS_CONFIG[s.status] : null;
+                  const isEditing = editingNote === gi;
+                  return (
+                    <div key={gi} className={`border rounded-lg p-3 ${statusCfg ? statusCfg.bg : 'border-gray-100'}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Tag size="small" color={PRIORITY_COLORS[s.priority] || 'gray'}>{s.priority}</Tag>
+                        {statusCfg && <Tag size="small" color={s.status === 'accepted' ? 'green' : s.status === 'rejected' ? 'red' : 'orange'}>{statusCfg.label}</Tag>}
+                        <span className="font-medium text-sm text-gray-900">{s.title}</span>
+                        <span className="text-xs text-gray-400 ml-auto">{s.failCount} 例</span>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
+                      {s.dismissal_reason && (
+                        <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                      )}
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(s.tags || []).map(tag => (
+                          <Tag key={tag} size="small" color={filterTag === tag ? 'purple' : 'orangered'} className="cursor-pointer" onClick={() => setFilterTag(filterTag === tag ? null : tag)}>{tag}</Tag>
+                        ))}
+                        {(s.affectedDimensions || []).map(d => (
+                          <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
+                        ))}
+                        {isValidTargetFile(s.targetFile) && <span className="text-xs text-gray-400 font-mono ml-auto">{s.targetFile}</span>}
+                      </div>
+                      {/* 状态按钮 + 备注 */}
+                      <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
+                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'accepted' ? 'bg-green-100 text-green-700 font-medium' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'accepted' ? '' : 'accepted')}>采纳</button>
+                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'rejected' ? 'bg-red-100 text-red-600 font-medium' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'rejected' ? '' : 'rejected')}>拒绝</button>
+                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'deferred' ? 'bg-amber-100 text-amber-700 font-medium' : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'deferred' ? '' : 'deferred')}>搁置</button>
+                        <span className="border-l border-gray-200 h-3 mx-1" />
+                        {!isEditing ? (
+                          <button className="text-xs text-gray-400 hover:text-indigo-500" onClick={() => { setEditingNote(gi); setNoteInput(s.note || ''); }}>
+                            {s.note ? `备注: ${s.note.slice(0, 30)}${s.note.length > 30 ? '...' : ''}` : '+ 备注'}
+                          </button>
+                        ) : (
+                          <div className="flex-1 flex items-center gap-1.5">
+                            <Input size="mini" value={noteInput} onChange={setNoteInput} onPressEnter={() => saveNote(gi)} placeholder="记录进展..." autoFocus className="flex-1" />
+                            <button className="text-xs text-indigo-500 hover:underline shrink-0" onClick={() => saveNote(gi)}>保存</button>
+                            <button className="text-xs text-gray-400 hover:underline shrink-0" onClick={() => setEditingNote(null)}>取消</button>
+                          </div>
+                        )}
+                        {s.statusUpdatedAt && !isEditing && (
+                          <span className="text-xs text-gray-300 ml-auto">{new Date(s.statusUpdatedAt).toLocaleDateString('zh-CN')}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
-                    {s.dismissal_reason && (
-                      <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
-                    )}
-                    <div className="flex flex-wrap gap-1">
-                      {(s.tags || []).map(tag => (
-                        <Tag
-                          key={tag}
-                          size="small"
-                          color={filterTag === tag ? 'purple' : 'orangered'}
-                          className="cursor-pointer"
-                          onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-                        >
-                          {tag}
-                        </Tag>
-                      ))}
-                      {(s.affectedDimensions || []).map(d => (
-                        <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
-                      ))}
-                      {s.targetFile && <span className="text-xs text-gray-400 font-mono ml-auto">{s.targetFile}</span>}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           ))}

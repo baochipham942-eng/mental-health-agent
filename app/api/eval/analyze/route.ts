@@ -24,6 +24,9 @@ interface Suggestion {
   affectedDimensions: string[];
   priority: 'high' | 'medium' | 'low';
   failCount: number;
+  status?: 'accepted' | 'rejected' | 'deferred';  // 人工标记
+  note?: string;            // 人工备注（进展记录）
+  statusUpdatedAt?: string;
 }
 
 // 系统配置摘要（喂给分析 LLM 的上下文）
@@ -213,8 +216,27 @@ ${dimSummary}
 
 export async function POST(req: NextRequest) {
   try {
-    const { runId, caseId, provider: reqProvider, cacheOnly } = await req.json();
+    const body = await req.json();
+    const { runId, caseId, provider: reqProvider, cacheOnly, action } = body;
     if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
+
+    // ===== 更新建议状态（同意/拒绝/搁置 + 备注）=====
+    if (action === 'update-status') {
+      const { index, status, note } = body as { index: number; status?: string; note?: string; runId: string; caseId?: string; provider?: string; action: string };
+      const provider: LlmProviderName = (['deepseek', 'openai', 'glm', 'openrouter', 'kimi'] as const).includes(reqProvider) ? reqProvider : 'deepseek';
+      const sanitized = runId.replace(/[^a-zA-Z0-9-_]/g, '_');
+      const providerSuffix = provider !== 'deepseek' ? `-${provider}` : '';
+      const cacheSuffix = caseId ? `-case-${caseId.replace(/[^a-zA-Z0-9-_:]/g, '_')}` : '';
+      const cacheFile = path.join(ANALYSIS_DIR, `analysis-${sanitized}${cacheSuffix}${providerSuffix}.json`);
+      if (!fs.existsSync(cacheFile)) return NextResponse.json({ error: 'Analysis not found' }, { status: 404 });
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+      if (index < 0 || index >= (data.suggestions || []).length) return NextResponse.json({ error: 'Invalid index' }, { status: 400 });
+      if (status !== undefined) data.suggestions[index].status = status;
+      if (note !== undefined) data.suggestions[index].note = note;
+      data.suggestions[index].statusUpdatedAt = new Date().toISOString();
+      fs.writeFileSync(cacheFile, JSON.stringify(data, null, 2));
+      return NextResponse.json({ ok: true });
+    }
 
     // 解析 provider（默认 deepseek，支持前端切换）
     const provider: LlmProviderName = (['deepseek', 'openai', 'glm', 'openrouter', 'kimi'] as const).includes(reqProvider)

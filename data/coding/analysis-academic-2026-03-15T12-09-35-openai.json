@@ -1,0 +1,85 @@
+{
+  "suggestions": [
+    {
+      "layer": "orchestration",
+      "title": "状态机未正确切换到WRAP_UP",
+      "description": "在用户明确表达结束信号时，状态机没有正确切换到WRAP_UP状态，导致AI继续对话。建议在状态机中增加对结束信号的检测逻辑，确保在用户表达结束意图时，自动切换到WRAP_UP状态。",
+      "dismissal_reason": "问题主要在于状态机的流转逻辑，而非代码实现或评估器判断。",
+      "tags": [
+        "结束信号处理"
+      ],
+      "targetFile": "lib/ai/agents/stateMachine.ts",
+      "affectedDimensions": [
+        "context-coherence",
+        "technique-appropriateness"
+      ],
+      "priority": "high",
+      "failCount": 5
+    },
+    {
+      "layer": "engineering",
+      "title": "结束意图检测缺陷",
+      "description": "代码未能正确检测用户的结束意图，如连续的“谢谢再见”。建议在用户输入处理中增加对常见结束语的检测，确保在用户表达结束意图时，AI能够及时响应。",
+      "dismissal_reason": "状态机逻辑需要调整，但代码层面也缺乏对结束意图的细致检测。",
+      "tags": [
+        "结束信号处理"
+      ],
+      "targetFile": "lib/ai/agents/counselor.ts",
+      "affectedDimensions": [
+        "empathy-accuracy",
+        "interpretation-accuracy"
+      ],
+      "priority": "medium",
+      "failCount": 4
+    },
+    {
+      "layer": "evaluator",
+      "title": "评估器对结束信号处理不当",
+      "description": "评估器在用户表达结束意图时，未能正确识别并给予适当的评分。建议调整评估标准，使其更好地识别和处理用户的结束信号。",
+      "dismissal_reason": "问题在于评估器的判断标准，而非数据或模型能力。",
+      "tags": [
+        "维度耦合扣分"
+      ],
+      "targetFile": "lib/ai/evaluators/judge.ts",
+      "affectedDimensions": [
+        "empathy-accuracy",
+        "interpretation-accuracy"
+      ],
+      "priority": "medium",
+      "failCount": 3
+    },
+    {
+      "layer": "data",
+      "title": "测试用例偏差",
+      "description": "测试用例中过多地包含以“谢谢”结尾的对话，导致结束场景被过度放大。建议在测试集中增加多样化的对话结束场景，以确保模型在不同情况下的表现。",
+      "dismissal_reason": "评估器和架构层面的问题已经排除，问题在于测试数据的代表性。",
+      "tags": [
+        "结束信号处理"
+      ],
+      "targetFile": "test/data/testCases.json",
+      "affectedDimensions": [
+        "context-coherence",
+        "summary-quality"
+      ],
+      "priority": "low",
+      "failCount": 2
+    }
+  ],
+  "summary": "共分析 8 个失败案例，生成 4 条改进建议。",
+  "provider": "openai",
+  "failCount": 8,
+  "dimCounts": {
+    "empathy-accuracy": 7,
+    "context-coherence": 5,
+    "interpretation-accuracy": 5,
+    "technique-appropriateness": 5,
+    "summary-quality": 3,
+    "premature-advice": 2,
+    "guidance-quality": 4
+  },
+  "tagSummary": {
+    "结束信号处理": 11,
+    "维度耦合扣分": 3
+  },
+  "analyzedAt": "2026-03-15T14:53:01.677Z"
+}

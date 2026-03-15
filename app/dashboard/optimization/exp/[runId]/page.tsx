@@ -476,7 +476,7 @@ export default function ExperimentDetailPage() {
                     {(s.affectedDimensions || []).map((d: string) => (
                       <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
                     ))}
-                    {s.targetFile && <span className="text-xs text-gray-400 font-mono ml-auto">{s.targetFile}</span>}
+                    {s.targetFile && !/^N\/A/i.test(s.targetFile) && /\.\w+$/.test(s.targetFile) && <span className="text-xs text-gray-400 font-mono ml-auto">{s.targetFile}</span>}
                   </div>
                 </div>
               );
