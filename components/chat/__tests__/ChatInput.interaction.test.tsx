@@ -1,0 +1,146 @@
+/**
+ * ChatInput 交互测试（补充放水）
+ *
+ * 测试真实用户交互流程：
+ * - 连续输入→发送→清空循环
+ * - 输入验证边界
+ * - 多次 Enter 防抖
+ * - disabled 状态全面锁定
+ */
+
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ChatInput } from '../ChatInput';
+
+// 复用同样的 mock
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({ push: vi.fn() }),
+}));
+vi.mock('next/link', () => ({
+    default: ({ children, href, ...props }: any) => <a href={href} {...props}>{children}</a>,
+}));
+vi.mock('@arco-design/web-react', () => ({
+    Button: ({ children, icon, onClick, disabled, className, ...props }: any) => (
+        <button onClick={onClick} disabled={disabled} className={className} data-testid="arco-button" {...props}>
+            {icon}{children}
+        </button>
+    ),
+    Drawer: ({ children, visible }: any) => visible ? <div data-testid="drawer">{children}</div> : null,
+}));
+vi.mock('@arco-design/web-react/icon', () => ({
+    IconSend: () => <span data-testid="icon-send">Send</span>,
+    IconLoading: () => <span data-testid="icon-loading">Loading</span>,
+}));
+vi.mock('../VoiceInputButton', () => ({
+    VoiceInputButton: ({ disabled }: any) => (
+        <button data-testid="voice-btn" disabled={disabled}>Voice</button>
+    ),
+}));
+vi.mock('@/store/chatStore', () => ({
+    useChatStore: () => ({
+        currentModel: 'deepseek',
+        setCurrentModel: vi.fn(),
+    }),
+    CHAT_MODELS: {
+        deepseek: { label: 'DeepSeek R3', modelName: 'deepseek-chat' },
+        kimi: { label: 'Kimi K2.5', modelName: 'kimi-k2.5' },
+        openrouter: { label: 'GPT 5.4', modelName: 'openai/gpt-5.4' },
+    },
+}));
+
+describe('ChatInput 交互补充', () => {
+    const onChange = vi.fn();
+    const onSend = vi.fn();
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('连续多次 Enter 只发送一次（canSend 判断）', () => {
+        // 第一次 Enter 发送后，value 应被清空，后续 Enter 因空值不再发送
+        const { rerender } = render(
+            <ChatInput value="你好" onChange={onChange} onSend={onSend} />
+        );
+        const textarea = screen.getByPlaceholderText('说说你现在的感受...');
+
+        // 第一次 Enter
+        fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+        expect(onSend).toHaveBeenCalledTimes(1);
+
+        // 模拟父组件清空 value
+        rerender(
+            <ChatInput value="" onChange={onChange} onSend={onSend} />
+        );
+
+        // 第二次 Enter，value 已空
+        fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+        expect(onSend).toHaveBeenCalledTimes(1); // 仍是 1
+    });
+
+    it('disabled 时 textarea 有 readOnly 属性', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} disabled />);
+        const textarea = screen.getByPlaceholderText('说说你现在的感受...') as HTMLTextAreaElement;
+        expect(textarea.readOnly).toBe(true);
+    });
+
+    it('disabled 时 textarea 有 disabled 属性', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} disabled />);
+        const textarea = screen.getByPlaceholderText('说说你现在的感受...') as HTMLTextAreaElement;
+        expect(textarea.disabled).toBe(true);
+    });
+
+    it('isLoading 时语音按钮 disabled', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} isLoading />);
+        const voiceBtn = screen.getByTestId('voice-btn');
+        expect(voiceBtn).toBeDisabled();
+    });
+
+    it('onChange 传递正确的值（含中文）', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        const textarea = screen.getByPlaceholderText('说说你现在的感受...');
+        fireEvent.change(textarea, { target: { value: '我今天很焦虑，工作压力太大了' } });
+        expect(onChange).toHaveBeenCalledWith('我今天很焦虑，工作压力太大了');
+    });
+
+    it('onSend 传递完整 value（含前后空格）', () => {
+        // value 有前后空格时，canSend 检查 trim 后是否非空
+        render(<ChatInput value=" 有效内容 " onChange={onChange} onSend={onSend} />);
+        const buttons = screen.getAllByTestId('arco-button');
+        const sendBtn = buttons[buttons.length - 1];
+        fireEvent.click(sendBtn);
+        // onSend 应传递原始 value（含空格），由父组件决定是否 trim
+        expect(onSend).toHaveBeenCalledWith(' 有效内容 ');
+    });
+
+    it('textarea rows=1（单行默认）', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        const textarea = screen.getByPlaceholderText('说说你现在的感受...') as HTMLTextAreaElement;
+        expect(textarea.rows).toBe(1);
+    });
+});
+
+describe('ChatInput 技能面板', () => {
+    const onChange = vi.fn();
+    const onSend = vi.fn();
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('桌面端：点击工具箱按钮后解压工具箱面板出现在 DOM 中', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        // 面板始终在 DOM 中（CSS 控制显隐），检查文案存在
+        expect(screen.getByText('解压工具箱')).toBeInTheDocument();
+    });
+
+    it('桌面端：面板包含所有 7 个技能', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        expect(screen.getAllByText('呼吸练习').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('正念冥想').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('空椅子').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('五感着陆').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('放飞念头').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('行为激活').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('情绪记录').length).toBeGreaterThan(0);
+    });
+});

@@ -22,6 +22,12 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
     function handleFinalSubmit() {
         if (score !== null) {
             onSubmit(score, feedback);
+            // 漏斗埋点：技能练习完成
+            fetch('/api/progress/funnel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event: 'l1_skill_completed', score }),
+            }).catch(() => {});
         }
     }
 

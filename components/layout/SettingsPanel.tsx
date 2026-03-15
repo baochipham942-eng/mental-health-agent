@@ -421,10 +421,46 @@ export function SettingsPanel({
                     <Link href="/dashboard/progress" onClick={onClose} className="text-xs text-indigo-600 hover:text-indigo-700">查看</Link>
                   </div>
 
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="text-sm font-medium text-gray-800">压力自评</div>
+                      <div className="text-xs text-gray-400 mt-0.5">快速了解你当前的情绪和压力状态</div>
+                    </div>
+                    <Link
+                      href="/?trigger=压力自评"
+                      onClick={onClose}
+                      className="text-xs text-indigo-600 hover:text-indigo-700"
+                    >
+                      开始
+                    </Link>
+                  </div>
+
                   <div className="border-t border-gray-100 pt-4">
                     <p className="text-xs text-gray-400 leading-relaxed">
                       我们非常重视你的隐私。对话内容不会用于模型训练，你可以随时在「我的记忆」中查看和删除 AI 记住的信息。
                     </p>
+                  </div>
+
+                  {/* 安全资源 */}
+                  <div className="border-t border-gray-100 pt-4 mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">安全资源</h4>
+                    <div className="p-3 bg-blue-50 rounded-xl">
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        如果你或身边的人正在经历困难，可以拨打以下热线获得支持：
+                      </p>
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-blue-600 font-medium">📞 全国心理援助热线</span>
+                          <a href="tel:400-161-9995" className="text-xs text-blue-700 font-bold hover:underline">400-161-9995</a>
+                          <span className="text-xs text-gray-400">（24小时）</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-blue-600 font-medium">📞 生命热线</span>
+                          <a href="tel:400-821-1215" className="text-xs text-blue-700 font-bold hover:underline">400-821-1215</a>
+                          <span className="text-xs text-gray-400">（24小时）</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

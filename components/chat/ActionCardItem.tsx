@@ -148,6 +148,13 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
 
   // 开始/继续/再次练习
   const handleMainAction = () => {
+    // 漏斗埋点：技能卡片被点击
+    fetch('/api/progress/funnel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'l1_skill_clicked', sessionId, skillType: card.widget }),
+    }).catch(() => {});
+
     if (isGuided) {
       if (isCompleted) {
         updateSkillProgress(cardId, { status: 'not_started', completedSteps: [] });
