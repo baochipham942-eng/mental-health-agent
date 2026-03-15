@@ -160,6 +160,8 @@ export async function POST(request: NextRequest) {
       userTherapistPref,
       activeExercise,
       lastAssistantMsg,
+      followupPrompt,
+      progressSummary,
       prefetchDurationMs,
     } = await buildChatPrefetchContext({
       userId,
@@ -181,18 +183,23 @@ export async function POST(request: NextRequest) {
     }
 
     // soft-wait: 等 orchestration 最多 180ms，超时用 fallback
+    // 首轮直接用 fallback，跳过 triage 等待（节省 ~180ms）
+    const isFirstTurn = history.length === 0;
     const triageSoftWaitStartedAt = Date.now();
-    const softOrchestrationResult = await Promise.race([
-      orchestrationPromise,
-      new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), Number(process.env.TRIAGE_SOFT_WAIT_MS || 180))
-      ),
-    ]);
+    const softOrchestrationResult = isFirstTurn
+      ? null
+      : await Promise.race([
+          orchestrationPromise,
+          new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), Number(process.env.TRIAGE_SOFT_WAIT_MS || 180))
+          ),
+        ]);
     logInfo('chat-soft-triage', {
       sessionId,
       userId,
       softTriageWaitMs: Date.now() - triageSoftWaitStartedAt,
       triageResolved: !!softOrchestrationResult,
+      skippedForFirstTurn: isFirstTurn,
     });
 
     // await 预先启动的 crisis check（已与 auth + DB 并行，此处几乎为 0ms）
@@ -284,6 +291,20 @@ export async function POST(request: NextRequest) {
       userPreferences,
       userNickname: session?.user?.nickname,
     });
+
+    // 次日回访 prompt 注入
+    if (followupPrompt) {
+      memoryContext = memoryContext
+        ? `${memoryContext}\n\n${followupPrompt}`
+        : followupPrompt;
+    }
+
+    // 情绪趋势摘要注入
+    if (progressSummary) {
+      memoryContext = memoryContext
+        ? `${memoryContext}\n\n${progressSummary}`
+        : progressSummary;
+    }
 
     // =================================================================================
     // 0.6 Dialogue State Tracking - 对话状态追踪

@@ -2,6 +2,8 @@ import { prisma } from '@/lib/db/prisma';
 import { memoryContextService } from '@/lib/memory';
 import { orchestrate } from '@/lib/ai/agents/orchestrator';
 import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
+import { checkFollowupNeeded } from '@/lib/ai/followup-check';
+import { getProgressSummaryForChat } from '@/lib/ai/progress/tracker';
 import { logInfo } from '@/lib/observability/logger';
 import type { ChatMessage } from '@/lib/ai/deepseek';
 
@@ -80,7 +82,8 @@ export async function buildChatPrefetchContext(params: {
       : Promise.resolve([]))
     : Promise.resolve([]);
 
-  const therapistPromise = userId
+  // 首轮跳过 therapist/activeExercise 查询（用户还没说有意义的话）
+  const therapistPromise = (userId && !isFirstTurn)
     ? (!shouldSkipDb
       ? prisma.user.findUnique({
         where: { id: userId },
@@ -89,13 +92,23 @@ export async function buildChatPrefetchContext(params: {
       : Promise.resolve(null))
     : Promise.resolve(null);
 
-  const activeExercisePromise = userId
+  const activeExercisePromise = (userId && !isFirstTurn)
     ? (!shouldSkipDb
       ? prisma.exerciseState.findFirst({
         where: { userId, status: 'in_progress' },
         orderBy: { updatedAt: 'desc' },
       })
       : Promise.resolve(null))
+    : Promise.resolve(null);
+
+  // 首轮对话时检查次日回访
+  const followupPromise = (userId && isFirstTurn)
+    ? checkFollowupNeeded(userId).catch(() => null)
+    : Promise.resolve(null);
+
+  // 非首轮时获取进度摘要（用于 AI 主动回顾）
+  const progressSummaryPromise = (userId && !isFirstTurn)
+    ? getProgressSummaryForChat(userId).catch(() => null)
     : Promise.resolve(null);
 
   // lastAssistantMsg 也纳入并行批次（之前在 route.ts 中单独启动）
@@ -117,6 +130,8 @@ export async function buildChatPrefetchContext(params: {
     userTherapistPref,
     activeExercise,
     lastAssistantMsg,
+    followupPrompt,
+    progressSummary,
   ] = await Promise.all([
     memoryPromise,
     assessmentPromise,
@@ -124,6 +139,8 @@ export async function buildChatPrefetchContext(params: {
     therapistPromise,
     activeExercisePromise,
     lastAssistantMsgPromise,
+    followupPromise,
+    progressSummaryPromise,
   ]);
 
   const prefetchDurationMs = Date.now() - prefetchStartedAt;
@@ -153,6 +170,8 @@ export async function buildChatPrefetchContext(params: {
     userTherapistPref,
     activeExercise,
     lastAssistantMsg,
+    followupPrompt,
+    progressSummary,
     prefetchDurationMs,
   };
 }

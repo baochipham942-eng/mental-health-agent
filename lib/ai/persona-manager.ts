@@ -1,6 +1,7 @@
 
 import { AssessmentReport } from '@prisma/client';
 import { getTherapistVoice } from './persona/therapist-profiles';
+import { PERSONA_INVARIANTS } from './prompts';
 
 export type AdaptiveMode = 'guardian' | 'companion' | 'guide' | 'coach';
 
@@ -134,5 +135,5 @@ export function buildSystemPrompt(
         preferencesBlock = `\n\n[USER PREFERENCES & CONSTRAINTS]\nThe user has the following communication preferences. YOU MUST COMPLY WITH THESE:\n${userPreferences.map(p => `- ${p}`).join('\n')}`;
     }
 
-    return `${basePrompt}\n\n${modifier}\n\n${therapist}${preferencesBlock}`;
+    return `${basePrompt}\n\n${PERSONA_INVARIANTS}\n\n${modifier}\n\n${therapist}${preferencesBlock}`;
 }

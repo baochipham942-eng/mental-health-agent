@@ -292,3 +292,49 @@ export async function detectLatestMilestone(userId: string): Promise<string | nu
   const timeline = await getProgressTimeline(userId, 30);
   return timeline.milestones.length > 0 ? timeline.milestones[0] : null;
 }
+
+/**
+ * 生成进度摘要注入 prompt（用于 AI 主动回顾）
+ *
+ * 取 7 天趋势 → 生成自然语言摘要
+ */
+export async function getProgressSummaryForChat(userId: string): Promise<string | null> {
+  try {
+    const timeline = await getProgressTimeline(userId, 7);
+
+    // 至少 2 次对话才有意义
+    if (timeline.sessionCount < 2 && timeline.exerciseCount === 0) return null;
+
+    const parts: string[] = [];
+
+    // 情绪趋势
+    if (timeline.emotions.length >= 2) {
+      const trendLabel = timeline.trend === 'improving' ? '持续好转'
+        : timeline.trend === 'worsening' ? '有些波动' : '相对平稳';
+      parts.push(`最近 7 天情绪${trendLabel}`);
+    }
+
+    // 对话与练习统计
+    if (timeline.sessionCount > 0) {
+      parts.push(`${timeline.sessionCount} 次对话`);
+    }
+    if (timeline.exerciseCount > 0) {
+      parts.push(`${timeline.exerciseCount} 次练习`);
+    }
+    if (timeline.labSessionCount > 0) {
+      parts.push(`${timeline.labSessionCount} 次探索`);
+    }
+
+    // 里程碑
+    if (timeline.milestones.length > 0) {
+      parts.push(`达成：${timeline.milestones[0]}`);
+    }
+
+    if (parts.length === 0) return null;
+
+    return `[用户近期进度] ${parts.join('，')}。当用户问到"我最近状态怎么样"或你觉得合适时，可以自然地引用这些数据鼓励用户。`;
+  } catch (error) {
+    console.error('[ProgressTracker] Failed to generate chat summary:', error);
+    return null;
+  }
+}

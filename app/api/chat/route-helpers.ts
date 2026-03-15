@@ -216,16 +216,15 @@ export function buildLayeredMemoryContext(params: {
 
 export function detectExplicitAssessmentRequest(message: string): boolean {
   const msg = message.trim().toLowerCase();
+  // 收窄：只保留明确的评估请求，移除"做个测试"/"测试一下"等泛化词
   return [
     /做个评估/,
     /评估一下/,
-    /做个测试/,
-    /测试一下/,
-    /心理测试/,
     /心理评估/,
     /系统.*评估/,
-    /系统.*了解.*状态/,
-    /看看我.*状态/,
+    /情绪健康度/,
+    /压力.*自评/,
+    /压力指数/,
   ].some((pattern) => pattern.test(msg));
 }
 

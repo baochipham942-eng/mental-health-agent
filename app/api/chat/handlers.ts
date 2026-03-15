@@ -10,6 +10,8 @@ import { triggerQualityCheck } from '@/lib/ai/agents/orchestrator';
 import { createCrisisEscalation } from '@/lib/ai/crisis-escalation';
 import { assessCrisisDeescalation } from '@/lib/ai/crisis-classifier';
 import { logInfo } from '@/lib/observability/logger';
+import { trackFunnel } from '@/lib/observability/funnel';
+import { recordMetric } from '@/lib/ai/progress/tracker';
 import type { DialogueContext } from '@/lib/ai/dialogue/state-machine';
 import type { AdaptiveMode } from '@/lib/ai/persona-manager';
 
@@ -101,6 +103,13 @@ function createOnFinishCallback(params: {
         reply: text,
         userMessage: message,
       });
+    }
+
+    // 漏斗埋点：检测技能推荐
+    if (toolCalls?.some((tc: any) => tc.function?.name === 'recommend_skill_card' || tc.toolName === 'recommend_skill_card')) {
+      const skillCall = toolCalls.find((tc: any) => tc.function?.name === 'recommend_skill_card' || tc.toolName === 'recommend_skill_card');
+      const skillType = skillCall?.function?.arguments ? JSON.parse(skillCall.function.arguments)?.widget : undefined;
+      trackFunnel('l1_skill_recommended', { userId, sessionId, skillType }).catch(() => {});
     }
 
     afterFinish?.(text, toolCalls);
@@ -345,6 +354,15 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'support', adaptiveMode,
     extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx },
+    afterFinish: (text) => {
+      // SFBT 练习总结提取并写入 ProgressMetric
+      if (sfbtMatch && userId) {
+        const summaryMatch = text.match(/\*\*本次小结\*\*[：:]\s*(.+)/);
+        const summaryText = summaryMatch?.[1]?.trim() || `完成了${sfbtMatch[1]}练习，评分 ${sfbtMatch[2]}/5`;
+        recordMetric(userId, 'exercise_summary', parseInt(sfbtMatch[2]), sessionId, summaryText)
+          .catch((e) => console.error('[SFBT] Failed to record exercise summary:', e));
+      }
+    },
   });
 
   let combinedInjection = sfbtInstruction || '';

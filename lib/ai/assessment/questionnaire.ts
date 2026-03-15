@@ -259,10 +259,12 @@ export function parseUserResponse(userMessage: string): number | null {
 export function detectQuestionnaireRequest(message: string): QuestionnaireType | null {
   const msg = message.toLowerCase();
 
-  if (/phq[-\s]?9|抑郁.*评估|抑郁.*测试|测.*抑郁/.test(msg)) return 'phq9';
-  if (/gad[-\s]?7|焦虑.*评估|焦虑.*测试|测.*焦虑/.test(msg)) return 'gad7';
-  if (/做个评估|测试一下|评估一下|做个测试|心理测试|心理评估/.test(msg)) return 'phq9'; // 默认 PHQ-9
-  if (/了解一下自己|测一下|看看自己状态|了解自己/.test(msg)) return 'phq9'; // 轻量化触发词，默认 PHQ-9
+  // 收窄触发词：只保留明确的量表/自评请求，移除泛化触发词
+  if (/phq[-\s]?9|抑郁.*评估|抑郁.*测试|测.*抑郁|情绪健康度/.test(msg)) return 'phq9';
+  if (/gad[-\s]?7|焦虑.*评估|焦虑.*测试|测.*焦虑|压力.*自评|压力指数/.test(msg)) return 'gad7';
+  // 以下泛化触发词已收窄（Pilot 前弱化 L3 量表入口）
+  // 原: /做个评估|测试一下|评估一下|做个测试|心理测试|心理评估/ → phq9
+  // 原: /了解一下自己|测一下|看看自己状态|了解自己/ → phq9
 
   return null;
 }

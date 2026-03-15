@@ -1,11 +1,13 @@
 import { chatCompletion, streamChatCompletion, ChatMessage } from './deepseek';
 import { UI_TOOLS } from './tools';
-import { IDENTITY_PROMPT, SAFETY_PROMPT, INTERACTIVE_RULES_PROMPT } from './prompts';
+import { IDENTITY_PROMPT, SAFETY_PROMPT, INTERACTIVE_RULES_PROMPT, PERSONA_INVARIANTS } from './prompts';
 
 /**
  * 危机干预系统提示词 - 整合版
  */
 export const CRISIS_PROMPT = `${IDENTITY_PROMPT}
+
+${PERSONA_INVARIANTS}
 
 ${SAFETY_PROMPT}
 
@@ -35,6 +37,8 @@ ${SAFETY_PROMPT}
  * 危机干预后续对话提示词
  */
 const CRISIS_FOLLOWUP_PROMPT = `${IDENTITY_PROMPT}
+
+${PERSONA_INVARIANTS}
 
 ${SAFETY_PROMPT}
 

@@ -190,10 +190,22 @@ describe('detectQuestionnaireRequest', () => {
     expect(detectQuestionnaireRequest('测测焦虑')).toBe('gad7');
   });
 
-  it('should detect generic assessment requests as PHQ-9', () => {
-    expect(detectQuestionnaireRequest('做个评估')).toBe('phq9');
-    expect(detectQuestionnaireRequest('心理测试')).toBe('phq9');
-    expect(detectQuestionnaireRequest('评估一下')).toBe('phq9');
+  it('should detect new trigger words', () => {
+    expect(detectQuestionnaireRequest('我想做个情绪健康度检查')).toBe('phq9');
+    expect(detectQuestionnaireRequest('压力自评')).toBe('gad7');
+    expect(detectQuestionnaireRequest('压力指数')).toBe('gad7');
+  });
+
+  it('should NOT trigger on generic/vague words (narrowed in Pilot)', () => {
+    // 这些泛化触发词已被收窄，不再自动进入评估流程
+    expect(detectQuestionnaireRequest('做个评估')).toBe(null);
+    expect(detectQuestionnaireRequest('心理测试')).toBe(null);
+    expect(detectQuestionnaireRequest('评估一下')).toBe(null);
+    expect(detectQuestionnaireRequest('做个测试')).toBe(null);
+    expect(detectQuestionnaireRequest('测试一下')).toBe(null);
+    expect(detectQuestionnaireRequest('了解一下自己')).toBe(null);
+    expect(detectQuestionnaireRequest('测一下')).toBe(null);
+    expect(detectQuestionnaireRequest('看看自己状态')).toBe(null);
   });
 
   it('should return null for non-assessment messages', () => {

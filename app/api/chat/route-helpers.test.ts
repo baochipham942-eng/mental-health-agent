@@ -104,7 +104,15 @@ describe('buildFallbackQuickAnalysis', () => {
 describe('detectExplicitAssessmentRequest', () => {
   it('detects explicit assessment phrasing', () => {
     expect(detectExplicitAssessmentRequest('我想做个心理评估')).toBe(true);
-    expect(detectExplicitAssessmentRequest('测试一下我最近状态')).toBe(true);
+    expect(detectExplicitAssessmentRequest('情绪健康度')).toBe(true);
+    expect(detectExplicitAssessmentRequest('压力自评')).toBe(true);
+    expect(detectExplicitAssessmentRequest('压力指数')).toBe(true);
+  });
+
+  it('does not trigger on generic/vague words (narrowed in Pilot)', () => {
+    expect(detectExplicitAssessmentRequest('测试一下我最近状态')).toBe(false);
+    expect(detectExplicitAssessmentRequest('做个测试')).toBe(false);
+    expect(detectExplicitAssessmentRequest('测试一下')).toBe(false);
   });
 
   it('does not trigger on regular support messages', () => {

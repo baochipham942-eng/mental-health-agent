@@ -9,16 +9,29 @@ function buildMemoryInjection(input: {
   recentSummaries: SessionSummaryV2Record[];
 }): string {
   const profileBlock = input.profileMemories.length
-    ? input.profileMemories.map((m) => `- [${m.kind}] ${m.content}`).join('\n')
+    ? input.profileMemories.map((m) => {
+        // 探索工坊发现标注
+        const labTag = m.sourceConversationId?.startsWith('lab_') ? ' (探索工坊发现)' : '';
+        return `- [${m.kind}] ${m.content}${labTag}`;
+      }).join('\n')
     : '';
 
   const summaryBlock = input.recentSummaries.length
     ? input.recentSummaries.map((s) => `- ${s.summary}`).join('\n')
     : '';
 
+  // 记忆使用指南：让 AI 自然地引用记忆，提升用户感知
+  const memoryGuide = input.profileMemories.length > 0
+    ? `## 记忆使用指南
+- 当记忆内容与当前话题相关时，自然地用"上次你提到过..."、"我记得你说过..."来引用
+- 不要每条回复都提及记忆，只在真正相关时使用
+- 不要逐条罗列记忆内容，融入对话即可`
+    : '';
+
   return [
     profileBlock ? `## 用户稳定信息\n${profileBlock}` : '',
     summaryBlock ? `## 最近会话摘要\n${summaryBlock}` : '',
+    memoryGuide,
   ].filter(Boolean).join('\n\n');
 }
 
