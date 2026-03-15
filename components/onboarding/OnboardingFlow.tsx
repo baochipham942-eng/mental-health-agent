@@ -3,39 +3,39 @@
 import { useState, useRef, useCallback } from 'react';
 import { MOOD_THEMES, applyMoodColor } from '@/lib/mood-theme';
 
-/** 情绪卡片配置 */
+/** 来访目的卡片 */
 const MOOD_CARDS = [
   {
     key: 'rain',
-    label: '雨天',
-    hint: '有些沉重，想安静待一会儿',
-    empathy: '有时候，<br/>天空也需要一场雨<br/>来洗去尘埃。',
-    note: '每一滴雨都是释放',
+    label: '心情不太好',
+    hint: '情绪低落，想有人陪一会儿',
+    empathy: '愿意说出来，<br/>本身就是一种勇气。<br/>我在这里。',
+    note: '被看见是治愈的开始',
     cssClass: 'ob-card-rain',
   },
   {
-    key: 'spring',
-    label: '春日',
-    hint: '有些期待，也有些不安',
-    empathy: '花会开的，<br/>在它该开的时候。<br/>不着急。',
-    note: '期待本身就是一种力量',
-    cssClass: 'ob-card-spring',
-  },
-  {
     key: 'ocean',
-    label: '海浪',
-    hint: '情绪像潮水，有些翻涌',
-    empathy: '潮起潮落，<br/>是大海的呼吸。<br/>你的情绪也是。',
-    note: '让情绪自然流动',
+    label: '压力有点大',
+    hint: '工作生活的压力，想找人说说',
+    empathy: '扛着这些走到这里，<br/>你已经很了不起了。<br/>先放下一会儿吧。',
+    note: '说出来，就轻了一半',
     cssClass: 'ob-card-ocean',
   },
   {
     key: 'autumn',
-    label: '秋叶',
-    hint: '想要放下一些什么',
-    empathy: '落叶不是结束，<br/>是树在学会放手。',
-    note: '放下也是一种勇气',
+    label: '想理清思路',
+    hint: '有些纠结，想整理一下自己的想法',
+    empathy: '答案不急着找，<br/>慢慢聊着聊着，<br/>它会自己浮现。',
+    note: '想清楚本身就是进步',
     cssClass: 'ob-card-autumn',
+  },
+  {
+    key: 'spring',
+    label: '随便聊聊',
+    hint: '没什么大事，就想找人说说话',
+    empathy: '不需要理由，<br/>想聊就聊。<br/>这里没有门槛。',
+    note: '日常的倾诉也很重要',
+    cssClass: 'ob-card-spring',
   },
 ];
 
@@ -94,8 +94,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div className="relative w-full h-full">
       {/* Step 1: 图片选择 */}
       <div className={`onboarding-step ob-step1 ${step1Class}`}>
-        <h1 className="ob-title">此刻，你像哪张图？</h1>
-        <p className="ob-subtitle">选择最接近你现在感受的一张</p>
+        <h1 className="ob-title">今天来这里，是因为？</h1>
+        <p className="ob-subtitle">选一个最接近你现在状态的</p>
 
         <div className="ob-image-grid">
           {MOOD_CARDS.map((mood, index) => (
