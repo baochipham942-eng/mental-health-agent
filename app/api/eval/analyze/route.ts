@@ -213,7 +213,7 @@ ${dimSummary}
 
 export async function POST(req: NextRequest) {
   try {
-    const { runId, caseId, provider: reqProvider } = await req.json();
+    const { runId, caseId, provider: reqProvider, cacheOnly } = await req.json();
     if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
 
     // 解析 provider（默认 deepseek，支持前端切换）
@@ -227,6 +227,11 @@ export async function POST(req: NextRequest) {
     const cacheFile = path.join(ANALYSIS_DIR, `analysis-${sanitized}${cacheSuffix}${providerSuffix}.json`);
     if (fs.existsSync(cacheFile)) {
       return NextResponse.json(JSON.parse(fs.readFileSync(cacheFile, 'utf-8')));
+    }
+
+    // cacheOnly 模式：只读缓存，没有就返回空（根因总览页使用）
+    if (cacheOnly) {
+      return NextResponse.json({ suggestions: [], summary: '', cached: false });
     }
 
     // 读取实验数据

@@ -87,11 +87,11 @@ export default function RootCauseOverviewPage() {
     setFilterTag(null);
     (async () => {
       try {
-        // 尝试读取已有的分析结果（POST 但有缓存会直接返回）
+        // 只读缓存，不触发新的 LLM 分析
         const res = await fetch('/api/eval/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ runId: selectedRun }),
+          body: JSON.stringify({ runId: selectedRun, cacheOnly: true }),
         });
         if (res.ok) {
           const data = await res.json();
