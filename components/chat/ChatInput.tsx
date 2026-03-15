@@ -258,7 +258,7 @@ export function ChatInput({
               href="/dashboard/lab"
               className="mt-2 pt-2 border-t border-gray-100 block px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
             >
-              <span className="text-[13px] text-gray-400 group-hover:text-indigo-500 transition-colors">想换个方式？试试和荣格、弗洛伊德聊聊 →</span>
+              <span className="text-[13px] text-gray-400 group-hover:text-indigo-500 transition-colors">和哲学先驱聊聊，换个视角看问题 →</span>
             </Link>
           </div>
         </div>
@@ -322,7 +322,7 @@ export function ChatInput({
               className="block text-center py-3 text-sm text-gray-400 active:text-indigo-500 transition-colors"
               onClick={() => setSkillsOpen(false)}
             >
-              想换个方式？试试和荣格、弗洛伊德聊聊 →
+              和哲学先驱聊聊，换个视角看问题 →
             </Link>
           </Drawer>
         </div>
