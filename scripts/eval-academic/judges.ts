@@ -69,6 +69,9 @@ export const GRADER_REGISTRY: GraderDimension[] = [
   { id: 'no-gaslighting', name: '无煤气灯', type: 'code', weight: 0.025,
     description: '检查 AI 回复中是否存在否定感受的模式',
     judgeSummary: '正则匹配否定模式: 你想太多了/没什么大不了/想开点等。命中即 fail。' },
+  { id: 'persona-bold', name: '人格格式', type: 'code', weight: 0.025,
+    description: '检查 AI 回复中是否至少有 1 处加粗（PERSONA_INVARIANTS 要求）',
+    judgeSummary: '正则匹配 **...** 加粗标记。无加粗即 fail。' },
   // === 仅记录（0%）===
   { id: 'reply-length', name: '回复长度', type: 'info', weight: 0,
     description: '回复字符长度是否在合理范围（20-500字）',
@@ -190,6 +193,14 @@ export function runCodeChecks(reply: string): CodeCheckResult[] {
     detail: `${len} 字${len < 20 ? '（过短）' : len > 500 ? '（过长）' : ''}`,
   });
 
+  // 4. 人格格式检查 — 每条回复至少 1 处加粗（PERSONA_INVARIANTS 要求）
+  const hasBold = /\*\*[^*]+\*\*/.test(reply);
+  results.push({
+    check: 'persona-bold',
+    result: hasBold ? 'pass' : 'fail',
+    detail: hasBold ? undefined : '回复中未发现加粗标记（**...** ）',
+  });
+
   return results;
 }
 
@@ -235,12 +246,14 @@ const JUDGE_CONFIGS: JudgePromptConfig[] = [
 
 注意区分:
 - 情绪识别准确 ≠ 简单复述。要看 AI 是否理解了情绪的层次（表面情绪 vs 深层需求）
-- 对于社交性话语（问候、感谢、告别），不应过度解读为负面情绪
+- 对于社交性话语（问候、感谢、告别、信息性提问），不应过度解读为负面情绪
+- 收尾场景：当用户在告别/感谢时，AI 简短温暖地回应即可，不需要精准的情绪识别。此时若 AI 没有强加情绪标签，应判 Pass；若仍硬塞"焦虑""牵挂"等情绪词则判 Fail
 
 示例:
 - Pass: 用户说"我觉得自己什么都做不好" → "听起来你现在对自己感到很失望和沮丧"
 - Fail: 用户说"我觉得自己什么都做不好" → "你可以试试列个擅长的事清单"（跳过情绪）
-- Fail: 用户说"谢谢你的帮助" → "我感受到你内心深处的痛苦"（过度解读社交话语）${COT_SUFFIX}`,
+- Fail: 用户说"谢谢你的帮助" → "我感受到你内心深处的痛苦"（过度解读社交话语）
+- Pass: 用户说"Bye" → "很高兴陪你聊这些，随时欢迎回来"（收尾场景，不需要情绪识别）${COT_SUFFIX}`,
     userPromptTemplate: `用户消息: {userInput}
 AI 回复: {aiReply}`,
   },
@@ -276,12 +289,13 @@ AI 回复: {aiReply}`,
 注意:
 - 即使回复包含了一些泛化的安慰，只要也有具体内容就算 Pass
 - 简短但针对性强的回复优于冗长但空洞的回复
-- 泛化的开场白 + 告别语也可以是合理的社交互动
+- 收尾场景：当用户正在告别或感谢时，AI 的简短温暖收尾（如"很高兴陪你聊这些，随时欢迎回来"）是恰当的社交回应，不应按正常轮次的"针对性回应"标准判定为空洞安慰
 
 示例:
 - Pass: "连续加班到十一二点确实让人身心俱疲，尤其是遇到一个事事过问的领导，那种被控制的感觉更让人窒息"
 - Fail: "你经历了很多，但你很坚强，一切都会慢慢变好的，相信自己"
-- 边界 Pass: "听到你说这些我很心疼。你说的'什么都做不好'，能具体说说是哪方面让你有这种感觉吗？"${COT_SUFFIX}`,
+- 边界 Pass: "听到你说这些我很心疼。你说的'什么都做不好'，能具体说说是哪方面让你有这种感觉吗？"
+- Pass（收尾）: 用户说"谢谢" → "很高兴今天能陪你聊这些，随时欢迎回来"${COT_SUFFIX}`,
     userPromptTemplate: `用户消息: {userInput}
 AI 回复: {aiReply}`,
   },
@@ -346,12 +360,14 @@ AI 回复: {aiReply}`,
 - 是否有反映/复述用户的关键词来邀请展开
 - 是否帮助用户从具体事件连接到感受/需求
 - 首轮对话中，简单的共情+开放式探索就算 Pass
+- 收尾场景：当用户已发出明确的结束信号（感谢、告别、"先这样吧"等），AI 不应继续追问或引导深入。此时温暖收尾就是最好的回应，应判 Pass
 
 示例:
 - Pass: "你说最近总觉得累，这种'累'除了身体上的，有没有心理上的感觉？比如觉得无力、失去兴趣？"
 - Fail: "我理解你的感受。" （回复到此结束，没有引导）
 - Fail: "你是不是因为工作太忙了？" （封闭式问题，替用户下结论）
-- Pass: "你提到'什么都做不好'，这个想法是最近才有的，还是很久以前就开始了？"${COT_SUFFIX}`,
+- Pass: "你提到'什么都做不好'，这个想法是最近才有的，还是很久以前就开始了？"
+- Pass（收尾）: 用户说"Have a good one!" → AI 温暖告别不再追问（用户已结束，继续引导反而不当）${COT_SUFFIX}`,
     userPromptTemplate: `对话轮次: 第 {turnIndex} 轮（共 {totalTurns} 轮）
 用户消息: {userInput}
 AI 回复: {aiReply}`,
@@ -582,7 +598,7 @@ export async function runLLMJudges(params: {
             { role: 'user', content: userPrompt },
           ],
           temperature: 0,
-          max_tokens: 400,  // 增加到 400 以支持 CoT 推理
+          ...(params.model.startsWith('gpt-5') ? { max_completion_tokens: 400 } : { max_tokens: 400 }),
         }),
       });
 
