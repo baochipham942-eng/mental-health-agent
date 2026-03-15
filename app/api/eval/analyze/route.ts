@@ -7,15 +7,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { generateText, type LlmProviderName } from '@/lib/llm';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 const ANALYSIS_DIR = path.join(process.cwd(), 'data/coding');
 
 interface Suggestion {
-  layer: 'prompt' | 'model' | 'tool' | 'orchestration' | 'guardrail' | 'evaluator' | 'data' | 'engineering';
+  layer: 'orchestration' | 'engineering' | 'guardrail' | 'evaluator' | 'data' | 'model' | 'prompt';
   title: string;
   description: string;
+  dismissal_reason?: string;  // 为什么不是更上层的问题
+  tags?: string[];            // 涌现标签（4-8字短标签，合并自原定性分析）
   targetFile?: string;
+  betterReply?: string;       // 单用例模式：更好的回复示例
+  turnIndex?: number;         // 单用例模式：轮次编号
   affectedDimensions: string[];
   priority: 'high' | 'medium' | 'low';
   failCount: number;
@@ -71,10 +76,10 @@ ${toolNames}
 - technique-appropriateness: 技术匹配 — 回应技术是否匹配当前场景`;
 }
 
-/** 整体实验分析 prompt（原逻辑） */
+/** 整体实验分析 prompt — 层级化根因诊断 */
 function buildRunAnalysisPrompt(systemContext: string, failCases: any[], dimSummary: string): string {
   const failSample = failCases.slice(0, 15);
-  return `你是一个 AI 产品专家，擅长从评测结果中诊断 AI 应用的问题并给出结构化改进建议。
+  return `你是一个 AI 系统架构师，擅长从评测失败中做**层级化根因诊断**。你的核心原则：**架构问题优先于提示词问题**。大部分失败的根因在架构、编排、工程层面，不是"改提示词"能解决的。
 
 ## 当前系统配置
 ${systemContext}
@@ -85,41 +90,79 @@ ${dimSummary}
 ## 失败案例（共 ${failCases.length} 条，展示前 ${failSample.length} 条）
 ${JSON.stringify(failSample, null, 2)}
 
-## 你的任务
+## 诊断方法论 — 逐层排查，由深到浅
 
-分析这些失败案例，给出结构化的改进建议。每条建议必须标注：
+你必须按以下顺序逐层排查，**只有当上层确认不是根因时，才能归因到下层**：
 
-1. **改进层级**（以下 8 选 1）:
-   - prompt: 系统提示词的指令/约束/示例需要修改
-   - model: 模型选择或参数（temperature 等）需要调整
-   - tool: 工具调用时机/参数/定义需要优化
-   - orchestration: 路由逻辑/状态机/编排流程需要调整
-   - guardrail: 防护规则（禁用词/否定模式）需要更新
-   - evaluator: 评估器本身可能有偏差，需要校准
-   - data: 训练/参考数据质量问题
-   - engineering: 代码/架构层面的工程问题
+### L1: 架构 & 编排（orchestration）— 最优先
+问自己：失败是因为系统架构设计缺陷吗？
+- 状态机流转是否合理？（如：结束信号场景下状态机没有正确切换到 WRAP_UP）
+- Triage Agent 路由分类是否准确？（如：本应走 crisis 路径却走了 support）
+- Agent 之间的信息传递是否完整？（如：Counselor Agent 拿不到 Triage 的上下文）
+- 多轮对话中上下文窗口是否足够？（如：只保留 10 轮导致遗忘关键信息）
 
-2. **具体操作**: 要改什么、怎么改
-3. **影响维度**: 这个改进会影响哪些评测维度
-4. **优先级**: high/medium/low（基于失败频次和严重程度）
+### L2: 工程 & 代码（engineering）
+问自己：代码实现是否有 bug 或逻辑缺陷？
+- 是否有未处理的边界情况？（如：用户连续发"谢谢再见"但代码没有检测结束意图）
+- 数据预处理/后处理是否有问题？（如：情绪分析结果没有正确传递给 Counselor）
+- API 调用参数是否合理？（如：temperature 过高导致回复不稳定）
+- 并发/时序问题？（如：Quality Agent 的反馈没有及时回流）
+
+### L3: 防护规则（guardrail）
+问自己：现有规则是否需要更新？
+- 禁用词列表是否需要增补？
+- 否定感受模式匹配是否太宽/太窄？
+- 回复长度限制是否合理？
+
+### L4: 评估器校准（evaluator）
+问自己：是评估器本身判断有偏差吗？
+- 某个维度是否系统性地过于严格/宽松？
+- 评估标准是否与产品定位一致？（如：产品定位轻松陪伴，但评估标准按专业咨询打分）
+- 多个维度是否在重复评判同一个问题？（如：同一回复被 empathy-accuracy 和 interpretation-accuracy 双重扣分）
+
+### L5: 数据 & 模型（data / model）
+问自己：是数据质量或模型能力的问题吗？
+- 测试用例是否有偏差？（如：4/5 用例都以"谢谢"结尾导致结束场景过度放大）
+- 参考回复质量是否足够好？
+- 当前模型是否有已知的能力短板？
+
+### L6: 提示词（prompt）— 最后手段
+**只有以上 5 层都排除后**，才考虑提示词调整。问自己：
+- 系统提示词中是否缺少对特定场景的指令？
+- 是否需要添加 few-shot 示例？
+- 指令是否有歧义导致模型误解？
+
+⚠️ 重要约束：
+- 如果你的建议超过 30% 是 prompt 层，说明你没有做好根因分析，请重新审视
+- 每条建议必须说明**为什么不是更上层的问题**（dismissal_reason 字段）
+- 同一根因导致多个维度失败时，只输出一条建议，在 affectedDimensions 中列出所有受影响维度
+
+## 输出格式
 
 以 JSON 数组格式输出，每个元素结构:
 {
-  "layer": "prompt|model|tool|orchestration|guardrail|evaluator|data|engineering",
+  "layer": "orchestration|engineering|guardrail|evaluator|data|model|prompt",
   "title": "简短标题",
-  "description": "具体改进操作描述（2-3句）",
-  "targetFile": "建议修改的文件路径（如 lib/ai/prompts.ts）",
+  "description": "根因分析 + 具体改进操作（2-3句）",
+  "dismissal_reason": "为什么不是更上层的问题（1句话）",
+  "tags": ["涌现标签1", "涌现标签2"],
+  "targetFile": "建议修改的文件路径（如 lib/ai/agents/counselor.ts）",
   "affectedDimensions": ["empathy-accuracy", "context-coherence"],
   "priority": "high|medium|low",
   "failCount": 数字（该问题涉及的失败案例数）
 }
 
-只输出 JSON 数组，不要其他文字。按优先级从高到低排序。`;
+tags 字段要求：
+- 每条建议附带 1-2 个涌现标签（从失败案例中自然提炼，不限于预设维度）
+- 标签要短（4-8字），如：结束信号处理、首轮即给建议、情绪映射错误、维度耦合扣分
+- 同一标签可出现在多条建议中（表示关联）
+
+只输出 JSON 数组，不要其他文字。按诊断层级从深到浅排序（orchestration 在前，prompt 在后）。`;
 }
 
-/** 单用例深度分析 prompt */
+/** 单用例深度分析 prompt — 层级化根因诊断 */
 function buildCaseAnalysisPrompt(systemContext: string, caseId: string, allTurns: any[], _failCases: any[], dimSummary: string): string {
-  return `你是一个 AI 产品专家，擅长从单个对话用例中诊断 AI 回复的问题并给出针对性改进建议。
+  return `你是一个 AI 系统架构师，擅长从单个对话用例中做**层级化根因诊断**。核心原则：**架构问题优先于提示词问题**。
 
 ## 当前系统配置
 ${systemContext}
@@ -133,20 +176,31 @@ ${JSON.stringify(allTurns, null, 2)}
 ## 失败维度分布
 ${dimSummary}
 
-## 你的任务
+## 诊断方法论 — 逐层排查
 
-深入分析这个用例的对话过程，给出**针对该用例**的具体改进建议。
+对每一轮失败的回复，按以下顺序排查根因（只有上层排除后才归因到下层）：
 
-对每一轮失败的回复：
-1. **诊断根因**：为什么 AI 的回复不好？是共情不足、过早给建议、语言生硬、还是上下文断裂？
-2. **改写示例**：给出更好的回复示例（1-2 句话）
-3. **改进层级**：需要在哪个层面修改才能避免这类问题
+1. **编排问题**：状态机是否在正确状态？Triage 路由是否正确？上下文是否完整传递？
+2. **工程问题**：代码逻辑有无 bug？边界情况是否处理？数据流转是否正确？
+3. **防护规则**：现有规则是否误触发/漏触发？
+4. **评估器偏差**：该维度的评判标准是否合理？是否与产品定位冲突？
+5. **数据/模型**：测试用例是否有代表性？模型能力是否不足？
+6. **提示词**（最后手段）：只有以上都排除后，才考虑提示词缺少指令或示例
+
+## 输出要求
+
+对每一轮失败，给出：
+- 根因层级和分析（为什么不是更上层的问题）
+- 改写示例（如果是回复质量问题）
+- 具体修改建议
 
 以 JSON 数组格式输出，每个元素结构:
 {
-  "layer": "prompt|model|tool|orchestration|guardrail|evaluator|data|engineering",
+  "layer": "orchestration|engineering|guardrail|evaluator|data|model|prompt",
   "title": "简短标题（针对具体轮次的问题）",
-  "description": "诊断根因 + 改进操作描述",
+  "description": "根因分析 + 改进操作描述",
+  "dismissal_reason": "为什么不是更上层的问题",
+  "tags": ["涌现标签（4-8字）"],
   "betterReply": "更好的回复示例（可选）",
   "turnIndex": 轮次编号,
   "affectedDimensions": ["empathy-accuracy"],
@@ -159,13 +213,18 @@ ${dimSummary}
 
 export async function POST(req: NextRequest) {
   try {
-    const { runId, caseId } = await req.json();
+    const { runId, caseId, provider: reqProvider } = await req.json();
     if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
 
-    // 缓存键区分整体分析 vs 单用例分析
+    // 解析 provider（默认 deepseek，支持前端切换）
+    const provider: LlmProviderName = (['deepseek', 'openai', 'glm', 'openrouter', 'kimi'] as const).includes(reqProvider)
+      ? reqProvider : 'deepseek';
+
+    // 缓存键区分整体分析 vs 单用例分析 vs 不同 provider
     const sanitized = runId.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const providerSuffix = provider !== 'deepseek' ? `-${provider}` : '';
     const cacheSuffix = caseId ? `-case-${caseId.replace(/[^a-zA-Z0-9-_:]/g, '_')}` : '';
-    const cacheFile = path.join(ANALYSIS_DIR, `analysis-${sanitized}${cacheSuffix}.json`);
+    const cacheFile = path.join(ANALYSIS_DIR, `analysis-${sanitized}${cacheSuffix}${providerSuffix}.json`);
     if (fs.existsSync(cacheFile)) {
       return NextResponse.json(JSON.parse(fs.readFileSync(cacheFile, 'utf-8')));
     }
@@ -243,32 +302,12 @@ export async function POST(req: NextRequest) {
       ? buildCaseAnalysisPrompt(systemContext, caseId, allTurns, failCases, dimSummary)
       : buildRunAnalysisPrompt(systemContext, failCases, dimSummary);
 
-    // 调用 DeepSeek 分析
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    const apiUrl = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1';
-    if (!apiKey) {
-      return NextResponse.json({ error: 'DEEPSEEK_API_KEY not configured' }, { status: 500 });
-    }
-
-    const response = await fetch(`${apiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'user', content: analysisPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 3000,
-      }),
-    });
-
-    const data = await response.json() as any;
-    const text = data.choices?.[0]?.message?.content?.trim() || '';
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    // 调用 LLM 分析（通过统一 LLM 层，支持多 provider）
+    const { reply: text } = await generateText(
+      [{ role: 'user', content: analysisPrompt }],
+      { provider, temperature: 0.3, max_tokens: 3000 },
+    );
+    const jsonMatch = (text || '').match(/\[[\s\S]*\]/);
 
     let suggestions: Suggestion[] = [];
     let summary = '';
@@ -286,11 +325,21 @@ export async function POST(req: NextRequest) {
       summary = text.slice(0, 500);
     }
 
+    // 汇总标签频次（合并自原定性分析的开放编码能力）
+    const tagSummary: Record<string, number> = {};
+    for (const s of suggestions) {
+      for (const tag of s.tags || []) {
+        tagSummary[tag] = (tagSummary[tag] || 0) + (s.failCount || 1);
+      }
+    }
+
     const result = {
       suggestions,
       summary,
+      provider,
       failCount: failCases.length,
       dimCounts,
+      tagSummary,
       analyzedAt: new Date().toISOString(),
     };
 

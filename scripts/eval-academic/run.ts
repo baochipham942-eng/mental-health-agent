@@ -583,7 +583,7 @@ async function runProductMode(args: {
   fs.mkdirSync(reportDir, { recursive: true });
 
   const htmlPath = path.join(reportDir, `product-${runId}.html`);
-  fs.writeFileSync(htmlPath, generateHTMLReport(summary, allResults, runId));
+  fs.writeFileSync(htmlPath, await generateHTMLReport(summary, allResults, runId));
   console.log(`\n  📁 HTML 报告: ${htmlPath}`);
 
   const jsonPath = path.join(reportDir, `product-${runId}.json`);
@@ -641,7 +641,113 @@ function computeSummary(allResults: CaseEvalResult[]) {
     codeCheckStats,
     judgeStats,
     failCases: failCases.slice(0, 50),  // 只保留前 50 个失败案例
+    failClusters: [] as FailCluster[],  // 聚类后填充
   };
+}
+
+// ========== 失败案例根因聚类 ==========
+
+interface FailCluster {
+  name: string;
+  description: string;
+  count: number;
+  cases: Array<{ caseId: string; turn: number; dimension: string; critique: string }>;
+}
+
+/**
+ * 用 LLM 对 failCases 做根因聚类
+ * 输入: 扁平的失败条目列表
+ * 输出: 按根因分组的 clusters
+ */
+async function clusterFailCases(
+  failCases: Array<{ caseId: string; turn: number; dimension: string; critique: string }>
+): Promise<FailCluster[]> {
+  if (failCases.length === 0) return [];
+
+  // 先按 (caseId, turn) 去重 critique，减少 token
+  const turnGroups = new Map<string, { caseId: string; turn: number; dimensions: string[]; critiques: string[] }>();
+  for (const fc of failCases) {
+    const key = `${fc.caseId}:${fc.turn}`;
+    if (!turnGroups.has(key)) {
+      turnGroups.set(key, { caseId: fc.caseId, turn: fc.turn, dimensions: [], critiques: [] });
+    }
+    const g = turnGroups.get(key)!;
+    g.dimensions.push(fc.dimension);
+    // 避免重复 critique
+    if (!g.critiques.includes(fc.critique)) {
+      g.critiques.push(fc.critique);
+    }
+  }
+
+  const items = Array.from(turnGroups.values()).map((g, i) =>
+    `[${i + 1}] ${g.caseId} Turn${g.turn + 1} (${g.dimensions.join(',')}): ${g.critiques.join(' | ')}`
+  ).join('\n');
+
+  const prompt = `你是评测分析专家。以下是 AI 心理陪伴对话评测中的失败案例，每条包含用例ID、轮次、失败维度和原因。
+
+请将这些失败案例按**根本原因**聚类。注意：
+- 同一个 turn 在多个维度上失败通常是同一个根因
+- 不同 case 的类似问题也应归入同一 cluster
+- cluster 名称要简洁有力（≤10字），能一眼看出问题本质
+- description 用一句话解释这类问题的共性
+
+失败案例:
+${items}
+
+请输出 JSON 数组，格式:
+[{"name": "聚类名称", "description": "一句话描述", "items": [1, 2, 3]}]
+其中 items 是上面失败条目的编号。`;
+
+  try {
+    const response = await fetch(`${JUDGE_API_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${JUDGE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: JUDGE_MODEL,
+        messages: [
+          { role: 'system', content: '你是评测数据分析专家，擅长对失败案例做根因聚类。只输出 JSON，不要其他内容。' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0,
+        ...(JUDGE_MODEL.startsWith('gpt-5') ? { max_completion_tokens: 800 } : { max_tokens: 800 }),
+      }),
+    });
+
+    const data = await response.json() as any;
+    const text = data.choices?.[0]?.message?.content?.trim() || '';
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return [];
+
+    const parsed = JSON.parse(jsonMatch[0]) as Array<{ name: string; description: string; items: number[] }>;
+    const turnGroupArr = Array.from(turnGroups.values());
+
+    return parsed.map(cluster => {
+      const clusterCases: FailCluster['cases'] = [];
+      for (const idx of cluster.items) {
+        const g = turnGroupArr[idx - 1];
+        if (!g) continue;
+        // 展开回原始 failCases 条目
+        for (const fc of failCases) {
+          if (fc.caseId === g.caseId && fc.turn === g.turn) {
+            clusterCases.push(fc);
+          }
+        }
+      }
+      return {
+        name: cluster.name,
+        description: cluster.description,
+        count: clusterCases.length,
+        cases: clusterCases,
+      };
+    }).filter(c => c.count > 0)
+      .sort((a, b) => b.count - a.count);  // 按数量降序
+  } catch (err: any) {
+    console.warn(`  ⚠️ 根因聚类失败: ${err.message}，回退到扁平列表`);
+    return [];
+  }
 }
 
 function printSummary(summary: ReturnType<typeof computeSummary>, runId: string) {
@@ -682,7 +788,15 @@ function printSummary(summary: ReturnType<typeof computeSummary>, runId: string)
 
 // ========== HTML 报告 ==========
 
-function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResults: CaseEvalResult[], runId: string): string {
+async function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResults: CaseEvalResult[], runId: string): Promise<string> {
+  // 根因聚类
+  if (summary.failCases.length > 0 && summary.failClusters.length === 0) {
+    console.log('  🔬 正在对失败案例做根因聚类...');
+    summary.failClusters = await clusterFailCases(summary.failCases);
+    if (summary.failClusters.length > 0) {
+      console.log(`  ✅ 聚类完成: ${summary.failClusters.length} 个根因`);
+    }
+  }
   const codeRows = Object.entries(summary.codeCheckStats)
     .map(([k, v]) => {
       const rate = v.total > 0 ? ((v.pass / v.total) * 100).toFixed(1) : '0';
@@ -694,6 +808,31 @@ function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResul
       const rate = v.total > 0 ? ((v.pass / v.total) * 100).toFixed(1) : '0';
       return `<tr><td>${k}</td><td>${v.pass}/${v.total}</td><td><div class="bar"><div class="fill" style="width:${rate}%"></div></div></td><td>${rate}%</td></tr>`;
     }).join('');
+
+  // 失败案例：聚类视图 + 扁平明细
+  const failClusters = summary.failClusters;
+  const clusterHTML = failClusters.length > 0
+    ? failClusters.map((cluster, ci) => {
+        const uniqueCases = new Set(cluster.cases.map(c => c.caseId));
+        const detailRows = cluster.cases
+          .map(fc => `<tr><td>${fc.caseId}</td><td>Turn ${fc.turn + 1}</td><td><span class="tag fail">${fc.dimension}</span></td><td>${fc.critique}</td></tr>`)
+          .join('');
+        return `
+        <div class="cluster">
+          <div class="cluster-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="cluster-arrow">▶</span>
+            <span class="cluster-name">${cluster.name}</span>
+            <span class="cluster-stats">${uniqueCases.size} case · ${cluster.count} 次失败</span>
+            <div class="cluster-bar"><div class="cluster-fill" style="width:${Math.round(cluster.count / summary.failCases.length * 100)}%"></div></div>
+            <span class="cluster-pct">${Math.round(cluster.count / summary.failCases.length * 100)}%</span>
+          </div>
+          <div class="cluster-desc">${cluster.description}</div>
+          <div class="cluster-detail">
+            <table><tr><th>用例</th><th>轮次</th><th>维度</th><th>原因</th></tr>${detailRows}</table>
+          </div>
+        </div>`;
+      }).join('')
+    : '';
 
   const failRows = summary.failCases.slice(0, 30)
     .map(fc => `<tr><td>${fc.caseId}</td><td>Turn ${fc.turn + 1}</td><td><span class="tag fail">${fc.dimension}</span></td><td>${fc.critique}</td></tr>`)
@@ -740,6 +879,19 @@ function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResul
   .tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
   .tag.fail { background: #FFEBEE; color: #C62828; }
   .tag.pass { background: #E8F5E9; color: #2E7D32; }
+  .cluster { border: 1px solid #eee; border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+  .cluster-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; background: #fafafa; user-select: none; }
+  .cluster-header:hover { background: #f0f0f0; }
+  .cluster-arrow { font-size: 10px; color: #999; transition: transform 0.2s; }
+  .cluster.open .cluster-arrow { transform: rotate(90deg); }
+  .cluster-name { font-weight: 600; font-size: 14px; }
+  .cluster-stats { font-size: 12px; color: #888; }
+  .cluster-bar { width: 80px; height: 6px; background: #eee; border-radius: 3px; }
+  .cluster-fill { height: 100%; background: #E53935; border-radius: 3px; }
+  .cluster-pct { font-size: 12px; color: #C62828; font-weight: 600; min-width: 32px; }
+  .cluster-desc { padding: 0 14px 8px; font-size: 12px; color: #666; }
+  .cluster-detail { display: none; padding: 0 14px 10px; }
+  .cluster.open .cluster-detail { display: block; }
 </style></head><body>
 <div class="container">
   <h1>学术评测报告</h1>
@@ -767,9 +919,15 @@ function generateHTMLReport(summary: ReturnType<typeof computeSummary>, allResul
     <table><tr><th>维度</th><th>通过/总数</th><th>进度</th><th>通过率</th></tr>${judgeRows}</table>
   </div>` : ''}
 
+  ${clusterHTML ? `<div class="section">
+    <h2>失败根因聚类</h2>
+    ${clusterHTML}
+  </div>` : ''}
+
   ${failRows ? `<div class="section">
-    <h2>失败案例</h2>
+    <details><summary style="cursor:pointer;font-size:16px;font-weight:600;margin-bottom:12px">失败案例明细 (${summary.failCases.length} 条)</summary>
     <table><tr><th>用例</th><th>轮次</th><th>维度</th><th>原因</th></tr>${failRows}</table>
+    </details>
   </div>` : ''}
 </div></body></html>`;
 }
@@ -1008,7 +1166,7 @@ async function main() {
   const reportDir = path.join(__dirname, '../../tests/eval/results');
   fs.mkdirSync(reportDir, { recursive: true });
   const htmlPath = path.join(reportDir, `academic-${runId}.html`);
-  fs.writeFileSync(htmlPath, generateHTMLReport(summary, allResults, runId));
+  fs.writeFileSync(htmlPath, await generateHTMLReport(summary, allResults, runId));
   console.log(`\n  📁 HTML 报告: ${htmlPath}`);
 
   // 同时保存 JSON

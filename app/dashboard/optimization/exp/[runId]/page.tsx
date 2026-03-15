@@ -95,6 +95,7 @@ export default function ExperimentDetailPage() {
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
+  const [analysisProvider, setAnalysisProvider] = useState<string>('deepseek');
 
   // AI 分析（用例级）
   const [caseAnalysisData, setCaseAnalysisData] = useState<any>(null);
@@ -155,7 +156,7 @@ export default function ExperimentDetailPage() {
       const res = await fetch('/api/eval/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ runId, caseId: targetCaseId }),
+        body: JSON.stringify({ runId, caseId: targetCaseId, provider: analysisProvider }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -241,7 +242,7 @@ export default function ExperimentDetailPage() {
       const res = await fetch('/api/eval/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ runId }),
+        body: JSON.stringify({ runId, provider: analysisProvider }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -417,6 +418,17 @@ export default function ExperimentDetailPage() {
                 {analysisExpanded ? '收起' : '展开'}
               </Button>
             )}
+            <select
+              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+              value={analysisProvider}
+              onChange={e => setAnalysisProvider(e.target.value)}
+            >
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="glm">GLM</option>
+              <option value="kimi">Kimi</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
             <Button type="primary" size="small" loading={analysisLoading} onClick={runAiAnalysis}>
               {analysisData ? '重新分析' : 'AI 分析'}
             </Button>
@@ -425,7 +437,19 @@ export default function ExperimentDetailPage() {
         {analysisExpanded && analysisData && (
           <div className="space-y-3">
             {analysisData.summary && (
-              <div className="text-xs text-gray-500">{analysisData.summary}</div>
+              <div className="text-xs text-gray-500">{analysisData.summary}{analysisData.provider ? ` (${analysisData.provider})` : ''}</div>
+            )}
+            {analysisData.tagSummary && Object.keys(analysisData.tagSummary).length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-2.5">
+                <div className="text-xs text-gray-400 font-medium mb-1.5">失败模式标签</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(analysisData.tagSummary as Record<string, number>)
+                    .sort((a, b) => (b[1] as number) - (a[1] as number))
+                    .map(([tag, count]) => (
+                      <Tag key={tag} size="small" color="orangered">{tag} ({count as number})</Tag>
+                    ))}
+                </div>
+              </div>
             )}
             {(analysisData.suggestions || []).map((s: any, i: number) => {
               const layerColors: Record<string, string> = {
@@ -442,7 +466,13 @@ export default function ExperimentDetailPage() {
                     <span className="text-xs text-gray-400 ml-auto">{s.failCount} 例</span>
                   </div>
                   <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
+                  {s.dismissal_reason && (
+                    <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                  )}
                   <div className="flex flex-wrap gap-1">
+                    {(s.tags || []).map((tag: string) => (
+                      <Tag key={tag} size="small" color="orangered">{tag}</Tag>
+                    ))}
                     {(s.affectedDimensions || []).map((d: string) => (
                       <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
                     ))}
@@ -669,6 +699,9 @@ export default function ExperimentDetailPage() {
                                 <span className="font-medium text-sm text-gray-900">{s.title}</span>
                               </div>
                               <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
+                              {s.dismissal_reason && (
+                                <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                              )}
                               {s.betterReply && (
                                 <div className="bg-green-50 border border-green-100 rounded-lg p-2.5 mb-1.5">
                                   <div className="text-xs text-green-700 font-medium mb-1">更好的回复示例</div>
@@ -676,6 +709,9 @@ export default function ExperimentDetailPage() {
                                 </div>
                               )}
                               <div className="flex flex-wrap gap-1">
+                                {(s.tags || []).map((tag: string) => (
+                                  <Tag key={tag} size="small" color="orangered">{tag}</Tag>
+                                ))}
                                 {(s.affectedDimensions || []).map((d: string) => (
                                   <Tag key={d} size="small" color="arcoblue">{DIM_LABELS[d] || d}</Tag>
                                 ))}
