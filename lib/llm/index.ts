@@ -21,6 +21,7 @@ export interface GenerateTextOptions {
   toolChoice?: any;
   traceMetadata?: Record<string, any>;
   modelOverride?: string;
+  timeoutMs?: number;
 }
 
 export interface StreamTextOptions {
@@ -96,7 +97,7 @@ export async function generateText(
   const fn = compat
     ? () => compat.generateText(messages, options)
     : () => deepseekChatCompletion(messages, options);
-  return withResilience(fn, { label: `${provider}-generateText` });
+  return withResilience(fn, { label: `${provider}-generateText`, ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}) });
 }
 
 export async function generateStructured<T>(

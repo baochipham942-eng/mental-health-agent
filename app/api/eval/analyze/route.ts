@@ -305,7 +305,7 @@ export async function POST(req: NextRequest) {
     // 调用 LLM 分析（通过统一 LLM 层，支持多 provider）
     const { reply: text } = await generateText(
       [{ role: 'user', content: analysisPrompt }],
-      { provider, temperature: 0.3, max_tokens: 3000 },
+      { provider, temperature: 0.3, max_tokens: 3000, timeoutMs: 60000 },
     );
     const jsonMatch = (text || '').match(/\[[\s\S]*\]/);
 
