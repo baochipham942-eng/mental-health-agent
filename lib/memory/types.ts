@@ -1,6 +1,6 @@
 /**
- * 记忆系统类型定义
- * 基于Google Agent记忆能力白皮书设计
+ * 记忆系统类型定义（V2 精简版）
+ * 仅保留 extractor / memory-candidate-service / profile-memory-merge-service 仍在使用的类型
  */
 
 /**
@@ -63,27 +63,6 @@ export const ALL_MEMORY_TOPICS: MemoryTopic[] = [
 ];
 
 /**
- * 记忆对象接口
- */
-export interface Memory {
-    id: string;
-    userId: string;
-    topic: MemoryTopic;
-    content: string;
-    entities?: any;
-    relationships?: any;
-    confidence: number;
-    sourceConvId?: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    accessedAt: Date;
-    // Ebbinghaus forgetting curve fields
-    accessCount: number;
-    stabilityFactor: number;
-    memoryStrength: number;
-}
-
-/**
  * 实体模型
  */
 export interface Entity {
@@ -93,9 +72,7 @@ export interface Entity {
 }
 
 /**
- * 语义关系模型 (Semantic Relationship)
- * 表示 实体 A -> 关系 -> 实体 B
- * 例如: "加班" (event) -> "导致" (trigger) -> "焦虑" (emotion)
+ * 语义关系模型
  */
 export interface Relationship {
     source: string;
@@ -113,30 +90,6 @@ export interface ExtractedMemory {
     confidence: number;
     entities?: Entity[];
     relationships?: Relationship[];
-}
-
-/**
- * 记忆整合操作类型
- */
-export type MemoryAction = 'create' | 'update' | 'delete' | 'skip';
-
-/**
- * 记忆整合结果
- */
-export interface ConsolidationResult {
-    action: MemoryAction;
-    targetMemoryId?: string; // update/delete时指定目标
-    mergedContent?: string;  // update时的合并内容
-    reason: string;          // 决策理由
-}
-
-/**
- * 记忆检索选项
- */
-export interface MemoryRetrievalOptions {
-    topics?: MemoryTopic[];
-    limit?: number;
-    minConfidence?: number;
 }
 
 /**

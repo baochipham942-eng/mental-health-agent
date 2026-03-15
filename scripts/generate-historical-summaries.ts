@@ -83,21 +83,23 @@ async function main() {
                     })),
                 });
 
-                // 保存到数据库
-                await prisma.sessionSummary.create({
+                // 保存到数据库（V2）
+                await prisma.sessionSummaryV2.create({
                     data: {
                         conversationId: conversation.id,
                         userId: conversation.userId,
+                        summary: summaryData.therapistNote || summaryData.mainTopic,
+                        emotionLabel: summaryData.emotionFinal?.label || null,
+                        emotionScore: summaryData.emotionFinal?.score ?? null,
+                        keyTopics: summaryData.keyTopics,
+                        actionItems: summaryData.actionItems,
                         mainTopic: summaryData.mainTopic,
                         startTime: summaryData.startTime,
                         endTime: summaryData.endTime,
                         duration: summaryData.duration,
                         emotionInitial: summaryData.emotionInitial,
-                        emotionFinal: summaryData.emotionFinal,
                         moodChange: summaryData.emotionFinal.score - summaryData.emotionInitial.score,
                         keyInsights: summaryData.keyInsights,
-                        actionItems: summaryData.actionItems,
-                        keyTopics: summaryData.keyTopics,
                         therapistNote: summaryData.therapistNote,
                     },
                 });

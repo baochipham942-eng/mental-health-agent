@@ -58,7 +58,7 @@ export async function recordMetric(
 /**
  * 从会话摘要中提取并记录情绪指标
  *
- * 在 summarizer 生成 SessionSummary 后调用
+ * 在 summarizer 生成会话摘要后调用
  */
 export async function recordSessionMetrics(
   userId: string,
@@ -110,7 +110,7 @@ export async function getProgressTimeline(
     prisma.exerciseLog.findMany({
       where: { userId, completedAt: { gte: since } },
     }),
-    prisma.sessionSummary.findMany({
+    prisma.sessionSummaryV2.findMany({
       where: { userId, createdAt: { gte: since } },
       orderBy: { createdAt: 'asc' },
     }),
@@ -121,7 +121,7 @@ export async function getProgressTimeline(
     }),
   ]);
 
-  // 情绪趋势（来自 ProgressMetric + SessionSummary）
+  // 情绪趋势（来自 ProgressMetric + SessionSummaryV2）
   const emotions: { date: string; value: number }[] = [];
 
   // 优先使用 ProgressMetric 中的 emotion 数据
@@ -133,14 +133,13 @@ export async function getProgressTimeline(
     });
   }
 
-  // 如果 ProgressMetric 没有数据，从 SessionSummary 回退
+  // 如果 ProgressMetric 没有数据，从 SessionSummaryV2 回退
   if (emotions.length === 0) {
     for (const s of sessionSummaries) {
-      const ef = s.emotionFinal as any;
-      if (ef && typeof ef.score === 'number') {
+      if (s.emotionScore != null) {
         emotions.push({
           date: s.createdAt.toISOString().split('T')[0],
-          value: ef.score,
+          value: s.emotionScore,
         });
       }
     }
@@ -270,7 +269,7 @@ async function detectMilestones(
   if (exerciseLogs.length >= 20) milestones.push('已完成 20 次引导练习');
 
   // 获取总会话数
-  const totalSessions = await prisma.sessionSummary.count({ where: { userId } });
+  const totalSessions = await prisma.sessionSummaryV2.count({ where: { userId } });
   if (totalSessions >= 5) milestones.push('已完成 5 次咨询会话');
   if (totalSessions >= 10) milestones.push('已完成 10 次咨询会话');
 

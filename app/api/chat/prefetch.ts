@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import { memoryContextService } from '@/lib/memory';
+import { updateSessionMetadata } from '@/lib/memory/session-metadata';
 import { orchestrate } from '@/lib/ai/agents/orchestrator';
 import { quickCrisisCheck } from '@/lib/ai/crisis-classifier';
 import { checkFollowupNeeded } from '@/lib/ai/followup-check';
@@ -54,9 +55,9 @@ export async function buildChatPrefetchContext(params: {
       } catch (e) {
         logWarn('memory-context-failed', { error: String(e) });
       }
-      return { injectedText: '', source: 'legacy' as const, profileMemories: [], recentSummaries: [] };
+      return { injectedText: '', source: 'memory-v2' as const, profileMemories: [], recentSummaries: [] };
     })()
-    : Promise.resolve({ injectedText: '', source: 'legacy' as const, profileMemories: [], recentSummaries: [] });
+    : Promise.resolve({ injectedText: '', source: 'memory-v2' as const, profileMemories: [], recentSummaries: [] });
 
   // 首轮对话跳过 assessment/preference/therapist 查询（用户还没说有意义的话）
   const assessmentPromise = (userId && !isFirstTurn)
@@ -69,18 +70,8 @@ export async function buildChatPrefetchContext(params: {
       : Promise.resolve([]))
     : Promise.resolve([]);
 
-  const preferencePromise = (userId && !isFirstTurn)
-    ? (!shouldSkipDb
-      ? prisma.userMemory.findMany({
-        where: {
-          userId,
-          topic: { in: ['communication_style', 'coping_preference'] }
-        },
-        orderBy: { accessedAt: 'desc' },
-        take: 5
-      })
-      : Promise.resolve([]))
-    : Promise.resolve([]);
+  // V2: 偏好记忆已迁移到 ProfileMemory，通过 memoryContextService 统一获取
+  const preferencePromise = Promise.resolve([]);
 
   // 首轮跳过 therapist/activeExercise 查询（用户还没说有意义的话）
   const therapistPromise = (userId && !isFirstTurn)
@@ -105,6 +96,13 @@ export async function buildChatPrefetchContext(params: {
   const followupPromise = (userId && isFirstTurn)
     ? checkFollowupNeeded(userId).catch(() => null)
     : Promise.resolve(null);
+
+  // 首轮对话时更新 Session Metadata（异步，不阻塞）
+  if (userId && isFirstTurn) {
+    updateSessionMetadata(userId).catch((e) =>
+      logWarn('session-metadata-update-failed', { error: String(e) })
+    );
+  }
 
   // 非首轮时获取进度摘要（用于 AI 主动回顾）
   const progressSummaryPromise = (userId && !isFirstTurn)
@@ -157,7 +155,7 @@ export async function buildChatPrefetchContext(params: {
     hasActiveExercise: !!activeExercise,
     preferenceCount: preferenceMemories.length,
     assessmentCount: assessmentHistory.length,
-    memoryContextSource: typeof retrievalResult === 'string' ? 'legacy' : (retrievalResult as any)?.source,
+    memoryContextSource: (retrievalResult as any)?.source ?? 'memory-v2',
     memoryContextDurationMs: retrievalMetrics?.totalDurationMs,
     profileMemoryQueryDurationMs: retrievalMetrics?.profileQueryDurationMs,
     sessionSummaryQueryDurationMs: retrievalMetrics?.summaryQueryDurationMs,

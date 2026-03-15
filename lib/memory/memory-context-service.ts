@@ -1,12 +1,13 @@
-import { memoryManager } from './manager';
 import { profileMemoryService } from './profile-memory-service';
 import { sessionSummaryV2Service } from './session-summary-v2-service';
+import { getSessionMetadata, formatSessionMetadata, type SessionMetadata } from './session-metadata';
 import type { MemoryContextResult, ProfileMemoryRecord, SessionSummaryV2Record } from './v2-types';
 import { logInfo, logWarn } from '@/lib/observability/logger';
 
 function buildMemoryInjection(input: {
   profileMemories: ProfileMemoryRecord[];
   recentSummaries: SessionSummaryV2Record[];
+  sessionMetadataText?: string;
 }): string {
   const profileBlock = input.profileMemories.length
     ? input.profileMemories.map((m) => {
@@ -29,6 +30,7 @@ function buildMemoryInjection(input: {
     : '';
 
   return [
+    input.sessionMetadataText || '',
     profileBlock ? `## 用户稳定信息\n${profileBlock}` : '',
     summaryBlock ? `## 最近会话摘要\n${summaryBlock}` : '',
     memoryGuide,
@@ -60,63 +62,62 @@ export class MemoryContextService {
         };
       })();
 
+      const metadataPromise = getSessionMetadata(userId).catch(() => null);
+
       const [
         { profileMemories, profileQueryDurationMs },
         { recentSummaries, summaryQueryDurationMs },
-      ] = await Promise.all([profilePromise, summaryPromise]);
+        sessionMeta,
+      ] = await Promise.all([profilePromise, summaryPromise, metadataPromise]);
 
       const totalDurationMs = Date.now() - startedAt;
 
-      if (profileMemories.length > 0 || recentSummaries.length > 0) {
-        logInfo('memory-v2-context-hit', {
-          userId,
-          profileCount: profileMemories.length,
-          summaryCount: recentSummaries.length,
+      logInfo('memory-v2-context', {
+        userId,
+        profileCount: profileMemories.length,
+        summaryCount: recentSummaries.length,
+        totalDurationMs,
+        profileQueryDurationMs,
+        summaryQueryDurationMs,
+      });
+
+      return {
+        profileMemories,
+        recentSummaries,
+        injectedText: buildMemoryInjection({
+          profileMemories,
+          recentSummaries,
+          sessionMetadataText: sessionMeta ? formatSessionMetadata(sessionMeta) : '',
+        }),
+        source: 'memory-v2',
+        metrics: {
           totalDurationMs,
           profileQueryDurationMs,
           summaryQueryDurationMs,
-        });
-        return {
-          profileMemories,
-          recentSummaries,
-          injectedText: buildMemoryInjection({ profileMemories, recentSummaries }),
-          source: 'memory-v2',
-          metrics: {
-            totalDurationMs,
-            profileQueryDurationMs,
-            summaryQueryDurationMs,
-          },
-        };
-      }
+        },
+      };
     } catch (error) {
-      console.error('[MemoryContextService] V2 lookup failed, falling back to legacy:', error);
+      const totalDurationMs = Date.now() - startedAt;
+      console.error('[MemoryContextService] V2 lookup failed:', error);
       logWarn('memory-v2-context-error', {
         userId,
+        totalDurationMs,
         error: error instanceof Error ? error.message : String(error),
       });
-    }
 
-    const legacyStartedAt = Date.now();
-    const legacy = await memoryManager.getMemoriesForContext(userId, message);
-    const totalDurationMs = Date.now() - startedAt;
-    const legacyDurationMs = Date.now() - legacyStartedAt;
-    logInfo('memory-v2-context-fallback', {
-      userId,
-      legacyLength: legacy.contextString?.length || 0,
-      totalDurationMs,
-      legacyDurationMs,
-    });
-    return {
-      profileMemories: [],
-      recentSummaries: [],
-      injectedText: legacy.contextString || '',
-      source: 'legacy',
-      metrics: {
-        totalDurationMs,
-        profileQueryDurationMs: 0,
-        summaryQueryDurationMs: 0,
-      },
-    };
+      // V2 查询失败时返回空结果，不再 fallback 到 V1
+      return {
+        profileMemories: [],
+        recentSummaries: [],
+        injectedText: '',
+        source: 'memory-v2',
+        metrics: {
+          totalDurationMs,
+          profileQueryDurationMs: 0,
+          summaryQueryDurationMs: 0,
+        },
+      };
+    }
   }
 }
 

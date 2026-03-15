@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { StreamData } from 'ai';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
-import { memoryManager } from '@/lib/memory';
+import { memoryContextService } from '@/lib/memory';
 import { getMBTIPersona } from '@/lib/ai/mbti/personas';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 
@@ -40,12 +40,12 @@ export async function POST(request: NextRequest) {
             return new NextResponse(getBlockedResponse(inputGuard.reason), { status: 200 });
         }
 
-        // 2. Memory Context Retrieval (Read-Only)
+        // 2. 记忆上下文检索（只读）
         let memoryContext = '';
         try {
-            const { contextString } = await memoryManager.getMemoriesForContext(userId, messageContent);
-            if (contextString) {
-                memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${contextString}`;
+            const { injectedText } = await memoryContextService.getContext(userId, messageContent);
+            if (injectedText) {
+                memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${injectedText}`;
             }
         } catch (e) {
             console.error('[MBTIChat] Failed to retrieve memories:', e);

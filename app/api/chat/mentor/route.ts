@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
-import { memoryManager } from '@/lib/memory';
+import { memoryContextService } from '@/lib/memory';
 import { getMentor } from '@/lib/ai/mentors/personas';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import { prisma } from '@/lib/db/prisma';
@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
         let memoryRetrieved = false;
         let labSessionId = clientSessionId || null;
 
-        const memoryPromise = memoryManager.getMemoriesForContext(userId, messageContent)
-            .then(({ contextString }) => {
-                if (contextString) {
-                    memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${contextString}`;
+        const memoryPromise = memoryContextService.getContext(userId, messageContent)
+            .then(({ injectedText }) => {
+                if (injectedText) {
+                    memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${injectedText}`;
                     memoryRetrieved = true;
                 }
             })

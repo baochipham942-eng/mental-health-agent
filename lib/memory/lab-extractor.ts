@@ -2,6 +2,8 @@ import { deepseek } from '@/lib/ai/deepseek';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
+import type { MemoryKind } from './v2-types';
+import type { MemoryTopic } from './types';
 
 // Schema for deep psychological insights
 const LabInsightSchema = z.object({
@@ -30,6 +32,42 @@ const LAB_EXTRACTOR_PROMPT = `
 
 请输出 JSON 格式的 insight 列表。
 `;
+
+/** topic -> kind 映射 */
+function mapTopicToKind(topic: MemoryTopic): MemoryKind {
+    switch (topic) {
+        case 'coping_preference':
+        case 'exercise_preference':
+            return 'coping';
+        case 'trigger_warning':
+        case 'crisis_history':
+        case 'emotional_pattern':
+            return 'trigger';
+        case 'communication_style':
+            return 'preference';
+        case 'relationship_dynamics':
+            return 'relationship';
+        case 'personal_context':
+        case 'life_event':
+        case 'core_belief':
+        case 'strength_resource':
+        case 'therapy_progress':
+        default:
+            return 'identity';
+    }
+}
+
+/** kind -> priority 映射 */
+function kindPriority(kind: MemoryKind): number {
+    switch (kind) {
+        case 'trigger': return 90;
+        case 'preference': return 80;
+        case 'coping': return 75;
+        case 'relationship': return 65;
+        case 'identity':
+        default: return 60;
+    }
+}
 
 export async function extractLabInsights(
     userId: string,
@@ -64,28 +102,22 @@ export async function extractLabInsights(
         // Save to DB
         // We tag these as specific topics but append logic to content if needed, 
         // or rely on the 'sourceConvId' to track origin. 
-        // Since `sourceConvId` is usually a CUID, we can use a special prefix or just the contextId string if allowed?
-        // `sourceConvId` in schema is String?. Ideally it matches a conversation ID but it's not a foreign key?
-        // Checking schema: `sourceConvId` is just String?, NO Foreign Key relation to Conversation table (UserMemory has no relation to Conversation).
-        // Correct. So we can put "lab_mentor_socrates" there.
+        // sourceConversationId is String? without FK, so we can put "lab_mentor_socrates" there.
 
         const sourceId = `lab_${contextType}_${contextId}`;
 
         for (const insight of object.insights) {
-            // Add a prefix tag to the content to distinguish it further if retrieved later?
-            // "Strategy: Any memory extracted from Lab should be tagged with context: 'lab_simulation'"
-            // Since we don't have a 'tags' field in UserMemory, we append it to content or rely on sourceConvId.
-            // Let's prepend [实验室洞察].
-
             const finalContent = `[实验室洞察:${insight.insightType}] ${insight.content}`;
+            const kind = mapTopicToKind(insight.topic as MemoryTopic);
 
-            await prisma.userMemory.create({
+            await prisma.profileMemory.create({
                 data: {
                     userId,
-                    topic: insight.topic,
+                    kind,
                     content: finalContent,
-                    confidence: insight.confidence * 0.85, // Lab insight penalty factor (0.85)
-                    sourceConvId: sourceId,
+                    priority: kindPriority(kind),
+                    confidence: insight.confidence * 0.85, // 实验室洞察惩罚系数
+                    sourceConversationId: sourceId,
                 }
             });
             savedCount++;

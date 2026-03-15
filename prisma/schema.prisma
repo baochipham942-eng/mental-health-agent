@@ -23,8 +23,6 @@ model User {
   conversations   Conversation[]
   exerciseLogs    ExerciseLog[]
   exerciseStates  ExerciseState[]
-  memories        UserMemory[]
-  sessionSummaries SessionSummary[]
   evaluations     ConversationEvaluation[]
   labSessions     LabSession[]       // 实验室会话
   crisisEscalations CrisisEscalation[]
@@ -34,6 +32,12 @@ model User {
   memoryCandidates MemoryCandidate[]
   profileMemories  ProfileMemory[]
   sessionSummariesV2 SessionSummaryV2[]
+  // Session Metadata（借鉴 ChatGPT，追踪使用行为模式）
+  sessionCount     Int      @default(0)   // 累计会话数
+  lastSessionAt    DateTime?              // 上次会话时间
+  avgSessionHour   Float?                 // 平均使用时段（0-23）
+  activeStreak     Int      @default(0)   // 连续活跃天数
+  lastActiveDateStr String?               // 上次活跃日期 "YYYY-MM-DD"，用于计算 streak
 }
 
 model InvitationCode {
@@ -57,7 +61,7 @@ model Conversation {
   isHidden  Boolean                 @default(false)
   user      User                    @relation(fields: [userId], references: [id])
   messages  Message[]
-  summary   SessionSummary?
+  summary    SessionSummaryV2?
   evaluation ConversationEvaluation?
 }
 
@@ -124,29 +128,6 @@ model ExerciseLog {
   user         User        @relation(fields: [userId], references: [id])
 }
 
-model UserMemory {
-  id              String   @id @default(cuid())
-  userId          String
-  topic           String
-  content         String
-  confidence      Float    @default(0.8)
-  sourceConvId    String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  accessedAt      DateTime @default(now())
-  entities        Json?
-  relationships   Json?
-  // Ebbinghaus forgetting curve fields
-  accessCount     Int      @default(1)    // Number of times this memory was accessed
-  stabilityFactor Float    @default(1.0)  // Memory stability (increases with each access)
-  memoryStrength  Float    @default(1.0)  // Current memory strength (0-1, decays over time)
-  // P3: 向量嵌入 (pgvector)
-  embedding       Unsupported("vector(384)")?  // 384维嵌入向量
-  user            User     @relation(fields: [userId], references: [id])
-
-  @@index([userId, topic])
-  @@index([userId, updatedAt])
-}
 
 model MemoryCandidate {
   id             String   @id @default(cuid())
@@ -201,38 +182,6 @@ model MemoryExtractionLog {
   @@index([status, retryCount])
 }
 
-model SessionSummary {
-  id             String       @id @default(cuid())
-  conversationId String       @unique
-  userId         String
-  
-  // 基础信息
-  mainTopic      String       // 主要议题
-  startTime      DateTime     // 会话开始时间
-  endTime        DateTime     // 会话结束时间
-  duration       Int          // 持续时间（分钟）
-  
-  // 情绪变化
-  emotionInitial Json         // { label: "焦虑", score: 7 }
-  emotionFinal   Json         // { label: "轻松", score: 4 }
-  moodChange     Int?         // 情绪变化值 (Final Score - Initial Score)
-  
-  // 核心内容
-  keyInsights    Json         // ["洞察1", "洞察2"]
-  actionItems    Json         // ["行动1", "行动2"]
-  keyTopics      Json         // ["工作压力", "焦虑"]
-  
-  // 专业观察
-  therapistNote  String       // 咨询师观察
-  
-  createdAt      DateTime     @default(now())
-  
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([createdAt])
-}
 
 model SessionSummaryV2 {
   id             String   @id @default(cuid())
@@ -245,7 +194,18 @@ model SessionSummaryV2 {
   actionItems    Json?
   createdAt      DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 从 V1 合并的 dashboard 字段（全部可空，兼容已有记录）
+  mainTopic      String?
+  startTime      DateTime?
+  endTime        DateTime?
+  duration       Int?
+  emotionInitial Json?      // { label: "焦虑", score: 7 }
+  moodChange     Int?       // emotionFinal.score - emotionInitial.score
+  keyInsights    Json?      // ["洞察1", "洞察2"]
+  therapistNote  String?
+
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }

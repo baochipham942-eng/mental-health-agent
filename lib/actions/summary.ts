@@ -37,7 +37,7 @@ export async function generateSummaryForSession(conversationId: string) {
         }
 
         // 2. 检查是否已有摘要（避免重复生成）
-        const existingSummary = await prisma.sessionSummary.findUnique({
+        const existingSummary = await prisma.sessionSummaryV2.findUnique({
             where: { conversationId },
         });
 
@@ -101,21 +101,23 @@ export async function generateSummaryForSession(conversationId: string) {
             };
         }
 
-        // 5. 保存到数据库
-        const savedSummary = await prisma.sessionSummary.create({
+        // 5. 保存到数据库（统一写入 V2）
+        const savedSummary = await prisma.sessionSummaryV2.create({
             data: {
                 conversationId: conversation.id,
                 userId: conversation.userId,
+                summary: summaryData.therapistNote || summaryData.mainTopic,
+                emotionLabel: summaryData.emotionFinal?.label || null,
+                emotionScore: summaryData.emotionFinal?.score ?? null,
+                keyTopics: summaryData.keyTopics,
+                actionItems: summaryData.actionItems,
                 mainTopic: summaryData.mainTopic,
                 startTime: summaryData.startTime,
                 endTime: summaryData.endTime,
                 duration: summaryData.duration,
                 emotionInitial: summaryData.emotionInitial,
-                emotionFinal: summaryData.emotionFinal,
                 moodChange: summaryData.emotionFinal.score - summaryData.emotionInitial.score,
                 keyInsights: summaryData.keyInsights,
-                actionItems: summaryData.actionItems,
-                keyTopics: summaryData.keyTopics,
                 therapistNote: summaryData.therapistNote,
             },
         });
@@ -155,7 +157,7 @@ export async function generateSummaryForSession(conversationId: string) {
  */
 export async function getUserSessionSummaries(userId: string, limit: number = 10) {
     try {
-        const summaries = await prisma.sessionSummary.findMany({
+        const summaries = await prisma.sessionSummaryV2.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
             take: limit,

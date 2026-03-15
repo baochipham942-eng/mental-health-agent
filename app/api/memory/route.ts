@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/memory - 获取当前用户的所有记忆
+ * GET /api/memory - 获取当前用户的所有记忆（V2 ProfileMemory）
  */
 export async function GET(request: NextRequest) {
     try {
@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
 
         const userId = session.user.id;
 
-        const memories = await prisma.userMemory.findMany({
-            where: { userId },
+        const memories = await prisma.profileMemory.findMany({
+            where: { userId, deletedAt: null },
             orderBy: [
-                { topic: 'asc' },
+                { kind: 'asc' },
                 { updatedAt: 'desc' },
             ],
         });
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         // 验证所有权
-        const memory = await prisma.userMemory.findUnique({
+        const memory = await prisma.profileMemory.findUnique({
             where: { id },
             select: { userId: true },
         });
@@ -60,7 +60,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: '记忆不存在或无权限' }, { status: 403 });
         }
 
-        const updated = await prisma.userMemory.update({
+        const updated = await prisma.profileMemory.update({
             where: { id },
             data: {
                 content,
@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * DELETE /api/memory - 删除记忆
+ * DELETE /api/memory - 删除记忆（软删除）
  */
 export async function DELETE(request: NextRequest) {
     try {
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // 验证所有权
-        const memory = await prisma.userMemory.findUnique({
+        const memory = await prisma.profileMemory.findUnique({
             where: { id },
             select: { userId: true },
         });
@@ -104,8 +104,10 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: '记忆不存在或无权限' }, { status: 403 });
         }
 
-        await prisma.userMemory.delete({
+        // 软删除
+        await prisma.profileMemory.update({
             where: { id },
+            data: { deletedAt: new Date() },
         });
 
         return NextResponse.json({ success: true });

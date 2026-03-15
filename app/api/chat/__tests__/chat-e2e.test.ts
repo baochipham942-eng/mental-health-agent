@@ -23,7 +23,7 @@ vi.mock('@/lib/runtime/chat-auth', () => ({
 vi.mock('@/lib/db/prisma', () => ({
     prisma: {
         assessmentReport: { findMany: vi.fn().mockResolvedValue([]) },
-        userMemory: { findMany: vi.fn().mockResolvedValue([]) },
+        profileMemory: { findMany: vi.fn().mockResolvedValue([]) },
         user: { findUnique: vi.fn().mockResolvedValue(null) },
         exerciseState: { findFirst: vi.fn().mockResolvedValue(null) },
         message: {
@@ -38,12 +38,11 @@ vi.mock('@/lib/memory', () => ({
     memoryContextService: {
         getContext: vi.fn().mockResolvedValue({
             injectedText: '',
-            source: 'legacy',
+            source: 'memory-v2',
             profileMemories: [],
             recentSummaries: [],
         }),
     },
-    memoryManager: { processConversation: vi.fn() },
     memoryCandidateService: null,
     profileMemoryMergeService: null,
     sessionSummaryV2Writer: null,

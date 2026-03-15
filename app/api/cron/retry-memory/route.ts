@@ -1,11 +1,11 @@
 /**
- * Cron: 重试失败的记忆提取
+ * Cron: 重试失败的记忆提取（V2 流程）
  * 每次最多处理 10 条，最多重试 3 次
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
-import { memoryManager } from '@/lib/memory';
+import { memoryCandidateService, profileMemoryMergeService } from '@/lib/memory';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,21 @@ export async function GET(request: NextRequest) {
 
         for (const log of pendingRetries) {
             try {
-                await memoryManager.processConversation(log.conversationId);
+                // V2 提取流程：提取候选记忆 + 合并到 ProfileMemory
+                const extracted = await memoryCandidateService.extractAndSave(log.conversationId);
+
+                // 获取会话对应的 userId
+                const conversation = await prisma.conversation.findUnique({
+                    where: { id: log.conversationId },
+                    select: { userId: true },
+                });
+                if (conversation?.userId && extracted.length > 0) {
+                    await profileMemoryMergeService.mergeExtractedMemories(
+                        conversation.userId,
+                        log.conversationId,
+                        extracted,
+                    );
+                }
 
                 await prisma.memoryExtractionLog.update({
                     where: { id: log.id },
@@ -64,7 +78,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({
-            message: 'Retry batch complete',
+            message: '重试批次完成',
             processed: pendingRetries.length,
             success: successCount,
             failed: failCount,

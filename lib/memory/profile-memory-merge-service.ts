@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
-import { consolidateMemory } from './consolidator';
-import type { ExtractedMemory, Memory, MemoryTopic } from './types';
+import type { ExtractedMemory, MemoryTopic } from './types';
 import type { MemoryKind } from './v2-types';
 import { logInfo } from '@/lib/observability/logger';
 import { buildMemoryFingerprint } from './fingerprint';
@@ -104,31 +103,6 @@ function kindPriority(kind: MemoryKind): number {
   }
 }
 
-function toLegacyMemory(row: any): Memory {
-  return {
-    id: row.id,
-    userId: row.userId,
-    topic: (row.kind === 'coping'
-      ? 'coping_preference'
-      : row.kind === 'trigger'
-        ? 'trigger_warning'
-        : row.kind === 'preference'
-          ? 'communication_style'
-          : row.kind === 'relationship'
-            ? 'relationship_dynamics'
-            : 'personal_context') as MemoryTopic,
-    content: row.content,
-    confidence: row.confidence,
-    sourceConvId: row.sourceConversationId,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    accessedAt: row.lastConfirmedAt || row.updatedAt,
-    accessCount: 1,
-    stabilityFactor: 1,
-    memoryStrength: 1,
-  };
-}
-
 export class ProfileMemoryMergeService {
   async mergeExtractedMemories(
     userId: string,
@@ -156,6 +130,7 @@ export class ProfileMemoryMergeService {
         take: 10,
       });
 
+      // 1. 指纹精确匹配 → 更新
       const fingerprintMatch = findFingerprintMatch(kind, fingerprint, existingRows);
       if (fingerprintMatch) {
         await delegate.update({
@@ -186,6 +161,7 @@ export class ProfileMemoryMergeService {
         continue;
       }
 
+      // 2. 近似重复检测 → 更新或拒绝
       const localDuplicate = findNearDuplicate(memory.content, existingRows);
       if (localDuplicate) {
         const shouldUpdate =
@@ -233,40 +209,20 @@ export class ProfileMemoryMergeService {
         continue;
       }
 
-      const consolidation = await consolidateMemory(
-        memory,
-        existingRows.map(toLegacyMemory),
-      );
-
-      if (consolidation.action === 'create') {
-        await delegate.create({
-          data: {
-            userId,
-            kind,
-            fingerprint,
-            content: memory.content,
-            priority: kindPriority(kind),
-            confidence: memory.confidence,
-            sourceConversationId: conversationId,
-            lastConfirmedAt: new Date(),
-          },
-        });
-        created++;
-      } else if (consolidation.action === 'update' && consolidation.targetMemoryId) {
-        await delegate.update({
-          where: { id: consolidation.targetMemoryId },
-          data: {
-            content: consolidation.mergedContent || memory.content,
-            confidence: Math.max(memory.confidence, 0.8),
-            sourceConversationId: conversationId,
-            lastConfirmedAt: new Date(),
-            fingerprint,
-          },
-        });
-        updated++;
-      } else if (consolidation.action === 'skip') {
-        rejected++;
-      }
+      // 3. 无匹配 → 直接创建新记录（不再调用 V1 consolidator）
+      await delegate.create({
+        data: {
+          userId,
+          kind,
+          fingerprint,
+          content: memory.content,
+          priority: kindPriority(kind),
+          confidence: memory.confidence,
+          sourceConversationId: conversationId,
+          lastConfirmedAt: new Date(),
+        },
+      });
+      created++;
 
       if (candidateDelegate) {
         await candidateDelegate.updateMany({
@@ -276,7 +232,7 @@ export class ProfileMemoryMergeService {
             content: memory.content,
           },
           data: {
-            status: consolidation.action === 'skip' ? 'rejected' : 'merged',
+            status: 'merged',
           },
         });
       }

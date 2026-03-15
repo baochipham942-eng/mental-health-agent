@@ -3,13 +3,10 @@ import { StreamData } from 'ai';
 import { ChatService } from '@/lib/services/chat-service';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import {
-  memoryManager,
   memoryCandidateService,
   profileMemoryMergeService,
-  sessionSummaryV2Writer,
 } from '@/lib/memory';
 import { SKILL_CARDS, SkillType } from '@/lib/ai/skills';
-import { prisma } from '@/lib/db/prisma';
 import type { QuestionnaireType } from '@/lib/ai/assessment/questionnaire';
 import type { QuickAnalysis } from '@/lib/ai/groq';
 import type { AssessmentStage, ChatState, RouteType } from '@/types/chat';
@@ -147,24 +144,8 @@ export function scheduleConversationSummaryRefresh(params: {
       console.log('[Summarizer] Refreshing conversation summary asynchronously...');
       const summary = await generateSummary(summaryHistory);
       if (summary) {
+        // updateConversationSummary 内部已处理 V2 upsert + progress metrics
         await updateConversationSummary(sessionId, summary);
-        const sessionSummary = await prisma.sessionSummary.findUnique({
-          where: { conversationId: sessionId },
-          select: {
-            emotionFinal: true,
-            keyTopics: true,
-            actionItems: true,
-          },
-        }).catch(() => null);
-        await sessionSummaryV2Writer.upsert({
-          userId,
-          conversationId: sessionId,
-          summary,
-          emotionLabel: (sessionSummary?.emotionFinal as any)?.label,
-          emotionScore: (sessionSummary?.emotionFinal as any)?.score,
-          keyTopics: Array.isArray(sessionSummary?.keyTopics) ? sessionSummary?.keyTopics as string[] : [],
-          actionItems: Array.isArray(sessionSummary?.actionItems) ? sessionSummary?.actionItems as string[] : [],
-        });
         console.log('[Summarizer] Async summary refreshed.');
       }
     } catch (e) {
@@ -178,7 +159,6 @@ export function triggerAsyncMemoryExtraction(sessionId?: string, userId?: string
 
   Promise.resolve().then(async () => {
     try {
-      await memoryManager.processConversation(sessionId);
       const extracted = await memoryCandidateService.extractAndSave(sessionId);
       await profileMemoryMergeService.mergeExtractedMemories(userId, sessionId, extracted);
       console.log('[Memory] Async extraction completed for:', sessionId);

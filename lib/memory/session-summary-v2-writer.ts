@@ -14,14 +14,15 @@ export class SessionSummaryV2Writer {
     const delegate = (prisma as any).sessionSummaryV2;
     if (!delegate || !params.summary) return;
 
+    // 只更新提供了的字段，不覆盖已有的 dashboard 字段
     await delegate.upsert({
       where: { conversationId: params.conversationId },
       update: {
         summary: params.summary,
-        emotionLabel: params.emotionLabel || null,
-        emotionScore: params.emotionScore ?? null,
-        keyTopics: params.keyTopics || [],
-        actionItems: params.actionItems || [],
+        ...(params.emotionLabel !== undefined && { emotionLabel: params.emotionLabel || null }),
+        ...(params.emotionScore !== undefined && { emotionScore: params.emotionScore ?? null }),
+        ...(params.keyTopics !== undefined && { keyTopics: params.keyTopics || [] }),
+        ...(params.actionItems !== undefined && { actionItems: params.actionItems || [] }),
       },
       create: {
         userId: params.userId,

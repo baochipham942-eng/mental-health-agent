@@ -37,7 +37,7 @@ export interface MemoryContextResult {
   profileMemories: ProfileMemoryRecord[];
   recentSummaries: SessionSummaryV2Record[];
   injectedText: string;
-  source: 'memory-v2' | 'legacy';
+  source: 'memory-v2';
   metrics?: {
     totalDurationMs: number;
     profileQueryDurationMs: number;

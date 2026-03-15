@@ -7,6 +7,7 @@ import { chatCompletion, type ChatMessage } from '@/lib/ai/deepseek';
 import { CONVERSATION_SUMMARIZATION_PROMPT } from './prompts';
 import { prisma } from '@/lib/db/prisma';
 import { recordSessionMetrics } from '@/lib/ai/progress/tracker';
+import { sessionSummaryV2Writer } from './session-summary-v2-writer';
 
 /**
  * 为一组消息生成摘要
@@ -65,29 +66,27 @@ export async function updateConversationSummary(conversationId: string, summary:
         const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { userId: true } });
         const userId = conv?.userId || '';
 
-        await prisma.userMemory.create({
-            data: {
-                userId,
-                topic: 'therapy_progress',
-                content: `[会话摘要 ${new Date().toLocaleDateString()}] ${summary}`,
-                confidence: 1.0,
-                sourceConvId: conversationId
-            }
-        });
-
-        // P5: 尝试从关联的 SessionSummary 提取情绪指标并记录
+        // 更新 V2 摘要文本（dashboard 字段已在 summary.ts 创建时写入）
         if (userId) {
+            await sessionSummaryV2Writer.upsert({
+                userId,
+                conversationId,
+                summary,
+            });
+
+            // 从 V2 读取情绪指标并记录到 ProgressMetric
             try {
-                const sessionSummary = await prisma.sessionSummary.findUnique({
+                const v2 = await prisma.sessionSummaryV2.findUnique({
                     where: { conversationId },
-                    select: { emotionFinal: true, moodChange: true },
+                    select: { emotionLabel: true, emotionScore: true, moodChange: true },
                 });
-                if (sessionSummary) {
-                    const ef = sessionSummary.emotionFinal as any;
-                    if (ef && typeof ef.score === 'number') {
-                        recordSessionMetrics(userId, conversationId, ef, sessionSummary.moodChange)
-                            .catch(e => console.error('[ProgressTracker] Failed:', e));
-                    }
+                if (v2 && v2.emotionScore != null) {
+                    recordSessionMetrics(
+                        userId,
+                        conversationId,
+                        { label: v2.emotionLabel || '', score: v2.emotionScore },
+                        v2.moodChange,
+                    ).catch(e => console.error('[ProgressTracker] Failed:', e));
                 }
             } catch (e) {
                 console.error('[ProgressTracker] Session metric extraction failed:', e);

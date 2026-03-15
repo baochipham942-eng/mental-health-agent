@@ -45,25 +45,27 @@ export async function recordExerciseCompletion(
     duration?: number,
     feedback?: string
 ): Promise<void> {
-    // Save to exercise_preference memory topic
+    // Save to exercise_preference memory (V2: ProfileMemory)
     const content = `完成「${exerciseName}」练习，效果评分${postMood}/10${feedback ? `，反馈：${feedback}` : ''}`;
 
-    await prisma.userMemory.create({
+    await prisma.profileMemory.create({
         data: {
             userId,
-            topic: 'exercise_preference',
+            kind: 'coping',
             content,
             confidence: 0.9,
+            fingerprint: `exercise_${exerciseType}_${Date.now()}`,
         }
     });
 
     // Also update therapy_progress
-    await prisma.userMemory.create({
+    await prisma.profileMemory.create({
         data: {
             userId,
-            topic: 'therapy_progress',
+            kind: 'identity',
             content: `${exerciseName}练习${postMood >= 6 ? '效果良好' : '效果一般'}(${postMood}/10)`,
             confidence: 0.8,
+            fingerprint: `progress_${exerciseType}_${Date.now()}`,
         }
     });
 }

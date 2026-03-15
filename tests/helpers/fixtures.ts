@@ -1,49 +1,7 @@
 /**
- * 共用测试数据工厂
+ * 共用测试数据工厂（V2）
  */
-import type { Memory, MemoryTopic, ExtractedMemory, ConversationMessage } from '@/lib/memory/types';
-
-/**
- * 创建一个 Memory 对象（用于遗忘曲线等测试）
- */
-export function createMemory(overrides: Partial<Memory> = {}): Memory {
-    return {
-        id: 'mem-test-1',
-        userId: 'user-test-1',
-        topic: 'emotional_pattern' as MemoryTopic,
-        content: '用户经常因为工作压力感到焦虑',
-        confidence: 0.8,
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-01'),
-        accessedAt: new Date('2024-01-01'),
-        accessCount: 1,
-        stabilityFactor: 1.0,
-        memoryStrength: 1.0,
-        ...overrides,
-    };
-}
-
-/**
- * 创建永久记忆（personal_context）
- */
-export function createPermanentMemory(overrides: Partial<Memory> = {}): Memory {
-    return createMemory({
-        topic: 'personal_context',
-        content: '用户有一个5岁的女儿',
-        ...overrides,
-    });
-}
-
-/**
- * 创建慢衰减记忆（therapy_progress）
- */
-export function createSlowDecayMemory(overrides: Partial<Memory> = {}): Memory {
-    return createMemory({
-        topic: 'therapy_progress',
-        content: '用户的焦虑症状有所改善',
-        ...overrides,
-    });
-}
+import type { MemoryTopic, ExtractedMemory, ConversationMessage } from '@/lib/memory/types';
 
 /**
  * 创建对话消息列表
