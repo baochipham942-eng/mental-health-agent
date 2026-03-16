@@ -400,31 +400,38 @@ async function generateRound1Parallel(
             { role: 'user', content: userMessage },
         ];
 
-        try {
-            const { text } = await import('ai').then(ai => ai.generateText({
-                model: getKimiModel(),
-                messages,
-                temperature: 0.9,
-                maxTokens: 400,
-            }));
+        const fallbackContent = `（${mentor.name}沉思了一会儿，但暂时没有发言）`;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                if (attempt > 0) await sleep(1000);
+                const { text } = await import('ai').then(ai => ai.generateText({
+                    model: getKimiModel(),
+                    messages,
+                    temperature: 0.9,
+                    maxTokens: 400,
+                }));
 
-            return {
-                mentorId: mentor.id,
-                mentorName: mentor.name,
-                mentor,
-                content: text,
-                round: 1,
-            };
-        } catch (e) {
-            console.error(`[Round1 Parallel] ${mentor.name} failed:`, e);
-            return {
-                mentorId: mentor.id,
-                mentorName: mentor.name,
-                mentor,
-                content: `（${mentor.name}沉思了一会儿，但暂时没有发言）`,
-                round: 1,
-            };
+                if (text && text.trim().length > 0) {
+                    return {
+                        mentorId: mentor.id,
+                        mentorName: mentor.name,
+                        mentor,
+                        content: text,
+                        round: 1,
+                    };
+                }
+                console.warn(`[Round1 Parallel] ${mentor.name} returned empty (attempt ${attempt + 1})`);
+            } catch (e) {
+                console.error(`[Round1 Parallel] ${mentor.name} failed (attempt ${attempt + 1}):`, e);
+            }
         }
+        return {
+            mentorId: mentor.id,
+            mentorName: mentor.name,
+            mentor,
+            content: fallbackContent,
+            round: 1,
+        };
     });
 
     return Promise.all(promises);
@@ -458,20 +465,33 @@ async function streamMentorReply(
     ];
 
     let fullContent = '';
-    try {
-        const result = await streamText({
-            model: getKimiModel(),
-            messages,
-            temperature: 0.9,
-            maxTokens: 400,
-        });
+    const fallbackContent = `（${mentor.name}沉思了一会儿，但暂时没有发言）`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        fullContent = '';
+        try {
+            if (attempt > 0) {
+                console.warn(`[MentorReply] ${mentor.name} retrying (attempt ${attempt + 1})...`);
+                await sleep(1500); // 重试前等待，避免触发 QPM 限制
+            }
+            const result = await streamText({
+                model: getKimiModel(),
+                messages,
+                temperature: 0.9,
+                maxTokens: 400,
+            });
 
-        for await (const chunk of result.textStream) {
-            fullContent += chunk;
+            for await (const chunk of result.textStream) {
+                fullContent += chunk;
+            }
+
+            if (fullContent.trim().length > 0) break; // 有内容就不重试
+            console.warn(`[MentorReply] ${mentor.name} returned empty (attempt ${attempt + 1})`);
+        } catch (e) {
+            console.error(`[MentorReply] ${mentor.name} failed (attempt ${attempt + 1}):`, e);
         }
-    } catch (e) {
-        console.error(`[MentorReply] ${mentor.name} failed:`, e);
-        fullContent = `（${mentor.name}沉思了一会儿，但暂时没有发言）`;
+    }
+    if (!fullContent.trim()) {
+        fullContent = fallbackContent;
     }
 
     // Layer 2: 提取 @ 意图（启发式：回复中提到其他大师名字 = 想回应）
