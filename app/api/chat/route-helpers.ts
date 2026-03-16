@@ -19,7 +19,7 @@ import {
   generateStateMachinePrompt,
   type DialogueContext,
 } from '@/lib/ai/dialogue/state-machine';
-import { logInfo } from '@/lib/observability/logger';
+import { logInfo, logError } from '@/lib/observability/logger';
 
 const SKILL_INTRO_MESSAGES: Record<SkillType, string> = {
   breathing: '没问题，我们一起来关注呼吸，这能帮你快速平静下来。请准备好，随节奏开始：',
@@ -141,15 +141,15 @@ export function scheduleConversationSummaryRefresh(params: {
 
   Promise.resolve().then(async () => {
     try {
-      console.log('[Summarizer] Refreshing conversation summary asynchronously...');
+      logInfo('summarizer-refresh-start', { sessionId });
       const summary = await generateSummary(summaryHistory);
       if (summary) {
         // updateConversationSummary 内部已处理 V2 upsert + progress metrics
         await updateConversationSummary(sessionId, summary);
-        console.log('[Summarizer] Async summary refreshed.');
+        logInfo('summarizer-refresh-done', { sessionId });
       }
-    } catch (e) {
-      console.error('[Summarizer] Async refresh failed:', e);
+    } catch (e: any) {
+      logError('summarizer-refresh-failed', { sessionId, error: e?.message });
     }
   });
 }
@@ -161,9 +161,9 @@ export function triggerAsyncMemoryExtraction(sessionId?: string, userId?: string
     try {
       const extracted = await memoryCandidateService.extractAndSave(sessionId);
       await profileMemoryMergeService.mergeExtractedMemories(userId, sessionId, extracted);
-      console.log('[Memory] Async extraction completed for:', sessionId);
-    } catch (e) {
-      console.error('[Memory] Async extraction failed:', e);
+      logInfo('memory-extraction-done', { sessionId });
+    } catch (e: any) {
+      logError('memory-extraction-failed', { sessionId, error: e?.message });
     }
   });
 }
@@ -321,7 +321,7 @@ export async function trackDialogueState(params: {
   // 评估状态转移
   const transition = evaluateTransition(dialogueCtx, analysis);
   if (transition.stateChanged) {
-    console.log(`[StateMachine] Transition: ${dialogueCtx.state} → ${transition.nextState} (${transition.reason})`);
+    logInfo('state-machine-transition', { from: dialogueCtx.state, to: transition.nextState, reason: transition.reason });
     dialogueCtx.state = transition.nextState;
   }
 

@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db/prisma';
 import { extractLabInsights } from '@/lib/memory/lab-extractor';
 import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
+import { logInfo, logError } from '@/lib/observability/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
                     memoryRetrieved = true;
                 }
             })
-            .catch(e => console.error('[MentorChat] Failed to retrieve memories:', e));
+            .catch(e => logError('mentor-chat-memory-retrieval-failed', { error: e?.message }));
 
         const dbPromise = (async () => {
             if (!labSessionId) {
@@ -170,7 +171,7 @@ ${memoryContext}
                                 where: { id: labSessionId! },
                                 data: { messageCount: { increment: 2 } }, // user + assistant
                             })
-                        ).catch(e => console.error('[MentorChat] Failed to save assistant message:', e));
+                        ).catch(e => logError('mentor-chat-save-failed', { error: e?.message }));
 
                         // Extract insights (async, non-blocking)
                         const allMessages = [
@@ -179,9 +180,9 @@ ${memoryContext}
                         ];
                         extractLabInsights(userId, allMessages, 'mentor', mentorId || 'custom')
                             .then(count => {
-                                if (count > 0) console.log(`[MentorChat] Extracted ${count} insights`);
+                                if (count > 0) logInfo('mentor-chat-insights-extracted', { count });
                             })
-                            .catch(e => console.error('[MentorChat] Insight extraction failed:', e));
+                            .catch(e => logError('mentor-chat-insight-extraction-failed', { error: e?.message }));
                     }
                 }
             },
@@ -199,7 +200,7 @@ ${memoryContext}
         });
 
     } catch (error: any) {
-        console.error('Mentor Chat API Error:', error);
+        logError('mentor-chat-api-error', { error: error.message });
         return NextResponse.json({ error: error.message || 'Processing failed' }, { status: 500 });
     }
     }); // end runWithTrace

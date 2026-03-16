@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/prisma';
 import { extractLabInsights } from '@/lib/memory/lab-extractor';
 import { runWithTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
+import { logInfo, logError } from '@/lib/observability/logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
                         }
                     }
                 } catch (error: any) {
-                    console.error('[GroupChat API] Stream error:', error);
+                    logError('group-chat-stream-error', { error: error.message });
                     const errorEvent = `data: ${JSON.stringify({ type: 'error', message: error.message || '服务器错误' })}\n\n`;
                     controller.enqueue(encoder.encode(errorEvent));
                 } finally {
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
                     // 异步持久化会话数据
                     persistGroupSession(userId, mentorIds, mode, topic, messages, allEvents)
-                        .catch(e => console.error('[GroupChat] Persist failed:', e));
+                        .catch(e => logError('group-chat-persist-failed', { error: e?.message }));
                 }
             },
         });
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error('Group Chat API Error:', error);
+        logError('group-chat-api-error', { error: error.message });
         return NextResponse.json({ error: error.message || 'Processing failed' }, { status: 500 });
     }
     }); // end runWithTrace
@@ -255,8 +256,8 @@ async function persistGroupSession(
     if (allMsgs.length >= 2) {
         extractLabInsights(userId, allMsgs, 'mentor', mentorIds.join(','))
             .then(count => {
-                if (count > 0) console.log(`[GroupChat] Extracted ${count} insights`);
+                if (count > 0) logInfo('group-chat-insights-extracted', { count });
             })
-            .catch(e => console.error('[GroupChat] Insight extraction failed:', e));
+            .catch(e => logError('group-chat-insight-extraction-failed', { error: e?.message }));
     }
 }
