@@ -18,18 +18,39 @@ const DEV_DB_PATH = path.join(process.cwd(), 'scripts/eval-academic/eval-academi
 const PROD_BUNDLE_PATH = path.join(process.cwd(), 'data/eval/eval-academic.db');
 const PROD_TMP_PATH = '/tmp/eval-academic.db';
 
-function resolveDbPath(): string {
-  if (!IS_PROD) return DEV_DB_PATH;
+function resolveDbPath(): string | null {
+  if (!IS_PROD) {
+    return fs.existsSync(DEV_DB_PATH) ? DEV_DB_PATH : null;
+  }
   if (fs.existsSync(PROD_TMP_PATH)) return PROD_TMP_PATH;
   if (fs.existsSync(PROD_BUNDLE_PATH)) {
     fs.copyFileSync(PROD_BUNDLE_PATH, PROD_TMP_PATH);
     return PROD_TMP_PATH;
   }
-  return PROD_BUNDLE_PATH;
+  return null;
+}
+
+/** 定位 sql-wasm.wasm 文件，兼容不同包管理器布局 */
+function resolveWasmPath(): Buffer | undefined {
+  const candidates = [
+    path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
+    // pnpm 嵌套路径（Vercel）
+    ...(() => {
+      try {
+        const sqlJsMain = require.resolve('sql.js');
+        return [path.join(path.dirname(sqlJsMain), 'sql-wasm.wasm')];
+      } catch { return []; }
+    })(),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return fs.readFileSync(p);
+  }
+  return undefined;
 }
 
 let _db: SqlJsDatabase | null = null;
 let _dbPath: string | null = null;
+let _initFailed = false;
 
 /** 持久化：将内存中的 db 写回磁盘 */
 function persistDb() {
@@ -39,10 +60,18 @@ function persistDb() {
   }
 }
 
-async function initDb(): Promise<SqlJsDatabase> {
+async function initDb(): Promise<SqlJsDatabase | null> {
   if (_db) return _db;
-  const SQL = await initSqlJs();
+  if (_initFailed) return null;
+
   _dbPath = resolveDbPath();
+  if (!_dbPath) {
+    _initFailed = true;
+    return null;
+  }
+
+  const wasmBinary = resolveWasmPath();
+  const SQL = await initSqlJs(wasmBinary ? { wasmBinary } : undefined);
   const buffer = fs.readFileSync(_dbPath);
   _db = new SQL.Database(buffer);
   _db.run('PRAGMA foreign_keys = ON');
@@ -50,10 +79,12 @@ async function initDb(): Promise<SqlJsDatabase> {
   return _db;
 }
 
-/** 确保 db 已初始化（每个导出函数调用前使用） */
+/** 确保 db 已初始化，数据库不可用时抛出友好错误 */
 async function ensureDb(): Promise<SqlJsDatabase> {
   if (_db) return _db;
-  return initDb();
+  const db = await initDb();
+  if (!db) throw new Error('评测数据库不可用（当前环境未部署 eval db）');
+  return db;
 }
 
 function migrateV3(db: SqlJsDatabase) {
