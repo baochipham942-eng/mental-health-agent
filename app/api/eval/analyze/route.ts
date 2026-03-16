@@ -8,7 +8,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { generateText, type LlmProviderName } from '@/lib/llm';
-import { requireEvalAdmin } from '../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 const ANALYSIS_DIR = path.join(process.cwd(), 'data/coding');
@@ -217,9 +216,6 @@ ${dimSummary}
 
 export async function POST(req: NextRequest) {
   try {
-    const denied = await requireEvalAdmin();
-    if (denied) return denied;
-
     const body = await req.json();
     const { runId, caseId, provider: reqProvider, cacheOnly, action } = body;
     if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });
@@ -239,7 +235,7 @@ export async function POST(req: NextRequest) {
       if (note !== undefined) data.suggestions[index].note = note;
       data.suggestions[index].statusUpdatedAt = new Date().toISOString();
       fs.writeFileSync(cacheFile, JSON.stringify(data, null, 2));
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ success: true });
     }
 
     // 解析 provider（默认 deepseek，支持前端切换）

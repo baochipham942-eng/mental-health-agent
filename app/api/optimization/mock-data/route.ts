@@ -118,8 +118,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('[Mock] Failed:', error);
         return NextResponse.json({
-            error: 'Mock data creation failed',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Mock data creation failed',
         }, { status: 500 });
     }
 }

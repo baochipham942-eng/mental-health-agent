@@ -159,8 +159,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[API] Get users failed:', error);
         return NextResponse.json({
-            error: 'Failed to get users',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to get users',
         }, { status: 500 });
     }
 }

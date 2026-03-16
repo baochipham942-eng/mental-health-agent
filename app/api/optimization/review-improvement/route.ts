@@ -137,8 +137,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Review] Failed:', error);
         return NextResponse.json({
-            error: 'Failed to review evaluation',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to review evaluation',
         }, { status: 500 });
     }
 }

@@ -55,8 +55,7 @@ export async function GET(
     } catch (error) {
         console.error('[API] Get messages failed:', error);
         return NextResponse.json({
-            error: 'Failed to get messages',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to get messages',
         }, { status: 500 });
     }
 }

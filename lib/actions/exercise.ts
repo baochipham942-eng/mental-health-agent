@@ -3,6 +3,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db/prisma';
 import { revalidatePath } from 'next/cache';
+import { memoryCache } from '@/lib/memory/memory-cache';
 
 export interface LogExerciseParams {
     cardId: string; // The ID of the action card (e.g. "breath_478")
@@ -68,6 +69,9 @@ export async function recordExerciseCompletion(
             fingerprint: `progress_${exerciseType}_${Date.now()}`,
         }
     });
+
+    // 记忆写入后失效缓存
+    memoryCache.invalidate(userId);
 }
 
 // Query exercise history for injection into support prompts

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     await trackFunnel(event, { userId, sessionId, skillType, score });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[FunnelAPI] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

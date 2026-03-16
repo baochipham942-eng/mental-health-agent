@@ -3,6 +3,7 @@ import { sessionSummaryV2Service } from './session-summary-v2-service';
 import { getSessionMetadata, formatSessionMetadata, type SessionMetadata } from './session-metadata';
 import type { MemoryContextResult, ProfileMemoryRecord, SessionSummaryV2Record } from './v2-types';
 import { logInfo, logWarn } from '@/lib/observability/logger';
+import { memoryCache } from './memory-cache';
 
 function buildMemoryInjection(input: {
   profileMemories: ProfileMemoryRecord[];
@@ -42,6 +43,13 @@ export class MemoryContextService {
     userId: string,
     message: string,
   ): Promise<MemoryContextResult> {
+    // 缓存命中：直接返回，跳过数据库查询
+    const cached = memoryCache.get(userId);
+    if (cached) {
+      logInfo('memory-v2-context-cache-hit', { userId });
+      return cached;
+    }
+
     const startedAt = Date.now();
     try {
       const profilePromise = (async () => {
@@ -81,7 +89,7 @@ export class MemoryContextService {
         summaryQueryDurationMs,
       });
 
-      return {
+      const result: MemoryContextResult = {
         profileMemories,
         recentSummaries,
         injectedText: buildMemoryInjection({
@@ -96,6 +104,11 @@ export class MemoryContextService {
           summaryQueryDurationMs,
         },
       };
+
+      // 写入缓存
+      memoryCache.set(userId, result);
+
+      return result;
     } catch (error) {
       const totalDurationMs = Date.now() - startedAt;
       console.error('[MemoryContextService] V2 lookup failed:', error);
@@ -118,6 +131,14 @@ export class MemoryContextService {
         },
       };
     }
+  }
+
+  /**
+   * 失效指定用户的记忆缓存
+   * 在记忆写入/合并后调用，确保下次 getContext 拿到最新数据
+   */
+  invalidateCache(userId: string): void {
+    memoryCache.invalidate(userId);
   }
 }
 

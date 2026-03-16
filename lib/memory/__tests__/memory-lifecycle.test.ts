@@ -140,6 +140,17 @@ function createDelegate(store: any[]) {
   };
 }
 
+// Mock 缓存层（测试中不需要真实缓存行为）
+vi.mock('../memory-cache', () => ({
+  memoryCache: {
+    get: vi.fn().mockReturnValue(null),
+    set: vi.fn(),
+    invalidate: vi.fn(),
+    clear: vi.fn(),
+  },
+  MemoryCache: vi.fn(),
+}));
+
 vi.mock('@/lib/db/prisma', () => ({
   prisma: {
     profileMemory: createDelegate(profileMemoryStore),

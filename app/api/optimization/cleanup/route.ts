@@ -35,8 +35,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('[Cleanup] Failed:', error);
         return NextResponse.json({
-            error: 'Cleanup failed',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Cleanup failed',
         }, { status: 500 });
     }
 }

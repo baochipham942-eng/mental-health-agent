@@ -117,8 +117,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[API] Get evaluations failed:', error);
         return NextResponse.json({
-            error: 'Failed to get evaluations',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to get evaluations',
         }, { status: 500 });
     }
 }

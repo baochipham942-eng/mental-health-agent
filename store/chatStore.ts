@@ -1,31 +1,16 @@
+import * as React from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Message, RouteType, AssessmentStage, ChatState, ActionCard, SessionStatus } from '@/types/chat';
 
-/** Debug 面板显示的 prompt 详情 */
-export interface DebugPrompts {
-  systemPrompt?: string;
-  userPrompt?: string;
-  fullMessages?: Array<{ role: string; content: string }>;
-  [key: string]: unknown;
-}
+import { createChatSlice } from './slices/chat-slice';
+import { createUISlice } from './slices/ui-slice';
+import { createAssessmentSlice } from './slices/assessment-slice';
 
-/** Debug 面板显示的验证错误 */
-export interface ValidationErrorInfo {
-  field?: string;
-  message?: string;
-  [key: string]: unknown;
-}
+import type { ChatSlice } from './slices/chat-slice';
+import type { UISlice } from './slices/ui-slice';
+import type { AssessmentSlice } from './slices/assessment-slice';
 
-/** Debug 面板显示的请求载荷 */
-export interface RequestPayload {
-  message?: string;
-  history?: Array<{ role: string; content: string }>;
-  state?: ChatState;
-  assessmentStage?: AssessmentStage;
-  meta?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+// === 类型导出 ===
 
 export interface SkillProgress {
   status: 'not_started' | 'in_progress' | 'done';
@@ -41,248 +26,17 @@ export const CHAT_MODELS: Record<ChatModelId, { label: string; modelName: string
   openrouter: { label: 'GPT 5.4', modelName: 'openai/gpt-5.4' },
 };
 
-interface ChatStore {
-  // 消息列表
-  messages: Message[];
+// 组合类型：所有 slice 的联合
+export type ChatStore = ChatSlice & UISlice & AssessmentSlice;
 
-  // 当前对话状态
-  currentState: ChatState | undefined;
-  routeType: RouteType | undefined;
-  assessmentStage: AssessmentStage | undefined;
-
-  // 初始消息（用于多轮对话推进）
-  initialMessage: string | undefined;
-
-  // followupAnswer 累计（仅前端内部使用，不持久化）
-  followupAnswerDraft: string;
-
-  // 全局 input 暂存（用于页面切换时保留输入框内容）
-  inputDraft: string;
-
-  // 临时过渡消息（sessionId -> Messages），用于解决新会话跳转时的状态丢失问题
-  transitionMessages: Record<string, Message[]>;
-
-  // 技能进度（行动卡片完成态）
-  skillProgress: Record<string, SkillProgress>;
-
-  // UI 状态
-  isLoading: boolean;
-  error: string | null;
-
-  // Debug 面板
-  debugDrawerOpen: boolean;
-  debugPrompts: DebugPrompts | null;
-  validationError: ValidationErrorInfo | null;
-  lastRequestPayload: RequestPayload | null;
-
-  // Session lifecycle status (new)
-  sessionStatus: SessionStatus | undefined; // undefined = no active session
-  setSessionStatus: (status: SessionStatus | undefined) => void;
-
-  // Flag to track if we're in the middle of creating a session (survives remounts)
-  isCreatingSession: boolean;
-  setCreatingSession: (val: boolean) => void;
-
-  // @deprecated Use sessionStatus === 'active' instead
-  isConsulting: boolean;
-  setConsulting: (val: boolean) => void;
-
-  // Actions
-  addMessage: (message: Message) => void;
-  updateMessage: (id: string, updates: Partial<Message>) => void; // New action
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  updateState: (state: {
-    currentState?: ChatState;
-    routeType?: RouteType;
-    assessmentStage?: AssessmentStage;
-    initialMessage?: string;
-  }) => void;
-  clearMessages: () => void;
-  appendFollowupAnswer: (answer: string) => void;
-  clearFollowupAnswer: () => void;
-  setInputDraft: (draft: string) => void;
-  setDebugDrawerOpen: (open: boolean) => void;
-  setDebugPrompts: (prompts: DebugPrompts | null) => void;
-  setValidationError: (error: ValidationErrorInfo | null) => void;
-  setLastRequestPayload: (payload: RequestPayload | null) => void;
-  resetConversation: () => void;
-  updateSkillProgress: (cardId: string, progress: SkillProgress) => void;
-  getSkillProgress: (cardId: string) => SkillProgress | undefined;
-  setMessages: (messages: Message[]) => void;
-  setTransitionMessages: (sessionId: string, messages: Message[]) => void;
-  getAndClearTransitionMessages: (sessionId: string) => Message[] | undefined;
-
-  // 当前会话 ID（持久化跨组件状态）
-  currentSessionId: string | undefined;
-  setCurrentSessionId: (id: string | undefined) => void;
-
-  // 当前模型选择
-  currentModel: ChatModelId;
-  setCurrentModel: (model: ChatModelId) => void;
-}
+// === Store 创建 ===
 
 export const useChatStore = create<ChatStore>()(
   persist(
-    (set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void, get: () => ChatStore) => ({
-      messages: [],
-      currentState: undefined,
-      routeType: undefined,
-      assessmentStage: undefined,
-      initialMessage: undefined,
-      followupAnswerDraft: '',
-      inputDraft: '',
-      transitionMessages: {},
-      skillProgress: {},
-      isLoading: false,
-      error: null,
-      debugDrawerOpen: false,
-      debugPrompts: null,
-      validationError: null,
-      lastRequestPayload: null,
-      sessionStatus: undefined,
-      setSessionStatus: (status: SessionStatus | undefined) => set({ sessionStatus: status }),
-      // Track creating state globally to survive remounts
-      isCreatingSession: false,
-      setCreatingSession: (val: boolean) => set({ isCreatingSession: val }),
-      // @deprecated: Use sessionStatus instead. Kept for backward compatibility.
-      isConsulting: false,
-      setConsulting: (val: boolean) => set({ isConsulting: val }),
-
-      addMessage: (message: Message) =>
-        set((state: ChatStore) => ({
-          messages: [...state.messages, message],
-        })),
-
-      updateMessage: (id: string, updates: Partial<Message>) =>
-        set((state: ChatStore) => ({
-          messages: state.messages.map((msg) =>
-            msg.id === id ? { ...msg, ...updates } : msg
-          ),
-        })),
-
-      setLoading: (loading: boolean) =>
-        set({ isLoading: loading }),
-
-      setError: (error: string | null) =>
-        set({ error }),
-
-      updateState: (updates: {
-        currentState?: ChatState;
-        routeType?: RouteType;
-        assessmentStage?: AssessmentStage;
-        initialMessage?: string;
-      }) =>
-        set((state: ChatStore) => ({
-          ...state,
-          ...updates,
-        })),
-
-      clearMessages: () =>
-        set({
-          messages: [],
-          currentState: undefined,
-          routeType: undefined,
-          assessmentStage: undefined,
-          initialMessage: undefined,
-          followupAnswerDraft: '',
-          error: null,
-          debugPrompts: null,
-          validationError: null,
-        }),
-
-      appendFollowupAnswer: (answer: string) =>
-        set((state: ChatStore) => ({
-          followupAnswerDraft: state.followupAnswerDraft
-            ? `${state.followupAnswerDraft}\n${answer}`
-            : answer,
-        })),
-
-      clearFollowupAnswer: () =>
-        set({ followupAnswerDraft: '' }),
-
-      setInputDraft: (draft: string) =>
-        set({ inputDraft: draft }),
-
-      setDebugDrawerOpen: (open: boolean) =>
-        set({ debugDrawerOpen: open }),
-
-      setDebugPrompts: (prompts: DebugPrompts | null) =>
-        set({ debugPrompts: prompts }),
-
-      setValidationError: (error: ValidationErrorInfo | null) =>
-        set({ validationError: error }),
-
-      setLastRequestPayload: (payload: RequestPayload | null) =>
-        set({ lastRequestPayload: payload }),
-
-      setMessages: (messages: Message[]) =>
-        set({ messages }),
-
-      setTransitionMessages: (sessionId: string, messages: Message[]) =>
-        set((state: ChatStore) => ({
-          transitionMessages: {
-            ...state.transitionMessages,
-            [sessionId]: messages,
-          },
-        })),
-
-      getAndClearTransitionMessages: (sessionId: string) => {
-        const state = get();
-        const messages = state.transitionMessages[sessionId];
-        if (messages) {
-          // 如果取出，立即清理（阅后即焚），避免污染后续逻辑
-          set((state: ChatStore) => {
-            const newTransitionMessages = { ...state.transitionMessages };
-            delete newTransitionMessages[sessionId];
-            return { transitionMessages: newTransitionMessages };
-          });
-        }
-        return messages;
-      },
-
-      currentSessionId: undefined,
-      setCurrentSessionId: (id: string | undefined) =>
-        set({ currentSessionId: id }),
-
-      currentModel: 'deepseek' as ChatModelId,
-      setCurrentModel: (model: ChatModelId) =>
-        set({ currentModel: model }),
-
-      updateSkillProgress: (cardId: string, progress: SkillProgress) =>
-        set((state: ChatStore) => ({
-          skillProgress: {
-            ...state.skillProgress,
-            [cardId]: progress,
-          },
-        })),
-
-      getSkillProgress: (cardId: string) => {
-        const state = get();
-        return state.skillProgress[cardId];
-      },
-
-      resetConversation: () => {
-        // 重置所有状态
-        set({
-          messages: [],
-          currentState: undefined,
-          routeType: undefined,
-          assessmentStage: undefined,
-          initialMessage: undefined,
-          followupAnswerDraft: '',
-          sessionStatus: undefined,
-          isConsulting: false, // Keep in sync for backward compat
-          // 注意：inputDraft 不重置，以允许"带着输入去新会话"
-          error: null,
-          debugDrawerOpen: false,
-          debugPrompts: null,
-          validationError: null,
-          lastRequestPayload: null,
-          // 注意：skillProgress 不重置，保持持久化
-        });
-        // 注意：不再清理 localStorage，因为 messages 不再持久化
-      },
+    (...a) => ({
+      ...createChatSlice(...a),
+      ...createUISlice(...a),
+      ...createAssessmentSlice(...a),
     }),
     {
       name: 'chat-storage',
@@ -323,6 +77,3 @@ export const useHasHydrated = () => {
 
   return hasHydrated;
 };
-
-// 需要导入 React
-import * as React from 'react';

@@ -15,6 +15,9 @@ export { MemoryCandidateService, memoryCandidateService } from './memory-candida
 export { ProfileMemoryMergeService, profileMemoryMergeService } from './profile-memory-merge-service';
 export { SessionSummaryV2Writer, sessionSummaryV2Writer } from './session-summary-v2-writer';
 
+// 缓存
+export { MemoryCache, memoryCache } from './memory-cache';
+
 // 提取器
 export { extractMemoriesFromMessages } from './extractor';
 

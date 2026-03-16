@@ -79,8 +79,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Add to List] Failed:', error);
         return NextResponse.json({
-            error: 'Failed to add conversations',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to add conversations',
         }, { status: 500 });
     }
 }

@@ -129,8 +129,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[API] Get invites failed:', error);
         return NextResponse.json({
-            error: 'Failed to get invites',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to get invites',
         }, { status: 500 });
     }
 }
@@ -202,8 +201,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[API] Create invites failed:', error);
         return NextResponse.json({
-            error: 'Failed to create invites',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to create invites',
         }, { status: 500 });
     }
 }
@@ -280,8 +278,7 @@ export async function PATCH(request: NextRequest) {
     } catch (error) {
         console.error('[API] Update invite failed:', error);
         return NextResponse.json({
-            error: 'Failed to update invite',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to update invite',
         }, { status: 500 });
     }
 }
@@ -325,8 +322,7 @@ export async function DELETE(request: NextRequest) {
     } catch (error) {
         console.error('[API] Delete invite failed:', error);
         return NextResponse.json({
-            error: 'Failed to delete invite',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to delete invite',
         }, { status: 500 });
     }
 }

@@ -5,10 +5,13 @@ import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryContextService } from '@/lib/memory';
 import { getMBTIPersona } from '@/lib/ai/mbti/personas';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
+import { updateTrace } from '@/lib/observability/langfuse';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+    return runWithTrace('mbti-chat', {}, async () => {
     try {
         const session = await auth();
         const userId = session?.user?.id;
@@ -69,6 +72,18 @@ ${memoryContext}
             }))
         ];
 
+        // Langfuse trace metadata
+        const reqTrace = getCurrentTrace()?.trace;
+        if (reqTrace) {
+            updateTrace(reqTrace, {
+                metadata: {
+                    userId, mbtiType,
+                    personaName: persona.name,
+                    messageCount: messages.length,
+                },
+            });
+        }
+
         // 4. Stream Response
         const result = await streamChatCompletion(coreMessages, {
             temperature: 0.9,
@@ -81,4 +96,5 @@ ${memoryContext}
         console.error('MBTI Chat API Error:', error);
         return NextResponse.json({ error: error.message || 'Processing failed' }, { status: 500 });
     }
+    }); // end runWithTrace
 }

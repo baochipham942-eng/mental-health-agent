@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
 import { prisma } from '@/lib/db/prisma';
+import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
+import { updateTrace } from '@/lib/observability/langfuse';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,7 @@ export const dynamic = 'force-dynamic';
  * 3. 评估完成后更新数据库记录
  */
 export async function POST(request: NextRequest) {
+    return runWithTrace('evaluate-batch', {}, async () => {
     try {
         // 验证管理员权限
         const { admin: isAdmin } = await checkAdmin();
@@ -29,65 +32,118 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
+        console.log(`[Batch Evaluate] Starting batch evaluation for ${conversationIds.length} conversations...`);
+
         // 查询会话信息
         const conversations = await prisma.conversation.findMany({
-            where: { id: { in: conversationIds } },
-            select: { id: true, title: true, userId: true },
+            where: {
+                id: { in: conversationIds },
+            },
+            select: {
+                id: true,
+                title: true,
+                userId: true,
+            },
         });
 
-        // 批量查询已有评估（避免 N+1）
-        const existingEvals = await prisma.conversationEvaluation.findMany({
-            where: { conversationId: { in: conversations.map(c => c.id) } },
-            select: { conversationId: true },
-        });
-        const existingIds = new Set(existingEvals.map(e => e.conversationId));
+        // ✅ 立即创建数据库记录（状态为EVALUATING）
+        const createdEvaluations = [];
+        for (const conv of conversations) {
+            // 检查是否已有评估
+            const existing = await prisma.conversationEvaluation.findUnique({
+                where: { conversationId: conv.id },
+            });
 
-        // 过滤出需要新建评估的会话
-        const toCreate = conversations.filter(c => !existingIds.has(c.id));
+            if (existing) {
+                console.log(`[Batch Evaluate] Evaluation already exists for ${conv.id}, skipping`);
+                continue;
+            }
 
-        // 批量创建评估记录（状态为 EVALUATING）
-        if (toCreate.length > 0) {
-            await prisma.conversationEvaluation.createMany({
-                data: toCreate.map(conv => ({
+            // 创建评估记录（初始状态）
+            const evaluation = await prisma.conversationEvaluation.create({
+                data: {
                     conversationId: conv.id,
                     userId: conv.userId,
-                    legalScore: 0, legalIssues: [],
-                    ethicalScore: 0, ethicalIssues: [],
-                    professionalScore: 0, professionalIssues: [],
-                    uxScore: 0, uxIssues: [],
-                    overallScore: 0, overallGrade: 'EVALUATING',
+
+                    // 临时的占位数据（评估中状态）
+                    legalScore: 0,
+                    legalIssues: [],
+
+                    ethicalScore: 0,
+                    ethicalIssues: [],
+
+                    professionalScore: 0,
+                    professionalIssues: [],
+
+                    uxScore: 0,
+                    uxIssues: [],
+
+                    overallScore: 0,
+                    overallGrade: 'EVALUATING',
+
+                    // 改进建议（必需字段）
                     improvements: [],
-                })),
-                skipDuplicates: true,
+                },
+            });
+
+            createdEvaluations.push({
+                id: evaluation.id,
+                conversationId: conv.id,
+                conversationTitle: conv.title || '未命名会话',
+                evaluatedAt: evaluation.evaluatedAt.toISOString(),
+                overallGrade: 'EVALUATING',
+                overallScore: 0,
+                legalScore: 0,
+                legalIssues: [],
+                ethicalScore: 0,
+                ethicalIssues: [],
+                professionalScore: 0,
+                professionalIssues: [],
+                uxScore: 0,
+                uxIssues: [],
             });
         }
 
-        // 查回刚创建的记录（createMany 不返回记录）
-        const createdEvaluations = toCreate.map(conv => ({
-            conversationId: conv.id,
-            conversationTitle: conv.title || '未命名会话',
-            overallGrade: 'EVALUATING',
-            overallScore: 0,
-        }));
-
-        // 异步后台并行执行 AI 评估（不阻塞响应）
+        // 🚀 异步后台执行评估并更新数据库（不等待）
         (async () => {
-            const results = await Promise.allSettled(
-                toCreate.map(conv =>
-                    evaluateAndSaveConversation(conv.id).catch(async (error) => {
-                        // 评估失败则更新为失败状态
+            for (const conv of conversations) {
+                try {
+                    console.log(`[Batch Evaluate:BG] Processing ${conv.id}...`);
+
+                    // 调用AI评估（这会重新创建/更新记录）
+                    const evaluation = await evaluateAndSaveConversation(conv.id);
+                    console.log(`[Batch Evaluate:BG] Completed ${conv.id}:`, evaluation ? 'success' : 'failed');
+                } catch (error) {
+                    console.error(`[Batch Evaluate:BG] Error processing ${conv.id}:`, error);
+
+                    // 如果评估失败，更新为失败状态
+                    try {
                         await prisma.conversationEvaluation.update({
                             where: { conversationId: conv.id },
-                            data: { overallGrade: 'FAILED' },
-                        }).catch(() => {});
-                        throw error;
-                    })
-                )
-            );
-            const succeeded = results.filter(r => r.status === 'fulfilled').length;
-            const failed = results.filter(r => r.status === 'rejected').length;
-            console.log(`[Batch Evaluate:BG] Done: ${succeeded} succeeded, ${failed} failed`);
-        })().catch(() => {});
+                            data: {
+                                overallGrade: 'FAILED',
+                            },
+                        });
+                    } catch (updateError) {
+                        console.error(`[Batch Evaluate:BG] Failed to update error status for ${conv.id}`);
+                    }
+                }
+            }
+            console.log('[Batch Evaluate:BG] All background evaluations completed');
+        })().catch(err => {
+            console.error('[Batch Evaluate:BG] Background task failed:', err);
+        });
+
+        // Langfuse trace metadata
+        const reqTrace = getCurrentTrace()?.trace;
+        if (reqTrace) {
+            updateTrace(reqTrace, {
+                metadata: {
+                    conversationCount: conversationIds.length,
+                    createdCount: createdEvaluations.length,
+                },
+            });
+        }
 
         // 立即返回已创建的数据库记录
         return NextResponse.json({
@@ -100,8 +156,8 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Batch Evaluate] Failed:', error);
         return NextResponse.json({
-            error: 'Batch evaluation failed',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Batch evaluation failed',
         }, { status: 500 });
     }
+    }); // end runWithTrace
 }

@@ -64,8 +64,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[API] Get pending conversations failed:', error);
         return NextResponse.json({
-            error: 'Failed to get pending conversations',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to get pending conversations',
         }, { status: 500 });
     }
 }

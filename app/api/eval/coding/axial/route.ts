@@ -8,7 +8,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { requireEvalAdmin } from '../../auth-guard';
 
 const CODING_DIR = path.join(process.cwd(), 'data/coding');
 
@@ -40,9 +39,6 @@ function getOpenCodingFile(runId: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const denied = await requireEvalAdmin();
-    if (denied) return denied;
-
     const runId = new URL(req.url).searchParams.get('runId');
     if (!runId) return NextResponse.json({ error: 'runId required' }, { status: 400 });
 
@@ -59,9 +55,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const denied = await requireEvalAdmin();
-    if (denied) return denied;
-
     const body = await req.json();
     const { action, runId } = body;
 
@@ -185,7 +178,7 @@ ${tagList}
         clusteredAt: body.clusteredAt || new Date().toISOString(),
       };
       fs.writeFileSync(getAxialFile(runId), JSON.stringify(result, null, 2));
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

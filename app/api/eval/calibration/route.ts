@@ -7,14 +7,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { requireEvalAdmin } from '../auth-guard';
 
 const CALIBRATION_FILE = path.join(process.cwd(), 'data/calibration/calibration-set-v1.json');
 
 export async function GET() {
   try {
-    const denied = await requireEvalAdmin();
-    if (denied) return denied;
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({
         samples: [],
@@ -33,9 +30,6 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const denied = await requireEvalAdmin();
-    if (denied) return denied;
-
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({ error: '校准集不存在' }, { status: 404 });
     }
@@ -60,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     fs.writeFileSync(CALIBRATION_FILE, JSON.stringify(samples, null, 2), 'utf-8');
 
-    return NextResponse.json({ ok: true, updated: samples[idx] });
+    return NextResponse.json({ success: true, data: samples[idx] });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

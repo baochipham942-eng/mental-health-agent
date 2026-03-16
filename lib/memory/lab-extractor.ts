@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import type { MemoryKind } from './v2-types';
 import type { MemoryTopic } from './types';
+import { memoryCache } from './memory-cache';
 
 // Schema for deep psychological insights
 const LabInsightSchema = z.object({
@@ -121,6 +122,11 @@ export async function extractLabInsights(
                 }
             });
             savedCount++;
+        }
+
+        // 记忆写入后失效缓存
+        if (savedCount > 0) {
+            memoryCache.invalidate(userId);
         }
 
         return savedCount;

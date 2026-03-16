@@ -3,6 +3,7 @@ import type { ExtractedMemory, MemoryTopic } from './types';
 import type { MemoryKind } from './v2-types';
 import { logInfo } from '@/lib/observability/logger';
 import { buildMemoryFingerprint } from './fingerprint';
+import { memoryCache } from './memory-cache';
 
 function normalizeContent(content: string): string[] {
   return [...new Set(
@@ -246,6 +247,9 @@ export class ProfileMemoryMergeService {
       updated,
       rejected,
     });
+
+    // 合并后失效缓存，确保下次 getContext 拿到最新记忆
+    memoryCache.invalidate(userId);
   }
 }
 

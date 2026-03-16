@@ -2,8 +2,9 @@
 
 import { Message } from '@/types/chat';
 import { MessageBubble } from './MessageBubble';
-import { useEffect, useRef, useState, useCallback, RefObject } from 'react';
+import { useEffect, useRef, useState, useCallback, RefObject, useMemo } from 'react';
 import { useHasHydrated } from '@/store/chatStore';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface MessageListProps {
   messages: Message[];
@@ -79,6 +80,9 @@ function ThinkingIndicator() {
   );
 }
 
+// 虚拟化阈值：消息数少于此值时使用普通渲染
+const VIRTUALIZATION_THRESHOLD = 50;
+
 export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef, sessionId }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -93,8 +97,29 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
     messages.length > 0 ? messages[messages.length - 1].role : null
   );
 
+  // 是否启用虚拟化
+  const useVirtual = messages.length >= VIRTUALIZATION_THRESHOLD;
+
   // 等待 Zustand 水合完成，避免闪烁
   const hasHydrated = useHasHydrated();
+
+  // 虚拟化列表：包含所有消息 + 可能的 ThinkingIndicator 占位
+  const showThinking = !!(isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user');
+  const virtualItemCount = useVirtual ? messages.length + (showThinking ? 1 : 0) : 0;
+
+  // 虚拟化器
+  const virtualizer = useVirtualizer({
+    count: virtualItemCount,
+    getScrollElement: () => scrollContainerRef?.current ?? null,
+    estimateSize: () => 120, // 消息气泡平均高度估算
+    overscan: 5,
+    // 启用动态高度测量
+    measureElement: (el) => {
+      if (!el) return 120;
+      return el.getBoundingClientRect().height;
+    },
+    // 在虚拟化未启用时也不会影响性能（count=0）
+  });
 
   // 获取滚动容器
   const getScrollContainer = useCallback((): HTMLElement | null => {
@@ -124,13 +149,19 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
 
   // 滚动到底部
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'smooth') => {
-    const container = getScrollContainer();
-    if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior });
-    } else if (endRef.current) {
-      endRef.current.scrollIntoView({ behavior });
+    if (useVirtual && virtualItemCount > 0) {
+      // 虚拟化模式：使用 scrollToIndex 滚到最后一项
+      virtualizer.scrollToIndex(virtualItemCount - 1, { align: 'end', behavior });
+    } else {
+      // 普通模式：滚动容器到底
+      const container = getScrollContainer();
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+      } else if (endRef.current) {
+        endRef.current.scrollIntoView({ behavior });
+      }
     }
-  }, [getScrollContainer]);
+  }, [getScrollContainer, useVirtual, virtualItemCount, virtualizer]);
 
 
   // 自动滚动逻辑
@@ -237,9 +268,76 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
   }
 
   // 有消息，显示消息列表
+  // 虚拟化模式（>= 50 条消息）
+  if (useVirtual) {
+    return (
+      <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-4" ref={containerRef} role="log" aria-live="polite">
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const isThinkingItem = virtualItem.index === messages.length;
+
+            if (isThinkingItem) {
+              // ThinkingIndicator 占位项
+              return (
+                <div
+                  key="thinking-indicator"
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <ThinkingIndicator />
+                </div>
+              );
+            }
+
+            const message = messages[virtualItem.index];
+            const extras = messageExtras?.get(message.id);
+            return (
+              <div
+                key={message.id}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <MessageBubble
+                  message={message}
+                  routeType={extras?.routeType}
+                  assessmentStage={extras?.assessmentStage}
+                  toolCalls={extras?.toolCalls}
+                  sessionId={sessionId}
+                  actionCards={extras?.actionCards}
+                  assistantQuestions={extras?.assistantQuestions}
+                  validationError={extras?.validationError}
+                  onSendMessage={onSendMessage}
+                  isSending={isSending}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // 普通模式（< 50 条消息）
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-4" ref={containerRef}>
-      <div className="relative w-full space-y-2 min-h-full" role="log" aria-live="polite" aria-label="对话消息列表">
+    <div className="w-full max-w-4xl mx-auto px-4 py-4 pb-4" ref={containerRef} role="log" aria-live="polite">
+      <div className="relative w-full space-y-2 min-h-full">
         {messages.map((message) => {
           const extras = messageExtras?.get(message.id);
           return (
@@ -260,7 +358,7 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
         })}
 
         {/* 即时 thinking 动画：用户发完消息后立刻显示，不等 API 首 token */}
-        {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+        {showThinking && (
           <ThinkingIndicator />
         )}
 

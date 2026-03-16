@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
+import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
+import { updateTrace } from '@/lib/observability/langfuse';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +13,7 @@ export const maxDuration = 60; // 60秒
  * 同步评估会话（等待所有评估完成后返回）
  */
 export async function POST(request: NextRequest) {
+    return runWithTrace('evaluate-sync', {}, async () => {
     try {
         // 验证管理员权限
         const { admin: isAdmin } = await checkAdmin();
@@ -61,6 +64,18 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Evaluate Sync] Done. Success: ${success}, Failed: ${failed}`);
 
+        // Langfuse trace metadata
+        const reqTrace = getCurrentTrace()?.trace;
+        if (reqTrace) {
+            updateTrace(reqTrace, {
+                metadata: {
+                    conversationCount: conversationIds.length,
+                    successCount: success,
+                    failedCount: failed,
+                },
+            });
+        }
+
         return NextResponse.json({
             success,
             failed,
@@ -71,8 +86,8 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Evaluate Sync] Failed:', error);
         return NextResponse.json({
-            error: 'Evaluation failed',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Evaluation failed',
         }, { status: 500 });
     }
+    }); // end runWithTrace
 }

@@ -93,8 +93,7 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error('[Import] Failed:', error);
         return NextResponse.json({
-            error: 'Import failed',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Import failed',
         }, { status: 500 });
     }
 }

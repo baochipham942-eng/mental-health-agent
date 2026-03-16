@@ -62,8 +62,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Adopt] Failed:', error);
         return NextResponse.json({
-            error: 'Failed to adopt improvements',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to adopt improvements',
         }, { status: 500 });
     }
 }

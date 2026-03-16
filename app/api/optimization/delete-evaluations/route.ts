@@ -39,8 +39,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('[Delete Evaluations] Failed:', error);
         return NextResponse.json({
-            error: 'Failed to delete evaluations',
-            details: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : 'Failed to delete evaluations',
         }, { status: 500 });
     }
 }
