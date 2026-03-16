@@ -62,6 +62,11 @@ describe('parseThoughtTags', () => {
         expect(result.displayContent).toBe('建议你 探索一下');
     });
 
+    it('清洗夹杂乱码中文和 JSON 的工具调用泄漏', () => {
+        const result = parseThoughtTags('to=recommend_skill_card  尚度json  {"card_type":"breathing"}\n\n听起来你压力很大');
+        expect(result.displayContent).toBe('听起来你压力很大');
+    });
+
     it('移除 thought 后的多余空行被压缩', () => {
         const result = parseThoughtTags('<thought>x</thought>\n\n\n你好\n\n世界');
         expect(result.displayContent).toBe('你好\n世界');

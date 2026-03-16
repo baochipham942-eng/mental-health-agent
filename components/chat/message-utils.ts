@@ -23,8 +23,9 @@ export function parseThoughtTags(content: string): { displayContent: string; tho
   // 移除所有 thought 标签及其内容
   const displayContent = content
     .replace(thoughtRegex, '')
-    // 清洗 DeepSeek 泄漏的工具调用文本（如 "to=recommend_skill_card diýen here ..."）
-    .replace(/to=(?:recommend_skill_card|recommend_lab_exploration)\b[^\u4e00-\u9fff]*/gi, '')
+    // 清洗 DeepSeek 泄漏的工具调用文本
+    // 含 JSON 时吃到 JSON 结束，否则只吃非中文字符（保留后续正文）
+    .replace(/to=(?:recommend_skill_card|recommend_lab_exploration)\b(?:[^\n]*\{[^}]*\}[^\u4e00-\u9fff]*|[^\u4e00-\u9fff]*)/gi, '')
     .replace(/^\s*\n/gm, '') // 移除多余空行
     .trim();
 
