@@ -309,5 +309,6 @@ export const MBTI_PERSONAS: MBTIPersona[] = [
 ];
 
 export function getMBTIPersona(type: string): MBTIPersona | undefined {
+    if (!type) return undefined;
     return MBTI_PERSONAS.find(p => p.type.toUpperCase() === type.toUpperCase());
 }
