@@ -1,17 +1,39 @@
 /**
  * Node.js 端读取/写入 eval-academic SQLite 数据库
  * v3: 支持读写（人工标注需要写入）
+ *
+ * 路径策略:
+ * - 开发环境: scripts/eval-academic/eval-academic.db（可读写）
+ * - 生产环境: data/eval/eval-academic.db（deploy:build 复制，只读）
+ *   写操作自动 copy 到 /tmp 后读写
  */
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
-const DB_PATH = path.join(process.cwd(), 'scripts/eval-academic/eval-academic.db');
+const IS_PROD = process.env.NODE_ENV === 'production';
+const DEV_DB_PATH = path.join(process.cwd(), 'scripts/eval-academic/eval-academic.db');
+const PROD_BUNDLE_PATH = path.join(process.cwd(), 'data/eval/eval-academic.db');
+const PROD_TMP_PATH = '/tmp/eval-academic.db';
+
+function resolveDbPath(): string {
+  if (!IS_PROD) return DEV_DB_PATH;
+  // 生产环境: 优先用 /tmp（可读写），否则从 bundle 复制过去
+  if (fs.existsSync(PROD_TMP_PATH)) return PROD_TMP_PATH;
+  if (fs.existsSync(PROD_BUNDLE_PATH)) {
+    fs.copyFileSync(PROD_BUNDLE_PATH, PROD_TMP_PATH);
+    return PROD_TMP_PATH;
+  }
+  // fallback: 直接用 bundle 路径（只读）
+  return PROD_BUNDLE_PATH;
+}
 
 let _db: Database.Database | null = null;
 
 function getDb(): Database.Database {
   if (!_db) {
-    _db = new Database(DB_PATH);
+    const dbPath = resolveDbPath();
+    _db = new Database(dbPath);
     _db.pragma('journal_mode = WAL');
     _db.pragma('foreign_keys = ON');
     // v3 迁移（幂等）
