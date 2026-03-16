@@ -47,16 +47,33 @@ NO 的例子（普通负面情绪，没有自杀/自伤意图）：
 用户：`;
 
 /**
+ * 同步关键词检测：覆盖常见的危机意图表达
+ * 用于 LLM 超时/失败时的保守兜底（宁可误报不可漏判）
+ */
+const CRISIS_INTENT_KEYWORDS = [
+    '不想活', '想死', '去死', '自杀', '自残', '自伤',
+    '割腕', '跳楼', '跳河', '上吊', '烧炭', '服毒', '吞药',
+    '遗书', '一了百了', '不如死', '结束生命', '了结',
+    '永远睡', '没有我会更好', '活着没意义', '活着没有意义',
+];
+
+function crisisKeywordFallback(message: string): boolean {
+    return CRISIS_INTENT_KEYWORDS.some(kw => message.includes(kw));
+}
+
+/**
  * Layer 1: 基于 DeepSeek few-shot 的快速危机检测
  * 安全关键路径直接用最可靠的模型，不走 fast-model 路由
  * DeepSeek 国内直连无需代理，稳定性优先于速度
+ *
+ * 安全兜底：LLM 超时/失败时回退到关键词检测（宁可误报不可漏判）
  */
 export async function quickCrisisCheck(
     message: string,
     timeoutMs = Number(process.env.CRISIS_CHECK_TIMEOUT_MS || 1500),
 ): Promise<boolean> {
     const deepseekKey = process.env.DEEPSEEK_API_KEY;
-    if (!deepseekKey) return false;
+    if (!deepseekKey) return crisisKeywordFallback(message);
 
     try {
         const { createOpenAI } = await import('@ai-sdk/openai');
@@ -76,15 +93,15 @@ export async function quickCrisisCheck(
         ]);
 
         if (!result) {
-            console.log('[CrisisCheck] DeepSeek timeout');
-            return false;
+            console.log('[CrisisCheck] DeepSeek timeout, falling back to keyword check');
+            return crisisKeywordFallback(message);
         }
 
         const answer = result.text.trim().toUpperCase();
         return answer.startsWith('YES');
     } catch (error) {
-        console.warn('[CrisisCheck] DeepSeek failed:', error instanceof Error ? error.message : error);
-        return false;
+        console.warn('[CrisisCheck] DeepSeek failed, falling back to keyword check:', error instanceof Error ? error.message : error);
+        return crisisKeywordFallback(message);
     }
 }
 
@@ -243,7 +260,5 @@ export async function assessCrisisDeescalation(
  */
 export function quickCrisisKeywordCheck(message: string): boolean {
     console.warn('[CrisisClassifier] quickCrisisKeywordCheck is deprecated, use quickCrisisCheck instead');
-    // 仅保留最明确的行为类关键词作为同步兜底
-    const actionKeywords = ['割腕', '跳楼', '跳河', '上吊', '烧炭', '服毒', '吞药', '遗书'];
-    return actionKeywords.some(kw => message.includes(kw));
+    return crisisKeywordFallback(message);
 }

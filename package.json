@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "lsof -ti:3002 | xargs kill -9 2>/dev/null || true",
     "dev": "next dev -p 3002",
     "build": "npx prisma generate && npx prisma migrate deploy && next build",
     "start": "next start -p 3002",
