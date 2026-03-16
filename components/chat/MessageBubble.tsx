@@ -83,7 +83,7 @@ export function MessageBubble({
     // 如果正在加载中、正在发送中、或是占位符消息，显示 Loading 动画 + 安抚文案
     if (isLoading || isSending || isPlaceholderMessage) {
       return (
-        <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500" aria-busy="true" aria-label="AI正在思考">
           <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50 msg-bubble-ai">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-4">
@@ -177,6 +177,8 @@ export function MessageBubble({
           <div className="mb-3 border-b border-indigo-50 pb-2">
             <button
               onClick={() => setShowReasoning(!showReasoning)}
+              aria-label={showReasoning ? '收起思考过程' : '查看思考过程'}
+              aria-expanded={showReasoning}
               className="flex items-center gap-1.5 text-[10px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50/30 px-2 py-0.5 rounded-full border-none cursor-pointer"
             >
               <div className={cn("w-1 h-1 rounded-full bg-indigo-400 animate-pulse", showReasoning && "bg-indigo-600 animate-none")} />
@@ -547,6 +549,8 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
     <div className="flex items-center gap-3 px-2 opacity-40 hover:opacity-100 transition-opacity duration-300">
       <button
         onClick={() => handleRate(1)}
+        aria-label="有帮助"
+        aria-pressed={rating === 1}
         className={cn(
           "flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors bg-transparent border-none cursor-pointer outline-none",
           rating === 1 ? "text-indigo-600" : "text-gray-500"
@@ -557,6 +561,8 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
       </button>
       <button
         onClick={() => handleRate(-1)}
+        aria-label="没帮助"
+        aria-pressed={rating === -1}
         className={cn(
           "flex items-center gap-1 text-xs hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer outline-none",
           rating === -1 ? "text-gray-900" : "text-gray-500"

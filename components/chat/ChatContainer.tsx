@@ -59,7 +59,7 @@ export function ChatContainer() {
 
         {/* 错误提示 */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
+          <div role="alert" className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
             <p className="text-sm">{error}</p>
           </div>
         )}

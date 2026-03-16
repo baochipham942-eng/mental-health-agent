@@ -44,7 +44,7 @@ export function getCurrentTraceId(): string | undefined {
  */
 export async function runWithTrace<T>(
     name: string,
-    metadata: Record<string, any>,
+    metadata: Record<string, unknown>,
     fn: () => Promise<T>
 ): Promise<T> {
     const traceId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -53,8 +53,8 @@ export async function runWithTrace<T>(
     const context: TraceContext = {
         traceId,
         trace,
-        userId: metadata.userId,
-        sessionId: metadata.sessionId,
+        userId: typeof metadata.userId === 'string' ? metadata.userId : undefined,
+        sessionId: typeof metadata.sessionId === 'string' ? metadata.sessionId : undefined,
         startTime: Date.now(),
     };
 
@@ -75,8 +75,8 @@ export async function runWithTrace<T>(
  */
 export function createSpan(
     name: string,
-    input?: any,
-    metadata?: Record<string, any>
+    input?: unknown,
+    metadata?: Record<string, unknown>
 ) {
     const ctx = getCurrentTrace();
     if (!ctx?.trace) return null;
@@ -97,7 +97,7 @@ export function createSpan(
  */
 export function endSpan(
     span: ReturnType<typeof createSpan>,
-    output: any,
+    output: unknown,
     level: 'DEFAULT' | 'WARNING' | 'ERROR' = 'DEFAULT'
 ) {
     if (!span) return;
@@ -109,7 +109,7 @@ export function endSpan(
  */
 export function logEvent(
     name: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
 ) {
     const ctx = getCurrentTrace();
     if (!ctx?.trace) return;

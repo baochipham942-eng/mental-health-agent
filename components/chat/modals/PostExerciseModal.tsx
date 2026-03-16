@@ -73,6 +73,7 @@ export function PostExerciseModal({ isOpen, onClose, onSubmit }: PostExerciseMod
                         value={feedback}
                         onChange={setFeedback}
                         className="mb-4"
+                        aria-label="练习感受反馈"
                     />
                     <div className="flex justify-end gap-2">
                         <Button onClick={handleClose}>跳过</Button>

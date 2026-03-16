@@ -11,7 +11,7 @@ export interface TraceMessage {
   role: 'user' | 'assistant';
   content: string;
   mentorId?: string | null;
-  meta?: Record<string, any> | null;
+  meta?: Record<string, unknown> | null;
   createdAt: Date;
 }
 
@@ -22,7 +22,7 @@ export interface ConversationTrace {
   labType?: string;
   messages: TraceMessage[];
   emotionTrajectory: number[];
-  toolCalls: Array<{ name: string; arguments?: any }>;
+  toolCalls: Array<{ name: string; arguments?: unknown }>;
   routeTypes: string[];
   safetyLabels: string[];
   dialogueStates: string[];
@@ -64,33 +64,36 @@ export async function extractConversationTrace(conversationId: string): Promise<
     messages.push({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
-      meta: msg.meta as Record<string, any> | null,
+      meta: msg.meta as Record<string, unknown> | null,
       createdAt: msg.createdAt,
     });
 
     // 从 assistant message 的 meta 中提取评测数据
     if (msg.role === 'assistant' && msg.meta) {
-      const meta = msg.meta as Record<string, any>;
+      const meta = msg.meta as Record<string, unknown>;
 
       // toolCalls
       if (Array.isArray(meta.toolCalls)) {
-        for (const tc of meta.toolCalls) {
+        for (const tc of meta.toolCalls as Array<Record<string, unknown>>) {
+          const fn = tc.function as Record<string, unknown> | undefined;
           toolCalls.push({
-            name: tc.function?.name || tc.name || 'unknown',
-            arguments: tc.function?.arguments || tc.arguments,
+            name: (fn?.name as string) || (tc.name as string) || 'unknown',
+            arguments: fn?.arguments ?? tc.arguments,
           });
         }
       }
 
       // routeType
-      if (meta.routeType) routeTypes.push(meta.routeType);
+      if (typeof meta.routeType === 'string') routeTypes.push(meta.routeType);
 
       // safety
-      if (meta.safety?.label) safetyLabels.push(meta.safety.label);
+      const safety = meta.safety as Record<string, unknown> | undefined;
+      if (safety && typeof safety.label === 'string') safetyLabels.push(safety.label);
 
       // dialogueContext 中的 emotionTrajectory
-      if (meta.dialogueContext?.emotionTrajectory) {
-        for (const score of meta.dialogueContext.emotionTrajectory) {
+      const dialogueContext = meta.dialogueContext as Record<string, unknown> | undefined;
+      if (dialogueContext && Array.isArray(dialogueContext.emotionTrajectory)) {
+        for (const score of dialogueContext.emotionTrajectory) {
           if (typeof score === 'number' && !emotionTrajectory.includes(score)) {
             emotionTrajectory.push(score);
           }
@@ -98,8 +101,8 @@ export async function extractConversationTrace(conversationId: string): Promise<
       }
 
       // dialogueContext 中的 state
-      if (meta.dialogueContext?.state) {
-        dialogueStates.push(meta.dialogueContext.state);
+      if (dialogueContext && typeof dialogueContext.state === 'string') {
+        dialogueStates.push(dialogueContext.state);
       }
     }
   }
@@ -142,7 +145,7 @@ export async function extractLabSessionTrace(labSessionId: string): Promise<Conv
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
       mentorId: msg.mentorId,
-      meta: msg.meta as Record<string, any> | null,
+      meta: msg.meta as Record<string, unknown> | null,
       createdAt: msg.createdAt,
     });
   }

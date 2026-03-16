@@ -103,7 +103,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               key={mood.key}
               ref={(el) => { cardRefs.current[index] = el; }}
               className={`ob-image-card ${mood.cssClass}`}
+              role="button"
+              tabIndex={0}
+              aria-label={`${mood.label} - ${mood.hint}`}
               onClick={() => handleCardSelect(mood, index)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardSelect(mood, index); } }}
             >
               <div className="ob-card-bg" />
               <div className="ob-card-overlay">

@@ -12,14 +12,30 @@ export type { ChatMessage, ToolCall };
 
 export type LlmProviderName = 'deepseek' | 'glm' | 'openrouter' | 'kimi' | 'openai';
 
+/** OpenAI function calling 格式的工具定义 */
+export interface OpenAIFunctionTool {
+  type: string;
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  };
+}
+
+/** OpenAI tool_choice 参数类型 */
+export type ToolChoice = 'auto' | 'none' | 'required' | {
+  type: 'function';
+  function: { name: string };
+};
+
 export interface GenerateTextOptions {
   provider?: LlmProviderName;
   temperature?: number;
   max_tokens?: number;
   responseFormat?: 'json_object' | 'text';
-  tools?: any[];
-  toolChoice?: any;
-  traceMetadata?: Record<string, any>;
+  tools?: OpenAIFunctionTool[];
+  toolChoice?: ToolChoice;
+  traceMetadata?: Record<string, unknown>;
   modelOverride?: string;
   timeoutMs?: number;
 }
@@ -28,9 +44,9 @@ export interface StreamTextOptions {
   provider?: LlmProviderName;
   temperature?: number;
   max_tokens?: number;
-  onFinish?: (text: string, toolCalls?: any[]) => Promise<void>;
+  onFinish?: (text: string, toolCalls?: ToolCall[]) => Promise<void>;
   enableTools?: boolean;
-  traceMetadata?: Record<string, any>;
+  traceMetadata?: Record<string, unknown>;
   modelOverride?: string;
 }
 
@@ -102,7 +118,7 @@ export async function generateText(
 
 export async function generateStructured<T>(
   messages: ChatMessage[],
-  schema: { parse: (val: any) => T },
+  schema: { parse: (val: unknown) => T },
   options?: Omit<GenerateTextOptions, 'responseFormat' | 'tools' | 'toolChoice'>
 ): Promise<T> {
   const provider = resolveProvider(options?.provider);

@@ -197,7 +197,7 @@ export function SettingsPanel({
         {/* 左侧标签栏 */}
         <div className="w-[180px] border-r border-gray-100 pr-2 py-4 flex-shrink-0 flex flex-col">
           <h2 className="text-lg font-bold text-gray-900 px-3 mb-4">设置</h2>
-          <nav className="space-y-0.5 flex-1">
+          <nav aria-label="设置导航" className="space-y-0.5 flex-1">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -242,9 +242,10 @@ export function SettingsPanel({
           {/* 关闭按钮 */}
           <button
             onClick={onClose}
+            aria-label="关闭设置"
             className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors z-10"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
@@ -295,6 +296,7 @@ export function SettingsPanel({
                     onChange={(e) => setEditNickname(e.target.value)}
                     maxLength={20}
                     placeholder="请输入昵称"
+                    aria-label="昵称"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm
                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
                   />

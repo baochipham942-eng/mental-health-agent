@@ -157,6 +157,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
 
                     <button
                         onClick={handleStart}
+                        aria-label="开始呼吸练习"
                         className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-sky-400 to-blue-500 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
                     >
                         开始呼吸
@@ -233,6 +234,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
+                    aria-live="assertive"
                     className={`text-base font-semibold ${colors.text} mb-2`}
                 >
                     {phaseText}

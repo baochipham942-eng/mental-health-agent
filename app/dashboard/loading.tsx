@@ -3,7 +3,7 @@ import { Skeleton } from '@arco-design/web-react';
 
 export default function Loading() {
     return (
-        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50" aria-busy="true" aria-label="页面加载中">
             {/* 顶部栏 Skeleton */}
             <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">

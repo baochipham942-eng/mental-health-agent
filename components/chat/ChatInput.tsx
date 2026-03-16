@@ -11,7 +11,7 @@ import { useChatStore, CHAT_MODELS, type ChatModelId } from '@/store/chatStore';
 /** 解压工具箱图标 — 魔法棒风格 */
 function ToolboxIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M15 4V2" />
       <path d="M15 16v-2" />
       <path d="M8 9h2" />
@@ -212,6 +212,8 @@ export function ChatInput({
             type="text"
             shape="circle"
             onClick={() => setDesktopMenuOpen(v => !v)}
+            aria-label="解压工具箱"
+            aria-expanded={desktopMenuOpen}
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
@@ -242,7 +244,11 @@ export function ChatInput({
               ].map((skill) => (
                 <div
                   key={skill.key}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${skill.label} - ${skill.desc}`}
                   onClick={() => { onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); } }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
                 >
                   <span className="text-xl flex-shrink-0">{skill.emoji}</span>
@@ -268,6 +274,7 @@ export function ChatInput({
             type="text"
             shape="circle"
             onClick={() => setSkillsOpen(true)}
+            aria-label="解压工具箱"
             className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
@@ -433,6 +440,8 @@ function ModelDisclaimer() {
     <div className="mt-2 text-center relative" ref={containerRef}>
       <button
         onClick={() => setOpen(v => !v)}
+        aria-label="切换AI模型"
+        aria-expanded={open}
         className="text-[11px] text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer"
       >
         内容由 <span className="font-medium underline decoration-dotted underline-offset-2">{CHAT_MODELS[currentModel]?.label || 'DeepSeek'}</span> 生成，仅供参考

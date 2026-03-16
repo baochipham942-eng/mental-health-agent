@@ -1087,7 +1087,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* 错误提示 */}
         {error && (
-          <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
+          <div role="alert" className="fixed bottom-32 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg shadow-lg text-sm z-40">
             {error}
           </div>
         )}

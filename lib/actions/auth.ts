@@ -15,9 +15,9 @@ export async function authenticate(
     try {
         // Don't use redirectTo here - we'll handle redirect explicitly
         await signIn('credentials', formData);
-    } catch (error: any) {
+    } catch (error: unknown) {
         // FIRST: Handle redirect (signIn throws NEXT_REDIRECT on success)
-        if (error.digest?.startsWith('NEXT_REDIRECT')) {
+        if (error instanceof Error && 'digest' in error && typeof (error as Record<string, unknown>).digest === 'string' && ((error as Record<string, unknown>).digest as string).startsWith('NEXT_REDIRECT')) {
             throw error;
         }
 
@@ -33,7 +33,8 @@ export async function authenticate(
         }
 
         console.error('Login Error:', error);
-        return `登录失败: ${error.message} [${Date.now()}]`;
+        const message = error instanceof Error ? error.message : String(error);
+        return `登录失败: ${message} [${Date.now()}]`;
     }
 
     // If signIn didn't throw (success without redirect), redirect explicitly
@@ -57,7 +58,7 @@ export async function ensureUserProfile() {
     if (!user) return null;
 
     let needsUpdate = false;
-    let updateData: any = {};
+    let updateData: { quickLoginToken?: string; nickname?: string; avatar?: string } = {};
 
     // Generate quickLoginToken if missing
     if (!user.quickLoginToken) {

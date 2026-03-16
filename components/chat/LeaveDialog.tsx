@@ -40,6 +40,9 @@ export function LeaveDialog({ visible, onStay, onLeave, moodTheme }: LeaveDialog
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leave-dialog-title"
         className="bg-white rounded-[20px] px-7 pt-8 pb-6 max-w-[340px] w-[90%] text-center shadow-2xl"
         style={{
           transform: visible ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(10px)',
@@ -47,7 +50,7 @@ export function LeaveDialog({ visible, onStay, onLeave, moodTheme }: LeaveDialog
         }}
       >
         <div className="leave-dialog-orb" />
-        <h3 className="text-[17px] font-semibold text-gray-800 mb-2">
+        <h3 id="leave-dialog-title" className="text-[17px] font-semibold text-gray-800 mb-2">
           要离开这次对话吗？
         </h3>
         <p className="text-[13.5px] text-gray-400 leading-[1.7] mb-2">

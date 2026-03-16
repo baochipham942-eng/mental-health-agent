@@ -2,6 +2,31 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Message, RouteType, AssessmentStage, ChatState, ActionCard, SessionStatus } from '@/types/chat';
 
+/** Debug 面板显示的 prompt 详情 */
+export interface DebugPrompts {
+  systemPrompt?: string;
+  userPrompt?: string;
+  fullMessages?: Array<{ role: string; content: string }>;
+  [key: string]: unknown;
+}
+
+/** Debug 面板显示的验证错误 */
+export interface ValidationErrorInfo {
+  field?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
+/** Debug 面板显示的请求载荷 */
+export interface RequestPayload {
+  message?: string;
+  history?: Array<{ role: string; content: string }>;
+  state?: ChatState;
+  assessmentStage?: AssessmentStage;
+  meta?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface SkillProgress {
   status: 'not_started' | 'in_progress' | 'done';
   completedSteps: number[];
@@ -46,9 +71,9 @@ interface ChatStore {
 
   // Debug 面板
   debugDrawerOpen: boolean;
-  debugPrompts: any | null;
-  validationError: any | null;
-  lastRequestPayload: any | null;
+  debugPrompts: DebugPrompts | null;
+  validationError: ValidationErrorInfo | null;
+  lastRequestPayload: RequestPayload | null;
 
   // Session lifecycle status (new)
   sessionStatus: SessionStatus | undefined; // undefined = no active session
@@ -78,9 +103,9 @@ interface ChatStore {
   clearFollowupAnswer: () => void;
   setInputDraft: (draft: string) => void;
   setDebugDrawerOpen: (open: boolean) => void;
-  setDebugPrompts: (prompts: any | null) => void;
-  setValidationError: (error: any | null) => void;
-  setLastRequestPayload: (payload: any | null) => void;
+  setDebugPrompts: (prompts: DebugPrompts | null) => void;
+  setValidationError: (error: ValidationErrorInfo | null) => void;
+  setLastRequestPayload: (payload: RequestPayload | null) => void;
   resetConversation: () => void;
   updateSkillProgress: (cardId: string, progress: SkillProgress) => void;
   getSkillProgress: (cardId: string) => SkillProgress | undefined;
@@ -182,13 +207,13 @@ export const useChatStore = create<ChatStore>()(
       setDebugDrawerOpen: (open: boolean) =>
         set({ debugDrawerOpen: open }),
 
-      setDebugPrompts: (prompts: any | null) =>
+      setDebugPrompts: (prompts: DebugPrompts | null) =>
         set({ debugPrompts: prompts }),
 
-      setValidationError: (error: any | null) =>
+      setValidationError: (error: ValidationErrorInfo | null) =>
         set({ validationError: error }),
 
-      setLastRequestPayload: (payload: any | null) =>
+      setLastRequestPayload: (payload: RequestPayload | null) =>
         set({ lastRequestPayload: payload }),
 
       setMessages: (messages: Message[]) =>

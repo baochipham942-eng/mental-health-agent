@@ -252,12 +252,12 @@ export function decideRouteByRules(params: {
  * 计算情绪对象、对话轮次、风险信号、状态机上下文等
  */
 export async function trackDialogueState(params: {
-  analysis: any;
+  analysis: QuickAnalysis;
   message: string;
   history: Array<{ role: string; content: string }>;
   sessionId?: string;
   userId?: string;
-  lastAssistantMsgPromise: Promise<{ meta: any } | null>;
+  lastAssistantMsgPromise: Promise<{ meta: unknown } | null>;
   stateRestoreStartedAt: number;
 }): Promise<{
   emotionObj: { label: string; score: number };

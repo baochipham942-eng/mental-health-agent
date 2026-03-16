@@ -132,6 +132,7 @@ export function SessionListPage({
           {/* 头像+昵称整体，点击打开设置 */}
           <button
             onClick={() => setSettingsVisible(true)}
+            aria-label="打开设置"
             className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
           >
             <Avatar size={32} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
@@ -375,6 +376,7 @@ function SessionItem({
       <button
         onClick={handleDelete}
         disabled={isHiding}
+        aria-label="删除会话"
         className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0"
       >
         <IconDelete style={{ fontSize: 14 }} />

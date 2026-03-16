@@ -18,6 +18,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
             </Link>
             <button
                 onClick={onMenuClick}
+                aria-label="打开菜单"
                 className="w-[44px] h-[44px] flex items-center justify-center rounded-full active:bg-gray-100 transition-colors"
             >
                 <IconMenu className="text-gray-600 text-xl" />
