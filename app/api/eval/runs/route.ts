@@ -28,7 +28,7 @@ export interface EvalRunSummary {
 export async function GET() {
   try {
     // 优先从 SQLite 读取 runs 元信息
-    const dbRuns = getRuns(50);
+    const dbRuns = await getRuns(50);
 
     // 同时从 JSON 文件读取结果详情（兼容旧数据）
     const jsonData = new Map<string, any>();
@@ -67,7 +67,7 @@ export async function GET() {
 
       // 标注统计
       let annotationStats = { total: 0, annotated: 0, pass: 0, fail: 0, pending: 0 };
-      try { annotationStats = getAnnotationStats(dbRun.id); } catch { /* db may not have results */ }
+      try { annotationStats = await getAnnotationStats(dbRun.id); } catch { /* db may not have results */ }
 
       runs.push({
         runId: dbRun.id,

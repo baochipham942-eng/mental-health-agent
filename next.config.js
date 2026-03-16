@@ -12,7 +12,7 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     // @xenova/transformers 依赖 onnxruntime-node 原生模块，不能被 webpack 打包
-    serverComponentsExternalPackages: ['@xenova/transformers', 'onnxruntime-node', 'better-sqlite3'],
+    serverComponentsExternalPackages: ['@xenova/transformers', 'onnxruntime-node', 'better-sqlite3', 'sql.js'],
   },
   // 确保验证文件可以被访问
   async rewrites() {

@@ -18,9 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'humanStatus must be pass/fail/pending' }, { status: 400 });
     }
 
-    updateAnnotation({ runId, caseId, humanStatus, humanTags, humanNote, firstFailTurn });
+    await updateAnnotation({ runId, caseId, humanStatus, humanTags, humanNote, firstFailTurn });
 
-    const stats = getAnnotationStats(runId);
+    const stats = await getAnnotationStats(runId);
     return NextResponse.json({ ok: true, stats });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

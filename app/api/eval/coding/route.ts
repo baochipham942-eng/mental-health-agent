@@ -43,9 +43,9 @@ function loadRunData(runId: string): any {
 }
 
 /** 从 SQLite eval_results 提取失败案例 */
-function extractFailCasesFromDb(runId: string): OpenCodeTag[] {
+async function extractFailCasesFromDb(runId: string): Promise<OpenCodeTag[]> {
   const items: OpenCodeTag[] = [];
-  const results = getRunResults(runId);
+  const results = await getRunResults(runId);
   for (const r of results) {
     if (r.code_checks_json) {
       try {
@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
 
     // 如果没有编码数据，返回空的失败案例列表
     const runData = loadRunData(runId);
-    const items = runData ? extractFailCases(runData) : extractFailCasesFromDb(runId);
+    const items = await (runData ? Promise.resolve(extractFailCases(runData)) : extractFailCasesFromDb(runId));
     if (items.length === 0 && !runData) {
       // 完全找不到数据
       return NextResponse.json({ runId, items: [], generatedAt: null });
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     if (action === 'generate') {
       // AI 两阶段标签生成：先提取原始问题 → 再统一归类到精简标签集
       const runData = loadRunData(runId);
-      const items = runData ? extractFailCases(runData) : extractFailCasesFromDb(runId);
+      const items = await (runData ? Promise.resolve(extractFailCases(runData)) : extractFailCasesFromDb(runId));
       if (items.length === 0) {
         return NextResponse.json({ runId, items: [], summary: '无失败案例' });
       }

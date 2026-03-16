@@ -18,8 +18,8 @@ export async function GET(
 
     if (caseId) {
       // 单个用例详情
-      const results = getCaseResults(decodedRunId, caseId);
-      const caseIds = getRunCaseIds(decodedRunId);
+      const results = await getCaseResults(decodedRunId, caseId);
+      const caseIds = await getRunCaseIds(decodedRunId);
       const currentIndex = caseIds.indexOf(caseId);
 
       return NextResponse.json({
@@ -35,7 +35,7 @@ export async function GET(
     }
 
     // 用例列表（聚合摘要）
-    const summaries = getRunCaseSummaries(decodedRunId);
+    const summaries = await getRunCaseSummaries(decodedRunId);
     return NextResponse.json({ cases: summaries });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

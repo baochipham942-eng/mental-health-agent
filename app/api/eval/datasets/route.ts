@@ -11,16 +11,16 @@ export async function GET(req: NextRequest) {
 
     // 如果有搜索
     if (query) {
-      const cases = searchCases(query, datasetId);
+      const cases = await searchCases(query, datasetId);
       return NextResponse.json({ cases });
     }
 
     // 返回数据集列表 + 用例
-    const datasets = getDatasets();
+    const datasets = await getDatasets();
 
     if (datasetId) {
-      const total = getCaseCount(datasetId);
-      const rawCases = getCases(datasetId, pageSize, (page - 1) * pageSize);
+      const total = await getCaseCount(datasetId);
+      const rawCases = await getCases(datasetId, pageSize, (page - 1) * pageSize);
       // 附带首轮角色信息
       const cases = rawCases.map(c => {
         let first_role = 'user';
@@ -38,10 +38,10 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      datasets: datasets.map(d => ({
+      datasets: await Promise.all(datasets.map(async d => ({
         ...d,
-        caseCount: getCaseCount(d.id),
-      })),
+        caseCount: await getCaseCount(d.id),
+      }))),
     });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

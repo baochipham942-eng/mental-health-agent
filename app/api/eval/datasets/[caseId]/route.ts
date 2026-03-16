@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { caseId: string } }
 ) {
   try {
-    const caseData = getCaseById(decodeURIComponent(params.caseId));
+    const caseData = await getCaseById(decodeURIComponent(params.caseId));
     if (!caseData) {
       return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     }

@@ -14,14 +14,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: '需要提供 run1 和 run2 参数' }, { status: 400 });
     }
 
-    const run1 = getRunById(run1Id);
-    const run2 = getRunById(run2Id);
+    const run1 = await getRunById(run1Id);
+    const run2 = await getRunById(run2Id);
     if (!run1 || !run2) {
       return NextResponse.json({ error: '未找到指定的实验' }, { status: 404 });
     }
 
-    const results1 = getRunResults(run1Id);
-    const results2 = getRunResults(run2Id);
+    const results1 = await getRunResults(run1Id);
+    const results2 = await getRunResults(run2Id);
 
     // 按维度聚合通过率
     function aggregateByDimension(results: any[]) {

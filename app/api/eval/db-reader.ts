@@ -2,12 +2,14 @@
  * Node.js 端读取/写入 eval-academic SQLite 数据库
  * v3: 支持读写（人工标注需要写入）
  *
+ * 使用 sql.js（纯 WASM SQLite）替代 better-sqlite3，避免原生模块跨平台问题。
+ *
  * 路径策略:
  * - 开发环境: scripts/eval-academic/eval-academic.db（可读写）
- * - 生产环境: data/eval/eval-academic.db（deploy:build 复制，只读）
+ * - 生产环境: data/eval/eval-academic.db（deploy:build 复制）
  *   写操作自动 copy 到 /tmp 后读写
  */
-import Database from 'better-sqlite3';
+import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -18,33 +20,47 @@ const PROD_TMP_PATH = '/tmp/eval-academic.db';
 
 function resolveDbPath(): string {
   if (!IS_PROD) return DEV_DB_PATH;
-  // 生产环境: 优先用 /tmp（可读写），否则从 bundle 复制过去
   if (fs.existsSync(PROD_TMP_PATH)) return PROD_TMP_PATH;
   if (fs.existsSync(PROD_BUNDLE_PATH)) {
     fs.copyFileSync(PROD_BUNDLE_PATH, PROD_TMP_PATH);
     return PROD_TMP_PATH;
   }
-  // fallback: 直接用 bundle 路径（只读）
   return PROD_BUNDLE_PATH;
 }
 
-let _db: Database.Database | null = null;
+let _db: SqlJsDatabase | null = null;
+let _dbPath: string | null = null;
 
-function getDb(): Database.Database {
-  if (!_db) {
-    const dbPath = resolveDbPath();
-    _db = new Database(dbPath);
-    _db.pragma('journal_mode = WAL');
-    _db.pragma('foreign_keys = ON');
-    // v3 迁移（幂等）
-    migrateV3(_db);
+/** 持久化：将内存中的 db 写回磁盘 */
+function persistDb() {
+  if (_db && _dbPath) {
+    const data = _db.export();
+    fs.writeFileSync(_dbPath, Buffer.from(data));
   }
+}
+
+async function initDb(): Promise<SqlJsDatabase> {
+  if (_db) return _db;
+  const SQL = await initSqlJs();
+  _dbPath = resolveDbPath();
+  const buffer = fs.readFileSync(_dbPath);
+  _db = new SQL.Database(buffer);
+  _db.run('PRAGMA foreign_keys = ON');
+  migrateV3(_db);
   return _db;
 }
 
-function migrateV3(db: Database.Database) {
-  const cols = db.pragma('table_info(eval_results)') as any[];
-  const colNames = new Set(cols.map((c: any) => c.name));
+/** 确保 db 已初始化（每个导出函数调用前使用） */
+async function ensureDb(): Promise<SqlJsDatabase> {
+  if (_db) return _db;
+  return initDb();
+}
+
+function migrateV3(db: SqlJsDatabase) {
+  const cols = db.exec('PRAGMA table_info(eval_results)');
+  const colNames = new Set(
+    (cols[0]?.values || []).map((row: any) => row[1])
+  );
   const newCols = [
     { name: 'weighted_score', sql: 'ALTER TABLE eval_results ADD COLUMN weighted_score REAL' },
     { name: 'human_status', sql: 'ALTER TABLE eval_results ADD COLUMN human_status TEXT' },
@@ -55,15 +71,33 @@ function migrateV3(db: Database.Database) {
   ];
   for (const col of newCols) {
     if (!colNames.has(col.name)) {
-      try { db.exec(col.sql); } catch { /* column might already exist */ }
+      try { db.run(col.sql); } catch { /* column might already exist */ }
     }
   }
-  // eval_runs 新字段
-  const runCols = db.pragma('table_info(eval_runs)') as any[];
-  const runColNames = new Set(runCols.map((c: any) => c.name));
-  if (!runColNames.has('model')) try { db.exec('ALTER TABLE eval_runs ADD COLUMN model TEXT'); } catch {}
-  if (!runColNames.has('mode')) try { db.exec("ALTER TABLE eval_runs ADD COLUMN mode TEXT DEFAULT 'benchmark'"); } catch {}
-  if (!runColNames.has('version')) try { db.exec('ALTER TABLE eval_runs ADD COLUMN version TEXT'); } catch {}
+  const runCols = db.exec('PRAGMA table_info(eval_runs)');
+  const runColNames = new Set(
+    (runCols[0]?.values || []).map((row: any) => row[1])
+  );
+  if (!runColNames.has('model')) try { db.run('ALTER TABLE eval_runs ADD COLUMN model TEXT'); } catch {}
+  if (!runColNames.has('mode')) try { db.run("ALTER TABLE eval_runs ADD COLUMN mode TEXT DEFAULT 'benchmark'"); } catch {}
+  if (!runColNames.has('version')) try { db.run('ALTER TABLE eval_runs ADD COLUMN version TEXT'); } catch {}
+}
+
+/** sql.js 查询结果转为对象数组 */
+function queryAll(db: SqlJsDatabase, sql: string, params?: any[]): any[] {
+  const stmt = db.prepare(sql);
+  if (params) stmt.bind(params);
+  const rows: any[] = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return rows;
+}
+
+function queryOne(db: SqlJsDatabase, sql: string, params?: any[]): any | undefined {
+  const rows = queryAll(db, sql, params);
+  return rows[0];
 }
 
 // ========== Datasets ==========
@@ -77,8 +111,9 @@ export interface DatasetInfo {
   imported_at: string;
 }
 
-export function getDatasets(): DatasetInfo[] {
-  return getDb().prepare('SELECT * FROM datasets ORDER BY id').all() as DatasetInfo[];
+export async function getDatasets(): Promise<DatasetInfo[]> {
+  const db = await ensureDb();
+  return queryAll(db, 'SELECT * FROM datasets ORDER BY id') as DatasetInfo[];
 }
 
 // ========== Cases ==========
@@ -95,7 +130,8 @@ export interface CaseRow {
   turn_count: number;
 }
 
-export function getCases(datasetId?: string, limit?: number, offset?: number): CaseRow[] {
+export async function getCases(datasetId?: string, limit?: number, offset?: number): Promise<CaseRow[]> {
+  const db = await ensureDb();
   let sql = 'SELECT * FROM eval_cases';
   const params: any[] = [];
   if (datasetId) {
@@ -111,23 +147,26 @@ export function getCases(datasetId?: string, limit?: number, offset?: number): C
       params.push(offset);
     }
   }
-  return getDb().prepare(sql).all(...params) as CaseRow[];
+  return queryAll(db, sql, params) as CaseRow[];
 }
 
-export function getCaseById(caseId: string): CaseRow | undefined {
-  return getDb().prepare('SELECT * FROM eval_cases WHERE id = ?').get(caseId) as CaseRow | undefined;
+export async function getCaseById(caseId: string): Promise<CaseRow | undefined> {
+  const db = await ensureDb();
+  return queryOne(db, 'SELECT * FROM eval_cases WHERE id = ?', [caseId]) as CaseRow | undefined;
 }
 
-export function getCaseCount(datasetId?: string): number {
+export async function getCaseCount(datasetId?: string): Promise<number> {
+  const db = await ensureDb();
   if (datasetId) {
-    const row = getDb().prepare('SELECT COUNT(*) as cnt FROM eval_cases WHERE dataset_id = ?').get(datasetId) as any;
-    return row.cnt;
+    const row = queryOne(db, 'SELECT COUNT(*) as cnt FROM eval_cases WHERE dataset_id = ?', [datasetId]);
+    return row?.cnt ?? 0;
   }
-  const row = getDb().prepare('SELECT COUNT(*) as cnt FROM eval_cases').get() as any;
-  return row.cnt;
+  const row = queryOne(db, 'SELECT COUNT(*) as cnt FROM eval_cases');
+  return row?.cnt ?? 0;
 }
 
-export function searchCases(query: string, datasetId?: string): CaseRow[] {
+export async function searchCases(query: string, datasetId?: string): Promise<CaseRow[]> {
+  const db = await ensureDb();
   let sql = 'SELECT * FROM eval_cases WHERE (category LIKE ? OR situation LIKE ? OR id LIKE ?)';
   const params: any[] = [`%${query}%`, `%${query}%`, `%${query}%`];
   if (datasetId) {
@@ -135,7 +174,7 @@ export function searchCases(query: string, datasetId?: string): CaseRow[] {
     params.push(datasetId);
   }
   sql += ' ORDER BY id LIMIT 50';
-  return getDb().prepare(sql).all(...params) as CaseRow[];
+  return queryAll(db, sql, params) as CaseRow[];
 }
 
 // ========== v3: Runs ==========
@@ -154,38 +193,47 @@ export interface RunRow {
   version: string | null;
 }
 
-export function getRuns(limit = 50): RunRow[] {
-  return getDb().prepare('SELECT * FROM eval_runs ORDER BY started_at DESC LIMIT ?').all(limit) as RunRow[];
+export async function getRuns(limit = 50): Promise<RunRow[]> {
+  const db = await ensureDb();
+  return queryAll(db, 'SELECT * FROM eval_runs ORDER BY started_at DESC LIMIT ?', [limit]) as RunRow[];
 }
 
-export function getRunById(runId: string): RunRow | undefined {
-  return getDb().prepare('SELECT * FROM eval_runs WHERE id = ?').get(runId) as RunRow | undefined;
+export async function getRunById(runId: string): Promise<RunRow | undefined> {
+  const db = await ensureDb();
+  return queryOne(db, 'SELECT * FROM eval_runs WHERE id = ?', [runId]) as RunRow | undefined;
 }
 
 // ========== v3: Results ==========
 
-export function getRunResults(runId: string): any[] {
-  return getDb().prepare(
-    'SELECT * FROM eval_results WHERE run_id = ? ORDER BY case_id, turn_index'
-  ).all(runId);
+export async function getRunResults(runId: string): Promise<any[]> {
+  const db = await ensureDb();
+  return queryAll(db,
+    'SELECT * FROM eval_results WHERE run_id = ? ORDER BY case_id, turn_index',
+    [runId]
+  );
 }
 
-export function getRunCaseIds(runId: string): string[] {
-  const rows = getDb().prepare(
-    'SELECT DISTINCT case_id FROM eval_results WHERE run_id = ? ORDER BY case_id'
-  ).all(runId) as any[];
+export async function getRunCaseIds(runId: string): Promise<string[]> {
+  const db = await ensureDb();
+  const rows = queryAll(db,
+    'SELECT DISTINCT case_id FROM eval_results WHERE run_id = ? ORDER BY case_id',
+    [runId]
+  );
   return rows.map(r => r.case_id);
 }
 
-export function getCaseResults(runId: string, caseId: string): any[] {
-  return getDb().prepare(
-    'SELECT * FROM eval_results WHERE run_id = ? AND case_id = ? ORDER BY turn_index'
-  ).all(runId, caseId);
+export async function getCaseResults(runId: string, caseId: string): Promise<any[]> {
+  const db = await ensureDb();
+  return queryAll(db,
+    'SELECT * FROM eval_results WHERE run_id = ? AND case_id = ? ORDER BY turn_index',
+    [runId, caseId]
+  );
 }
 
 /** 按 case 聚合的摘要（用例列表用） */
-export function getRunCaseSummaries(runId: string): any[] {
-  return getDb().prepare(`
+export async function getRunCaseSummaries(runId: string): Promise<any[]> {
+  const db = await ensureDb();
+  return queryAll(db, `
     SELECT
       r.case_id,
       c.category,
@@ -207,12 +255,12 @@ export function getRunCaseSummaries(runId: string): any[] {
     WHERE r.run_id = ?
     GROUP BY r.case_id
     ORDER BY r.case_id
-  `).all(runId);
+  `, [runId]);
 }
 
 /** 获取用例的首轮用户 prompt（数据集列表展示用） */
-export function getCaseFirstPrompt(caseId: string): string | null {
-  const row = getCaseById(caseId);
+export async function getCaseFirstPrompt(caseId: string): Promise<string | null> {
+  const row = await getCaseById(caseId);
   if (!row) return null;
   try {
     const dialog = JSON.parse(row.dialog_json);
@@ -223,49 +271,52 @@ export function getCaseFirstPrompt(caseId: string): string | null {
 
 // ========== v3: 人工标注 ==========
 
-export function updateAnnotation(params: {
+export async function updateAnnotation(params: {
   runId: string;
   caseId: string;
   humanStatus: 'pass' | 'fail' | 'pending';
   humanTags?: string[];
   humanNote?: string;
   firstFailTurn?: number;
-}) {
-  const db = getDb();
-  db.prepare(
+}): Promise<void> {
+  const db = await ensureDb();
+  db.run(
     `UPDATE eval_results SET
       human_status = ?,
       human_tags = ?,
       human_note = ?,
       first_fail_turn = ?,
       annotated_at = datetime('now')
-    WHERE run_id = ? AND case_id = ?`
-  ).run(
-    params.humanStatus,
-    params.humanTags ? JSON.stringify(params.humanTags) : null,
-    params.humanNote || null,
-    params.firstFailTurn ?? null,
-    params.runId,
-    params.caseId,
+    WHERE run_id = ? AND case_id = ?`,
+    [
+      params.humanStatus,
+      params.humanTags ? JSON.stringify(params.humanTags) : null,
+      params.humanNote || null,
+      params.firstFailTurn ?? null,
+      params.runId,
+      params.caseId,
+    ]
   );
+  persistDb();
 }
 
 /** 删除实验及其所有结果 */
-export function deleteRun(runId: string): { deletedResults: number; deletedRun: boolean } {
-  const db = getDb();
-  const resultInfo = db.prepare('DELETE FROM eval_results WHERE run_id = ?').run(runId);
-  const runInfo = db.prepare('DELETE FROM eval_runs WHERE id = ?').run(runId);
-  return {
-    deletedResults: resultInfo.changes,
-    deletedRun: runInfo.changes > 0,
-  };
+export async function deleteRun(runId: string): Promise<{ deletedResults: number; deletedRun: boolean }> {
+  const db = await ensureDb();
+  db.run('DELETE FROM eval_results WHERE run_id = ?', [runId]);
+  const deletedResults = db.getRowsModified();
+  db.run('DELETE FROM eval_runs WHERE id = ?', [runId]);
+  const deletedRun = db.getRowsModified() > 0;
+  persistDb();
+  return { deletedResults, deletedRun };
 }
 
-export function getAnnotationStats(runId: string): { total: number; annotated: number; pass: number; fail: number; pending: number } {
-  const rows = getDb().prepare(`
+export async function getAnnotationStats(runId: string): Promise<{ total: number; annotated: number; pass: number; fail: number; pending: number }> {
+  const db = await ensureDb();
+  const rows = queryAll(db, `
     SELECT human_status as status, COUNT(DISTINCT case_id) as cnt
     FROM eval_results WHERE run_id = ? GROUP BY human_status
-  `).all(runId) as any[];
+  `, [runId]);
 
   const stats = { total: 0, annotated: 0, pass: 0, fail: 0, pending: 0 };
   for (const row of rows) {

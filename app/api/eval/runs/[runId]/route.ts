@@ -28,7 +28,7 @@ export async function GET(
     }
 
     // Fallback: 从 SQLite 读取
-    const dbRun = getRunById(runId);
+    const dbRun = await getRunById(runId);
     if (!dbRun) {
       return NextResponse.json({ error: 'Run not found' }, { status: 404 });
     }
@@ -57,7 +57,7 @@ export async function DELETE(
     const { runId } = params;
 
     // 1. 从 SQLite 删除
-    const dbResult = deleteRun(runId);
+    const dbResult = await deleteRun(runId);
 
     // 2. 删除对应的 JSON 和 HTML 报告文件
     let filesDeleted = 0;
