@@ -169,8 +169,9 @@ export function ChatInput({
 
     try {
       onSend(value);
+      // 不要在此处设 height='auto' — 会在值清空前造成一帧高度突变
+      // adjustHeight() 会在 useEffect([value]) 中自动处理
       if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
         requestAnimationFrame(() => {
           textareaRef.current?.focus();
         });

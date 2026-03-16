@@ -180,15 +180,24 @@ export function VoiceInputButton({
         </button>
     );
 
-    // 转写中不用 Tooltip（避免定位问题），直接返回按钮
+    // 固定尺寸外壳 — 隔离 Tooltip 内部包裹行为对父级 flex 布局的影响
+    // 根因：ArcoDesign Tooltip 对 disabled 子元素会添加额外 wrapper span，
+    // 导致 flex 子项尺寸变化，麦克风图标上移
+    const shell = (
+        <div className="flex items-center justify-center" style={{ width: size, height: size, flexShrink: 0 }}>
+            {button}
+        </div>
+    );
+
+    // 转写中不用 Tooltip（避免定位问题），直接返回
     if (isTranscribing) {
-        return button;
+        return shell;
     }
 
     // 其他状态用 Tooltip
     return (
         <Tooltip content={getTooltipContent()} position="top" mini>
-            {button}
+            {shell}
         </Tooltip>
     );
 }

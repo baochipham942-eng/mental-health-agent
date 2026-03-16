@@ -19,6 +19,11 @@ vi.mock('@/lib/runtime/chat-auth', () => ({
     }),
 }));
 
+// Mock admin auth — provider 路由测试需要管理员权限
+vi.mock('@/lib/auth/admin', () => ({
+    isAdminSession: vi.fn().mockReturnValue(true),
+}));
+
 // Mock Prisma DB
 vi.mock('@/lib/db/prisma', () => ({
     prisma: {

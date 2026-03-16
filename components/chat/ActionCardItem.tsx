@@ -307,50 +307,34 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
           )}
         </div>
 
-        {/* 右侧动作按钮 (Header Controls) */}
-        <div className="p-4 bg-gray-50 md:bg-white md:border-l border-gray-100 flex flex-row md:flex-col justify-center items-center gap-3 md:w-32 flex-shrink-0 transition-colors">
-          {/* 
-            Header Logic:
-            1. If expanded AND headerControl is present: Show headerControl (e.g. "Start/Finish" buttons injected by widget)
-            2. If expanded AND no headerControl: Show nothing (clean look) or "Processing" if using simple steps
-            3. If collapsed: Show standard "Start" / "Continue" / "Again" button
-          */}
-
-          {isExpanded && headerControl ? (
-            headerControl
-          ) : isExpanded ? (
-            // Expanded but no widget controls (e.g. simple steps or rating view)
-            // Clean or minimal status
-            showRating ? (
-              <span className="text-xs font-bold text-gray-400">评分中</span>
-            ) : (
-              <button
-                onClick={() => setIsExpanded(false)}
-                className="text-xs text-blue-500 hover:underline"
-              >
-                收起
-              </button>
+        {/* 右侧动作按钮 — 固定尺寸容器，内容切换不影响 flex 布局 */}
+        <div className="p-4 bg-gray-50 md:bg-white md:border-l border-gray-100 flex flex-row md:flex-col justify-center items-center gap-3 md:w-32 md:min-h-[60px] flex-shrink-0 transition-colors">
+          {isExpanded ? (
+            headerControl || (
+              showRating ? (
+                <span className="text-xs font-bold text-gray-400">评分中</span>
+              ) : (
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  收起
+                </button>
+              )
             )
           ) : (
-            // Collapsed state
-            isCompleted ? (
-              <button
-                onClick={handleMainAction}
-                className="w-full md:w-auto px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-full text-sm font-medium hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm"
-              >
-                再次练习
-              </button>
-            ) : (
-              <button
-                onClick={handleMainAction}
-                className={`w-full md:w-auto px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-all transform hover:scale-105 active:scale-95 ${isInProgress
-                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
-                  }`}
-              >
-                {isInProgress ? '继续' : isGuided ? '开始引导' : '开始练习'}
-              </button>
-            )
+            <button
+              onClick={handleMainAction}
+              className={`w-full md:w-auto px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-all transform hover:scale-105 active:scale-95 ${
+                isCompleted
+                  ? 'bg-white border border-gray-200 text-gray-600 !font-medium hover:bg-gray-50 hover:text-blue-600'
+                  : isInProgress
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
+              }`}
+            >
+              {isCompleted ? '再次练习' : isInProgress ? '继续' : isGuided ? '开始引导' : '开始练习'}
+            </button>
           )}
         </div>
       </div>

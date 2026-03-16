@@ -9,8 +9,139 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ====== Mock 外部依赖 ======
 
+// vi.hoisted() 声明在 vi.mock 工厂中引用的变量，确保 hoisting 后仍可访问
+const {
+  profileMemoryStore, memoryCandidateStore, sessionSummaryV2Store,
+  userStore, conversationStore, idState, nextId, matchesWhere, createDelegate,
+  mockGenerateStructured,
+} = vi.hoisted(() => {
+  const _idState = { counter: 0 };
+  const _nextId = () => `cuid_${++_idState.counter}`;
+
+  function _matchesWhere(row: any, where: any): boolean {
+    for (const [key, val] of Object.entries(where || {})) {
+      if (val === null) {
+        if (row[key] !== null && row[key] !== undefined) return false;
+      } else if (typeof val === 'object' && val !== null) {
+        continue;
+      } else if (val !== undefined) {
+        if (row[key] !== val) return false;
+      }
+    }
+    return true;
+  }
+
+  function _createDelegate(store: any[]) {
+    return {
+      findMany: vi.fn(({ where, orderBy, take }: any = {}) => {
+        let results = store.filter((row) => _matchesWhere(row, where));
+        if (take) results = results.slice(0, take);
+        return Promise.resolve(results);
+      }),
+      findUnique: vi.fn(({ where }: any) => {
+        const row = store.find((r) => {
+          for (const [key, val] of Object.entries(where)) {
+            if (r[key] !== val) return false;
+          }
+          return true;
+        });
+        return Promise.resolve(row || null);
+      }),
+      findFirst: vi.fn(({ where }: any = {}) => {
+        const row = store.find((r) => {
+          for (const [key, val] of Object.entries(where || {})) {
+            if (val === null && r[key] !== null) return false;
+            if (val !== null && val !== undefined && r[key] !== val) return false;
+          }
+          return true;
+        });
+        return Promise.resolve(row || null);
+      }),
+      create: vi.fn(({ data }: any) => {
+        const row = { id: _nextId(), createdAt: new Date(), updatedAt: new Date(), ...data };
+        store.push(row);
+        return Promise.resolve(row);
+      }),
+      createMany: vi.fn(({ data }: any) => {
+        for (const d of data) {
+          store.push({ id: _nextId(), createdAt: new Date(), updatedAt: new Date(), ...d });
+        }
+        return Promise.resolve({ count: data.length });
+      }),
+      update: vi.fn(({ where, data }: any) => {
+        const row = store.find((r) => {
+          for (const [key, val] of Object.entries(where)) {
+            if (r[key] !== val) return false;
+          }
+          return true;
+        });
+        if (row) Object.assign(row, data, { updatedAt: new Date() });
+        return Promise.resolve(row);
+      }),
+      updateMany: vi.fn(({ where, data }: any) => {
+        let count = 0;
+        for (const row of store) {
+          let match = true;
+          for (const [key, val] of Object.entries(where)) {
+            if (row[key] !== val) { match = false; break; }
+          }
+          if (match) { Object.assign(row, data); count++; }
+        }
+        return Promise.resolve({ count });
+      }),
+      upsert: vi.fn(({ where, create, update }: any) => {
+        const existing = store.find((r) => {
+          for (const [key, val] of Object.entries(where)) {
+            if (r[key] !== val) return false;
+          }
+          return true;
+        });
+        if (existing) {
+          Object.assign(existing, update, { updatedAt: new Date() });
+          return Promise.resolve(existing);
+        }
+        const row = { id: _nextId(), createdAt: new Date(), updatedAt: new Date(), ...create };
+        store.push(row);
+        return Promise.resolve(row);
+      }),
+      count: vi.fn(({ where }: any = {}) => {
+        return Promise.resolve(store.filter((r) => {
+          for (const [key, val] of Object.entries(where || {})) {
+            if (r[key] !== val) return false;
+          }
+          return true;
+        }).length);
+      }),
+      deleteMany: vi.fn(({ where }: any = {}) => {
+        const before = store.length;
+        const toKeep = store.filter((r) => {
+          for (const [key, val] of Object.entries(where || {})) {
+            if (r[key] !== val) return true;
+          }
+          return false;
+        });
+        store.length = 0;
+        store.push(...toKeep);
+        return Promise.resolve({ count: before - store.length });
+      }),
+    };
+  }
+
+  return {
+    profileMemoryStore: [] as any[],
+    memoryCandidateStore: [] as any[],
+    sessionSummaryV2Store: [] as any[],
+    userStore: [] as any[],
+    conversationStore: [] as any[],
+    idState: _idState,
+    nextId: _nextId,
+    matchesWhere: _matchesWhere,
+    createDelegate: _createDelegate,
+    mockGenerateStructured: vi.fn(),
+  };
+});
+
 // Mock LLM
-const mockGenerateStructured = vi.fn();
 vi.mock('@/lib/llm', () => ({
   generateStructured: (...args: any[]) => mockGenerateStructured(...args),
   chatCompletion: vi.fn().mockResolvedValue({ reply: '对话摘要文本' }),
@@ -19,126 +150,6 @@ vi.mock('@/lib/llm', () => ({
 vi.mock('@/lib/ai/deepseek', () => ({
   chatCompletion: vi.fn().mockResolvedValue({ reply: '对话摘要文本' }),
 }));
-
-// In-memory DB 模拟
-let profileMemoryStore: any[] = [];
-let memoryCandidateStore: any[] = [];
-let sessionSummaryV2Store: any[] = [];
-let userStore: any[] = [];
-let conversationStore: any[] = [];
-let idCounter = 0;
-const nextId = () => `cuid_${++idCounter}`;
-
-function matchesWhere(row: any, where: any): boolean {
-  for (const [key, val] of Object.entries(where || {})) {
-    if (val === null) {
-      // null 匹配 null 和 undefined（Prisma 语义：字段为空）
-      if (row[key] !== null && row[key] !== undefined) return false;
-    } else if (typeof val === 'object' && val !== null) {
-      // 跳过复杂查询条件（如 { gte: ... }）
-      continue;
-    } else if (val !== undefined) {
-      if (row[key] !== val) return false;
-    }
-  }
-  return true;
-}
-
-function createDelegate(store: any[]) {
-  return {
-    findMany: vi.fn(({ where, orderBy, take }: any = {}) => {
-      let results = store.filter((row) => matchesWhere(row, where));
-      if (take) results = results.slice(0, take);
-      return Promise.resolve(results);
-    }),
-    findUnique: vi.fn(({ where }: any) => {
-      const row = store.find((r) => {
-        for (const [key, val] of Object.entries(where)) {
-          if (r[key] !== val) return false;
-        }
-        return true;
-      });
-      return Promise.resolve(row || null);
-    }),
-    findFirst: vi.fn(({ where }: any = {}) => {
-      const row = store.find((r) => {
-        for (const [key, val] of Object.entries(where || {})) {
-          if (val === null && r[key] !== null) return false;
-          if (val !== null && val !== undefined && r[key] !== val) return false;
-        }
-        return true;
-      });
-      return Promise.resolve(row || null);
-    }),
-    create: vi.fn(({ data }: any) => {
-      const row = { id: nextId(), createdAt: new Date(), updatedAt: new Date(), ...data };
-      store.push(row);
-      return Promise.resolve(row);
-    }),
-    createMany: vi.fn(({ data }: any) => {
-      for (const d of data) {
-        store.push({ id: nextId(), createdAt: new Date(), updatedAt: new Date(), ...d });
-      }
-      return Promise.resolve({ count: data.length });
-    }),
-    update: vi.fn(({ where, data }: any) => {
-      const row = store.find((r) => {
-        for (const [key, val] of Object.entries(where)) {
-          if (r[key] !== val) return false;
-        }
-        return true;
-      });
-      if (row) Object.assign(row, data, { updatedAt: new Date() });
-      return Promise.resolve(row);
-    }),
-    updateMany: vi.fn(({ where, data }: any) => {
-      let count = 0;
-      for (const row of store) {
-        let match = true;
-        for (const [key, val] of Object.entries(where)) {
-          if (row[key] !== val) { match = false; break; }
-        }
-        if (match) { Object.assign(row, data); count++; }
-      }
-      return Promise.resolve({ count });
-    }),
-    upsert: vi.fn(({ where, create, update }: any) => {
-      const existing = store.find((r) => {
-        for (const [key, val] of Object.entries(where)) {
-          if (r[key] !== val) return false;
-        }
-        return true;
-      });
-      if (existing) {
-        Object.assign(existing, update, { updatedAt: new Date() });
-        return Promise.resolve(existing);
-      }
-      const row = { id: nextId(), createdAt: new Date(), updatedAt: new Date(), ...create };
-      store.push(row);
-      return Promise.resolve(row);
-    }),
-    count: vi.fn(({ where }: any = {}) => {
-      return Promise.resolve(store.filter((r) => {
-        for (const [key, val] of Object.entries(where || {})) {
-          if (r[key] !== val) return false;
-        }
-        return true;
-      }).length);
-    }),
-    deleteMany: vi.fn(({ where }: any = {}) => {
-      const before = store.length;
-      const toKeep = store.filter((r) => {
-        for (const [key, val] of Object.entries(where || {})) {
-          if (r[key] !== val) return true;
-        }
-        return false;
-      });
-      store.length = 0;
-      store.push(...toKeep);
-      return Promise.resolve({ count: before - store.length });
-    }),
-  };
-}
 
 // Mock 缓存层（测试中不需要真实缓存行为）
 vi.mock('../memory-cache', () => ({
@@ -227,7 +238,7 @@ beforeEach(() => {
   sessionSummaryV2Store.length = 0;
   userStore.length = 0;
   conversationStore.length = 0;
-  idCounter = 0;
+  idState.counter = 0;
 });
 
 // ============================================================
