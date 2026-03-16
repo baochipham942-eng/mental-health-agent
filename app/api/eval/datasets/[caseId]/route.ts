@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCaseById } from '../../db-reader';
+import { requireEvalAdmin } from '../../auth-guard';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { caseId: string } }
 ) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     const caseData = await getCaseById(decodeURIComponent(params.caseId));
     if (!caseData) {
       return NextResponse.json({ error: 'Case not found' }, { status: 404 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRunCaseSummaries, getCaseResults, getRunCaseIds } from '../../../db-reader';
+import { requireEvalAdmin } from '../../../auth-guard';
 
 /**
  * GET /api/eval/runs/[runId]/cases — 获取 run 下的用例列表或单个用例详情
@@ -12,6 +13,9 @@ export async function GET(
   { params }: { params: Promise<{ runId: string }> }
 ) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     const { runId } = await params;
     const decodedRunId = decodeURIComponent(runId);
     const caseId = req.nextUrl.searchParams.get('caseId');

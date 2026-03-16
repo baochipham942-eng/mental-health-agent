@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireEvalAdmin } from '../../auth-guard';
 
 const CALIBRATION_FILE = path.join(process.cwd(), 'data/calibration/calibration-set-v1.json');
 
@@ -30,6 +31,9 @@ function round(n: number, digits = 3): number {
 
 export async function GET() {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({ error: '校准集不存在' }, { status: 404 });
     }

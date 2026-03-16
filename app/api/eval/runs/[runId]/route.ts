@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { deleteRun, getRunById } from '../../db-reader';
+import { requireEvalAdmin } from '../../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 
@@ -10,6 +11,9 @@ export async function GET(
   { params }: { params: { runId: string } }
 ) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     const { runId } = params;
 
     // 先查 JSON 文件
@@ -54,6 +58,9 @@ export async function DELETE(
   { params }: { params: { runId: string } }
 ) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     const { runId } = params;
 
     // 1. 从 SQLite 删除

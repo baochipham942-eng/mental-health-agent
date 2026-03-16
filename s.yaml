@@ -48,6 +48,8 @@ resources:
         LANGFUSE_PUBLIC_KEY: ${env(LANGFUSE_PUBLIC_KEY)}
         LANGFUSE_BASE_URL: ${env(LANGFUSE_BASE_URL)}
         LANGFUSE_ENABLED: "true"
+        ADMIN_PHONES: ${env(ADMIN_PHONES)}
+        ADMIN_USERNAMES: ${env(ADMIN_USERNAMES)}
       customDomains:
         - domainName: mental.llmxy.xyz
           protocol: HTTPS

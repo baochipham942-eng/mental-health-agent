@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRunResults, getRunById } from '../db-reader';
+import { requireEvalAdmin } from '../auth-guard';
 
 /**
  * GET /api/eval/compare?run1=xxx&run2=yyy
@@ -7,6 +8,8 @@ import { getRunResults, getRunById } from '../db-reader';
  */
 export async function GET(req: NextRequest) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
     const run1Id = req.nextUrl.searchParams.get('run1');
     const run2Id = req.nextUrl.searchParams.get('run2');
 

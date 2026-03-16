@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { generateText, type LlmProviderName } from '@/lib/llm';
+import { requireEvalAdmin } from '../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 const ANALYSIS_DIR = path.join(process.cwd(), 'data/coding');
@@ -216,6 +217,9 @@ ${dimSummary}
 
 export async function POST(req: NextRequest) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
+
     const body = await req.json();
     const { runId, caseId, provider: reqProvider, cacheOnly, action } = body;
     if (!runId) return NextResponse.json({ error: 'runId is required' }, { status: 400 });

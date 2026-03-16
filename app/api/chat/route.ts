@@ -32,6 +32,7 @@ import {
 import { DEFAULT_SAFE, getSafetyAgent } from '@/lib/ai/agents/safety-agent';
 import { runWithTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
+import { checkRateLimit } from '@/lib/api/rate-limit';
 
 // =================================================================================
 // 预设技能卡配置 - 用于直接技能请求的快速响应
@@ -47,6 +48,18 @@ import { SKILL_CARDS, detectDirectSkillRequest } from '@/lib/ai/skills';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 单 IP 每分钟最多 15 次请求
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+  const rl = checkRateLimit(`chat:${clientIp}`, 15, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: '请求过于频繁，请稍后再试' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.retryAfterMs || 60000) / 1000)) } },
+    );
+  }
+
   let finalSessionId: string | undefined;
   let finalUserId: string | undefined;
   let routeType: RouteType = 'support';

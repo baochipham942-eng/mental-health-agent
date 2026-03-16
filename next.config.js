@@ -34,16 +34,22 @@ const nextConfig = {
     ];
   },
 
-  // 确保 API 路由正确配置
+  // CORS 白名单（仅允许生产域 + Vercel 预览 + 本地开发）
   async headers() {
+    const allowedOrigins = [
+      'https://mental.llmxy.xyz',
+      'https://mental-health-agent-tawny.vercel.app',
+      'http://localhost:3002',
+      'http://localhost:3000',
+    ];
     return [
       {
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+          { key: 'Access-Control-Allow-Origin', value: allowedOrigins.join(', ') },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
         ],
       },
     ];

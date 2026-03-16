@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateAnnotation, getAnnotationStats } from '../db-reader';
+import { requireEvalAdmin } from '../auth-guard';
 
 /**
  * POST /api/eval/annotate — 保存人工标注
@@ -7,6 +8,8 @@ import { updateAnnotation, getAnnotationStats } from '../db-reader';
  */
 export async function POST(req: NextRequest) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
     const body = await req.json();
     const { runId, caseId, humanStatus, humanTags, humanNote, firstFailTurn } = body;
 

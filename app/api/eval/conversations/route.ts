@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
+import { requireEvalAdmin } from '../auth-guard';
 
 /**
  * GET /api/eval/conversations — 列出可评测的已有会话
@@ -9,6 +10,8 @@ import { prisma } from '@/lib/db/prisma';
  */
 export async function GET(req: NextRequest) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50');
     const type = req.nextUrl.searchParams.get('type') || 'all';
 

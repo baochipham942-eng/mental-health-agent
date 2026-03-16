@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatasets, getCases, getCaseCount, searchCases } from '../db-reader';
+import { requireEvalAdmin } from '../auth-guard';
 
 export async function GET(req: NextRequest) {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
     const { searchParams } = new URL(req.url);
     const datasetId = searchParams.get('dataset') || undefined;
     const query = searchParams.get('q') || undefined;

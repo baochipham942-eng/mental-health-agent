@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getRuns, getAnnotationStats } from '../db-reader';
+import { requireEvalAdmin } from '../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 
@@ -27,6 +28,8 @@ export interface EvalRunSummary {
 
 export async function GET() {
   try {
+    const denied = await requireEvalAdmin();
+    if (denied) return denied;
     // 优先从 SQLite 读取 runs 元信息
     const dbRuns = await getRuns(50);
 

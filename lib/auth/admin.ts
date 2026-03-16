@@ -6,14 +6,12 @@ import { auth } from '@/auth';
 export const RESERVED_NICKNAMES = ['demo'];
 
 /**
- * 管理员手机号白名单
+ * 管理员白名单 — 从环境变量读取，逗号分隔
+ * ADMIN_PHONES=15110203706,18717878760
+ * ADMIN_USERNAMES=demo,15110203706
  */
-const ADMIN_PHONES = ['15110203706', '18717878760'];
-
-/**
- * 管理员用户名白名单
- */
-const ADMIN_USERNAMES = ['demo', '15110203706'];
+const ADMIN_PHONES = (process.env.ADMIN_PHONES || '').split(',').filter(Boolean);
+const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '').split(',').filter(Boolean);
 
 /**
  * 同步判断：session 是否为管理员（不重复调 auth()）
