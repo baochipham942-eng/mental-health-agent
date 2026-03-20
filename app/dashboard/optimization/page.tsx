@@ -34,24 +34,29 @@ import { passRateHex, statusTagColor, modeTagColor } from '@/lib/eval/constants'
 /* ---------- Helpers ---------- */
 
 /* ---------- Model Catalog ---------- */
+// 数据来源: ~/Downloads/ai/model-catalog.json（中央模型目录）
+// 更新模型后运行 ~/Downloads/ai/sync-models.sh 同步
+import catalogData from '@/lib/model-catalog.json';
 
-const MODEL_CATALOG: Record<string, { label: string; models: { value: string; label: string; desc: string }[] }> = {
-  deepseek: { label: 'DeepSeek', models: [
-    { value: 'deepseek-chat', label: 'DeepSeek V3.2', desc: '中文对话最佳性价比' },
-    { value: 'deepseek-reasoner', label: 'DeepSeek V3.2 推理', desc: '深度推理模式' },
-  ] },
-  kimi: { label: 'Kimi', models: [
-    { value: 'kimi-k2.5', label: 'Kimi K2.5', desc: '1T MoE，中文长上下文强' },
-  ] },
-  openai: { label: 'OpenAI', models: [
-    { value: 'gpt-5.4', label: 'GPT-5.4', desc: '最强旗舰' },
-    { value: 'gpt-5-mini', label: 'GPT-5 Mini', desc: '轻量高性价比' },
-  ] },
-  openrouter: { label: 'OpenRouter', models: [
-    { value: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6', desc: 'Anthropic 最强' },
-    { value: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', desc: 'Anthropic 高性价比' },
-  ] },
-};
+const DASHBOARD_PROVIDERS = ['deepseek', 'moonshot', 'openai', 'openrouter'];
+const PROVIDER_LABEL_MAP: Record<string, string> = { moonshot: 'Kimi' };
+
+const MODEL_CATALOG: Record<string, { label: string; models: { value: string; label: string; desc: string }[] }> =
+  Object.fromEntries(
+    catalogData.providers
+      .filter((p) => DASHBOARD_PROVIDERS.includes(p.id))
+      .map((p) => [
+        p.id,
+        {
+          label: PROVIDER_LABEL_MAP[p.id] || p.name,
+          models: p.models.map((m) => ({
+            value: m.id,
+            label: m.label.replace(/ \(.*?\)$/, ''),
+            desc: m.desc,
+          })),
+        },
+      ])
+  );
 
 /* ---------- Component ---------- */
 
