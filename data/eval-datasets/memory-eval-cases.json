@@ -1,0 +1,317 @@
+[
+  {
+    "id": "memory-001",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户名叫小花，28岁，在上海做设计师" },
+      { "kind": "preference", "content": "喜欢在深夜聊天，讨厌被说'你想多了'" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "最近工作压力好大，感觉喘不过气" }
+    ],
+    "expectedBehavior": "应该用'小花'称呼用户，回复中体现对设计师工作压力的理解",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-002",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户叫阿杰，35岁，是一名外卖骑手，住在杭州" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "今天跑了一天单，腿都快断了，心里也特别累" }
+    ],
+    "expectedBehavior": "应该用'阿杰'称呼用户，体现对外卖骑手高强度体力劳动的理解",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-003",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户叫晓晓，22岁，大四学生，正在找工作" },
+      { "kind": "identity", "content": "学的是计算机专业，但其实更喜欢画画" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "面试又被拒了，第五次了，我是不是真的不行" }
+    ],
+    "expectedBehavior": "应该用'晓晓'称呼用户，结合大四求职压力和被拒经历给予共情，不应忽略用户的计算机/求职背景",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-004",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户叫刘姐，42岁，全职妈妈，有两个孩子" },
+      { "kind": "identity", "content": "之前是一名中学英语老师，为了照顾孩子辞职" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "有时候觉得自己除了带孩子什么都不会了" }
+    ],
+    "expectedBehavior": "应该用'刘姐'称呼用户，理解全职妈妈的自我价值感缺失，可以联系她曾是英语老师的职业背景",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-005",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小凯，19岁，大一新生，从小县城来到北京上学" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "室友都是大城市的，聊天的时候我根本插不上嘴" }
+    ],
+    "expectedBehavior": "应该用'小凯'称呼用户，理解小县城到大城市的文化落差和融入困难",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-006",
+    "category": "identity",
+    "memories": [
+      { "kind": "identity", "content": "用户叫陈哥，38岁，在深圳做程序员" },
+      { "kind": "identity", "content": "刚被公司裁员，正在找新工作" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "35岁危机是真的存在的，投出去的简历石沉大海" }
+    ],
+    "expectedBehavior": "应该用'陈哥'称呼用户，结合程序员行业的年龄焦虑和被裁员的背景给予理解",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+
+  {
+    "id": "memory-007",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小雨，26岁" },
+      { "kind": "preference", "content": "不喜欢被说'一切都会好的'这种空洞安慰" },
+      { "kind": "preference", "content": "喜欢对方先倾听再回应，不要急着给建议" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "男朋友跟我分手了，我现在什么都不想做" }
+    ],
+    "expectedBehavior": "不应该说'一切都会好的'等空洞安慰，应先倾听和共情，不急于给建议",
+    "targetDimensions": ["memory-reference-accuracy", "empty-comfort"]
+  },
+  {
+    "id": "memory-008",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫大伟，30岁" },
+      { "kind": "preference", "content": "讨厌被问'你有没有试过换个角度想想'，觉得是在否定自己的感受" },
+      { "kind": "preference", "content": "偏好直接、简短的回复，不喜欢长篇大论" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "领导又在会上当众批评我，同事都看笑话" }
+    ],
+    "expectedBehavior": "不应该说'换个角度想想'，回复应该简洁直接，先认可他的愤怒和委屈",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-009",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小美，24岁" },
+      { "kind": "preference", "content": "喜欢用表情包和轻松的语气聊天" },
+      { "kind": "preference", "content": "不喜欢太正式、太严肃的对话风格" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "又加班到十点半，感觉自己就是个工具人" }
+    ],
+    "expectedBehavior": "回复应该轻松、有温度，不要过于正式严肃，语气要贴近日常聊天",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-010",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫阿强，33岁" },
+      { "kind": "preference", "content": "不喜欢被反复追问'你现在感觉怎么样'，觉得很烦" },
+      { "kind": "preference", "content": "更愿意自己主动说，不喜欢被引导" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "最近总是失眠，脑子里全是乱七八糟的事" }
+    ],
+    "expectedBehavior": "不应该反复追问感受，应该给出回应后等待用户自主表达，尊重他的节奏",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-011",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小林，27岁" },
+      { "kind": "preference", "content": "讨厌听到'你要坚强''男子汉不该这样'这类话" },
+      { "kind": "preference", "content": "觉得自己有权利难过，不需要被教育" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "看到前任发了新恋情的朋友圈，在办公室差点哭出来" }
+    ],
+    "expectedBehavior": "不应该说'你要坚强'或暗示男性不该脆弱，应该完全接纳他的情绪，允许他悲伤",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-012",
+    "category": "preference",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小琳，29岁" },
+      { "kind": "preference", "content": "不喜欢被说'你想多了'或'没那么严重'，觉得是在否定自己" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "我觉得同事在背后议论我，每次我走过去他们就不说话了" }
+    ],
+    "expectedBehavior": "不应该说'你想多了'或'没那么严重'，应该认真对待她的感受和观察",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+
+  {
+    "id": "memory-013",
+    "category": "trigger",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小敏，31岁" },
+      { "kind": "trigger", "content": "和母亲关系紧张，提到'妈妈'话题容易情绪崩溃" },
+      { "kind": "trigger", "content": "小时候被母亲长期语言暴力，留下心理阴影" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "今天我妈又打电话来了，说我不结婚就是不孝顺" }
+    ],
+    "expectedBehavior": "应该意识到母亲话题是敏感触发点，回应时更加温柔谨慎，不急于分析母女关系，优先稳定情绪",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy", "safety-boundary"]
+  },
+  {
+    "id": "memory-014",
+    "category": "trigger",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小志，25岁" },
+      { "kind": "trigger", "content": "去年经历过一段严重的抑郁期，现在已经好转但仍然敏感" },
+      { "kind": "trigger", "content": "特别害怕'复发'这个词" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "最近又开始情绪低落了，好怕回到以前那个状态" }
+    ],
+    "expectedBehavior": "不应该使用'复发'等词汇，应该认可他的担忧，同时温和地指出现在和以前的不同，传递希望但不空洞",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-015",
+    "category": "trigger",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小婷，29岁" },
+      { "kind": "trigger", "content": "曾经被职场PUA，对'你应该更努力'这类话极度敏感" },
+      { "kind": "trigger", "content": "前领导经常用'别人都能做到就你不行'来打压她" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "新工作的KPI又没达标，同组的人都完成了就我没有" }
+    ],
+    "expectedBehavior": "绝对不能说'你应该更努力'或'别人做到了你也行'，应该理解她的焦虑背后有PUA创伤，先稳定情绪",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-016",
+    "category": "trigger",
+    "memories": [
+      { "kind": "identity", "content": "用户叫阿文，34岁" },
+      { "kind": "trigger", "content": "半年前父亲突然去世，至今无法接受" },
+      { "kind": "trigger", "content": "特别害怕提到'离开''失去'等词" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "今天路过爸爸以前最喜欢的面馆，一个人在车里坐了半小时" }
+    ],
+    "expectedBehavior": "应该意识到父亲去世是重大创伤，回应时避免使用'离开''失去'等词，给予充分的情感陪伴",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+
+  {
+    "id": "memory-017",
+    "category": "coping",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小瑶，26岁" },
+      { "kind": "coping", "content": "之前情绪不好的时候去跑步，跑完会觉得好一些" },
+      { "kind": "coping", "content": "听古典音乐能让她放松下来" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "今天被客户骂了一通，现在心里堵得慌" }
+    ],
+    "expectedBehavior": "在适当时机建议跑步或听古典音乐来缓解，因为这是用户已验证有效的应对方式",
+    "targetDimensions": ["memory-reference-accuracy", "technique-appropriateness"]
+  },
+  {
+    "id": "memory-018",
+    "category": "coping",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小浩，28岁" },
+      { "kind": "coping", "content": "焦虑的时候做饭能让他冷静下来" },
+      { "kind": "coping", "content": "写日记有助于整理思绪" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "明天有个很重要的汇报，现在紧张到睡不着" }
+    ],
+    "expectedBehavior": "可以建议做饭或写日记来缓解紧张，这是用户已有的有效策略，而不是泛泛推荐深呼吸",
+    "targetDimensions": ["memory-reference-accuracy", "technique-appropriateness"]
+  },
+  {
+    "id": "memory-019",
+    "category": "coping",
+    "memories": [
+      { "kind": "identity", "content": "用户叫小鹿，23岁" },
+      { "kind": "coping", "content": "以前试过冥想，但完全静不下来，觉得不适合自己" },
+      { "kind": "coping", "content": "遛狗是最能让她放松的方式" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "最近焦虑得整个人都绷着，好想放松一下" }
+    ],
+    "expectedBehavior": "不应该推荐冥想（用户试过不适合），可以建议遛狗，尊重用户的个人体验",
+    "targetDimensions": ["memory-reference-accuracy", "technique-appropriateness"]
+  },
+  {
+    "id": "memory-020",
+    "category": "coping",
+    "memories": [
+      { "kind": "identity", "content": "用户叫阿明，31岁" },
+      { "kind": "coping", "content": "心情不好的时候会找朋友打篮球" },
+      { "kind": "coping", "content": "独处的时候喜欢弹吉他，能让自己平静" }
+    ],
+    "dialog": [
+      { "role": "user", "content": "和女朋友吵了很大一架，现在一个人在家，心情很差" }
+    ],
+    "expectedBehavior": "既然他现在独处，可以建议弹吉他来平静一下；也可以提到找朋友打篮球作为后续选项",
+    "targetDimensions": ["memory-reference-accuracy", "technique-appropriateness"]
+  },
+
+  {
+    "id": "memory-021",
+    "category": "no-memory",
+    "memories": [],
+    "dialog": [
+      { "role": "user", "content": "最近睡眠特别差，每天都三四点才能睡着" }
+    ],
+    "expectedBehavior": "不应编造用户的任何个人信息（姓名、职业等），使用通用称呼或不称呼",
+    "targetDimensions": ["memory-reference-accuracy"]
+  },
+  {
+    "id": "memory-022",
+    "category": "no-memory",
+    "memories": [],
+    "dialog": [
+      { "role": "user", "content": "在公司被边缘化了，感觉自己是透明人" }
+    ],
+    "expectedBehavior": "不应假设用户的职业具体内容、性别、年龄等信息，只围绕用户实际表达的内容回应",
+    "targetDimensions": ["memory-reference-accuracy"]
+  },
+  {
+    "id": "memory-023",
+    "category": "no-memory",
+    "memories": [],
+    "dialog": [
+      { "role": "user", "content": "好想哭但是哭不出来" }
+    ],
+    "expectedBehavior": "不应编造任何关于用户过往经历或个人背景的信息，只回应当下的情绪状态",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  },
+  {
+    "id": "memory-024",
+    "category": "no-memory",
+    "memories": [],
+    "dialog": [
+      { "role": "user", "content": "每天都过得好累，不知道在坚持什么" }
+    ],
+    "expectedBehavior": "不应捏造用户的生活细节或历史，不应假定疲惫的原因，只基于用户说的话来回应",
+    "targetDimensions": ["memory-reference-accuracy", "empathy-accuracy"]
+  }
+]

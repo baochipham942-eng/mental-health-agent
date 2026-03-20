@@ -34,9 +34,9 @@ interface CalibrationSample {
   userInput: string;
   aiReply: string;
   history: Array<{ role: string; content: string }>;
-  llmJudgeResult: 'Pass' | 'Fail';
+  llmJudgeResult: 'Pass' | 'Wrong' | 'Drift';
   llmJudgeCritique: string;
-  humanLabel: 'Pass' | 'Fail' | null;
+  humanLabel: 'Pass' | 'Wrong' | 'Drift' | null;
   humanNote: string | null;
 }
 
@@ -102,7 +102,7 @@ export default function CalibrationPage() {
   }, []);
 
   // 保存标注
-  const saveLabel = async (label: 'Pass' | 'Fail' | null) => {
+  const saveLabel = async (label: 'Pass' | 'Wrong' | 'Drift' | null) => {
     const sample = samples[currentIdx];
     if (!sample) return;
 
@@ -286,13 +286,22 @@ export default function CalibrationPage() {
                     Pass
                   </Button>
                   <Button
-                    type={current.humanLabel === 'Fail' ? 'primary' : 'outline'}
-                    status="danger"
+                    type={current.humanLabel === 'Drift' ? 'primary' : 'outline'}
+                    status="warning"
                     className="flex-1"
-                    onClick={() => saveLabel('Fail')}
+                    onClick={() => saveLabel('Drift')}
                     loading={saving}
                   >
-                    Fail
+                    Drift
+                  </Button>
+                  <Button
+                    type={current.humanLabel === 'Wrong' ? 'primary' : 'outline'}
+                    status="danger"
+                    className="flex-1"
+                    onClick={() => saveLabel('Wrong')}
+                    loading={saving}
+                  >
+                    Wrong
                   </Button>
                 </div>
                 <TextArea

@@ -359,6 +359,57 @@ export async function POST(request: NextRequest) {
     logInfo('groq-analysis', { analysis });
     logInfo('safety-assessment', { safetyData });
 
+    // =================================================================================
+    // Agent Trace — 结构化各阶段耗时，用于评测系统可视化
+    // =================================================================================
+    const agentTrace: Array<{
+      agent: string; startMs: number; durationMs: number;
+      model?: string; skipped?: boolean; result?: string;
+    }> = [];
+
+    // Prefetch（并行 DB 查询，与 auth 并行启动）
+    if (prefetchDurationMs > 0) {
+      agentTrace.push({
+        agent: 'prefetch',
+        startMs: 0,
+        durationMs: prefetchDurationMs,
+      });
+    }
+
+    // Triage（并行预启动，soft-wait 等待结果）
+    const triageDurationMs = softOrchestrationResult?.triage?.latency || 0;
+    const triageModel = softOrchestrationResult?.triage?.model;
+    agentTrace.push({
+      agent: 'triage',
+      startMs: 0, // 与 prefetch 并行启动
+      durationMs: triageDurationMs,
+      model: triageModel,
+      skipped: isFirstTurn, // 首轮跳过 triage
+      result: routeType,
+    });
+
+    // Safety（条件触发，仅在非 normal 时执行）
+    const safetySkipped = !softOrchestrationResult || safetyAgentResult.agentName === 'safety-skipped';
+    const safetyDurationMs = safetyAgentResult.latency || 0;
+    const safetyStartMs = triageDurationMs; // safety 在 triage 之后
+    agentTrace.push({
+      agent: 'safety',
+      startMs: safetyStartMs,
+      durationMs: safetyDurationMs,
+      model: safetyAgentResult.model,
+      skipped: safetySkipped,
+      result: safetyData.label,
+    });
+
+    // Counselor（从 pre-stream 结束开始，duration 由前端 TTFT 补充）
+    const counselorStartMs = Date.now() - requestStartedAt;
+    agentTrace.push({
+      agent: 'counselor',
+      startMs: counselorStartMs,
+      durationMs: 0, // 流式阶段，实际 duration 在 onFinish 中计算
+      result: routeType,
+    });
+
     // Append analysis and dialogue metadata to stream
     data.append({
       timestamp: new Date().toISOString(),
@@ -378,6 +429,7 @@ export async function POST(request: NextRequest) {
       emotionTrajectory: dialogueCtx?.emotionTrajectory || [],
       dialogueIntent: (analysis as any).dialogueIntent || null,
       scebProgress: dialogueCtx?.scebProgress || null,
+      agentTrace,
     } as any);
 
     // const data = new StreamData(); // Moved up

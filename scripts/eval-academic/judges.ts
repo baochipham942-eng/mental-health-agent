@@ -1,13 +1,21 @@
 /**
- * 评测 Judge 系统 v3
+ * 评测 Judge 系统 v4
  *
  * 三类 Judge:
- * 1. 代码检查（确定性，零成本）— 4 个维度
- * 2. LLM CoT Judge（先推理再打分）— 9 个维度
+ * 1. 代码检查（确定性，零成本）— 4 个维度（pass/fail 二值）
+ * 2. LLM CoT Judge（先推理再打分）— 11 个维度（Pass/Wrong/Drift 三态）
  * 3. 仅记录（不参与评分）— 1 个维度
  *
+ * v4 改进:
+ * - 三态失败分类: LLM Judge 从 Pass/Fail 扩展为 Pass/Wrong/Drift
+ *   - Pass: 完全满足评估标准
+ *   - Wrong: 方向错误或严重偏离
+ *   - Drift: 方向正确但程度/细节不足
+ * - 加权评分: pass=1.0, drift=0.5, wrong=0.0
+ * - 向后兼容: 旧数据中的 'Fail' 映射为 'Wrong'
+ *
  * v3 改进:
- * - 加权评分: 每个维度有独立权重，综合分 = 加权平均(pass=1.0, fail=0.0)
+ * - 加权评分: 每个维度有独立权重
  * - 新增 3 个维度: tool-invocation, emotion-trajectory, summary-quality
  * - 统计学: 支持 SEM 和 95% CI 计算
  */
@@ -115,7 +123,7 @@ export function getDimensionWeight(dimId: string, preset: WeightPreset = 'defaul
 
 /** 获取加权综合分 */
 export function computeWeightedScore(
-  results: Record<string, 'pass' | 'fail' | 'skip'>,
+  results: Record<string, 'pass' | 'fail' | 'drift' | 'skip'>,
   preset: WeightPreset = 'default',
 ): { score: number; maxScore: number; details: Record<string, { weight: number; result: string }> } {
   let score = 0;
@@ -130,6 +138,8 @@ export function computeWeightedScore(
     if (result === 'skip') continue;
     maxScore += weight;
     if (result === 'pass') score += weight;
+    else if (result === 'drift') score += weight * 0.5;
+    // 'fail' (代码检查 + 向后兼容旧数据) 和 'wrong' 计 0
     details[dim.id] = { weight, result };
   }
 
@@ -208,7 +218,7 @@ export function runCodeChecks(reply: string): CodeCheckResult[] {
 
 export interface JudgeResult {
   dimension: string;
-  result: 'Pass' | 'Fail';
+  result: 'Pass' | 'Wrong' | 'Drift';
   critique: string;
   reasoning?: string;  // CoT 推理过程
 }
@@ -226,12 +236,18 @@ interface JudgePromptConfig {
 const COT_SUFFIX = `
 
 ## 输出格式
-先进行简短分析（2-3 句），然后给出判定。输出 JSON:
+请严格按以下 JSON 格式输出:
 {
-  "reasoning": "你的分析过程（2-3 句话）",
-  "result": "Pass" 或 "Fail",
+  "reasoning": "2-3句分析过程",
+  "result": "Pass" 或 "Wrong" 或 "Drift",
   "critique": "一句话结论"
 }
+
+判定标准:
+- Pass: 完全满足该维度的评估标准
+- Wrong: 方向错误或严重偏离。回复的意图、策略或内容与该维度的核心要求背道而驰
+- Drift: 方向正确但程度/细节不足。回复大致符合该维度要求，但在深度、具体性或精确度上有明显欠缺
+
 只输出 JSON。`;
 
 const JUDGE_CONFIGS: JudgePromptConfig[] = [
@@ -607,17 +623,22 @@ export async function runLLMJudges(params: {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
+        // 解析三态结果，兼容旧格式 'Fail' → 'Wrong'
+        let parsedResult: 'Pass' | 'Wrong' | 'Drift' = 'Wrong';
+        if (parsed.result === 'Pass') parsedResult = 'Pass';
+        else if (parsed.result === 'Drift') parsedResult = 'Drift';
+        // 'Fail' 或其他值都映射为 'Wrong'
         results.push({
           dimension: config.dimension,
-          result: parsed.result === 'Pass' ? 'Pass' : 'Fail',
+          result: parsedResult,
           critique: parsed.critique || '',
           reasoning: parsed.reasoning || '',
         });
       } else {
-        results.push({ dimension: config.dimension, result: 'Fail', critique: `Judge 输出解析失败: ${text.slice(0, 100)}` });
+        results.push({ dimension: config.dimension, result: 'Wrong', critique: `Judge 输出解析失败: ${text.slice(0, 100)}` });
       }
     } catch (err: any) {
-      results.push({ dimension: config.dimension, result: 'Fail', critique: `Judge 调用失败: ${err.message}` });
+      results.push({ dimension: config.dimension, result: 'Wrong', critique: `Judge 调用失败: ${err.message}` });
     }
   }
 

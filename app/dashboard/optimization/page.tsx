@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, Button, Tag, Table, Empty, Message, Modal, Checkbox, InputNumber, Input, Spin, Select, Progress } from '@arco-design/web-react';
 import { IconLoading, IconPlus, IconSearch } from '@arco-design/web-react/icon';
 import type { ColumnProps } from '@arco-design/web-react/es/Table';
@@ -22,14 +22,33 @@ interface EvalRun {
   avgTtftMs: number;
   passRate: number;
   failCount: number;
+  driftCount?: number;
   annotationStats: { total: number; annotated: number; pass: number; fail: number; pending: number };
   progress: { completed: number; total: number };
+  sparklineData?: number[];
 }
 
 interface DatasetInfo { id: string; name: string; total_cases: number; caseCount: number }
 interface CaseItem { id: string; dataset_id: string; category: string | null; situation: string | null; turn_count: number; first_prompt?: string | null }
 
 import { passRateHex, statusTagColor, modeTagColor } from '@/lib/eval/constants';
+
+/* ---------- Sparkline ---------- */
+
+function Sparkline({ data, width = 80, height = 24 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length < 3) return <span className="text-gray-400 text-xs">&mdash;</span>;
+  const max = Math.max(...data, 1);
+  const points = data.map((v, i) =>
+    `${(i / (data.length - 1)) * width},${height - (v / max) * (height - 2) - 1}`
+  ).join(' ');
+  const lastY = height - (data[data.length - 1] / max) * (height - 2) - 1;
+  return (
+    <svg width={width} height={height} className="inline-block">
+      <polyline points={points} fill="none" stroke="#867AFE" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={width} cy={lastY} r="2" fill="#867AFE" />
+    </svg>
+  );
+}
 
 /* ---------- Helpers ---------- */
 
@@ -106,6 +125,26 @@ export default function ExperimentsPage() {
     } catch { /* ignore */ }
     finally { setLoading(false); }
   };
+
+  // 按 dataset+model 分组，计算同组最近 10 次 passRate 作为 sparkline 数据
+  const runsWithSparkline = useMemo(() => {
+    const groupMap: Record<string, number[]> = {};
+    const sorted = [...runs].reverse();
+    for (const r of sorted) {
+      const key = `${r.dataset}|${r.model}`;
+      if (!groupMap[key]) groupMap[key] = [];
+      groupMap[key].push(r.passRate);
+    }
+    for (const key of Object.keys(groupMap)) {
+      if (groupMap[key].length > 10) {
+        groupMap[key] = groupMap[key].slice(-10);
+      }
+    }
+    return runs.map(r => ({
+      ...r,
+      sparklineData: groupMap[`${r.dataset}|${r.model}`] || [],
+    }));
+  }, [runs]);
 
   const handleProviderChange = (provider: string) => {
     setEvalProvider(provider);
@@ -260,8 +299,8 @@ export default function ExperimentsPage() {
     router.push(`/dashboard/optimization/compare?run1=${encodeURIComponent(compareRun1)}&run2=${encodeURIComponent(compareRun2)}`);
   };
 
-  // 筛选
-  const filteredRuns = modeFilter === 'all' ? runs : runs.filter(r => r.mode === modeFilter);
+  // 筛选（使用带 sparkline 数据的 runs）
+  const filteredRuns = modeFilter === 'all' ? runsWithSparkline : runsWithSparkline.filter(r => r.mode === modeFilter);
 
   // 统计
   const totalRuns = runs.length;
@@ -318,6 +357,10 @@ export default function ExperimentsPage() {
       title: '通过率', dataIndex: 'passRate', width: 80, align: 'center' as const,
       render: (v: number) => v > 0 ? <span style={{ color: passRateHex(v), fontWeight: 600 }}>{v}%</span> : <span className="text-gray-400">-</span>,
       sorter: (a: EvalRun, b: EvalRun) => a.passRate - b.passRate,
+    },
+    {
+      title: '趋势', dataIndex: 'sparklineData', width: 100, align: 'center' as const,
+      render: (v: number[]) => <Sparkline data={v || []} />,
     },
     {
       title: '创建时间', dataIndex: 'timestamp', width: 155,

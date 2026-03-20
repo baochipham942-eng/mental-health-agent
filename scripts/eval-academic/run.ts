@@ -32,6 +32,8 @@ import {
 } from './db';
 import { runCodeChecks, runLLMJudges, computeConfidenceInterval, computeWeightedScore, type CodeCheckResult, type JudgeResult, type WeightPreset } from './judges';
 import { cacheKey, getCachedResponse, setCachedResponse, closeCacheDb } from './cache';
+import { computeEmbeddingSimilarity } from './embedding-judge';
+import { createHash } from 'crypto';
 
 dotenv.config({ path: path.join(__dirname, '../../.env.local') });
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -56,6 +58,8 @@ interface ChatResponse {
   toolCalls: Array<{ name: string; arguments?: any }>;
   emotionTrajectory: number[];
   dialogueIntent: string | null;
+  // v4: Agent Trace
+  agentTrace: any[] | null;
 }
 
 async function callChatAPI(
@@ -71,6 +75,7 @@ async function callChatAPI(
   let toolCalls: Array<{ name: string; arguments?: any }> = [];
   let emotionTrajectory: number[] = [];
   let dialogueIntent: string | null = null;
+  let agentTrace: any[] | null = null;
 
   const response = await fetch(API_URL, {
     method: 'POST',
@@ -110,12 +115,14 @@ async function callChatAPI(
           if (Array.isArray(meta?.toolCalls)) toolCalls = meta.toolCalls;
           if (Array.isArray(meta?.emotionTrajectory)) emotionTrajectory = meta.emotionTrajectory;
           if (meta?.dialogueIntent) dialogueIntent = meta.dialogueIntent;
+          // v4: Agent Trace
+          if (Array.isArray(meta?.agentTrace)) agentTrace = meta.agentTrace;
         } catch {}
       }
     }
   }
 
-  return { reply: reply.trim(), routeType, safetyLabel, ttftMs, totalMs: Date.now() - startedAt, toolCalls, emotionTrajectory, dialogueIntent };
+  return { reply: reply.trim(), routeType, safetyLabel, ttftMs, totalMs: Date.now() - startedAt, toolCalls, emotionTrajectory, dialogueIntent, agentTrace };
 }
 
 // ========== 评测单条用例 ==========
@@ -279,6 +286,19 @@ async function evalCase(
         codeMap[c.check] = c.result;
       }
 
+      // Embedding similarity（第三路低成本验证）
+      let embeddingSimilarity: number | undefined;
+      if (turn.refReply && chatResp.reply) {
+        try {
+          const embResult = await computeEmbeddingSimilarity(turn.refReply, chatResp.reply);
+          if (embResult.similarity >= 0) {
+            embeddingSimilarity = embResult.similarity;
+          }
+        } catch (e: any) {
+          // 不阻塞主流程
+        }
+      }
+
       insertResult({
         runId,
         caseId: caseRow.id,
@@ -293,6 +313,8 @@ async function evalCase(
         totalMs: chatResp.totalMs,
         judgeResults: judgeMap,
         codeChecks: codeMap,
+        agentTrace: chatResp.agentTrace ? JSON.stringify(chatResp.agentTrace) : undefined,
+        embeddingSimilarity,
       });
 
       // 打印进度
@@ -538,7 +560,16 @@ async function runProductMode(args: {
   console.log(`  LLM Judge: ${args.skipJudge ? '跳过' : JUDGE_API_KEY ? '启用' : '⚠️ 无 API Key，跳过'}`);
   console.log(`  Git: ${args.gitCommit || '未知'}`);
 
-  createRun(runId, 'product', { mode: 'product', conversationIds: args.conversationIds, labSessionIds: args.labSessionIds, skipJudge: args.skipJudge, gitCommit: args.gitCommit });
+  // Prompt snapshot（与 benchmark 模式一致）
+  let prodPromptSnapshot: string | undefined;
+  let prodPromptHash: string | undefined;
+  try {
+    const promptsPath = path.join(__dirname, '../../lib/ai/prompts.ts');
+    prodPromptSnapshot = fs.readFileSync(promptsPath, 'utf-8');
+    prodPromptHash = createHash('sha256').update(prodPromptSnapshot).digest('hex').slice(0, 8);
+  } catch {}
+
+  createRun(runId, 'product', { mode: 'product', conversationIds: args.conversationIds, labSessionIds: args.labSessionIds, skipJudge: args.skipJudge, gitCommit: args.gitCommit }, args.gitCommit, prodPromptSnapshot, prodPromptHash);
 
   // 逐条评测（复用 CaseEvalResult 兼容的格式，用于汇总）
   const allResults: CaseEvalResult[] = [];
@@ -628,7 +659,8 @@ function computeSummary(allResults: CaseEvalResult[]) {
         if (!judgeStats[j.dimension]) judgeStats[j.dimension] = { pass: 0, total: 0 };
         judgeStats[j.dimension].total++;
         if (j.result === 'Pass') judgeStats[j.dimension].pass++;
-        else failCases.push({ caseId: c.caseId, turn: t.turnIndex, dimension: j.dimension, critique: j.critique });
+        // Wrong 和 Drift 都记录到 failCases（用于根因分析），可通过 result 字段区分
+        if (j.result !== 'Pass') failCases.push({ caseId: c.caseId, turn: t.turnIndex, dimension: j.dimension, critique: j.critique });
       }
     }
   }
@@ -1028,10 +1060,14 @@ async function rescoreRun(runId: string, skipJudge: boolean) {
       // 关键维度失败，LLM Judge 不运行（judgeMap 保持为空）
     }
 
-    // 计算加权分
-    const allDimResults: Record<string, 'pass' | 'fail' | 'skip'> = {};
+    // 计算加权分（三态: pass/drift/fail，兼容旧数据 Fail → fail）
+    const allDimResults: Record<string, 'pass' | 'fail' | 'drift' | 'skip'> = {};
     for (const [k, v] of Object.entries(codeMap)) allDimResults[k] = v as 'pass' | 'fail';
-    for (const [k, v] of Object.entries(judgeMap)) allDimResults[k] = v.result === 'Pass' ? 'pass' : 'fail';
+    for (const [k, v] of Object.entries(judgeMap)) {
+      if (v.result === 'Pass') allDimResults[k] = 'pass';
+      else if (v.result === 'Drift') allDimResults[k] = 'drift';
+      else allDimResults[k] = 'fail'; // 'Wrong' / 'Fail'(旧数据) → fail
+    }
     const { score } = computeWeightedScore(allDimResults);
 
     updateResultScores(row.run_id, row.case_id, row.turn_index, codeMap, judgeMap, score);
@@ -1135,8 +1171,18 @@ async function main() {
     process.exit(1);
   }
 
+  // Prompt 版本快照
+  let promptSnapshot: string | undefined;
+  let promptHash: string | undefined;
+  try {
+    const promptsPath = path.join(__dirname, '../../lib/ai/prompts.ts');
+    promptSnapshot = fs.readFileSync(promptsPath, 'utf-8');
+    promptHash = createHash('sha256').update(promptSnapshot).digest('hex').slice(0, 8);
+    console.log(`  Prompt hash: ${promptHash}`);
+  } catch { /* prompts.ts 不存在时跳过 */ }
+
   // 创建运行记录
-  createRun(runId, datasetFilter, { limit, skipJudge, gitCommit });
+  createRun(runId, datasetFilter, { limit, skipJudge, gitCommit }, gitCommit, promptSnapshot, promptHash);
 
   // 逐条评测
   const allResults: CaseEvalResult[] = [];

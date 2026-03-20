@@ -108,11 +108,17 @@ function migrateV3(db: Database) {
     { name: 'human_note', sql: 'ALTER TABLE eval_results ADD COLUMN human_note TEXT' },
     { name: 'first_fail_turn', sql: 'ALTER TABLE eval_results ADD COLUMN first_fail_turn INTEGER' },
     { name: 'annotated_at', sql: 'ALTER TABLE eval_results ADD COLUMN annotated_at TEXT' },
+    { name: 'agent_trace_json', sql: 'ALTER TABLE eval_results ADD COLUMN agent_trace_json TEXT' },
   ];
   for (const col of newCols) {
     if (!colNames.has(col.name)) {
       db.exec(col.sql);
     }
+  }
+
+  // eval_results: embedding_similarity
+  if (!colNames.has('embedding_similarity')) {
+    db.exec('ALTER TABLE eval_results ADD COLUMN embedding_similarity REAL');
   }
 
   // eval_runs 新字段
@@ -121,6 +127,8 @@ function migrateV3(db: Database) {
   if (!runColNames.has('model')) db.exec('ALTER TABLE eval_runs ADD COLUMN model TEXT');
   if (!runColNames.has('mode')) db.exec("ALTER TABLE eval_runs ADD COLUMN mode TEXT DEFAULT 'benchmark'");
   if (!runColNames.has('version')) db.exec('ALTER TABLE eval_runs ADD COLUMN version TEXT');
+  if (!runColNames.has('prompt_snapshot')) db.exec('ALTER TABLE eval_runs ADD COLUMN prompt_snapshot TEXT');
+  if (!runColNames.has('prompt_hash')) db.exec('ALTER TABLE eval_runs ADD COLUMN prompt_hash TEXT');
 }
 
 export function closeDb() {
@@ -228,12 +236,12 @@ export function getCaseCount(datasetId?: string): number {
 
 // ========== 运行记录操作 ==========
 
-export function createRun(id: string, datasetId: string | null, config: any, gitCommit?: string): string {
+export function createRun(id: string, datasetId: string | null, config: any, gitCommit?: string, promptSnapshot?: string, promptHash?: string): string {
   const db = getDb();
   db.run(
-    `INSERT INTO eval_runs (id, dataset_id, started_at, config_json, git_commit, status)
-     VALUES (?, ?, datetime('now'), ?, ?, 'running')`,
-    [id, datasetId, JSON.stringify(config), gitCommit || null]
+    `INSERT INTO eval_runs (id, dataset_id, started_at, config_json, git_commit, status, prompt_snapshot, prompt_hash)
+     VALUES (?, ?, datetime('now'), ?, ?, 'running', ?, ?)`,
+    [id, datasetId, JSON.stringify(config), gitCommit || null, promptSnapshot || null, promptHash || null]
   );
   return id;
 }
@@ -266,11 +274,13 @@ export function insertResult(r: {
   totalMs?: number;
   judgeResults?: Record<string, { result: string; critique: string }>;
   codeChecks?: Record<string, string>;
+  agentTrace?: string; // JSON 字符串
+  embeddingSimilarity?: number;
 }) {
   const db = getDb();
   db.run(
-    `INSERT INTO eval_results (run_id, case_id, turn_index, user_input, ai_reply, reference_reply, reference_strategy, route_type, safety_label, ttft_ms, total_ms, judge_results_json, code_checks_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO eval_results (run_id, case_id, turn_index, user_input, ai_reply, reference_reply, reference_strategy, route_type, safety_label, ttft_ms, total_ms, judge_results_json, code_checks_json, agent_trace_json, embedding_similarity)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       r.runId, r.caseId, r.turnIndex, r.userInput,
       r.aiReply || null, r.referenceReply || null, r.referenceStrategy || null,
@@ -278,6 +288,8 @@ export function insertResult(r: {
       r.ttftMs || null, r.totalMs || null,
       r.judgeResults ? JSON.stringify(r.judgeResults) : null,
       r.codeChecks ? JSON.stringify(r.codeChecks) : null,
+      r.agentTrace || null,
+      r.embeddingSimilarity ?? null,
     ]
   );
 }

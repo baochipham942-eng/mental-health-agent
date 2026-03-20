@@ -21,8 +21,8 @@ const LLM_JUDGE_DIMENSIONS = [
 interface CalibrationSample {
   id: string;
   dimension: string;
-  llmJudgeResult: 'Pass' | 'Fail';
-  humanLabel: 'Pass' | 'Fail' | null;
+  llmJudgeResult: 'Pass' | 'Wrong' | 'Drift';
+  humanLabel: 'Pass' | 'Wrong' | 'Drift' | null;
 }
 
 function round(n: number, digits = 3): number {

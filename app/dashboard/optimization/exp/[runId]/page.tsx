@@ -20,6 +20,7 @@ interface RunMeta {
   totalCases: number;
   passRate: number;
   failCount: number;
+  driftCount?: number;
   annotationStats: { total: number; annotated: number; pass: number; fail: number; pending: number };
 }
 
@@ -53,6 +54,16 @@ interface TurnResult {
   human_status: string | null;
   human_tags: string | null;
   human_note: string | null;
+  agent_trace_json: string | null;
+}
+
+interface AgentTraceStep {
+  agent: string;
+  startMs: number;
+  durationMs: number;
+  model?: string;
+  skipped?: boolean;
+  result?: string;
 }
 
 interface CaseDetail {
@@ -61,11 +72,74 @@ interface CaseDetail {
   navigation: { prev: string | null; next: string | null; current: number; total: number };
 }
 
-import { DIM_LABELS, passRateHex, humanStatusLabel } from '@/lib/eval/constants';
+import { DIM_LABELS, passRateHex, humanStatusLabel, normalizeJudgeResult, judgeResultColor } from '@/lib/eval/constants';
+import { computeTextDiff, type DiffSegment } from '@/lib/eval/text-diff';
 
 function humanStatusTag(s: string | null) {
   const { text, color } = humanStatusLabel(s);
   return color ? <Tag color={color} size="small">{text}</Tag> : <Tag size="small">{text}</Tag>;
+}
+
+/* ---------- DiffView ---------- */
+
+function DiffView({ reference, actual }: { reference: string; actual: string }) {
+  const segments = computeTextDiff(reference, actual);
+  return (
+    <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap">
+      {segments.map((seg, i) => (
+        <span
+          key={i}
+          className={
+            seg.type === 'removed' ? 'bg-red-100 text-red-800 line-through' :
+            seg.type === 'added' ? 'bg-green-100 text-green-800' :
+            ''
+          }
+        >
+          {seg.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Agent Timeline ---------- */
+
+function AgentTimeline({ trace }: { trace: AgentTraceStep[] }) {
+  if (!trace || trace.length === 0) return null;
+  const maxMs = Math.max(...trace.map(s => s.startMs + s.durationMs));
+
+  const agentColors: Record<string, string> = {
+    prefetch: 'bg-gray-50 text-gray-600',
+    triage: 'bg-blue-50 text-blue-700',
+    safety: 'bg-orange-50 text-orange-700',
+    counselor: 'bg-purple-50 text-purple-700',
+    quality: 'bg-green-50 text-green-700',
+  };
+
+  return (
+    <div className="flex items-center gap-1 mb-2 text-xs">
+      {trace.map((step, i) => (
+        <span key={i} className="contents">
+          {i > 0 && <span className="text-gray-400">&rarr;</span>}
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${
+              step.skipped ? 'bg-gray-100 text-gray-400 line-through' :
+              agentColors[step.agent] || 'bg-gray-50 text-gray-600'
+            }`}
+            title={[step.result, step.model].filter(Boolean).join(' | ')}
+          >
+            {step.agent}
+            <span className="font-mono text-[10px] opacity-70">{step.durationMs}ms</span>
+          </span>
+        </span>
+      ))}
+      {maxMs > 0 && (
+        <span className="ml-auto text-gray-400 font-mono text-[10px]">
+          total {maxMs}ms
+        </span>
+      )}
+    </div>
+  );
 }
 
 /* ---------- Component ---------- */
@@ -342,7 +416,7 @@ export default function ExperimentDetailPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">总用例</div>
           <div className="text-2xl font-bold mt-1">{cases.length}</div>
@@ -352,8 +426,12 @@ export default function ExperimentDetailPage() {
           <div className="text-2xl font-bold mt-1 text-green-600">{passCount}</div>
         </Card>
         <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
-          <div className="text-xs text-gray-500">失败</div>
+          <div className="text-xs text-gray-500">错误 (Wrong)</div>
           <div className="text-2xl font-bold mt-1 text-red-500">{failCount}</div>
+        </Card>
+        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+          <div className="text-xs text-gray-500">偏离 (Drift)</div>
+          <div className="text-2xl font-bold mt-1 text-amber-500">{runMeta?.driftCount || 0}</div>
         </Card>
         <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">通过率</div>
@@ -585,17 +663,25 @@ export default function ExperimentDetailPage() {
                     {selectedCase.results.map((t, idx) => {
                       const judges = t.judge_results_json ? JSON.parse(t.judge_results_json) : {};
                       const codes = t.code_checks_json ? JSON.parse(t.code_checks_json) : {};
-                      const fails = [
-                        ...Object.entries(judges).filter(([, v]: any) => (v as any).result !== 'Pass'),
+                      // 非通过项：Wrong/Drift(LLM) + fail(代码检查)
+                      const nonPass = [
+                        ...Object.entries(judges).filter(([, v]: any) => normalizeJudgeResult((v as any).result) !== 'Pass'),
                         ...Object.entries(codes).filter(([, v]) => v !== 'pass'),
                       ];
-                      const allPass = fails.length === 0;
+                      const hasWrong = Object.values(judges).some((v: any) => normalizeJudgeResult(v.result) === 'Wrong')
+                        || Object.values(codes).some((v: any) => v === 'fail');
+                      const allPass = nonPass.length === 0;
+                      // 状态标签：全通过 → PASS，有 Wrong → WRONG，仅 Drift → DRIFT
+                      const statusLabel = allPass ? 'PASS' : hasWrong ? 'WRONG' : 'DRIFT';
+                      const statusColor = allPass ? 'green' : hasWrong ? 'red' : 'orangered';
+                      const agentTrace: AgentTraceStep[] = t.agent_trace_json ? (() => { try { return JSON.parse(t.agent_trace_json); } catch { return []; } })() : [];
 
                       return (
                         <div key={t.turn_index} className="border rounded-lg p-3">
+                          {agentTrace.length > 0 && <AgentTimeline trace={agentTrace} />}
                           <div className="flex items-center gap-2 mb-2">
                             <Tag size="small" color="gray">第 {idx + 1} 轮</Tag>
-                            <Tag size="small" color={allPass ? 'green' : 'red'}>{allPass ? 'PASS' : 'FAIL'}</Tag>
+                            <Tag size="small" color={statusColor}>{statusLabel}</Tag>
                             <span className="text-xs text-gray-400">{t.ttft_ms}ms</span>
                             {t.route_type && <Tag size="small" color="cyan">{t.route_type}</Tag>}
                             {t.reference_strategy && <Tag size="small" color="purple">{t.reference_strategy}</Tag>}
@@ -605,26 +691,37 @@ export default function ExperimentDetailPage() {
                               <div className="text-xs text-blue-500 font-medium mb-1">用户</div>
                               <div className="text-sm text-gray-700">{t.user_input}</div>
                             </div>
-                            <div className={`rounded p-2.5 ${allPass ? 'bg-green-50' : 'bg-red-50'}`}>
-                              <div className={`text-xs font-medium mb-1 ${allPass ? 'text-green-600' : 'text-red-500'}`}>AI</div>
+                            <div className={`rounded p-2.5 ${allPass ? 'bg-green-50' : hasWrong ? 'bg-red-50' : 'bg-amber-50'}`}>
+                              <div className={`text-xs font-medium mb-1 ${allPass ? 'text-green-600' : hasWrong ? 'text-red-500' : 'text-amber-600'}`}>AI</div>
                               <div className="text-sm text-gray-700 whitespace-pre-wrap">{t.ai_reply}</div>
                             </div>
                           </div>
                           {t.reference_reply && (
                             <details className="mt-2">
-                              <summary className="text-xs text-purple-500 cursor-pointer hover:text-purple-700">查看参考回复</summary>
+                              <summary className="text-xs text-purple-500 cursor-pointer hover:text-purple-700">
+                                {t.ai_reply ? '查看参考回复 Diff' : '查看参考回复'}
+                              </summary>
                               <div className="bg-purple-50 rounded p-2.5 mt-1">
-                                <div className="text-sm text-gray-600">{t.reference_reply}</div>
+                                {t.ai_reply ? (
+                                  <DiffView reference={t.reference_reply} actual={t.ai_reply} />
+                                ) : (
+                                  <div className="text-sm text-gray-600">{t.reference_reply}</div>
+                                )}
                               </div>
                             </details>
                           )}
-                          {fails.length > 0 && (
+                          {nonPass.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              {fails.map(([dim, v]: any) => (
-                                <div key={dim} className="text-xs text-red-600 bg-red-50 rounded px-2 py-1">
-                                  <b>{DIM_LABELS[dim] || dim}:</b> {typeof v === 'object' ? v.critique : '未通过'}
-                                </div>
-                              ))}
+                              {nonPass.map(([dim, v]: any) => {
+                                const isJudge = typeof v === 'object' && v.result;
+                                const normalized = isJudge ? normalizeJudgeResult(v.result) : null;
+                                const isDrift = normalized === 'Drift';
+                                return (
+                                  <div key={dim} className={`text-xs rounded px-2 py-1 ${isDrift ? 'text-amber-700 bg-amber-50' : 'text-red-600 bg-red-50'}`}>
+                                    <b>{DIM_LABELS[dim] || dim}{isDrift ? ' [偏离]' : ''}:</b> {isJudge ? v.critique : '未通过'}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -646,16 +743,19 @@ export default function ExperimentDetailPage() {
                               <div key={check} className="flex items-center gap-2 text-xs">
                                 <Tag size="small" color="green">CODE</Tag>
                                 <span className="text-gray-600">{DIM_LABELS[check] || check}</span>
-                                <Tag size="small" color={result === 'pass' ? 'green' : 'red'}>{result === 'pass' ? 'Pass' : 'Fail'}</Tag>
+                                <Tag size="small" color={result === 'pass' ? 'green' : 'red'}>{result === 'pass' ? 'Pass' : 'Wrong'}</Tag>
                               </div>
                             ))}
-                            {Object.entries(judges).map(([dim, v]: any) => (
-                              <div key={dim} className="flex items-center gap-2 text-xs">
-                                <Tag size="small" color="orange">LLM</Tag>
-                                <span className="text-gray-600">{DIM_LABELS[dim] || dim}</span>
-                                <Tag size="small" color={v.result === 'Pass' ? 'green' : 'red'}>{v.result}</Tag>
-                              </div>
-                            ))}
+                            {Object.entries(judges).map(([dim, v]: any) => {
+                              const nr = normalizeJudgeResult(v.result);
+                              return (
+                                <div key={dim} className="flex items-center gap-2 text-xs">
+                                  <Tag size="small" color="orange">LLM</Tag>
+                                  <span className="text-gray-600">{DIM_LABELS[dim] || dim}</span>
+                                  <Tag size="small" color={judgeResultColor(v.result)}>{nr}</Tag>
+                                </div>
+                              );
+                            })}
                           </div>
                         </Card>
                       );

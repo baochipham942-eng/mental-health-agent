@@ -20,6 +20,7 @@ export interface EvalRunSummary {
   avgTtftMs: number;
   passRate: number;
   failCount: number;
+  driftCount?: number;   // v4: 三态失败分类 — Drift 偏离数
   // v3: 标注进度
   annotationStats: { total: number; annotated: number; pass: number; fail: number; pending: number };
   // v3: 进度

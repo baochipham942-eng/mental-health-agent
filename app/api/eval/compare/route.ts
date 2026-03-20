@@ -50,28 +50,30 @@ export async function GET(req: NextRequest) {
       return stats;
     }
 
-    // 按 case_id + dimension 提取每条检查的通过/失败状态
+    // 按 case_id + dimension 提取每条检查的状态
+    // 三态优先级: Wrong > Drift > Pass（取最差结果）
     function extractCaseDimResults(results: any[]): Map<string, string> {
-      // key: `${case_id}::${dimension}`, value: 'Pass' | 'Fail'
-      // 同一 case+dim 可能有多条（多轮），取最差结果（有 Fail 就算 Fail）
+      // key: `${case_id}::${dimension}`, value: 'Pass' | 'Drift' | 'Wrong'
+      const severity = (s: string) => s === 'Wrong' || s === 'Fail' ? 2 : s === 'Drift' ? 1 : 0;
       const map = new Map<string, string>();
       for (const r of results) {
         if (r.judge_results_json) {
           const judges = JSON.parse(r.judge_results_json);
           for (const [dim, val] of Object.entries(judges) as [string, any][]) {
             const key = `${r.case_id}::${dim}`;
+            // 标准化: Fail(旧数据) → Wrong
+            const normalized = val.result === 'Pass' ? 'Pass' : val.result === 'Drift' ? 'Drift' : 'Wrong';
             const existing = map.get(key);
-            if (val.result === 'Pass' && !existing) map.set(key, 'Pass');
-            if (val.result !== 'Pass') map.set(key, 'Fail');
+            if (!existing || severity(normalized) > severity(existing)) map.set(key, normalized);
           }
         }
         if (r.code_checks_json) {
           const checks = JSON.parse(r.code_checks_json);
           for (const [check, result] of Object.entries(checks) as [string, string][]) {
             const key = `${r.case_id}::${check}`;
+            const normalized = result === 'pass' ? 'Pass' : 'Wrong';
             const existing = map.get(key);
-            if (result === 'pass' && !existing) map.set(key, 'Pass');
-            if (result !== 'pass') map.set(key, 'Fail');
+            if (!existing || severity(normalized) > severity(existing)) map.set(key, normalized);
           }
         }
       }
@@ -141,21 +143,18 @@ export async function GET(req: NextRequest) {
     const regressions: { caseId: string; dimension: string; run1: string; run2: string }[] = [];
     const improvements: { caseId: string; dimension: string; run1: string; run2: string }[] = [];
 
-    // 遍历 run1 的所有 key，找退化（run1 Pass, run2 Fail）
-    for (const [key, status1] of caseDim1) {
-      const status2 = caseDim2.get(key);
-      if (status1 === 'Pass' && status2 === 'Fail') {
-        const [caseId, dimension] = key.split('::');
-        regressions.push({ caseId, dimension, run1: 'Pass', run2: 'Fail' });
-      }
-    }
+    // 三态严重度比较: Wrong(2) > Drift(1) > Pass(0)
+    const sev = (s: string) => s === 'Wrong' || s === 'Fail' ? 2 : s === 'Drift' ? 1 : 0;
 
-    // 遍历所有共有 key，找改进（run1 Fail, run2 Pass）
+    // 遍历共有 key，找退化（run2 严重度 > run1）和改进（run2 严重度 < run1）
     for (const [key, status1] of caseDim1) {
       const status2 = caseDim2.get(key);
-      if (status1 === 'Fail' && status2 === 'Pass') {
-        const [caseId, dimension] = key.split('::');
-        improvements.push({ caseId, dimension, run1: 'Fail', run2: 'Pass' });
+      if (!status2) continue;
+      const [caseId, dimension] = key.split('::');
+      if (sev(status2) > sev(status1)) {
+        regressions.push({ caseId, dimension, run1: status1, run2: status2 });
+      } else if (sev(status2) < sev(status1)) {
+        improvements.push({ caseId, dimension, run1: status1, run2: status2 });
       }
     }
 

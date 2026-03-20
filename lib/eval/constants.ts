@@ -58,3 +58,21 @@ export function humanStatusLabel(status: string | null): { text: string; color: 
   if (status === 'pending') return { text: '待定', color: 'gray' };
   return { text: '未标注', color: '' };
 }
+
+/**
+ * 标准化 LLM Judge 结果值（向后兼容旧数据 'Fail' → 'Wrong'）
+ * 代码检查维度保持 'pass'/'fail' 不变
+ */
+export function normalizeJudgeResult(result: string): 'Pass' | 'Wrong' | 'Drift' {
+  if (result === 'Pass') return 'Pass';
+  if (result === 'Drift') return 'Drift';
+  return 'Wrong'; // 'Fail'(旧数据) 或其他值都映射为 'Wrong'
+}
+
+/** LLM Judge 三态结果 → Arco Tag 颜色 */
+export function judgeResultColor(result: string): string {
+  const normalized = normalizeJudgeResult(result);
+  if (normalized === 'Pass') return 'green';
+  if (normalized === 'Drift') return 'orangered';
+  return 'red'; // Wrong
+}

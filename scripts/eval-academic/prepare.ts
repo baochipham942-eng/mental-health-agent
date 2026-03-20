@@ -6,6 +6,9 @@
  *   bun scripts/eval-academic/prepare.ts --dataset esconv
  *   bun scripts/eval-academic/prepare.ts --dataset psy-insight
  *   bun scripts/eval-academic/prepare.ts --dataset cpsycoun
+ *   bun scripts/eval-academic/prepare.ts --dataset adversarial
+ *   bun scripts/eval-academic/prepare.ts --dataset memory-eval
+ *   bun scripts/eval-academic/prepare.ts --dataset skill-trigger
  *   bun scripts/eval-academic/prepare.ts --stats         # 查看统计
  */
 
@@ -260,6 +263,90 @@ async function importAdversarial() {
   console.log(`  ✓ 导入 ${imported} 条对抗性用例`);
 }
 
+// ========== Memory Eval 导入 ==========
+
+async function importMemoryEval() {
+  console.log('\n📦 Memory Eval (记忆系统评测)');
+
+  const dataPath = path.join(__dirname, '../../data/eval-datasets/memory-eval-cases.json');
+  if (!fs.existsSync(dataPath)) {
+    console.error('  ❌ 文件不存在:', dataPath);
+    return;
+  }
+
+  const cases = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+
+  upsertDataset('memory-eval', 'Memory Eval (记忆系统评测)', 'zh', 'local://data/eval-datasets/memory-eval');
+
+  let imported = 0;
+  for (const c of cases) {
+    const dialog: DialogTurn[] = c.dialog.map((d: any) => ({
+      role: d.role as 'user' | 'assistant',
+      content: d.content,
+    }));
+
+    if (dialog.length < 1) continue;
+
+    insertCase({
+      id: `memory-eval:${c.id}`,
+      datasetId: 'memory-eval',
+      category: c.category,
+      dialog,
+      metadata: {
+        memories: c.memories,
+        expectedBehavior: c.expectedBehavior,
+        targetDimensions: c.targetDimensions,
+      },
+    });
+    imported++;
+  }
+
+  updateDatasetCount('memory-eval');
+  console.log(`  ✓ 导入 ${imported} 条记忆评测用例`);
+}
+
+// ========== Skill Trigger 导入 ==========
+
+async function importSkillTrigger() {
+  console.log('\n📦 Skill Trigger (技能触发评测)');
+
+  const dataPath = path.join(__dirname, '../../data/eval-datasets/skill-trigger-cases.json');
+  if (!fs.existsSync(dataPath)) {
+    console.error('  ❌ 文件不存在:', dataPath);
+    return;
+  }
+
+  const cases = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+
+  upsertDataset('skill-trigger', 'Skill Trigger (技能触发评测)', 'zh', 'local://data/eval-datasets/skill-trigger');
+
+  let imported = 0;
+  for (const c of cases) {
+    const dialog: DialogTurn[] = c.dialog.map((d: any) => ({
+      role: d.role as 'user' | 'assistant',
+      content: d.content,
+    }));
+
+    if (dialog.length < 1) continue;
+
+    insertCase({
+      id: `skill-trigger:${c.id}`,
+      datasetId: 'skill-trigger',
+      category: c.category,
+      dialog,
+      metadata: {
+        expectedSkill: c.expectedSkill,
+        expectedBehavior: c.expectedBehavior,
+        targetDimensions: c.targetDimensions,
+      },
+    });
+    imported++;
+  }
+
+  updateDatasetCount('skill-trigger');
+  console.log(`  ✓ 导入 ${imported} 条技能触发用例`);
+}
+
 // ========== 统计 ==========
 
 function showStats() {
@@ -315,6 +402,8 @@ async function main() {
     'psy-insight': importPsyInsight,
     cpsycoun: importCPsyCounE,
     adversarial: importAdversarial,
+    'memory-eval': importMemoryEval,
+    'skill-trigger': importSkillTrigger,
   };
 
   if (dataset) {

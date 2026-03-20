@@ -99,6 +99,7 @@ function migrateV3(db: SqlJsDatabase) {
     { name: 'human_note', sql: 'ALTER TABLE eval_results ADD COLUMN human_note TEXT' },
     { name: 'first_fail_turn', sql: 'ALTER TABLE eval_results ADD COLUMN first_fail_turn INTEGER' },
     { name: 'annotated_at', sql: 'ALTER TABLE eval_results ADD COLUMN annotated_at TEXT' },
+    { name: 'agent_trace_json', sql: 'ALTER TABLE eval_results ADD COLUMN agent_trace_json TEXT' },
   ];
   for (const col of newCols) {
     if (!colNames.has(col.name)) {

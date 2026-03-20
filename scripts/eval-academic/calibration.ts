@@ -25,17 +25,17 @@ export interface CalibrationSample {
   userInput: string;
   aiReply: string;
   history: Array<{ role: string; content: string }>;
-  llmJudgeResult: 'Pass' | 'Fail';
+  llmJudgeResult: 'Pass' | 'Wrong' | 'Drift';
   llmJudgeCritique: string;
-  humanLabel: 'Pass' | 'Fail' | null;
+  humanLabel: 'Pass' | 'Wrong' | 'Drift' | null;
   humanNote: string | null;
 }
 
 export interface ConfusionMatrix {
   tp: number;  // LLM=Pass, Human=Pass
-  tn: number;  // LLM=Fail, Human=Fail
-  fp: number;  // LLM=Pass, Human=Fail
-  fn: number;  // LLM=Fail, Human=Pass
+  tn: number;  // LLM=Non-Pass, Human=Non-Pass
+  fp: number;  // LLM=Pass, Human=Non-Pass
+  fn: number;  // LLM=Non-Pass, Human=Pass
 }
 
 export interface DimensionCalibration {
@@ -87,7 +87,7 @@ export function extractCalibrationSamples(runId: string, sampleSize = 50): Calib
 
   // 将所有结果按维度+结果分组
   const passBucket: Array<{ result: any; dimension: string; judgeResult: string; critique: string }> = [];
-  const failBucket: Array<{ result: any; dimension: string; judgeResult: string; critique: string }> = [];
+  const nonPassBucket: Array<{ result: any; dimension: string; judgeResult: string; critique: string }> = [];
 
   for (const row of results) {
     if (!row.judge_results_json) continue;
@@ -102,18 +102,20 @@ export function extractCalibrationSamples(runId: string, sampleSize = 50): Calib
       const jr = judgeResults[dim];
       if (!jr || !jr.result) continue;
 
-      const item = { result: row, dimension: dim, judgeResult: jr.result, critique: jr.critique || '' };
-      if (jr.result === 'Pass') {
+      // 标准化: Fail(旧数据) → Wrong
+      const normalized = jr.result === 'Pass' ? 'Pass' : jr.result === 'Drift' ? 'Drift' : 'Wrong';
+      const item = { result: row, dimension: dim, judgeResult: normalized, critique: jr.critique || '' };
+      if (normalized === 'Pass') {
         passBucket.push(item);
       } else {
-        failBucket.push(item);
+        nonPassBucket.push(item);
       }
     }
   }
 
   // 打乱顺序
   shuffle(passBucket);
-  shuffle(failBucket);
+  shuffle(nonPassBucket);
 
   const halfSize = Math.floor(sampleSize / 2);
   const selected: typeof passBucket = [];
@@ -126,8 +128,8 @@ export function extractCalibrationSamples(runId: string, sampleSize = 50): Calib
     dimCount[dim] = 0;
   }
 
-  // 从 Pass 和 Fail 各取保底样本
-  for (const bucket of [passBucket, failBucket]) {
+  // 从 Pass 和 Non-Pass 各取保底样本
+  for (const bucket of [passBucket, nonPassBucket]) {
     for (const dim of LLM_JUDGE_DIMENSIONS) {
       if (dimCount[dim] >= MIN_PER_DIM) continue;
       const needed = MIN_PER_DIM - dimCount[dim];
@@ -142,17 +144,17 @@ export function extractCalibrationSamples(runId: string, sampleSize = 50): Calib
 
   // 第二步：填充到目标数量
   const passInSelected = selected.filter(s => s.judgeResult === 'Pass').length;
-  const failInSelected = selected.filter(s => s.judgeResult === 'Fail').length;
+  const nonPassInSelected = selected.filter(s => s.judgeResult !== 'Pass').length;
 
   const passNeeded = Math.max(0, halfSize - passInSelected);
-  const failNeeded = Math.max(0, halfSize - failInSelected);
+  const nonPassNeeded = Math.max(0, halfSize - nonPassInSelected);
 
   const selectedSet = new Set(selected);
   const remainingPass = passBucket.filter(b => !selectedSet.has(b));
-  const remainingFail = failBucket.filter(b => !selectedSet.has(b));
+  const remainingNonPass = nonPassBucket.filter(b => !selectedSet.has(b));
 
   selected.push(...remainingPass.slice(0, passNeeded));
-  selected.push(...remainingFail.slice(0, failNeeded));
+  selected.push(...remainingNonPass.slice(0, nonPassNeeded));
 
   // 截断到 sampleSize
   const finalItems = selected.slice(0, sampleSize);
@@ -172,7 +174,7 @@ export function extractCalibrationSamples(runId: string, sampleSize = 50): Calib
       userInput: row.user_input,
       aiReply: row.ai_reply || '',
       history,
-      llmJudgeResult: item.judgeResult as 'Pass' | 'Fail',
+      llmJudgeResult: item.judgeResult as 'Pass' | 'Wrong' | 'Drift',
       llmJudgeCritique: item.critique,
       humanLabel: null,
       humanNote: null,
@@ -375,15 +377,16 @@ async function main() {
     console.log(`已保存 ${samples.length} 个校准样本到 ${filePath}`);
 
     // 输出维度分布统计
-    const dimStats: Record<string, { pass: number; fail: number }> = {};
+    const dimStats: Record<string, { pass: number; wrong: number; drift: number }> = {};
     for (const s of samples) {
-      if (!dimStats[s.dimension]) dimStats[s.dimension] = { pass: 0, fail: 0 };
+      if (!dimStats[s.dimension]) dimStats[s.dimension] = { pass: 0, wrong: 0, drift: 0 };
       if (s.llmJudgeResult === 'Pass') dimStats[s.dimension].pass++;
-      else dimStats[s.dimension].fail++;
+      else if (s.llmJudgeResult === 'Drift') dimStats[s.dimension].drift++;
+      else dimStats[s.dimension].wrong++;
     }
     console.log('\n维度分布:');
     for (const [dim, stats] of Object.entries(dimStats)) {
-      console.log(`  ${dim}: Pass=${stats.pass}, Fail=${stats.fail}`);
+      console.log(`  ${dim}: Pass=${stats.pass}, Wrong=${stats.wrong}, Drift=${stats.drift}`);
     }
 
   } else if (command === 'report') {

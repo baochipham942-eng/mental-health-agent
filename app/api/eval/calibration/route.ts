@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { id, humanLabel, humanNote } = body;
 
-    if (!id || !['Pass', 'Fail', null].includes(humanLabel)) {
-      return NextResponse.json({ error: '参数无效: 需要 id 和 humanLabel (Pass/Fail/null)' }, { status: 400 });
+    if (!id || !['Pass', 'Wrong', 'Drift', 'Fail', null].includes(humanLabel)) {
+      return NextResponse.json({ error: '参数无效: 需要 id 和 humanLabel (Pass/Wrong/Drift/null)' }, { status: 400 });
     }
 
     const raw = fs.readFileSync(CALIBRATION_FILE, 'utf-8');

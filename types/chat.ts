@@ -129,6 +129,16 @@ export type GroupSSEEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
+// Agent Trace — 用于评测系统可视化各阶段耗时
+export interface AgentTraceStep {
+  agent: 'triage' | 'safety' | 'counselor' | 'quality' | 'prefetch';
+  startMs: number;    // 相对于请求开始的毫秒
+  durationMs: number;
+  model?: string;     // 使用的模型
+  skipped?: boolean;  // 如 safety 未触发
+  result?: string;    // 简要结果（如 triage 的 routeType）
+}
+
 export interface ChatResponse {
   reply: string;
   emotion?: Emotion;

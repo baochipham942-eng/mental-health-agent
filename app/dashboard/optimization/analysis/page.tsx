@@ -12,6 +12,7 @@ interface EvalRun {
   dataset: string;
   passRate: number;
   failCount: number;
+  driftCount?: number;
 }
 
 interface Suggestion {
@@ -193,7 +194,8 @@ export default function RootCauseOverviewPage() {
               <Select.Option key={r.runId} value={r.runId}>
                 <span className="font-mono text-xs">{r.runId}</span>
                 <Tag color="arcoblue" size="small" className="ml-2">{r.dataset}</Tag>
-                {r.failCount > 0 && <Tag color="red" size="small" className="ml-1">{r.failCount} 失败</Tag>}
+                {r.failCount > 0 && <Tag color="red" size="small" className="ml-1">{r.failCount} 错误</Tag>}
+                {(r.driftCount || 0) > 0 && <Tag color="orangered" size="small" className="ml-1">{r.driftCount} 偏离</Tag>}
               </Select.Option>
             ))}
           </Select>
