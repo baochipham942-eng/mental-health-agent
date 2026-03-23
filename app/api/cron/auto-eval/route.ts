@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
+import { evaluateTrace } from '@/lib/eval/trace';
+import { writeTraceEval } from '@/lib/eval/trace/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,6 +93,58 @@ export async function GET(request: NextRequest) {
                         });
                     }
                     console.log(`[AutoEval:BG] ${convId}: ${result ? '成功' : '跳过'}`);
+
+                    // 追加轨迹评测：从最后一条 assistant 消息的 meta 中提取 agentTrace
+                    try {
+                        const lastAssistant = await prisma.message.findFirst({
+                            where: { conversationId: convId, role: 'assistant' },
+                            orderBy: { createdAt: 'desc' },
+                            select: { content: true, meta: true },
+                        });
+                        const lastUser = await prisma.message.findFirst({
+                            where: { conversationId: convId, role: 'user' },
+                            orderBy: { createdAt: 'desc' },
+                            select: { content: true },
+                        });
+
+                        const meta = (lastAssistant?.meta as Record<string, any>) || {};
+                        const agentTrace = meta.agentTrace;
+
+                        if (agentTrace && Array.isArray(agentTrace) && agentTrace.length > 0 && lastUser) {
+                            const safetyData = meta.safety || { label: 'normal', score: 0 };
+                            const emotionStep = agentTrace.find((s: any) => s.agent === 'emotion');
+                            const emotionData = emotionStep?.output || { label: 'neutral', score: 5 };
+                            const routeType = meta.routeType || meta.state?.route || 'support';
+                            const adaptiveMode = meta.adaptiveMode || 'companion';
+
+                            const traceResult = await evaluateTrace({
+                                conversationId: convId,
+                                userMessage: lastUser.content,
+                                aiReply: lastAssistant?.content,
+                                traceSteps: agentTrace,
+                                routeType,
+                                safetyData,
+                                emotionData,
+                                adaptiveMode,
+                                toolCalls: meta.toolCalls || [],
+                                guardResult: meta.guardResult,
+                            }, {
+                                apiKey: process.env.DEEPSEEK_API_KEY || '',
+                                apiUrl: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
+                                model: process.env.EVAL_MODEL || 'deepseek-chat',
+                            });
+                            writeTraceEval(traceResult, {
+                                traceJson: JSON.stringify(agentTrace),
+                                userMessage: lastUser.content,
+                                aiReply: lastAssistant?.content,
+                                evalSource: 'auto_cron',
+                            });
+                            console.log(`[AutoEval:BG] 轨迹评测 ${convId}: ${traceResult.traceGrade} (${traceResult.traceScore})`);
+                        }
+                    } catch (traceErr) {
+                        // 轨迹评测失败不影响主流程
+                        console.error(`[AutoEval:BG] 轨迹评测 ${convId} 失败:`, traceErr);
+                    }
                 } catch (error) {
                     console.error(`[AutoEval:BG] ${convId} 失败:`, error);
                     try {

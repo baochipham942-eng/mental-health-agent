@@ -102,6 +102,10 @@ function createOnFinishCallback(params: {
       reply: safeText,
       toolCalls,
       safety: safetyData,
+      guardResult: {
+        safe: guardResult.safe,
+        issues: guardResult.issues,
+      },
       ...extraStreamData,
     } as any);
     data.close();

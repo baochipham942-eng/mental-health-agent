@@ -365,6 +365,9 @@ export async function POST(request: NextRequest) {
     const agentTrace: Array<{
       agent: string; startMs: number; durationMs: number;
       model?: string; skipped?: boolean; result?: string;
+      input?: Record<string, any>;
+      output?: Record<string, any>;
+      reasoning?: string;
     }> = [];
 
     // Prefetch（并行 DB 查询，与 auth 并行启动）
@@ -386,6 +389,14 @@ export async function POST(request: NextRequest) {
       model: triageModel,
       skipped: isFirstTurn, // 首轮跳过 triage
       result: routeType,
+      input: { message: message.substring(0, 200), historyLen: history.length },
+      output: {
+        safety: analysis.safety,
+        route: analysis.route,
+        emotion: analysis.emotion,
+        adaptiveMode: analysis.adaptiveMode,
+      },
+      reasoning: analysis.safetyReasoning,
     });
 
     // Safety（条件触发，仅在非 normal 时执行）
@@ -399,6 +410,29 @@ export async function POST(request: NextRequest) {
       model: safetyAgentResult.model,
       skipped: safetySkipped,
       result: safetyData.label,
+      input: { message: message.substring(0, 200), triageSafety: analysis.safety },
+      output: { label: safetyData.label, score: safetyData.score, constraints: safetyData.constraints },
+      reasoning: safetyData.reasoning,
+    });
+
+    // Persona（纯计算，无 IO）
+    agentTrace.push({
+      agent: 'persona',
+      startMs: Date.now() - requestStartedAt,
+      durationMs: 0,
+      result: adaptiveMode,
+      input: { safety: analysis.safety, emotionScore: analysis.emotion.score },
+      output: { mode: adaptiveMode },
+    });
+
+    // Emotion（triage 内部计算）
+    agentTrace.push({
+      agent: 'emotion',
+      startMs: 0,
+      durationMs: 0,
+      result: analysis.emotion.label,
+      input: { message: message.substring(0, 200) },
+      output: { label: analysis.emotion.label, score: analysis.emotion.score },
     });
 
     // Counselor（从 pre-stream 结束开始，duration 由前端 TTFT 补充）

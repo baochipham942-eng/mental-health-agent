@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { href: '/dashboard/optimization/calibration', label: '校准' },
     { href: '/dashboard/optimization/online-quality', label: '线上质量' },
     { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
+    { href: '/dashboard/optimization/trace', label: '轨迹分析' },
     { href: '/dashboard/optimization/metrics', label: '观测统计' },
 ];
 
