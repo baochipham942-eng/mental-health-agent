@@ -39,6 +39,7 @@ interface BaseHandlerParams {
   safetyData: any;
   stateData: any;
   adaptiveMode: AdaptiveMode;
+  agentTrace?: any[];
 }
 
 /**
@@ -213,6 +214,7 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     analysis,
     state,
     emotionObj,
+    agentTrace,
   } = params;
 
   const isAnalysedSafe = safetyData.label === 'normal';
@@ -239,7 +241,7 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
       data, message, history, sessionId, userId, requestStartedAt,
       saveAssistantMessage, scheduleConversationSummaryRefresh,
       safetyData, routeType: 'support', adaptiveMode,
-      extraMeta: { state: stateData },
+      extraMeta: { state: stateData, agentTrace },
       skipQualityCheck: true,
     });
 
@@ -269,7 +271,7 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     data, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'crisis', adaptiveMode: 'guardian',
-    extraMeta: { state: stateData },
+    extraMeta: { state: stateData, agentTrace },
   });
 
   const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
@@ -316,6 +318,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     history,
     providerOverride,
     modelOverride,
+    agentTrace,
   } = params;
 
   if (process.env.MOCK_SUPPORT_REPLY === '1') {
@@ -369,7 +372,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     data, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'support', adaptiveMode,
-    extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx },
+    extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx, agentTrace },
     afterFinish: (text) => {
       // SFBT 练习总结提取并写入 ProgressMetric
       if (sfbtMatch && userId) {
@@ -429,6 +432,7 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
     adaptiveMode,
     assessmentStage,
     memoryContext,
+    agentTrace,
   } = params;
 
   const onAssessmentFinish = async (text: string, toolCalls?: any[]) => {
@@ -439,7 +443,7 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
       data, message, history, sessionId, userId, requestStartedAt,
       saveAssistantMessage, scheduleConversationSummaryRefresh,
       safetyData, routeType: 'assessment', adaptiveMode,
-      extraMeta: { state: stateData, routeType: 'assessment', assessmentStage: stage },
+      extraMeta: { state: stateData, routeType: 'assessment', assessmentStage: stage, agentTrace },
       extraStreamData: { routeType: 'assessment', assessmentStage: stage },
       afterFinish: () => {
         if (!isConclusion && sessionId) {
@@ -465,7 +469,7 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
         data, message, history, sessionId, userId, requestStartedAt,
         saveAssistantMessage, scheduleConversationSummaryRefresh,
         safetyData, routeType: 'assessment', adaptiveMode,
-        extraMeta: { routeType: 'assessment', assessmentStage: 'conclusion', actionCards },
+        extraMeta: { routeType: 'assessment', assessmentStage: 'conclusion', actionCards, agentTrace },
         extraStreamData: { actionCards, routeType: 'assessment', assessmentStage: 'conclusion' },
         skipQualityCheck: true,
       });

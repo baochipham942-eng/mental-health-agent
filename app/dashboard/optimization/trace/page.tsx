@@ -39,8 +39,10 @@ interface TraceEvalItem {
 
 interface StepPassRate {
   pass: number;
+  wrong: number;
+  drift: number;
+  skip: number;
   total: number;
-  rate: number;
 }
 
 interface TraceStats {
@@ -239,9 +241,9 @@ function StepPassRateCards({ stats }: { stats: TraceStats | null }) {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {STEP_KEYS.map(key => {
         const stepStats = stats.stepPassRates[key];
-        const rate = stepStats ? Math.round(stepStats.rate * 100) : 0;
         const total = stepStats?.total || 0;
         const pass = stepStats?.pass || 0;
+        const rate = total > 0 ? Math.round((pass / total) * 100) : 0;
 
         return (
           <div

@@ -537,6 +537,7 @@ export async function POST(request: NextRequest) {
         state,
         emotionObj,
         analysis,
+        agentTrace,
       });
     }
 
@@ -567,6 +568,7 @@ export async function POST(request: NextRequest) {
         userPreferences,
         providerOverride: effectiveProviderOverride,
         modelOverride: effectiveModelOverride,
+        agentTrace,
       });
     }
 
@@ -590,6 +592,7 @@ export async function POST(request: NextRequest) {
         adaptiveMode,
         assessmentStage,
         memoryContext,
+        agentTrace,
       });
     }
 
