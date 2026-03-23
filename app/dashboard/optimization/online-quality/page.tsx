@@ -13,7 +13,7 @@ interface TrendPoint {
     manualCount: number;
 }
 
-interface LowScoreItem {
+interface EvalItem {
     id: string;
     conversationId: string;
     title: string;
@@ -25,7 +25,7 @@ interface LowScoreItem {
 
 export default function OnlineQualityPage() {
     const [trend, setTrend] = useState<TrendPoint[]>([]);
-    const [lowScore, setLowScore] = useState<LowScoreItem[]>([]);
+    const [recentEvals, setRecentEvals] = useState<EvalItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [days, setDays] = useState(30);
     const [cronStatus, setCronStatus] = useState<string>('');
@@ -37,7 +37,7 @@ export default function OnlineQualityPage() {
             if (!res.ok) throw new Error('请求失败');
             const data = await res.json();
             setTrend(data.trend || []);
-            setLowScore(data.lowScoreConversations || []);
+            setRecentEvals(data.recentEvaluations || []);
         } catch (e) {
             console.error('加载趋势数据失败:', e);
         } finally {
@@ -171,30 +171,37 @@ export default function OnlineQualityPage() {
                         )}
                     </div>
 
-                    {/* 低分对话列表 */}
+                    {/* 全部评估列表 */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                            低分对话（得分 &lt; 6）
-                            <span className="ml-2 text-xs text-gray-400 font-normal">{lowScore.length} 条</span>
+                            评估记录
+                            <span className="ml-2 text-xs text-gray-400 font-normal">{recentEvals.length} 条</span>
                         </h3>
-                        {lowScore.length === 0 ? (
-                            <div className="text-center py-6 text-gray-400 text-sm">暂无低分对话</div>
+                        {recentEvals.length === 0 ? (
+                            <div className="text-center py-6 text-gray-400 text-sm">暂无评估记录</div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="text-left text-gray-500 border-b">
                                             <th className="pb-2 font-medium">对话</th>
-                                            <th className="pb-2 font-medium">评级</th>
-                                            <th className="pb-2 font-medium">得分</th>
-                                            <th className="pb-2 font-medium">来源</th>
-                                            <th className="pb-2 font-medium">时间</th>
+                                            <th className="pb-2 font-medium w-[60px]">评级</th>
+                                            <th className="pb-2 font-medium w-[60px]">得分</th>
+                                            <th className="pb-2 font-medium w-[60px]">来源</th>
+                                            <th className="pb-2 font-medium w-[140px]">时间</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {lowScore.map(item => (
-                                            <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                <td className="py-2 max-w-[200px] truncate">{item.title}</td>
+                                        {recentEvals.map(item => (
+                                            <tr
+                                                key={item.id}
+                                                className={`border-b border-gray-100 hover:bg-gray-50 ${
+                                                    item.score < 6 ? 'bg-red-50/40' : ''
+                                                }`}
+                                            >
+                                                <td className="py-2 max-w-[300px] truncate" title={item.conversationId}>
+                                                    {item.title}
+                                                </td>
                                                 <td className="py-2">
                                                     <GradeBadge grade={item.grade} />
                                                 </td>

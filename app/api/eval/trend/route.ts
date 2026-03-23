@@ -93,11 +93,10 @@ export async function GET(request: NextRequest) {
             manualCount: d.manualCount,
         }));
 
-        // 最近低分对话
-        const lowScoreConversations = await prisma.conversationEvaluation.findMany({
+        // 最近全部评估（按时间倒序，最多 50 条）
+        const recentEvaluations = await prisma.conversationEvaluation.findMany({
             where: {
                 evaluatedAt: { gte: cutoff },
-                overallScore: { lt: 6 },
                 overallGrade: { notIn: ['EVALUATING', 'FAILED'] },
             },
             select: {
@@ -111,21 +110,28 @@ export async function GET(request: NextRequest) {
                     select: { title: true },
                 },
             },
-            orderBy: { overallScore: 'asc' },
-            take: 20,
+            orderBy: { evaluatedAt: 'desc' },
+            take: 50,
+        });
+
+        const mapEval = (e: typeof recentEvaluations[0]) => ({
+            id: e.id,
+            conversationId: e.conversationId,
+            title: e.conversation.title || '未命名',
+            grade: e.overallGrade,
+            score: e.overallScore,
+            evaluatedAt: e.evaluatedAt.toISOString(),
+            source: e.evalSource,
         });
 
         return NextResponse.json({
             trend,
-            lowScoreConversations: lowScoreConversations.map(e => ({
-                id: e.id,
-                conversationId: e.conversationId,
-                title: e.conversation.title || '未命名',
-                grade: e.overallGrade,
-                score: e.overallScore,
-                evaluatedAt: e.evaluatedAt.toISOString(),
-                source: e.evalSource,
-            })),
+            recentEvaluations: recentEvaluations.map(mapEval),
+            lowScoreConversations: recentEvaluations
+                .filter(e => e.overallScore < 6)
+                .sort((a, b) => a.overallScore - b.overallScore)
+                .slice(0, 20)
+                .map(mapEval),
         });
     } catch (e: any) {
         console.error('[EvalTrend] Error:', e);

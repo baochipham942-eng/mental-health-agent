@@ -405,10 +405,13 @@ function TraceDetail({ item }: { item: TraceEvalItem }) {
       {/* 时序图 */}
       {traceSteps.length > 0 && <TraceTimeline steps={traceSteps} />}
 
+      {/* 评分计算说明 */}
+      <ScoreBreakdown item={item} />
+
       {/* 步骤评分卡片 */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-500 mb-3">步骤评分</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <h4 className="text-xs font-semibold text-gray-500 mb-3">步骤评分详情</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {STEP_KEYS.map(key => {
             const resultKey = `${key}Result` as keyof TraceEvalItem;
             const critiqueKey = `${key}Critique` as keyof TraceEvalItem;
@@ -429,11 +432,13 @@ function TraceDetail({ item }: { item: TraceEvalItem }) {
                   </span>
                 </div>
                 {critique ? (
-                  <p className="text-xs text-gray-500 leading-relaxed line-clamp-3" title={critique}>
+                  <p className="text-xs text-gray-500 leading-relaxed" title={critique}>
                     {critique}
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">暂无评语</p>
+                  <p className="text-xs text-gray-400 italic">
+                    {verdict === 'Skip' ? '无数据，跳过评测' : '暂无评语'}
+                  </p>
                 )}
               </div>
             );
@@ -472,13 +477,60 @@ function TraceDetail({ item }: { item: TraceEvalItem }) {
   );
 }
 
+/* ---------- 评分计算说明 ---------- */
+
+function ScoreBreakdown({ item }: { item: TraceEvalItem }) {
+  const steps = STEP_KEYS.map(key => {
+    const resultKey = `${key}Result` as keyof TraceEvalItem;
+    const result = item[resultKey] as string | undefined;
+    const verdict = normalizeVerdict(result);
+    const score = verdict === 'Pass' ? 1.0 : verdict === 'Drift' ? 0.5 : verdict === 'Wrong' ? 0.0 : null;
+    return { key, label: STEP_LABELS[key], verdict, score };
+  });
+
+  const evaluated = steps.filter(s => s.score !== null);
+  const skipped = steps.filter(s => s.score === null);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <h4 className="text-xs font-semibold text-gray-500 mb-3">评分计算</h4>
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="text-gray-500">得分 =</span>
+        <span className="text-gray-400">(</span>
+        {evaluated.map((s, i) => (
+          <span key={s.key} className="flex items-center gap-0.5">
+            {i > 0 && <span className="text-gray-400 mx-0.5">+</span>}
+            <span className={`px-1.5 py-0.5 rounded font-medium ${VERDICT_STYLES[s.verdict]}`}>
+              {s.label} {s.score!.toFixed(1)}
+            </span>
+          </span>
+        ))}
+        <span className="text-gray-400">)</span>
+        <span className="text-gray-500">÷ {evaluated.length}</span>
+        <span className="text-gray-500">=</span>
+        <span className="font-bold text-gray-900">{item.traceScore.toFixed(1)}</span>
+        <span className={`px-1.5 py-0.5 rounded font-medium ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).bg} ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).text}`}>
+          {item.traceGrade}
+        </span>
+        {skipped.length > 0 && (
+          <span className="text-gray-400 ml-2">
+            ({skipped.map(s => s.label).join('、')} 跳过)
+          </span>
+        )}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-2">
+        Pass=1.0 | Drift=0.5 | Wrong=0.0 | Skip 不计入
+      </p>
+    </div>
+  );
+}
+
 /* ---------- 时序图（Gantt 风格） ---------- */
 
 function TraceTimeline({ steps }: { steps: TraceStep[] }) {
   if (steps.length === 0) return null;
 
   const maxMs = Math.max(...steps.map(s => (s.startMs || 0) + (s.durationMs || 0)), 1);
-  const totalWidth = 100; // 百分比
 
   const agentColors: Record<string, { bg: string; border: string; text: string }> = {
     prefetch: { bg: 'bg-gray-200', border: 'border-gray-300', text: 'text-gray-700' },
@@ -500,34 +552,49 @@ function TraceTimeline({ steps }: { steps: TraceStep[] }) {
       </div>
       <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1.5">
         {steps.map((step, i) => {
-          const left = maxMs > 0 ? ((step.startMs || 0) / maxMs) * totalWidth : 0;
-          const width = maxMs > 0 ? Math.max(((step.durationMs || 0) / maxMs) * totalWidth, 1) : 1;
+          const left = maxMs > 0 ? ((step.startMs || 0) / maxMs) * 100 : 0;
+          const widthPct = maxMs > 0 ? ((step.durationMs || 0) / maxMs) * 100 : 0;
+          const isNarrow = widthPct < 8; // 太窄就把耗时标签放外面
           const colors = agentColors[step.agent] || agentColors.prefetch;
+          const durationLabel = step.durationMs >= 1000
+            ? `${(step.durationMs / 1000).toFixed(1)}s`
+            : `${step.durationMs || 0}ms`;
 
           return (
             <div key={i} className="flex items-center gap-2">
               {/* 标签 */}
-              <div className="w-16 text-right shrink-0">
+              <div className="w-20 text-right shrink-0">
                 <span className={`text-xs font-medium ${step.skipped ? 'text-gray-400 line-through' : colors.text}`}>
                   {STEP_LABELS[step.agent] || step.agent}
                 </span>
               </div>
               {/* 时间条 */}
-              <div className="flex-1 h-6 bg-gray-50 rounded relative overflow-hidden">
+              <div className="flex-1 h-6 bg-gray-50 rounded relative">
                 <div
                   className={`absolute top-0 h-full rounded border ${
                     step.skipped ? 'bg-gray-100 border-gray-200' : `${colors.bg} ${colors.border}`
-                  } flex items-center justify-center transition-all duration-300`}
+                  } flex items-center transition-all duration-300`}
                   style={{
                     left: `${left}%`,
-                    width: `${Math.max(width, 2)}%`,
+                    width: `${Math.max(widthPct, 1.5)}%`,
                   }}
-                  title={`${step.agent}: ${step.startMs}ms + ${step.durationMs}ms${step.result ? ` (${step.result})` : ''}`}
+                  title={`${STEP_LABELS[step.agent] || step.agent}: 开始 ${step.startMs}ms, 耗时 ${step.durationMs}ms${step.result ? `, 结果: ${step.result}` : ''}`}
                 >
-                  <span className="text-[10px] font-mono text-gray-600 truncate px-1">
-                    {step.durationMs}ms
-                  </span>
+                  {!isNarrow && (
+                    <span className="text-[10px] font-mono text-gray-600 px-1.5 truncate">
+                      {durationLabel}
+                    </span>
+                  )}
                 </div>
+                {/* 窄条：耗时标签放在条的右侧 */}
+                {isNarrow && (
+                  <span
+                    className="absolute top-0.5 text-[10px] font-mono text-gray-500"
+                    style={{ left: `${Math.min(left + widthPct + 1, 92)}%` }}
+                  >
+                    {durationLabel}
+                  </span>
+                )}
               </div>
             </div>
           );

@@ -122,6 +122,8 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
       throw new Error(`${name.toUpperCase()}_API_KEY is not configured`);
     }
 
+    const streamStartMs = Date.now();
+
     return sdkStreamText({
       model: sdkProvider(options?.modelOverride || defaultModel),
       headers: extraHeaders,
@@ -152,7 +154,7 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
                 promptTokens: usage.promptTokens,
                 completionTokens: usage.completionTokens,
                 totalTokens: usage.totalTokens,
-                latencyMs: 0, // compat provider 无 trace context 计时
+                latencyMs: Date.now() - streamStartMs,
               }).catch(() => {});
             }).catch(() => {});
           }

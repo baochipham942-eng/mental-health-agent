@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PromptVersionItem {
     id: string;
@@ -20,6 +20,7 @@ export default function PromptVersionsPage() {
     const [selectedA, setSelectedA] = useState<string | null>(null);
     const [selectedB, setSelectedB] = useState<string | null>(null);
     const [diffView, setDiffView] = useState(false);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => {
         (async () => {
@@ -96,40 +97,76 @@ export default function PromptVersionsPage() {
                                 <thead>
                                     <tr className="text-left text-gray-500 border-b">
                                         <th className="pb-2 font-medium w-8">对比</th>
-                                        <th className="pb-2 font-medium">Hash</th>
-                                        <th className="pb-2 font-medium">评估数</th>
-                                        <th className="pb-2 font-medium">均分</th>
-                                        <th className="pb-2 font-medium">变更原因</th>
-                                        <th className="pb-2 font-medium">创建时间</th>
+                                        <th className="pb-2 font-medium w-[100px]">Hash</th>
+                                        <th className="pb-2 font-medium">Prompt 内容预览</th>
+                                        <th className="pb-2 font-medium w-[60px]">评估数</th>
+                                        <th className="pb-2 font-medium w-[50px]">均分</th>
+                                        <th className="pb-2 font-medium w-[120px]">创建时间</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {vList.map(v => (
-                                        <tr key={v.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                            <td className="py-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedA === v.id || selectedB === v.id}
-                                                    onChange={() => {
-                                                        if (selectedA === v.id) setSelectedA(null);
-                                                        else if (selectedB === v.id) setSelectedB(null);
-                                                        else if (!selectedA) setSelectedA(v.id);
-                                                        else if (!selectedB) setSelectedB(v.id);
-                                                        else { setSelectedA(selectedB); setSelectedB(v.id); }
-                                                    }}
-                                                    className="rounded"
-                                                />
-                                            </td>
-                                            <td className="py-2 font-mono text-xs text-gray-600">{v.hash.slice(0, 12)}</td>
-                                            <td className="py-2">{v.evalCount}</td>
-                                            <td className="py-2 font-mono">{v.avgScore > 0 ? v.avgScore.toFixed(1) : '-'}</td>
-                                            <td className="py-2 text-gray-500 text-xs max-w-[200px] truncate">
-                                                {v.metadata?.changeReason || '-'}
-                                            </td>
-                                            <td className="py-2 text-gray-400 text-xs">
-                                                {new Date(v.createdAt).toLocaleString('zh-CN')}
-                                            </td>
-                                        </tr>
+                                        <React.Fragment key={v.id}>
+                                            <tr
+                                                className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${expandedId === v.id ? 'bg-indigo-50/40' : ''}`}
+                                                onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
+                                            >
+                                                <td className="py-2" onClick={e => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedA === v.id || selectedB === v.id}
+                                                        onChange={() => {
+                                                            if (selectedA === v.id) setSelectedA(null);
+                                                            else if (selectedB === v.id) setSelectedB(null);
+                                                            else if (!selectedA) setSelectedA(v.id);
+                                                            else if (!selectedB) setSelectedB(v.id);
+                                                            else { setSelectedA(selectedB); setSelectedB(v.id); }
+                                                        }}
+                                                        className="rounded"
+                                                    />
+                                                </td>
+                                                <td className="py-2 font-mono text-xs text-gray-600">{v.hash.slice(0, 10)}</td>
+                                                <td className="py-2">
+                                                    <p className="text-xs text-gray-600 leading-relaxed line-clamp-2" title={v.content}>
+                                                        {v.content?.slice(0, 120) || '-'}
+                                                        {v.content && v.content.length > 120 ? '...' : ''}
+                                                    </p>
+                                                    {v.metadata?.changeReason && (
+                                                        <p className="text-[10px] text-indigo-500 mt-0.5">
+                                                            变更: {v.metadata.changeReason}
+                                                        </p>
+                                                    )}
+                                                </td>
+                                                <td className="py-2 text-center">{v.evalCount}</td>
+                                                <td className="py-2 text-center font-mono">{v.avgScore > 0 ? v.avgScore.toFixed(1) : '-'}</td>
+                                                <td className="py-2 text-gray-400 text-xs">
+                                                    {new Date(v.createdAt).toLocaleString('zh-CN')}
+                                                </td>
+                                            </tr>
+                                            {expandedId === v.id && (
+                                                <tr>
+                                                    <td colSpan={6} className="p-0">
+                                                        <div className="bg-gray-50 border-t border-b border-gray-200 px-6 py-4">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-xs font-medium text-gray-500">完整 Prompt 内容</span>
+                                                                <span className="text-[10px] text-gray-400 font-mono">
+                                                                    {v.hash} | {v.content?.length || 0} 字符
+                                                                </span>
+                                                            </div>
+                                                            <pre className="bg-white border border-gray-200 rounded-md p-4 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                                                                {v.content || '（空）'}
+                                                            </pre>
+                                                            {v.metadata && Object.keys(v.metadata).length > 0 && (
+                                                                <div className="mt-3 text-xs text-gray-500">
+                                                                    <span className="font-medium">元数据：</span>
+                                                                    <span className="font-mono ml-1">{JSON.stringify(v.metadata, null, 2)}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     ))}
                                 </tbody>
                             </table>

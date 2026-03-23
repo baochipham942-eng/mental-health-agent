@@ -4,16 +4,31 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 
-const NAV_ITEMS = [
-    { href: '/dashboard/optimization', label: '实验', exact: true },
-    { href: '/dashboard/optimization/datasets', label: '数据集' },
-    { href: '/dashboard/optimization/graders', label: '评分器' },
-    { href: '/dashboard/optimization/analysis', label: '根因总览' },
-    { href: '/dashboard/optimization/calibration', label: '校准' },
-    { href: '/dashboard/optimization/online-quality', label: '线上质量' },
-    { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
-    { href: '/dashboard/optimization/trace', label: '轨迹分析' },
-    { href: '/dashboard/optimization/metrics', label: '观测统计' },
+const NAV_GROUPS = [
+    {
+        label: '评测',
+        items: [
+            { href: '/dashboard/optimization', label: '实验', exact: true },
+            { href: '/dashboard/optimization/datasets', label: '数据集' },
+            { href: '/dashboard/optimization/graders', label: '评分器' },
+            { href: '/dashboard/optimization/calibration', label: '校准' },
+        ],
+    },
+    {
+        label: '观测',
+        items: [
+            { href: '/dashboard/optimization/online-quality', label: '线上质量' },
+            { href: '/dashboard/optimization/trace', label: '轨迹分析' },
+            { href: '/dashboard/optimization/metrics', label: '观测统计' },
+        ],
+    },
+    {
+        label: '优化',
+        items: [
+            { href: '/dashboard/optimization/analysis', label: '根因分析' },
+            { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
+        ],
+    },
 ];
 
 export default function EvalNav() {
@@ -32,26 +47,36 @@ export default function EvalNav() {
                     </svg>
                 </Link>
                 <h1 className="text-base font-bold text-gray-900 mr-2 hidden md:block">评测中心</h1>
-                <nav className="flex gap-1">
-                    {NAV_ITEMS.map(item => {
-                        const isActive = item.exact
-                            ? pathname === item.href || pathname.startsWith('/dashboard/optimization/exp/')
-                            : pathname.startsWith(item.href);
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                                    isActive
-                                        ? 'bg-indigo-50 text-indigo-700'
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                                )}
-                            >
-                                {item.label}
-                            </Link>
-                        );
-                    })}
+                <nav className="flex items-center gap-0.5">
+                    {NAV_GROUPS.map((group, gi) => (
+                        <div key={group.label} className="flex items-center">
+                            {gi > 0 && (
+                                <div className="w-px h-4 bg-gray-200 mx-2" />
+                            )}
+                            <span className="text-[10px] text-gray-400 font-medium mr-1 hidden lg:inline">
+                                {group.label}
+                            </span>
+                            {group.items.map(item => {
+                                const isActive = item.exact
+                                    ? pathname === item.href || pathname.startsWith('/dashboard/optimization/exp/')
+                                    : pathname.startsWith(item.href);
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={cn(
+                                            'px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
+                                            isActive
+                                                ? 'bg-indigo-50 text-indigo-700'
+                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                        )}
+                                    >
+                                        {item.label}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </nav>
             </div>
         </div>
