@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -41,6 +42,13 @@ export default function RootLayout({
           </ArcoConfigProvider>
         </NextAuthSessionProvider>
         <div id="modal-root" />
+        <Script
+          src="https://sessions.uxagent.top/static/sensors.umd.js"
+          strategy="afterInteractive"
+        />
+        <Script id="uxagent-init" strategy="afterInteractive">
+          {`window.Sensors=window.Sensors||{};window.Sensors.default=window.Sensors.default||{};window.Sensors.default.init('phc_t8XHlDJvmNzPALKQ17Ahi11x4dNLwHaTvRHuCvcBfru',{api_host:'https://sessions.uxagent.top'});`}
+        </Script>
       </body>
     </html>
   );
