@@ -47,14 +47,16 @@ app/
     cron/
       prune-memory/route.ts #   定时清理过期/低置信度记忆
       retry-memory/route.ts #   定时重试失败的记忆提取
+      auto-eval/route.ts    #   自动评测未评估对话（fire-and-forget）
     eval/                   # Eval system APIs
       start/route.ts        #   启动评测（spawn child process）
       status/[runId]/       #   轮询评测状态
       runs/route.ts         #   实验列表
       datasets/route.ts     #   数据集/用例查询
-      coding/route.ts       #   (已废弃) 开放编码
-      coding/axial/route.ts #   (已废弃) 主轴编码
+      trend/route.ts        #   评分趋势聚合 API
+      prompt-versions/      #   Prompt 版本列表 + 评分聚合
       analyze/route.ts      #   AI 根因诊断 + 建议生命周期管理
+    metrics/stats/route.ts  # Token/延迟/错误率统计 API
     optimization/           # Prompt optimization APIs
     auth/[...nextauth]/     # Authentication
   dashboard/
@@ -64,6 +66,9 @@ app/
       datasets/             #   数据集管理
       graders/              #   评分器配置
       analysis/             #   根因总览（6 层诊断 + 建议生命周期）
+      online-quality/       #   线上质量监控（评分趋势 + 低分追踪）
+      prompt-versions/      #   Prompt 版本管理（版本链 + Diff + 评分对比）
+      metrics/              #   观测统计（Token/延迟/错误率趋势）
     memory/                 # 记忆管理 Dashboard
     crisis/                 # 危机管理 Dashboard
     progress/               # 进度追踪 Dashboard
@@ -92,8 +97,13 @@ lib/
     index.ts                # Memory V2 统一入口（profile + summary 两层）
     lab-extractor.ts        # 探索工坊记忆提取
     session-summary-v2-writer.ts  # 会话摘要写入
+  eval/
+    auto-ingest.ts          # Bad Case 自动回流（低分对话 → SQLite eval_cases）
+    db-writer.ts            # SQLite 写入器（better-sqlite3，WAL 模式）
+    prompt-version.ts       # Prompt 版本服务（注册/查询/diff/评分聚合）
   observability/
     langfuse.ts             # LLM monitoring
+    metrics-collector.ts    # ChatMetric 采集器（Token/延迟/错误率）
 
 scripts/
   eval-academic/
@@ -192,6 +202,15 @@ Identifies 11 emotion types with 0-10 intensity scoring:
 - Session memory management
 - Memory consolidation with forgetting curve
 - 定时清理 cron（`/api/cron/prune-memory`，90 天 + 置信度 < 0.5）
+
+### 评测闭环（借鉴 CozeLoop 方法论）
+完整的"线上 → 自动评测 → 自动回流 → Prompt 优化"闭环：
+- **线上自动评测**：`/api/cron/auto-eval` 定时扫描未评估对话，fire-and-forget 异步评估
+- **评分趋势**：按日聚合 pass/warn/fail 分布，线上质量 Dashboard 可视化
+- **Bad Case 自动回流**：低分对话（overallScore ≤ 2）自动写入 SQLite eval_cases
+- **Prompt 版本管理**：SHA256 去重 + 版本链，评分与版本关联，Diff 对比
+- **观测统计**：ChatMetric 采集 Token/延迟/错误率，deepseek + compat provider 自动写入
+- **数据模型**：ConversationEvaluation（+evalSource）、PromptVersion、ChatMetric
 
 ## 用户可见文案规范
 
