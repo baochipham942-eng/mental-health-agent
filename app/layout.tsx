@@ -42,12 +42,8 @@ export default function RootLayout({
           </ArcoConfigProvider>
         </NextAuthSessionProvider>
         <div id="modal-root" />
-        <Script
-          src="https://sessions.uxagent.top/static/sensors.umd.js"
-          strategy="afterInteractive"
-        />
-        <Script id="uxagent-init" strategy="afterInteractive">
-          {`window.Sensors=window.Sensors||{};window.Sensors.default=window.Sensors.default||{};window.Sensors.default.init('phc_t8XHlDJvmNzPALKQ17Ahi11x4dNLwHaTvRHuCvcBfru',{api_host:'https://sessions.uxagent.top'});`}
+        <Script id="uxagent" strategy="afterInteractive">
+          {`(function(){var s=document.createElement('script');s.src='https://sessions.uxagent.top/static/sensors.umd.js';s.onload=function(){window.Sensors=window.Sensors||{};window.Sensors.default=window.Sensors.default||{};window.Sensors.default.init('phc_t8XHlDJvmNzPALKQ17Ahi11x4dNLwHaTvRHuCvcBfru',{api_host:'https://sessions.uxagent.top'});};document.head.appendChild(s);})();`}
         </Script>
       </body>
     </html>
