@@ -262,7 +262,7 @@ export async function streamChatCompletion(
         await options.onFinish(text, formattedToolCalls);
       }
 
-      // LangFuse Tracing (Async, Non-Blocking)
+      // LangFuse Tracing + ChatMetric (Async, Non-Blocking)
       (async () => {
         try {
           const parentCtx = getCurrentTrace();
@@ -291,6 +291,20 @@ export async function streamChatCompletion(
               updateTrace(traceTarget, { output: text });
               await flushLangfuse();
             }
+          }
+
+          // Sprint 4: 写入 ChatMetric
+          const convId = (options?.traceMetadata as any)?.sessionId || parentCtx?.sessionId;
+          if (convId) {
+            const { recordMetric: recordChatMetric } = await import('@/lib/observability/metrics-collector');
+            recordChatMetric({
+              conversationId: convId,
+              model: 'deepseek-chat',
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+              latencyMs: parentCtx ? Date.now() - parentCtx.startTime : 0,
+            }).catch(() => {});
           }
         } catch (e) {
           console.error('[LangFuse] Async trace error:', e);

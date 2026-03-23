@@ -10,6 +10,9 @@ const NAV_ITEMS = [
     { href: '/dashboard/optimization/graders', label: '评分器' },
     { href: '/dashboard/optimization/analysis', label: '根因总览' },
     { href: '/dashboard/optimization/calibration', label: '校准' },
+    { href: '/dashboard/optimization/online-quality', label: '线上质量' },
+    { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
+    { href: '/dashboard/optimization/metrics', label: '观测统计' },
 ];
 
 export default function EvalNav() {

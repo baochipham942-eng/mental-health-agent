@@ -84,6 +84,8 @@ export default function RootCauseOverviewPage() {
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<number | null>(null); // suggestion 全局 index
   const [noteInput, setNoteInput] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProvider, setAnalysisProvider] = useState<string>('deepseek');
 
   // 更新建议状态
   const updateSuggestionStatus = useCallback(async (globalIndex: number, status: string) => {
@@ -222,13 +224,49 @@ export default function RootCauseOverviewPage() {
       {selectedRun && !loading && !analysis && (
         <Card className="shadow-sm">
           <div className="text-center py-8">
-            <div className="text-sm text-gray-500 mb-2">该实验尚未进行 AI 分析</div>
-            <button
-              className="text-sm text-indigo-500 hover:underline"
-              onClick={() => goToExperiment(selectedRun)}
-            >
-              前往实验详情页运行 AI 分析 →
-            </button>
+            <div className="text-sm text-gray-500 mb-3">该实验尚未进行 AI 分析</div>
+            <div className="flex items-center justify-center gap-2">
+              <select
+                className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
+                value={analysisProvider}
+                onChange={e => setAnalysisProvider(e.target.value)}
+              >
+                <option value="deepseek">DeepSeek</option>
+                <option value="openai">OpenAI</option>
+                <option value="glm">GLM</option>
+                <option value="kimi">Kimi</option>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+              <button
+                className="px-4 py-1.5 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+                disabled={analyzing}
+                onClick={async () => {
+                  setAnalyzing(true);
+                  try {
+                    const res = await fetch('/api/eval/analyze', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ runId: selectedRun, provider: analysisProvider }),
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (data.suggestions?.length > 0) {
+                        setAnalysis(data);
+                        Message.success(`生成 ${data.suggestions.length} 条改进建议`);
+                      } else {
+                        Message.info('所有评测项均通过，无需改进');
+                      }
+                    } else {
+                      const err = await res.json();
+                      Message.error(err.error || 'AI 分析失败');
+                    }
+                  } catch { Message.error('请求失败'); }
+                  finally { setAnalyzing(false); }
+                }}
+              >
+                {analyzing ? '分析中...' : '运行 AI 分析'}
+              </button>
+            </div>
           </div>
         </Card>
       )}

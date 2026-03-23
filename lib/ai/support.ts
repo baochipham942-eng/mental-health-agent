@@ -4,6 +4,19 @@ import { IDENTITY_PROMPT } from './prompts';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
 import { getCounselorAgent } from './agents/counselor-agent';
 import { getSupportLlmProvider } from '@/lib/llm/config';
+import * as crypto from 'crypto';
+
+// Sprint 3: Prompt 版本注册（内存缓存避免每次请求都查 DB）
+const _registeredHashes = new Set<string>();
+function lazyRegisterPrompt(name: string, content: string) {
+  const hash = crypto.createHash('sha256').update(content).digest('hex');
+  if (_registeredHashes.has(hash)) return;
+  _registeredHashes.add(hash);
+  // 异步注册，不阻塞主流程
+  import('@/lib/eval/prompt-version').then(({ registerPrompt }) => {
+    registerPrompt(name, content).catch(() => {});
+  }).catch(() => {});
+}
 
 /**
  * 支持性倾听系统提示词 - 渐进披露优化版
@@ -163,6 +176,9 @@ export async function streamSupportReply(
   const finalSystemPrompt = options?.adaptiveMode
     ? buildAdaptivePrompt(SUPPORT_PROMPT, options.adaptiveMode, options.therapistId, options.userPreferences)
     : SUPPORT_PROMPT;
+
+  // Sprint 3: 懒注册 Prompt 版本（内存去重，仅新内容触发 DB 写入）
+  lazyRegisterPrompt('support_prompt', finalSystemPrompt);
 
   const result = await getCounselorAgent().run({
     message: userMessage,

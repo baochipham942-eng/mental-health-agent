@@ -237,20 +237,26 @@ model ConversationEvaluation {
   // 元数据
   evaluatedBy    String   @default("deepseek")
   evaluatedAt    DateTime @default(now())
-  
+  evalSource     String   @default("manual") // "manual" | "auto_cron" | "auto_realtime"
+
   // 审核状态: PENDING, ADOPTED, REJECTED
   reviewStatus   String   @default("PENDING")
   reviewedAt     DateTime?
   reviewedBy     String?
   reviewNote     String?  // 驳回原因
-  
+
+  // Prompt 版本关联（Sprint 3）
+  promptVersionId String?
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id])
+
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
   @@index([overallGrade])
   @@index([evaluatedAt])
   @@index([overallScore])
+  @@index([evalSource])
 }
 
 model PromptOptimizationLog {
@@ -476,4 +482,46 @@ model ProgressMetric {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, metricType, recordedAt])
+}
+
+// =============================================================================
+// Sprint 3: Prompt 版本管理
+// =============================================================================
+
+model PromptVersion {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "system_prompt_v3.2"
+  content   String   @db.Text
+  hash      String   @unique // SHA256 of content
+  parentId  String?
+  parent    PromptVersion?  @relation("VersionChain", fields: [parentId], references: [id])
+  children  PromptVersion[] @relation("VersionChain")
+  metadata  Json?    // { author, description, changeReason }
+  createdAt DateTime @default(now())
+
+  evaluations ConversationEvaluation[]
+
+  @@index([name, createdAt])
+}
+
+// =============================================================================
+// Sprint 4: 观测统计（Token/延迟/错误率）
+// =============================================================================
+
+model ChatMetric {
+  id               String   @id @default(cuid())
+  conversationId   String
+  messageId        String?
+  model            String   // 使用的模型
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  latencyMs        Int      // 响应延迟 ms
+  isError          Boolean  @default(false)
+  errorType        String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([model])
+  @@index([conversationId])
 }

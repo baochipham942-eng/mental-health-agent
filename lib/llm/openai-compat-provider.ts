@@ -128,7 +128,7 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: options?.temperature ?? 0.7,
       maxTokens: options?.max_tokens ?? 2000,
-      onFinish: async ({ text, toolCalls }) => {
+      onFinish: async ({ text, usage, toolCalls }) => {
         if (options?.onFinish) {
           const formattedToolCalls = toolCalls?.map((tc: any) => ({
             id: tc.toolCallId,
@@ -139,6 +139,23 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
             },
           }));
           await options.onFinish(text, formattedToolCalls);
+        }
+
+        // Sprint 4: 写入 ChatMetric
+        if (usage) {
+          const convId = (options?.traceMetadata as any)?.sessionId;
+          if (convId) {
+            import('@/lib/observability/metrics-collector').then(({ recordMetric: recordChatMetric }) => {
+              recordChatMetric({
+                conversationId: convId,
+                model: options?.modelOverride || defaultModel,
+                promptTokens: usage.promptTokens,
+                completionTokens: usage.completionTokens,
+                totalTokens: usage.totalTokens,
+                latencyMs: 0, // compat provider 无 trace context 计时
+              }).catch(() => {});
+            }).catch(() => {});
+          }
         }
       },
     });

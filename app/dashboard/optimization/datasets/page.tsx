@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, Tag, Table, Spin, Empty, Modal, Pagination, Button } from '@arco-design/web-react';
+import { Card, Tag, Table, Spin, Empty, Modal, Pagination } from '@arco-design/web-react';
 import type { ColumnProps } from '@arco-design/web-react/es/Table';
 
 interface DatasetInfo {
@@ -192,42 +192,82 @@ export default function DatasetsPage() {
 
       {/* 用例详情弹窗 */}
       <Modal
-        title={caseDetail ? `用例详情 — ${caseDetail.id}` : '用例详情'}
+        title={null}
         visible={detailVisible}
         onCancel={() => { setDetailVisible(false); setCaseDetail(null); }}
-        footer={<Button onClick={() => { setDetailVisible(false); setCaseDetail(null); }}>关闭</Button>}
-        style={{ width: 720, maxWidth: '95vw' }}
+        footer={null}
+        closable={false}
+        style={{ width: 800, maxWidth: '95vw', top: 40 }}
+        unmountOnExit
       >
         <Spin loading={detailLoading}>
-          {caseDetail && (
-            <div className="space-y-3">
-              {/* 元信息 */}
-              <div className="flex flex-wrap gap-2">
-                {caseDetail.category && <Tag color="arcoblue">{caseDetail.category}</Tag>}
-                {caseDetail.emotion_type && <Tag color="purple">{caseDetail.emotion_type}</Tag>}
-                {caseDetail.psychotherapy && <Tag color="green">{caseDetail.psychotherapy}</Tag>}
-                <Tag>{caseDetail.turn_count} 轮对话</Tag>
-              </div>
-              {caseDetail.situation && (
-                <div className="text-sm text-gray-600 bg-gray-50 rounded p-2">{caseDetail.situation}</div>
-              )}
-              {/* 对话内容 */}
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {caseDetail.dialog.map((turn, i) => (
-                  <div key={i} className={`rounded p-2.5 ${turn.role === 'user' ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-medium ${turn.role === 'user' ? 'text-blue-500' : 'text-gray-500'}`}>
-                        {turn.role === 'user' ? '用户' : '咨询师'}
-                      </span>
-                      {turn.strategy && <Tag size="small" color="purple">{turn.strategy}</Tag>}
-                      {turn.emotion && <Tag size="small" color="orange">{turn.emotion}</Tag>}
-                    </div>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{turn.content}</div>
+          {caseDetail && (() => {
+            const isMultiTurn = caseDetail.turn_count > 2;
+            return (
+              <div className="space-y-3">
+                {/* 头部 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="text-base font-bold text-gray-900 truncate">{caseDetail.id}</h3>
+                    {caseDetail.category && <Tag color="arcoblue" size="small">{caseDetail.category}</Tag>}
+                    {caseDetail.emotion_type && <Tag color="purple" size="small">{caseDetail.emotion_type}</Tag>}
+                    {caseDetail.psychotherapy && <Tag color="green" size="small">{caseDetail.psychotherapy}</Tag>}
+                    <Tag size="small" color={isMultiTurn ? 'orangered' : 'gray'}>{caseDetail.turn_count} 轮</Tag>
                   </div>
-                ))}
+                  <button
+                    onClick={() => { setDetailVisible(false); setCaseDetail(null); }}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors shrink-0"
+                  >✕</button>
+                </div>
+
+                {/* 场景描述 */}
+                {caseDetail.situation && (
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">{caseDetail.situation}</div>
+                )}
+
+                {/* 对话内容 — 根据轮次数量自适应布局 */}
+                {!isMultiTurn ? (
+                  /* 单轮/双轮：紧凑卡片布局 */
+                  <div className="space-y-2">
+                    {caseDetail.dialog.map((turn, i) => (
+                      <div key={i} className={`rounded-lg p-3 ${turn.role === 'user' ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50 border border-gray-100'}`}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${turn.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'}`}>
+                            {turn.role === 'user' ? '用户' : '参考回复'}
+                          </span>
+                          {turn.strategy && <Tag size="small" color="purple">{turn.strategy}</Tag>}
+                          {turn.emotion && <Tag size="small" color="orange">{turn.emotion}</Tag>}
+                        </div>
+                        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{turn.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* 多轮：聊天气泡布局，带轮次编号 */
+                  <div className="max-h-[55vh] overflow-y-auto space-y-1.5 pr-1">
+                    {caseDetail.dialog.map((turn, i) => {
+                      const isUser = turn.role === 'user';
+                      return (
+                        <div key={i} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
+                          <div className={`max-w-[80%] rounded-lg px-3 py-2 ${isUser ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50 border border-gray-100'}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className={`text-[10px] font-semibold px-1 py-px rounded ${isUser ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
+                                {isUser ? '用户' : '参考回复'}
+                              </span>
+                              <span className="text-[10px] text-gray-300">#{i + 1}</span>
+                              {turn.strategy && <Tag size="small" color="purple" className="!text-[10px] !px-1">{turn.strategy}</Tag>}
+                              {turn.emotion && <Tag size="small" color="orange" className="!text-[10px] !px-1">{turn.emotion}</Tag>}
+                            </div>
+                            <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{turn.content}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </Spin>
       </Modal>
     </div>

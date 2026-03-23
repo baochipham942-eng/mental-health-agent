@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db/prisma';
 import { evaluateConversationQuality } from '@/lib/ai/evaluation';
+import { checkAndIngest } from '@/lib/eval/auto-ingest';
 
 /**
  * 评估并保存对话质量
@@ -143,6 +144,18 @@ export async function evaluateAndSaveConversation(conversationId: string) {
                     }
                 });
                 console.log('[Evaluation Action] Created LOW_SCORE event');
+
+                // Sprint 2: 自动回流到评测数据集
+                try {
+                    await checkAndIngest({
+                        conversationId: conversation.id,
+                        overallScore: result.overallScore,
+                        overallGrade: result.overallGrade,
+                        issues: allIssues,
+                    });
+                } catch (ingestError) {
+                    console.error('[Evaluation Action] Auto-ingest failed:', ingestError);
+                }
             } catch (eventError) {
                 console.error('[Evaluation Action] Failed to create event:', eventError);
             }
