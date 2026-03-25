@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { extractLabInsights } from '@/lib/memory/lab-extractor';
-import { prisma } from '@/lib/db/prisma';
+import { createLabSession, createManyLabMessages } from '@/lib/memory/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,17 +42,15 @@ export async function POST(request: NextRequest) {
             }
 
             // 创建 LabSession 记录
-            const labSession = await prisma.labSession.create({
-                data: {
-                    userId,
-                    labType,
-                    mentorId: labType === 'wisdom' ? contextId : null,
-                    mbtiType: labType === 'mirrors' ? contextId : null,
-                    customName: labType === 'custom' ? customName : null,
-                    groupConfig: labType === 'group' ? (groupConfig || null) : null,
-                    title: title || null,
-                    messageCount,
-                },
+            const labSession = await createLabSession({
+                userId,
+                labType,
+                mentorId: labType === 'wisdom' ? contextId : null,
+                mbtiType: labType === 'mirrors' ? contextId : null,
+                customName: labType === 'custom' ? customName : null,
+                groupConfig: labType === 'group' ? (groupConfig || null) : null,
+                title: title || null,
+                messageCount,
             });
 
             // 群组对话：批量保存消息（带 mentorId 和 round）
@@ -76,9 +74,7 @@ export async function POST(request: NextRequest) {
                     };
                 });
 
-                await prisma.labMessage.createMany({
-                    data: labMessages,
-                });
+                await createManyLabMessages(labMessages);
             }
         }
 

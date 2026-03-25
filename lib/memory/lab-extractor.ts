@@ -1,7 +1,7 @@
 import { deepseek } from '@/lib/ai/deepseek';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/prisma';
+import { createProfileMemory } from './data-bridge';
 import type { MemoryKind } from './v2-types';
 import type { MemoryTopic } from './types';
 import { memoryCache } from './memory-cache';
@@ -111,15 +111,13 @@ export async function extractLabInsights(
             const finalContent = `[实验室洞察:${insight.insightType}] ${insight.content}`;
             const kind = mapTopicToKind(insight.topic as MemoryTopic);
 
-            await prisma.profileMemory.create({
-                data: {
-                    userId,
-                    kind,
-                    content: finalContent,
-                    priority: kindPriority(kind),
-                    confidence: insight.confidence * 0.85, // 实验室洞察惩罚系数
-                    sourceConversationId: sourceId,
-                }
+            await createProfileMemory({
+                userId,
+                kind,
+                content: finalContent,
+                priority: kindPriority(kind),
+                confidence: insight.confidence * 0.85, // 实验室洞察惩罚系数
+                sourceConversationId: sourceId,
             });
             savedCount++;
         }

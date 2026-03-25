@@ -5,7 +5,7 @@
 
 import { chatCompletion, type ChatMessage } from '@/lib/ai/deepseek';
 import { CONVERSATION_SUMMARIZATION_PROMPT } from './prompts';
-import { prisma } from '@/lib/db/prisma';
+import { getConversationUserId, findSessionSummaryV2Emotion } from './data-bridge';
 import { recordSessionMetrics } from '@/lib/ai/progress/tracker';
 import { sessionSummaryV2Writer } from './session-summary-v2-writer';
 
@@ -63,8 +63,8 @@ export async function updateConversationSummary(conversationId: string, summary:
         // 考虑到当前 schema，我们先不修改数据库结构，而是在运行时动态计算或通过 RAG 存储
         // 建议增加一个专门的记忆 Topic: 'conversation_summary'
 
-        const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { userId: true } });
-        const userId = conv?.userId || '';
+        const convUserId = await getConversationUserId(conversationId);
+        const userId = convUserId || '';
 
         // 更新 V2 摘要文本（dashboard 字段已在 summary.ts 创建时写入）
         if (userId) {
@@ -76,10 +76,7 @@ export async function updateConversationSummary(conversationId: string, summary:
 
             // 从 V2 读取情绪指标并记录到 ProgressMetric
             try {
-                const v2 = await prisma.sessionSummaryV2.findUnique({
-                    where: { conversationId },
-                    select: { emotionLabel: true, emotionScore: true, moodChange: true },
-                });
+                const v2 = await findSessionSummaryV2Emotion(conversationId);
                 if (v2 && v2.emotionScore != null) {
                     recordSessionMetrics(
                         userId,

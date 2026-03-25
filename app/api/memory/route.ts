@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { prisma } from '@/lib/db/prisma';
+import {
+    findAllProfileMemories,
+    findProfileMemoryOwner,
+    updateProfileMemoryContent,
+    softDeleteProfileMemory,
+} from '@/lib/memory/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,13 +22,7 @@ export async function GET(request: NextRequest) {
 
         const userId = session.user.id;
 
-        const memories = await prisma.profileMemory.findMany({
-            where: { userId, deletedAt: null },
-            orderBy: [
-                { kind: 'asc' },
-                { updatedAt: 'desc' },
-            ],
-        });
+        const memories = await findAllProfileMemories(userId);
 
         return NextResponse.json({ memories });
     } catch (error: any) {
@@ -51,22 +50,13 @@ export async function PATCH(request: NextRequest) {
         }
 
         // 验证所有权
-        const memory = await prisma.profileMemory.findUnique({
-            where: { id },
-            select: { userId: true },
-        });
+        const memory = await findProfileMemoryOwner(id);
 
         if (!memory || memory.userId !== userId) {
             return NextResponse.json({ error: '记忆不存在或无权限' }, { status: 403 });
         }
 
-        const updated = await prisma.profileMemory.update({
-            where: { id },
-            data: {
-                content,
-                updatedAt: new Date(),
-            },
-        });
+        const updated = await updateProfileMemoryContent(id, content);
 
         return NextResponse.json({ memory: updated });
     } catch (error: any) {
@@ -95,20 +85,14 @@ export async function DELETE(request: NextRequest) {
         }
 
         // 验证所有权
-        const memory = await prisma.profileMemory.findUnique({
-            where: { id },
-            select: { userId: true },
-        });
+        const memory = await findProfileMemoryOwner(id);
 
         if (!memory || memory.userId !== userId) {
             return NextResponse.json({ error: '记忆不存在或无权限' }, { status: 403 });
         }
 
         // 软删除
-        await prisma.profileMemory.update({
-            where: { id },
-            data: { deletedAt: new Date() },
-        });
+        await softDeleteProfileMemory(id);
 
         return NextResponse.json({ success: true });
     } catch (error: any) {

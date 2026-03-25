@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma';
+import { findProfileMemoriesTop } from './data-bridge';
 import type { ProfileMemoryRecord } from './v2-types';
 
 function extractKeywords(text: string): string[] {
@@ -50,20 +50,7 @@ function relevanceScore(record: ProfileMemoryRecord, keywords: string[]): number
 
 export class ProfileMemoryService {
   async listTop(userId: string, message: string, limit: number = 6): Promise<ProfileMemoryRecord[]> {
-    const delegate = (prisma as any).profileMemory;
-    if (!delegate) return [];
-
-    const candidates = await delegate.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-      },
-      orderBy: [
-        { priority: 'desc' },
-        { updatedAt: 'desc' },
-      ],
-      take: Math.max(limit * 4, 20),
-    });
+    const candidates = await findProfileMemoriesTop(userId, Math.max(limit * 4, 20));
 
     const keywords = extractKeywords(message);
     return candidates

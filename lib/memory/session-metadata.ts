@@ -10,7 +10,7 @@
  * - gapDays: 距上次会话间隔天数
  */
 
-import { prisma } from '@/lib/db/prisma';
+import { getUserSessionFields, updateUserSession } from './data-bridge';
 import { logInfo } from '@/lib/observability/logger';
 
 export interface SessionMetadata {
@@ -30,16 +30,7 @@ export async function updateSessionMetadata(userId: string): Promise<SessionMeta
   const currentHour = now.getHours();
   const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      sessionCount: true,
-      lastSessionAt: true,
-      avgSessionHour: true,
-      activeStreak: true,
-      lastActiveDateStr: true,
-    },
-  });
+  const user = await getUserSessionFields(userId);
 
   if (!user) return { sessionCount: 0, lastSessionAt: null, avgSessionHour: null, activeStreak: 0, gapDays: 0 };
 
@@ -74,21 +65,12 @@ export async function updateSessionMetadata(userId: string): Promise<SessionMeta
     ? user.avgSessionHour * (1 - alpha) + currentHour * alpha
     : currentHour;
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      sessionCount: { increment: 1 },
-      lastSessionAt: now,
-      avgSessionHour: Math.round(newAvgHour * 10) / 10,
-      activeStreak: newStreak,
-      lastActiveDateStr: todayStr,
-    },
-    select: {
-      sessionCount: true,
-      lastSessionAt: true,
-      avgSessionHour: true,
-      activeStreak: true,
-    },
+  const updated = await updateUserSession(userId, {
+    sessionCount: { increment: 1 },
+    lastSessionAt: now,
+    avgSessionHour: Math.round(newAvgHour * 10) / 10,
+    activeStreak: newStreak,
+    lastActiveDateStr: todayStr,
   });
 
   logInfo('session-metadata-updated', {
@@ -113,16 +95,7 @@ export async function updateSessionMetadata(userId: string): Promise<SessionMeta
  * 读取 Session Metadata（不更新）
  */
 export async function getSessionMetadata(userId: string): Promise<SessionMetadata> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      sessionCount: true,
-      lastSessionAt: true,
-      avgSessionHour: true,
-      activeStreak: true,
-      lastActiveDateStr: true,
-    },
-  });
+  const user = await getUserSessionFields(userId);
 
   if (!user) return { sessionCount: 0, lastSessionAt: null, avgSessionHour: null, activeStreak: 0, gapDays: 0 };
 

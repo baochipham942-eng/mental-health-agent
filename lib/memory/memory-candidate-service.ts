@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db/prisma';
+import { getConversationWithMessages, getConversationUserId, createManyCandidates } from './data-bridge';
 import { extractMemoriesFromMessages } from './extractor';
 import type { ConversationMessage, ExtractedMemory, MemoryTopic } from './types';
 import type { MemoryKind } from './v2-types';
@@ -29,12 +29,7 @@ function mapTopicToKind(topic: MemoryTopic): MemoryKind {
 
 export class MemoryCandidateService {
   async extractFromConversation(conversationId: string): Promise<ExtractedMemory[]> {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        messages: { orderBy: { createdAt: 'asc' }, take: 50 },
-      },
-    });
+    const conversation = await getConversationWithMessages(conversationId);
 
     if (!conversation || conversation.messages.length < 2) {
       return [];
@@ -49,11 +44,10 @@ export class MemoryCandidateService {
   }
 
   async save(userId: string, conversationId: string, memories: ExtractedMemory[]): Promise<void> {
-    const delegate = (prisma as any).memoryCandidate;
-    if (!delegate || memories.length === 0) return;
+    if (memories.length === 0) return;
 
-    await delegate.createMany({
-      data: memories.map((memory) => ({
+    await createManyCandidates(
+      memories.map((memory) => ({
         userId,
         conversationId,
         kind: mapTopicToKind(memory.topic),
@@ -65,7 +59,7 @@ export class MemoryCandidateService {
           relationships: memory.relationships || [],
         },
       })),
-    });
+    );
     logInfo('memory-v2-candidates-saved', {
       userId,
       conversationId,
@@ -74,16 +68,13 @@ export class MemoryCandidateService {
   }
 
   async extractAndSave(conversationId: string): Promise<ExtractedMemory[]> {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { userId: true },
-    });
-    if (!conversation?.userId) return [];
+    const userId = await getConversationUserId(conversationId);
+    if (!userId) return [];
 
     const memories = await this.extractFromConversation(conversationId);
-    await this.save(conversation.userId, conversationId, memories);
+    await this.save(userId, conversationId, memories);
     logInfo('memory-v2-candidates-extracted', {
-      userId: conversation.userId,
+      userId,
       conversationId,
       count: memories.length,
     });

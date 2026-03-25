@@ -4,7 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import {
+    findPendingExtractionLogs,
+    updateExtractionLog,
+    getConversationUserId,
+} from '@/lib/memory/data-bridge';
 import { memoryCandidateService, profileMemoryMergeService } from '@/lib/memory';
 
 export const dynamic = 'force-dynamic';
@@ -20,14 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const pendingRetries = await prisma.memoryExtractionLog.findMany({
-            where: {
-                status: { in: ['failed', 'pending_retry'] },
-                retryCount: { lt: MAX_RETRIES },
-            },
-            orderBy: { createdAt: 'asc' },
-            take: BATCH_SIZE,
-        });
+        const pendingRetries = await findPendingExtractionLogs(MAX_RETRIES, BATCH_SIZE);
 
         if (pendingRetries.length === 0) {
             return NextResponse.json({ message: 'No pending retries', processed: 0 });
@@ -42,36 +39,27 @@ export async function GET(request: NextRequest) {
                 const extracted = await memoryCandidateService.extractAndSave(log.conversationId);
 
                 // 获取会话对应的 userId
-                const conversation = await prisma.conversation.findUnique({
-                    where: { id: log.conversationId },
-                    select: { userId: true },
-                });
-                if (conversation?.userId && extracted.length > 0) {
+                const conversationUserId = await getConversationUserId(log.conversationId);
+                if (conversationUserId && extracted.length > 0) {
                     await profileMemoryMergeService.mergeExtractedMemories(
-                        conversation.userId,
+                        conversationUserId,
                         log.conversationId,
                         extracted,
                     );
                 }
 
-                await prisma.memoryExtractionLog.update({
-                    where: { id: log.id },
-                    data: {
-                        status: 'success',
-                        retryCount: log.retryCount + 1,
-                        error: null,
-                    },
+                await updateExtractionLog(log.id, {
+                    status: 'success',
+                    retryCount: log.retryCount + 1,
+                    error: null,
                 });
                 successCount++;
             } catch (e: any) {
                 const newRetryCount = log.retryCount + 1;
-                await prisma.memoryExtractionLog.update({
-                    where: { id: log.id },
-                    data: {
-                        status: newRetryCount >= MAX_RETRIES ? 'failed' : 'pending_retry',
-                        retryCount: newRetryCount,
-                        error: e.message?.slice(0, 500),
-                    },
+                await updateExtractionLog(log.id, {
+                    status: newRetryCount >= MAX_RETRIES ? 'failed' : 'pending_retry',
+                    retryCount: newRetryCount,
+                    error: e.message?.slice(0, 500),
                 });
                 failCount++;
             }

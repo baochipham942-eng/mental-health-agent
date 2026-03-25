@@ -1,4 +1,9 @@
-import { prisma } from '@/lib/db/prisma';
+import {
+  findProfileMemoriesByKind,
+  updateProfileMemory,
+  createProfileMemory,
+  updateManyCandidateStatus,
+} from './data-bridge';
 import type { ExtractedMemory, MemoryTopic } from './types';
 import type { MemoryKind } from './v2-types';
 import { logInfo } from '@/lib/observability/logger';
@@ -110,9 +115,7 @@ export class ProfileMemoryMergeService {
     conversationId: string,
     memories: ExtractedMemory[],
   ): Promise<void> {
-    const delegate = (prisma as any).profileMemory;
-    const candidateDelegate = (prisma as any).memoryCandidate;
-    if (!delegate || memories.length === 0) return;
+    if (memories.length === 0) return;
 
     let created = 0;
     let updated = 0;
@@ -121,43 +124,21 @@ export class ProfileMemoryMergeService {
     for (const memory of memories) {
       const kind = mapTopicToKind(memory.topic);
       const fingerprint = buildMemoryFingerprint(kind, memory.content);
-      const existingRows = await delegate.findMany({
-        where: {
-          userId,
-          kind,
-          deletedAt: null,
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 10,
-      });
+      const existingRows = await findProfileMemoriesByKind(userId, kind, 10);
 
       // 1. 指纹精确匹配 → 更新
       const fingerprintMatch = findFingerprintMatch(kind, fingerprint, existingRows);
       if (fingerprintMatch) {
-        await delegate.update({
-          where: { id: fingerprintMatch.id },
-          data: {
-            content: memory.content.length > fingerprintMatch.content.length ? memory.content : fingerprintMatch.content,
-            confidence: Math.max(memory.confidence, fingerprintMatch.confidence),
-            sourceConversationId: conversationId,
-            lastConfirmedAt: new Date(),
-            fingerprint,
-          },
+        await updateProfileMemory(fingerprintMatch.id, {
+          content: memory.content.length > fingerprintMatch.content.length ? memory.content : fingerprintMatch.content,
+          confidence: Math.max(memory.confidence, fingerprintMatch.confidence),
+          sourceConversationId: conversationId,
+          lastConfirmedAt: new Date(),
+          fingerprint,
         });
         updated++;
 
-        if (candidateDelegate) {
-          await candidateDelegate.updateMany({
-            where: {
-              userId,
-              conversationId,
-              content: memory.content,
-            },
-            data: {
-              status: 'merged',
-            },
-          });
-        }
+        await updateManyCandidateStatus(userId, conversationId, memory.content, 'merged');
 
         continue;
       }
@@ -170,73 +151,46 @@ export class ProfileMemoryMergeService {
           memory.confidence > localDuplicate.confidence;
 
         if (shouldUpdate) {
-          await delegate.update({
-            where: { id: localDuplicate.id },
-            data: {
-              content: memory.content,
-              confidence: Math.max(memory.confidence, localDuplicate.confidence),
-              sourceConversationId: conversationId,
-              lastConfirmedAt: new Date(),
-              fingerprint,
-            },
+          await updateProfileMemory(localDuplicate.id, {
+            content: memory.content,
+            confidence: Math.max(memory.confidence, localDuplicate.confidence),
+            sourceConversationId: conversationId,
+            lastConfirmedAt: new Date(),
+            fingerprint,
           });
           updated++;
         } else {
-          await delegate.update({
-            where: { id: localDuplicate.id },
-            data: {
-              confidence: Math.max(memory.confidence, localDuplicate.confidence),
-              sourceConversationId: conversationId,
-              lastConfirmedAt: new Date(),
-              fingerprint,
-            },
+          await updateProfileMemory(localDuplicate.id, {
+            confidence: Math.max(memory.confidence, localDuplicate.confidence),
+            sourceConversationId: conversationId,
+            lastConfirmedAt: new Date(),
+            fingerprint,
           });
           rejected++;
         }
 
-        if (candidateDelegate) {
-          await candidateDelegate.updateMany({
-            where: {
-              userId,
-              conversationId,
-              content: memory.content,
-            },
-            data: {
-              status: shouldUpdate ? 'merged' : 'rejected',
-            },
-          });
-        }
+        await updateManyCandidateStatus(
+          userId, conversationId, memory.content,
+          shouldUpdate ? 'merged' : 'rejected',
+        );
 
         continue;
       }
 
       // 3. 无匹配 → 直接创建新记录（不再调用 V1 consolidator）
-      await delegate.create({
-        data: {
-          userId,
-          kind,
-          fingerprint,
-          content: memory.content,
-          priority: kindPriority(kind),
-          confidence: memory.confidence,
-          sourceConversationId: conversationId,
-          lastConfirmedAt: new Date(),
-        },
+      await createProfileMemory({
+        userId,
+        kind,
+        fingerprint,
+        content: memory.content,
+        priority: kindPriority(kind),
+        confidence: memory.confidence,
+        sourceConversationId: conversationId,
+        lastConfirmedAt: new Date(),
       });
       created++;
 
-      if (candidateDelegate) {
-        await candidateDelegate.updateMany({
-          where: {
-            userId,
-            conversationId,
-            content: memory.content,
-          },
-          data: {
-            status: 'merged',
-          },
-        });
-      }
+      await updateManyCandidateStatus(userId, conversationId, memory.content, 'merged');
     }
 
     logInfo('memory-v2-profile-merge-complete', {

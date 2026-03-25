@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import { deleteExpiredProfileMemories } from '@/lib/memory/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +18,11 @@ export async function GET(request: NextRequest) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - 90);
 
-        const result = await prisma.profileMemory.deleteMany({
-            where: {
-                deletedAt: null,
-                updatedAt: { lt: cutoffDate },
-                confidence: { lt: 0.5 },
-            },
-        });
+        const totalPruned = await deleteExpiredProfileMemories(cutoffDate, 0.5);
 
         return NextResponse.json({
             message: '记忆清理完成',
-            totalPruned: result.count,
+            totalPruned,
         });
     } catch (e: any) {
         console.error('[CronPruneMemory] Error:', e);
