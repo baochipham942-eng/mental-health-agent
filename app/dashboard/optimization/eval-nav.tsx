@@ -27,6 +27,7 @@ const NAV_GROUPS = [
         items: [
             { href: '/dashboard/optimization/analysis', label: '根因分析' },
             { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
+            { href: '/dashboard/optimization/version-compare', label: '版本对比' },
         ],
     },
 ];

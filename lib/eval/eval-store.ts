@@ -78,6 +78,20 @@ function ensureTable(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_ce_eval_source     ON conversation_evaluations(eval_source);
     CREATE INDEX IF NOT EXISTS idx_ce_user_id         ON conversation_evaluations(user_id);
     CREATE INDEX IF NOT EXISTS idx_ce_prompt_version  ON conversation_evaluations(prompt_version_id);
+
+    CREATE TABLE IF NOT EXISTS eval_annotations (
+      id            TEXT PRIMARY KEY,
+      evaluation_id TEXT NOT NULL,
+      dimension     TEXT NOT NULL,
+      agree         INTEGER NOT NULL DEFAULT 1,
+      human_score   INTEGER,
+      note          TEXT,
+      annotated_by  TEXT NOT NULL,
+      annotated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(evaluation_id, dimension)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ea_evaluation_id ON eval_annotations(evaluation_id);
   `);
 }
 
@@ -388,6 +402,17 @@ export function findRecent(cutoffIso: string, limit: number): EvalRow[] {
   return rows.map(toEvalRow);
 }
 
+/** 按 promptVersionId 查询完整评估记录 */
+export function findByVersionId(versionId: string): EvalRow[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT * FROM conversation_evaluations
+    WHERE prompt_version_id = ? AND overall_grade NOT IN ('EVALUATING', 'FAILED')
+    ORDER BY evaluated_at DESC
+  `).all(versionId) as any[];
+  return rows.map(toEvalRow);
+}
+
 /** 按 promptVersionId 查询评分 */
 export function findScoresByVersionId(versionId: string): Array<{ overallScore: number; overallGrade: string }> {
   const db = getDb();
@@ -418,4 +443,102 @@ export function findScoresByVersionIds(versionIds: string[]): Map<string, number
     result.get(vid)!.push(r.overall_score);
   }
   return result;
+}
+
+// --------------------------------------------------------------------------
+// Annotation Types & CRUD（维度级人工标注）
+// --------------------------------------------------------------------------
+
+export type AnnotationDimension = 'legal' | 'ethical' | 'professional' | 'ux' | 'overall';
+
+export interface AnnotationRow {
+  id: string;
+  evaluationId: string;
+  dimension: AnnotationDimension;
+  agree: boolean;
+  humanScore: number | null;
+  note: string | null;
+  annotatedBy: string;
+  annotatedAt: Date;
+}
+
+export interface UpsertAnnotationInput {
+  evaluationId: string;
+  dimension: string;
+  agree: boolean;
+  humanScore?: number;
+  note?: string;
+  annotatedBy: string;
+}
+
+export interface AnnotationStats {
+  total: number;
+  agreed: number;
+  disagreed: number;
+}
+
+function toAnnotationRow(raw: any): AnnotationRow {
+  return {
+    id: raw.id,
+    evaluationId: raw.evaluation_id,
+    dimension: raw.dimension as AnnotationDimension,
+    agree: raw.agree === 1,
+    humanScore: raw.human_score,
+    note: raw.note,
+    annotatedBy: raw.annotated_by,
+    annotatedAt: new Date(raw.annotated_at),
+  };
+}
+
+/** 创建或更新维度标注（UPSERT） */
+export function upsertAnnotation(input: UpsertAnnotationInput): void {
+  const db = getDb();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO eval_annotations (id, evaluation_id, dimension, agree, human_score, note, annotated_by, annotated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(evaluation_id, dimension) DO UPDATE SET
+      agree = excluded.agree,
+      human_score = excluded.human_score,
+      note = excluded.note,
+      annotated_by = excluded.annotated_by,
+      annotated_at = excluded.annotated_at
+  `).run(
+    id,
+    input.evaluationId,
+    input.dimension,
+    input.agree ? 1 : 0,
+    input.humanScore ?? null,
+    input.note ?? null,
+    input.annotatedBy,
+    now,
+  );
+}
+
+/** 获取指定评估的所有标注 */
+export function getAnnotations(evaluationId: string): AnnotationRow[] {
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT * FROM eval_annotations WHERE evaluation_id = ? ORDER BY annotated_at ASC'
+  ).all(evaluationId) as any[];
+  return rows.map(toAnnotationRow);
+}
+
+/** 获取全局标注统计 */
+export function getAnnotationStats(): AnnotationStats {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN agree = 1 THEN 1 ELSE 0 END) as agreed,
+      SUM(CASE WHEN agree = 0 THEN 1 ELSE 0 END) as disagreed
+    FROM eval_annotations
+  `).get() as any;
+  return {
+    total: row.total || 0,
+    agreed: row.agreed || 0,
+    disagreed: row.disagreed || 0,
+  };
 }

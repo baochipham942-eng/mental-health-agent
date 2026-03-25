@@ -10,7 +10,7 @@ import { prisma } from '@/lib/db/prisma';
 import * as evalStore from './eval-store';
 
 // Re-export eval-store types for consumers
-export type { EvalRow, CreateEvalInput, UpdateEvalInput } from './eval-store';
+export type { EvalRow, CreateEvalInput, UpdateEvalInput, AnnotationRow, AnnotationStats, UpsertAnnotationInput } from './eval-store';
 
 // ============================================================
 // Return Types（纯数据，不依赖 Prisma 类型）
@@ -454,6 +454,11 @@ export function findVersionEvaluations(versionId: string): EvalScore[] {
   return evalStore.findScoresByVersionId(versionId);
 }
 
+/** 按 promptVersionId 查询完整评估记录（SQLite） */
+export function findEvalsByVersionId(versionId: string) {
+  return evalStore.findByVersionId(versionId);
+}
+
 /** 获取所有版本及评分（跨库：PG versions + SQLite eval scores） */
 export async function findAllVersionsWithScores(): Promise<PVWithScores[]> {
   const rows = await prisma.promptVersion.findMany({
@@ -466,4 +471,28 @@ export async function findAllVersionsWithScores(): Promise<PVWithScores[]> {
     ...toPVData(pv),
     evaluationScores: scoresMap.get(pv.id) ?? [],
   }));
+}
+
+// ============================================================
+// Eval Annotations（维度级人工标注）
+// ============================================================
+
+/** 创建或更新维度标注 */
+export function upsertEvalAnnotation(input: evalStore.UpsertAnnotationInput) {
+  return evalStore.upsertAnnotation(input);
+}
+
+/** 获取指定评估的所有标注 */
+export function getEvalAnnotations(evaluationId: string) {
+  return evalStore.getAnnotations(evaluationId);
+}
+
+/** 获取全局标注统计 */
+export function getEvalAnnotationStats() {
+  return evalStore.getAnnotationStats();
+}
+
+/** 获取最近评估的完整记录（含维度分数，用于维度统计） */
+export function findRecentEvalsWithScores(cutoff: Date, limit: number) {
+  return evalStore.findRecent(cutoff.toISOString(), limit);
 }

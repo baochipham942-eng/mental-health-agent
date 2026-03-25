@@ -1,8 +1,9 @@
 'use client';
 
-import { Modal, Tag, Button, Message, Divider, Space, Tabs, Spin, Input } from '@arco-design/web-react';
-import { IconCheck, IconClose, IconUndo } from '@arco-design/web-react/icon';
-import { useState, useEffect } from 'react';
+import { Modal, Tag, Button, Message, Divider, Space, Tabs, Spin, Input, InputNumber, Tooltip } from '@arco-design/web-react';
+import { IconCheck, IconClose, IconUndo, IconThumbUp, IconThumbDown } from '@arco-design/web-react/icon';
+import { useState, useEffect, useCallback } from 'react';
+import DimensionRadar from './DimensionRadar';
 
 const TabPane = Tabs.TabPane;
 
@@ -38,6 +39,17 @@ interface ConversationMessage {
     } | null;
 }
 
+interface Annotation {
+    id: string;
+    evaluationId: string;
+    dimension: string;
+    agree: boolean;
+    humanScore: number | null;
+    note: string | null;
+    annotatedBy: string;
+    annotatedAt: string;
+}
+
 interface EvaluationDetailModalProps {
     visible: boolean;
     evaluation: EvaluationDetail | null;
@@ -57,7 +69,141 @@ function getGradeColor(grade: string): string {
     return gradeMap[grade] || 'gray';
 }
 
-function ScoreCard({ title, score, issues }: { title: string; score: number; issues: string[] }) {
+type DimensionKey = 'legal' | 'ethical' | 'professional' | 'ux' | 'overall';
+
+// ---------- 标注交互组件 ----------
+
+interface AnnotationControlProps {
+    dimension: DimensionKey;
+    aiScore: number;
+    annotation: Annotation | undefined;
+    saving: boolean;
+    onSave: (dimension: DimensionKey, agree: boolean, humanScore?: number, note?: string) => void;
+}
+
+function AnnotationControl({ dimension, aiScore, annotation, saving, onSave }: AnnotationControlProps) {
+    const [expanded, setExpanded] = useState(false);
+    const [humanScore, setHumanScore] = useState<number | undefined>(undefined);
+    const [note, setNote] = useState('');
+
+    // 同步已有标注数据
+    useEffect(() => {
+        if (annotation) {
+            setHumanScore(annotation.humanScore ?? undefined);
+            setNote(annotation.note ?? '');
+            if (!annotation.agree) setExpanded(true);
+        } else {
+            setHumanScore(undefined);
+            setNote('');
+            setExpanded(false);
+        }
+    }, [annotation]);
+
+    const handleAgree = () => {
+        onSave(dimension, true);
+        setExpanded(false);
+    };
+
+    const handleDisagree = () => {
+        setExpanded(true);
+    };
+
+    const handleSaveDisagree = () => {
+        onSave(dimension, false, humanScore, note || undefined);
+    };
+
+    const hasAnnotation = !!annotation;
+    const isAgreed = annotation?.agree === true;
+    const isDisagreed = annotation?.agree === false;
+
+    return (
+        <div>
+            <div className="flex items-center gap-2">
+                {/* 标注状态指示 */}
+                {hasAnnotation && (
+                    <Tooltip content={isAgreed ? '已同意 AI 评分' : `不同意，修正为 ${annotation?.humanScore ?? '-'} 分`}>
+                        <Tag size="small" color={isAgreed ? 'green' : 'red'} className="text-xs">
+                            {isAgreed ? (
+                                <><IconCheck className="mr-0.5" />同意</>
+                            ) : (
+                                <><IconClose className="mr-0.5" />{annotation?.humanScore ?? '-'}</>
+                            )}
+                        </Tag>
+                    </Tooltip>
+                )}
+                {/* 操作按钮 */}
+                <Tooltip content="同意 AI 评分">
+                    <Button
+                        size="mini"
+                        shape="circle"
+                        type={isAgreed ? 'primary' : 'secondary'}
+                        status={isAgreed ? 'success' : undefined}
+                        icon={<IconThumbUp />}
+                        loading={saving}
+                        onClick={handleAgree}
+                    />
+                </Tooltip>
+                <Tooltip content="不同意 AI 评分">
+                    <Button
+                        size="mini"
+                        shape="circle"
+                        type={isDisagreed ? 'primary' : 'secondary'}
+                        status={isDisagreed ? 'danger' : undefined}
+                        icon={<IconThumbDown />}
+                        loading={saving}
+                        onClick={handleDisagree}
+                    />
+                </Tooltip>
+            </div>
+            {/* 不同意时展开的修正区域 */}
+            {expanded && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-500">修正分:</span>
+                    <InputNumber
+                        size="mini"
+                        min={0}
+                        max={10}
+                        step={1}
+                        style={{ width: 72 }}
+                        placeholder={String(aiScore)}
+                        value={humanScore}
+                        onChange={(v) => setHumanScore(v)}
+                    />
+                    <Input
+                        size="mini"
+                        style={{ width: 160 }}
+                        placeholder="备注（可选）"
+                        value={note}
+                        onChange={setNote}
+                    />
+                    <Button size="mini" type="primary" loading={saving} onClick={handleSaveDisagree}>
+                        保存
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ---------- ScoreCard（含标注） ----------
+
+function ScoreCard({
+    dimension,
+    title,
+    score,
+    issues,
+    annotation,
+    saving,
+    onAnnotate,
+}: {
+    dimension: DimensionKey;
+    title: string;
+    score: number;
+    issues: string[];
+    annotation: Annotation | undefined;
+    saving: boolean;
+    onAnnotate: (dimension: DimensionKey, agree: boolean, humanScore?: number, note?: string) => void;
+}) {
     const getScoreColor = (s: number) => {
         if (s >= 9) return 'text-green-600';
         if (s >= 7) return 'text-blue-600';
@@ -67,9 +213,21 @@ function ScoreCard({ title, score, issues }: { title: string; score: number; iss
 
     return (
         <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-start mb-2">
                 <span className="font-medium text-gray-700">{title}</span>
-                <span className={`text-2xl font-bold ${getScoreColor(score)}`}>{score}</span>
+                <div className="flex items-center gap-2">
+                    <span className={`text-2xl font-bold ${getScoreColor(score)}`}>{score}</span>
+                </div>
+            </div>
+            {/* 标注控件 */}
+            <div className="mb-2">
+                <AnnotationControl
+                    dimension={dimension}
+                    aiScore={score}
+                    annotation={annotation}
+                    saving={saving}
+                    onSave={onAnnotate}
+                />
             </div>
             {issues.length > 0 ? (
                 <div className="space-y-1">
@@ -181,11 +339,18 @@ export default function EvaluationDetailModal({
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [promptOptimization, setPromptOptimization] = useState<ReturnType<typeof generateOptimizedPrompt>>(null);
 
-    // 加载对话记录
+    // 标注状态
+    const [annotations, setAnnotations] = useState<Annotation[]>([]);
+    const [savingAnnotation, setSavingAnnotation] = useState(false);
+
+    // 加载对话记录 + 标注
     useEffect(() => {
         if (visible && evaluation?.conversationId) {
             loadMessages(evaluation.conversationId);
             setPromptOptimization(generateOptimizedPrompt(evaluation.improvements || []));
+        }
+        if (visible && evaluation?.id) {
+            loadAnnotations(evaluation.id);
         }
     }, [visible, evaluation]);
 
@@ -204,10 +369,59 @@ export default function EvaluationDetailModal({
         }
     };
 
+    const loadAnnotations = useCallback(async (evaluationId: string) => {
+        try {
+            const res = await fetch(`/api/eval/annotations?evaluationId=${evaluationId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setAnnotations(data.annotations || []);
+            }
+        } catch (error) {
+            console.error('Load annotations failed:', error);
+        }
+    }, []);
+
+    const handleAnnotate = useCallback(async (dimension: DimensionKey, agree: boolean, humanScore?: number, note?: string) => {
+        if (!evaluation) return;
+        setSavingAnnotation(true);
+        try {
+            const res = await fetch('/api/eval/annotations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    evaluationId: evaluation.id,
+                    dimension,
+                    agree,
+                    humanScore: humanScore ?? null,
+                    note: note ?? null,
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAnnotations(data.annotations || []);
+                Message.success('标注已保存');
+            } else {
+                const err = await res.json();
+                Message.error(`标注失败: ${err.error}`);
+            }
+        } catch {
+            Message.error('标注失败');
+        } finally {
+            setSavingAnnotation(false);
+        }
+    }, [evaluation]);
+
     if (!evaluation) return null;
 
     const isEvaluating = evaluation.overallGrade === 'EVALUATING';
     const reviewStatus = evaluation.reviewStatus || 'PENDING';
+
+    // 按 dimension 索引标注
+    const annotationMap = new Map(annotations.map(a => [a.dimension, a]));
+    const allDimensions: DimensionKey[] = ['legal', 'ethical', 'professional', 'ux', 'overall'];
+    const annotatedCount = annotations.length;
+    const agreedCount = annotations.filter(a => a.agree).length;
+    const disagreedCount = annotations.filter(a => !a.agree).length;
 
     const handleReview = async (action: 'adopt' | 'reject' | 'revoke', note?: string) => {
         setAdopting(true);
@@ -310,12 +524,83 @@ export default function EvaluationDetailModal({
                             {/* Tab 1: LLM 打分 */}
                             <TabPane key="scores" title="📊 LLM 打分">
                                 <div className="p-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <ScoreCard title="法律合规性" score={evaluation.legalScore} issues={evaluation.legalIssues || []} />
-                                        <ScoreCard title="伦理规范" score={evaluation.ethicalScore} issues={evaluation.ethicalIssues || []} />
-                                        <ScoreCard title="专业性" score={evaluation.professionalScore} issues={evaluation.professionalIssues || []} />
-                                        <ScoreCard title="用户体验" score={evaluation.uxScore} issues={evaluation.uxIssues || []} />
+                                    <div className="flex gap-4">
+                                        <div className="shrink-0 flex flex-col items-center justify-center">
+                                            <DimensionRadar
+                                                scores={{
+                                                    legal: evaluation.legalScore,
+                                                    ethical: evaluation.ethicalScore,
+                                                    professional: evaluation.professionalScore,
+                                                    ux: evaluation.uxScore,
+                                                }}
+                                                size={180}
+                                            />
+                                        </div>
+                                    <div className="flex-1 grid grid-cols-2 gap-4">
+                                        <ScoreCard
+                                            dimension="legal"
+                                            title="法律合规性"
+                                            score={evaluation.legalScore}
+                                            issues={evaluation.legalIssues || []}
+                                            annotation={annotationMap.get('legal')}
+                                            saving={savingAnnotation}
+                                            onAnnotate={handleAnnotate}
+                                        />
+                                        <ScoreCard
+                                            dimension="ethical"
+                                            title="伦理规范"
+                                            score={evaluation.ethicalScore}
+                                            issues={evaluation.ethicalIssues || []}
+                                            annotation={annotationMap.get('ethical')}
+                                            saving={savingAnnotation}
+                                            onAnnotate={handleAnnotate}
+                                        />
+                                        <ScoreCard
+                                            dimension="professional"
+                                            title="专业性"
+                                            score={evaluation.professionalScore}
+                                            issues={evaluation.professionalIssues || []}
+                                            annotation={annotationMap.get('professional')}
+                                            saving={savingAnnotation}
+                                            onAnnotate={handleAnnotate}
+                                        />
+                                        <ScoreCard
+                                            dimension="ux"
+                                            title="用户体验"
+                                            score={evaluation.uxScore}
+                                            issues={evaluation.uxIssues || []}
+                                            annotation={annotationMap.get('ux')}
+                                            saving={savingAnnotation}
+                                            onAnnotate={handleAnnotate}
+                                        />
                                     </div>
+                                    </div>
+
+                                    {/* 整体评分标注 */}
+                                    <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="font-medium text-gray-700">整体评分</span>
+                                            <span className="text-2xl font-bold text-gray-900">{evaluation.overallScore.toFixed(1)}</span>
+                                        </div>
+                                        <AnnotationControl
+                                            dimension="overall"
+                                            aiScore={evaluation.overallScore}
+                                            annotation={annotationMap.get('overall')}
+                                            saving={savingAnnotation}
+                                            onSave={handleAnnotate}
+                                        />
+                                    </div>
+
+                                    {/* 标注统计 */}
+                                    {annotatedCount > 0 && (
+                                        <div className="mt-4 text-sm text-gray-500 text-center">
+                                            已标注 {annotatedCount}/{allDimensions.length} 个维度，
+                                            <span className="text-green-600">{agreedCount} 个同意</span>
+                                            {disagreedCount > 0 && (
+                                                <span>，<span className="text-red-600">{disagreedCount} 个不同意</span></span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </TabPane>
 
@@ -476,4 +761,3 @@ export default function EvaluationDetailModal({
         </Modal>
     );
 }
-
