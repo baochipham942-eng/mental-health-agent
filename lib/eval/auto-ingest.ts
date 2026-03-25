@@ -3,7 +3,7 @@
  * 低分/异常对话自动回流为评测数据集
  */
 
-import { prisma } from '@/lib/db/prisma';
+import { getConversationWithMessages, findPendingStuckLoop } from './data-bridge';
 import { writeAutoCase } from './db-writer';
 import { logEvent } from '@/lib/observability/trace-context';
 
@@ -26,15 +26,7 @@ export async function checkAndIngest(trigger: BackflowTrigger): Promise<boolean>
 
     try {
         // 查询完整对话
-        const conversation = await prisma.conversation.findUnique({
-            where: { id: trigger.conversationId },
-            include: {
-                messages: {
-                    select: { role: true, content: true, createdAt: true },
-                    orderBy: { createdAt: 'asc' },
-                },
-            },
-        });
+        const conversation = await getConversationWithMessages(trigger.conversationId);
 
         if (!conversation || conversation.messages.length < 2) return false;
 
@@ -74,13 +66,7 @@ export async function checkAndIngest(trigger: BackflowTrigger): Promise<boolean>
  */
 export async function ingestStuckLoops(conversationId: string): Promise<boolean> {
     try {
-        const event = await prisma.optimizationEvent.findFirst({
-            where: {
-                conversationId,
-                type: 'STUCK_LOOP',
-                status: 'PENDING',
-            },
-        });
+        const event = await findPendingStuckLoop(conversationId);
 
         if (!event) return false;
 

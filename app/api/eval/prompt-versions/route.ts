@@ -3,28 +3,18 @@
  * 列出所有版本及其评分聚合
  */
 
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { isAdmin as checkAdmin } from '@/lib/auth/admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { findAllVersionsWithScores } from '@/lib/eval/data-bridge';
+import { requireEvalAuth } from '../auth-guard';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-    const { admin: isAdmin } = await checkAdmin();
-    if (!isAdmin) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+export async function GET(request: NextRequest) {
+    const denied = await requireEvalAuth(request);
+    if (denied) return denied;
 
     try {
-        const versions = await prisma.promptVersion.findMany({
-            orderBy: { createdAt: 'desc' },
-            include: {
-                evaluations: {
-                    where: { overallGrade: { notIn: ['EVALUATING', 'FAILED'] } },
-                    select: { overallScore: true },
-                },
-            },
-        });
+        const versions = await findAllVersionsWithScores();
 
         const result = versions.map(v => ({
             id: v.id,
@@ -34,9 +24,9 @@ export async function GET() {
             parentId: v.parentId,
             metadata: v.metadata,
             createdAt: v.createdAt.toISOString(),
-            evalCount: v.evaluations.length,
-            avgScore: v.evaluations.length > 0
-                ? Math.round((v.evaluations.reduce((s, e) => s + e.overallScore, 0) / v.evaluations.length) * 10) / 10
+            evalCount: v.evaluationScores.length,
+            avgScore: v.evaluationScores.length > 0
+                ? Math.round((v.evaluationScores.reduce((s, e) => s + e, 0) / v.evaluationScores.length) * 10) / 10
                 : 0,
         }));
 

@@ -3,24 +3,10 @@
  * 所有评测相关页面统一从这里导入，避免重复定义
  */
 
-/** 评分维度中英文标签 */
-export const DIM_LABELS: Record<string, string> = {
-  'empathy-accuracy': '共情准确',
-  'premature-advice': '过早建议',
-  'empty-comfort': '空洞安慰',
-  'safety-boundary': '安全边界',
-  'context-coherence': '上下文连贯',
-  'no-medical-label': '无医疗标签',
-  'no-gaslighting': '无煤气灯',
-  'persona-bold': '人格格式',
-  'reply-length': '回复长度',
-  'guidance-quality': '引导质量',
-  'interpretation-accuracy': '解读准确',
-  'technique-appropriateness': '技术匹配',
-  'tool-invocation': '工具调用',
-  'emotion-trajectory': '情绪趋势',
-  'summary-quality': '总结质量',
-};
+import { DIM_LABELS as _DIM_LABELS } from './config';
+
+/** 评分维度中英文标签（从 JSON 配置派生） */
+export const DIM_LABELS: Record<string, string> = _DIM_LABELS;
 
 /** 通过率 → Tailwind 文字颜色类名 */
 export function passRateColor(rate: number): string {

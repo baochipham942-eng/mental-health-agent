@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
-import { prisma } from '@/lib/db/prisma';
 import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
+import {
+    findConversationsByIds,
+    findEvalByConversationId,
+    createEval,
+    updateEvalByConversationId,
+} from '@/lib/eval/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * 批量评估会话（异步后台执行）
- * 1. 立即创建数据库记录（状态为EVALUATING）
+ * 1. 立即创建 SQLite 记录（状态为EVALUATING）
  * 2. 后台异步执行真实评估
- * 3. 评估完成后更新数据库记录
+ * 3. 评估完成后更新记录
  */
 export async function POST(request: NextRequest) {
     return runWithTrace('evaluate-batch', {}, async () => {
     try {
-        // 验证管理员权限
         const { admin: isAdmin } = await checkAdmin();
 
         if (!isAdmin) {
@@ -34,56 +38,21 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Batch Evaluate] Starting batch evaluation for ${conversationIds.length} conversations...`);
 
-        // 查询会话信息
-        const conversations = await prisma.conversation.findMany({
-            where: {
-                id: { in: conversationIds },
-            },
-            select: {
-                id: true,
-                title: true,
-                userId: true,
-            },
-        });
+        const conversations = await findConversationsByIds(conversationIds);
 
-        // ✅ 立即创建数据库记录（状态为EVALUATING）
         const createdEvaluations = [];
         for (const conv of conversations) {
-            // 检查是否已有评估
-            const existing = await prisma.conversationEvaluation.findUnique({
-                where: { conversationId: conv.id },
-            });
+            const existing = findEvalByConversationId(conv.id);
 
             if (existing) {
                 console.log(`[Batch Evaluate] Evaluation already exists for ${conv.id}, skipping`);
                 continue;
             }
 
-            // 创建评估记录（初始状态）
-            const evaluation = await prisma.conversationEvaluation.create({
-                data: {
-                    conversationId: conv.id,
-                    userId: conv.userId,
-
-                    // 临时的占位数据（评估中状态）
-                    legalScore: 0,
-                    legalIssues: [],
-
-                    ethicalScore: 0,
-                    ethicalIssues: [],
-
-                    professionalScore: 0,
-                    professionalIssues: [],
-
-                    uxScore: 0,
-                    uxIssues: [],
-
-                    overallScore: 0,
-                    overallGrade: 'EVALUATING',
-
-                    // 改进建议（必需字段）
-                    improvements: [],
-                },
+            const evaluation = createEval({
+                conversationId: conv.id,
+                userId: conv.userId,
+                overallGrade: 'EVALUATING',
             });
 
             createdEvaluations.push({
@@ -104,26 +73,17 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 🚀 异步后台执行评估并更新数据库（不等待）
+        // 异步后台执行评估（不等待）
         (async () => {
             for (const conv of conversations) {
                 try {
                     console.log(`[Batch Evaluate:BG] Processing ${conv.id}...`);
-
-                    // 调用AI评估（这会重新创建/更新记录）
                     const evaluation = await evaluateAndSaveConversation(conv.id);
                     console.log(`[Batch Evaluate:BG] Completed ${conv.id}:`, evaluation ? 'success' : 'failed');
                 } catch (error) {
                     console.error(`[Batch Evaluate:BG] Error processing ${conv.id}:`, error);
-
-                    // 如果评估失败，更新为失败状态
                     try {
-                        await prisma.conversationEvaluation.update({
-                            where: { conversationId: conv.id },
-                            data: {
-                                overallGrade: 'FAILED',
-                            },
-                        });
+                        updateEvalByConversationId(conv.id, { overallGrade: 'FAILED' });
                     } catch (updateError) {
                         console.error(`[Batch Evaluate:BG] Failed to update error status for ${conv.id}`);
                     }
@@ -134,7 +94,6 @@ export async function POST(request: NextRequest) {
             console.error('[Batch Evaluate:BG] Background task failed:', err);
         });
 
-        // Langfuse trace metadata
         const reqTrace = getCurrentTrace()?.trace;
         if (reqTrace) {
             updateTrace(reqTrace, {
@@ -145,7 +104,6 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 立即返回已创建的数据库记录
         return NextResponse.json({
             success: true,
             total: createdEvaluations.length,

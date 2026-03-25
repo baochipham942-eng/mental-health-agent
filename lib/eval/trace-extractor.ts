@@ -5,7 +5,7 @@
  * 供 eval runner 的 product 模式使用。
  */
 
-import { prisma } from '@/lib/db/prisma';
+import { getConversationWithMessageMeta, getLabSessionWithMessages } from './data-bridge';
 
 export interface TraceMessage {
   role: 'user' | 'assistant';
@@ -32,22 +32,7 @@ export interface ConversationTrace {
  * 从 Conversation + Message 表提取普通咨询会话的完整 trace
  */
 export async function extractConversationTrace(conversationId: string): Promise<ConversationTrace | null> {
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    select: {
-      id: true,
-      title: true,
-      messages: {
-        orderBy: { createdAt: 'asc' },
-        select: {
-          role: true,
-          content: true,
-          meta: true,
-          createdAt: true,
-        },
-      },
-    },
-  });
+  const conversation = await getConversationWithMessageMeta(conversationId);
 
   if (!conversation) return null;
 
@@ -124,14 +109,7 @@ export async function extractConversationTrace(conversationId: string): Promise<
  * 从 LabSession + LabMessage 表提取实验室会话的完整 trace
  */
 export async function extractLabSessionTrace(labSessionId: string): Promise<ConversationTrace | null> {
-  const labSession = await prisma.labSession.findUnique({
-    where: { id: labSessionId },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  });
+  const labSession = await getLabSessionWithMessages(labSessionId);
 
   if (!labSession) return null;
 

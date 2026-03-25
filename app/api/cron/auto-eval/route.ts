@@ -5,7 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import {
+    findUnevaluatedConversations,
+    createEvaluationPlaceholder,
+    updateEvalSource,
+    getLastAssistantMessage,
+    getLastUserMessage,
+    markEvaluationFailed,
+} from '@/lib/eval/data-bridge';
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
 import { evaluateTrace } from '@/lib/eval/trace';
 import { writeTraceEval } from '@/lib/eval/trace/db';
@@ -26,22 +33,10 @@ export async function GET(request: NextRequest) {
         cutoff.setHours(cutoff.getHours() - HOURS_LOOKBACK);
 
         // 查询最近更新且未评估的对话（至少有 2 条消息）
-        const unevaluated = await prisma.conversation.findMany({
-            where: {
-                updatedAt: { gte: cutoff },
-                evaluation: null, // 无 ConversationEvaluation 记录
-                messages: { some: {} }, // 至少有消息
-            },
-            select: {
-                id: true,
-                _count: { select: { messages: true } },
-            },
-            take: MAX_BATCH_SIZE,
-            orderBy: { updatedAt: 'desc' },
-        });
+        const unevaluated = await findUnevaluatedConversations(cutoff, MAX_BATCH_SIZE);
 
         // 过滤掉消息不足 2 条的
-        const candidates = unevaluated.filter(c => c._count.messages >= 2);
+        const candidates = unevaluated.filter(c => c.messageCount >= 2);
 
         if (candidates.length === 0) {
             return NextResponse.json({
@@ -54,24 +49,7 @@ export async function GET(request: NextRequest) {
         const created: string[] = [];
         for (const conv of candidates) {
             try {
-                await prisma.conversationEvaluation.create({
-                    data: {
-                        conversationId: conv.id,
-                        userId: '', // 占位，evaluateAndSaveConversation 会更新
-                        legalScore: 0,
-                        legalIssues: [],
-                        ethicalScore: 0,
-                        ethicalIssues: [],
-                        professionalScore: 0,
-                        professionalIssues: [],
-                        uxScore: 0,
-                        uxIssues: [],
-                        overallScore: 0,
-                        overallGrade: 'EVALUATING',
-                        improvements: [],
-                        evalSource: 'auto_cron',
-                    },
-                });
+                createEvaluationPlaceholder(conv.id);
                 created.push(conv.id);
             } catch {
                 // 可能已有记录，跳过
@@ -87,27 +65,16 @@ export async function GET(request: NextRequest) {
 
                     // 标记 evalSource
                     if (result) {
-                        await prisma.conversationEvaluation.update({
-                            where: { conversationId: convId },
-                            data: { evalSource: 'auto_cron' },
-                        });
+                        updateEvalSource(convId, 'auto_cron');
                     }
                     console.log(`[AutoEval:BG] ${convId}: ${result ? '成功' : '跳过'}`);
 
                     // 追加轨迹评测：从最后一条 assistant 消息的 meta 中提取 agentTrace
                     try {
-                        const lastAssistant = await prisma.message.findFirst({
-                            where: { conversationId: convId, role: 'assistant' },
-                            orderBy: { createdAt: 'desc' },
-                            select: { content: true, meta: true },
-                        });
-                        const lastUser = await prisma.message.findFirst({
-                            where: { conversationId: convId, role: 'user' },
-                            orderBy: { createdAt: 'desc' },
-                            select: { content: true },
-                        });
+                        const lastAssistant = await getLastAssistantMessage(convId);
+                        const lastUser = await getLastUserMessage(convId);
 
-                        const meta = (lastAssistant?.meta as Record<string, any>) || {};
+                        const meta = lastAssistant?.meta || {};
                         const agentTrace = meta.agentTrace;
 
                         if (agentTrace && Array.isArray(agentTrace) && agentTrace.length > 0 && lastUser) {
@@ -148,10 +115,7 @@ export async function GET(request: NextRequest) {
                 } catch (error) {
                     console.error(`[AutoEval:BG] ${convId} 失败:`, error);
                     try {
-                        await prisma.conversationEvaluation.update({
-                            where: { conversationId: convId },
-                            data: { overallGrade: 'FAILED' },
-                        });
+                        markEvaluationFailed(convId);
                     } catch {}
                 }
             }

@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { isAdmin } from '@/lib/auth/admin';
+import { getConversationWithMessageMeta } from '@/lib/eval/data-bridge';
+import { requireEvalAuth } from '../auth-guard';
 import { auth } from '@/auth';
 import { logInfo, logError } from '@/lib/observability/logger';
 import {
@@ -85,10 +85,8 @@ export async function GET(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  const { admin } = await isAdmin();
-  if (!admin) {
-    return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
-  }
+  const denied = await requireEvalAuth(request);
+  if (denied) return denied;
 
   try {
     const body = await request.json();
@@ -98,16 +96,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'conversationId 必填' }, { status: 400 });
     }
 
-    // 从 Prisma 查询对话消息 + meta
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          select: { role: true, content: true, meta: true, createdAt: true },
-        },
-      },
-    });
+    // 从 data-bridge 查询对话消息 + meta
+    const conversation = await getConversationWithMessageMeta(conversationId);
 
     if (!conversation) {
       return NextResponse.json({ error: '对话不存在' }, { status: 404 });

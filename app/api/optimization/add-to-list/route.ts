@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
-import { prisma } from '@/lib/db/prisma';
+import {
+    findConversationsByIds,
+    findEvalByConversationId,
+    createEval,
+} from '@/lib/eval/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +13,6 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
     try {
-        // 验证管理员权限
         const { admin: isAdmin } = await checkAdmin();
 
         if (!isAdmin) {
@@ -25,46 +28,18 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // 查询会话信息
-        const conversations = await prisma.conversation.findMany({
-            where: {
-                id: { in: conversationIds },
-            },
-            select: {
-                id: true,
-                userId: true,
-            },
-        });
+        const conversations = await findConversationsByIds(conversationIds);
 
         let added = 0;
 
         for (const conv of conversations) {
-            // 检查是否已存在
-            const existing = await prisma.conversationEvaluation.findUnique({
-                where: { conversationId: conv.id },
-            });
+            const existing = findEvalByConversationId(conv.id);
+            if (existing) continue;
 
-            if (existing) {
-                continue;
-            }
-
-            // 创建待评估记录
-            await prisma.conversationEvaluation.create({
-                data: {
-                    conversationId: conv.id,
-                    userId: conv.userId,
-                    legalScore: 0,
-                    legalIssues: [],
-                    ethicalScore: 0,
-                    ethicalIssues: [],
-                    professionalScore: 0,
-                    professionalIssues: [],
-                    uxScore: 0,
-                    uxIssues: [],
-                    overallScore: 0,
-                    overallGrade: 'EVALUATING',
-                    improvements: [],
-                },
+            createEval({
+                conversationId: conv.id,
+                userId: conv.userId,
+                overallGrade: 'EVALUATING',
             });
 
             added++;

@@ -3,7 +3,14 @@
  * 版本注册、查询、diff、评分聚合
  */
 
-import { prisma } from '@/lib/db/prisma';
+import {
+    findPromptVersionByHash,
+    findLatestPromptVersion,
+    createPromptVersion as dbCreatePromptVersion,
+    findAllPromptVersions,
+    findPromptVersionHistory,
+    findVersionEvaluations,
+} from './data-bridge';
 import * as crypto from 'crypto';
 
 /**
@@ -17,25 +24,20 @@ export async function registerPrompt(
     const hash = crypto.createHash('sha256').update(content).digest('hex');
 
     // 检查是否已存在相同内容
-    const existing = await prisma.promptVersion.findUnique({ where: { hash } });
+    const existing = await findPromptVersionByHash(hash);
     if (existing) {
         return { id: existing.id, isNew: false };
     }
 
     // 查找同名的最新版本作为 parent
-    const latestSameName = await prisma.promptVersion.findFirst({
-        where: { name },
-        orderBy: { createdAt: 'desc' },
-    });
+    const latestSameName = await findLatestPromptVersion(name);
 
-    const created = await prisma.promptVersion.create({
-        data: {
-            name,
-            content,
-            hash,
-            parentId: latestSameName?.id || null,
-            metadata: (metadata as any) || undefined,
-        },
+    const created = await dbCreatePromptVersion({
+        name,
+        content,
+        hash,
+        parentId: latestSameName?.id || null,
+        metadata,
     });
 
     return { id: created.id, isNew: true };
@@ -45,19 +47,14 @@ export async function registerPrompt(
  * 获取指定名称的最新版本
  */
 export async function getCurrentVersion(name: string) {
-    return prisma.promptVersion.findFirst({
-        where: { name },
-        orderBy: { createdAt: 'desc' },
-    });
+    return findLatestPromptVersion(name);
 }
 
 /**
  * 获取所有 Prompt 名称及其最新版本
  */
 export async function listPromptNames() {
-    const all = await prisma.promptVersion.findMany({
-        orderBy: { createdAt: 'desc' },
-    });
+    const all = await findAllPromptVersions();
 
     // 按 name 分组，取最新
     const nameMap = new Map<string, typeof all[0]>();
@@ -73,13 +70,7 @@ export async function listPromptNames() {
  * 获取指定名称的版本历史
  */
 export async function getVersionHistory(name: string) {
-    return prisma.promptVersion.findMany({
-        where: { name },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            _count: { select: { evaluations: true } },
-        },
-    });
+    return findPromptVersionHistory(name);
 }
 
 /**
@@ -106,16 +97,7 @@ export function diffVersions(contentA: string, contentB: string): {
  * 获取某版本关联的评分聚合
  */
 export async function getVersionScores(versionId: string) {
-    const evaluations = await prisma.conversationEvaluation.findMany({
-        where: {
-            promptVersionId: versionId,
-            overallGrade: { notIn: ['EVALUATING', 'FAILED'] },
-        },
-        select: {
-            overallScore: true,
-            overallGrade: true,
-        },
-    });
+    const evaluations = findVersionEvaluations(versionId);
 
     if (evaluations.length === 0) {
         return { count: 0, avgScore: 0, gradeDistribution: {} };

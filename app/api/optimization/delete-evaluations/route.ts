@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
-import { prisma } from '@/lib/db/prisma';
+import { deleteEvalsByIds } from '@/lib/eval/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
     try {
-        // 验证管理员权限
         const { admin: isAdmin } = await checkAdmin();
 
         if (!isAdmin) {
@@ -25,15 +24,11 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const result = await prisma.conversationEvaluation.deleteMany({
-            where: {
-                id: { in: evaluationIds },
-            },
-        });
+        const deleted = deleteEvalsByIds(evaluationIds);
 
         return NextResponse.json({
             success: true,
-            deleted: result.count,
+            deleted,
         });
 
     } catch (error) {

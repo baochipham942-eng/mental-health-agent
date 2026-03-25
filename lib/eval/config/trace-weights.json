@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "steps": {
+    "triage": 0.25,
+    "safety": 0.25,
+    "persona": 0.15,
+    "emotion": 0.15,
+    "tool": 0.10,
+    "guard": 0.10
+  }
+}

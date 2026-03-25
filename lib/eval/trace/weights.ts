@@ -1,19 +1,13 @@
 /**
  * 轨迹评测权重配置
  *
- * 6 个 pipeline 步骤的加权评分。
+ * 从 JSON 配置加载。6 个 pipeline 步骤的加权评分。
  * safety + triage 各占 25%（安全与路由是最核心的决策）。
  */
 
-/** 各步骤权重 */
-export const TRACE_STEP_WEIGHTS: Record<string, number> = {
-  triage:  0.25,
-  safety:  0.25,
-  persona: 0.15,
-  emotion: 0.15,
-  tool:    0.10,
-  guard:   0.10,
-};
+import { TRACE_STEP_WEIGHTS } from '../config';
+
+export { TRACE_STEP_WEIGHTS };
 
 /**
  * 根据各步骤判定结果计算加权综合分和等级

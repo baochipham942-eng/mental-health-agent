@@ -4,16 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { isAdmin as checkAdmin } from '@/lib/auth/admin';
+import { findEvaluationsForTrend, findRecentEvaluations } from '@/lib/eval/data-bridge';
+import { requireEvalAuth } from '../auth-guard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-    const { admin: isAdmin } = await checkAdmin();
-    if (!isAdmin) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+    const denied = await requireEvalAuth(request);
+    if (denied) return denied;
 
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30', 10);
@@ -22,19 +20,7 @@ export async function GET(request: NextRequest) {
     cutoff.setDate(cutoff.getDate() - days);
 
     try {
-        const evaluations = await prisma.conversationEvaluation.findMany({
-            where: {
-                evaluatedAt: { gte: cutoff },
-                overallGrade: { notIn: ['EVALUATING', 'FAILED'] },
-            },
-            select: {
-                evaluatedAt: true,
-                overallGrade: true,
-                overallScore: true,
-                evalSource: true,
-            },
-            orderBy: { evaluatedAt: 'asc' },
-        });
+        const evaluations = findEvaluationsForTrend(cutoff);
 
         // 按日聚合
         const dailyMap = new Map<string, {
@@ -49,7 +35,7 @@ export async function GET(request: NextRequest) {
         }>();
 
         for (const ev of evaluations) {
-            const dateStr = ev.evaluatedAt.toISOString().slice(0, 10);
+            const dateStr = ev.evaluatedAt!.toISOString().slice(0, 10);
             if (!dailyMap.has(dateStr)) {
                 dailyMap.set(dateStr, {
                     date: dateStr,
@@ -94,30 +80,12 @@ export async function GET(request: NextRequest) {
         }));
 
         // 最近全部评估（按时间倒序，最多 50 条）
-        const recentEvaluations = await prisma.conversationEvaluation.findMany({
-            where: {
-                evaluatedAt: { gte: cutoff },
-                overallGrade: { notIn: ['EVALUATING', 'FAILED'] },
-            },
-            select: {
-                id: true,
-                conversationId: true,
-                overallGrade: true,
-                overallScore: true,
-                evaluatedAt: true,
-                evalSource: true,
-                conversation: {
-                    select: { title: true },
-                },
-            },
-            orderBy: { evaluatedAt: 'desc' },
-            take: 50,
-        });
+        const recentEvaluations = await findRecentEvaluations(cutoff, 50);
 
         const mapEval = (e: typeof recentEvaluations[0]) => ({
             id: e.id,
             conversationId: e.conversationId,
-            title: e.conversation.title || '未命名',
+            title: e.conversationTitle || '未命名',
             grade: e.overallGrade,
             score: e.overallScore,
             evaluatedAt: e.evaluatedAt.toISOString(),

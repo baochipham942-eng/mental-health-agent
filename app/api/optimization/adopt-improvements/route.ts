@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
-import { prisma } from '@/lib/db/prisma';
+import { findEvalById, updateEvalById } from '@/lib/eval/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,6 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
     try {
-        // 验证管理员权限
         const { admin: isAdmin, session } = await checkAdmin();
 
         if (!isAdmin) {
@@ -25,10 +24,7 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // 查找评估记录
-        const evaluation = await prisma.conversationEvaluation.findUnique({
-            where: { id: evaluationId },
-        });
+        const evaluation = findEvalById(evaluationId);
 
         if (!evaluation) {
             return NextResponse.json({
@@ -42,21 +38,17 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // 更新采纳状态
-        const updated = await prisma.conversationEvaluation.update({
-            where: { id: evaluationId },
-            data: {
-                reviewStatus: 'ADOPTED',
-                reviewedAt: new Date(),
-                reviewedBy: session?.user?.name || 'admin',
-            },
+        const updated = updateEvalById(evaluationId, {
+            reviewStatus: 'ADOPTED',
+            reviewedAt: new Date(),
+            reviewedBy: session?.user?.name || 'admin',
         });
 
         console.log('[Adopt] Improvements adopted for evaluation:', evaluationId);
 
         return NextResponse.json({
             success: true,
-            adoptedAt: updated.reviewedAt?.toISOString(),
+            adoptedAt: updated?.reviewedAt?.toISOString(),
         });
 
     } catch (error) {

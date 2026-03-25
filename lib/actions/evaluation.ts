@@ -2,7 +2,12 @@
 
 import { prisma } from '@/lib/db/prisma';
 import { evaluateConversationQuality } from '@/lib/ai/evaluation';
-import { checkAndIngest } from '@/lib/eval/auto-ingest';
+import { evalEvents } from '@/lib/eval/eval-events';
+import {
+  findEvalByConversationId,
+  createEval,
+  updateEvalByConversationId,
+} from '@/lib/eval/data-bridge';
 
 /**
  * 评估并保存对话质量
@@ -36,10 +41,8 @@ export async function evaluateAndSaveConversation(conversationId: string) {
             return null;
         }
 
-        // 2. 检查是否已评估
-        const existing = await prisma.conversationEvaluation.findUnique({
-            where: { conversationId },
-        });
+        // 2. 检查是否已评估（SQLite）
+        const existing = findEvalByConversationId(conversationId);
 
         // 如果已有完成的评估（非EVALUATING状态），则跳过
         if (existing && existing.overallGrade !== 'EVALUATING') {
@@ -60,52 +63,39 @@ export async function evaluateAndSaveConversation(conversationId: string) {
             messages: conversation.messages,
         });
 
-        // 5. 保存到数据库（更新已有记录或创建新记录）
+        // 5. 保存到 SQLite（更新已有记录或创建新记录）
+        const evalData = {
+            legalScore: result.legalCompliance.score,
+            ethicalScore: result.ethicalStandard.score,
+            professionalScore: result.professionalism.score,
+            uxScore: result.userExperience.score,
+            legalIssues: result.legalCompliance.issues,
+            ethicalIssues: result.ethicalStandard.issues,
+            professionalIssues: result.professionalism.issues,
+            uxIssues: result.userExperience.issues,
+            overallGrade: result.overallGrade,
+            overallScore: result.overallScore,
+            improvements: result.improvements,
+        };
+
         let saved;
         if (existing) {
-            // 更新已有的待评估记录
-            saved = await prisma.conversationEvaluation.update({
-                where: { conversationId },
-                data: {
-                    legalScore: result.legalCompliance.score,
-                    ethicalScore: result.ethicalStandard.score,
-                    professionalScore: result.professionalism.score,
-                    uxScore: result.userExperience.score,
-                    legalIssues: result.legalCompliance.issues,
-                    ethicalIssues: result.ethicalStandard.issues,
-                    professionalIssues: result.professionalism.issues,
-                    uxIssues: result.userExperience.issues,
-                    overallGrade: result.overallGrade,
-                    overallScore: result.overallScore,
-                    improvements: result.improvements,
-                    evaluatedAt: new Date(),
-                },
+            saved = updateEvalByConversationId(conversationId, {
+                ...evalData,
+                evaluatedAt: new Date(),
             });
         } else {
-            // 创建新记录
-            saved = await prisma.conversationEvaluation.create({
-                data: {
-                    conversationId: conversation.id,
-                    userId: conversation.userId,
-                    legalScore: result.legalCompliance.score,
-                    ethicalScore: result.ethicalStandard.score,
-                    professionalScore: result.professionalism.score,
-                    uxScore: result.userExperience.score,
-                    legalIssues: result.legalCompliance.issues,
-                    ethicalIssues: result.ethicalStandard.issues,
-                    professionalIssues: result.professionalism.issues,
-                    uxIssues: result.userExperience.issues,
-                    overallGrade: result.overallGrade,
-                    overallScore: result.overallScore,
-                    improvements: result.improvements,
-                },
+            saved = createEval({
+                conversationId: conversation.id,
+                userId: conversation.userId,
+                ...evalData,
             });
         }
 
         console.log('[Evaluation Action] Saved successfully:', {
-            id: saved.id,
-            grade: saved.overallGrade,
-            score: saved.overallScore,
+            id: saved?.id,
+            grade: saved?.overallGrade,
+            score: saved?.overallScore,
         });
 
         // 6. 低分评估 -> 创建优化事件
@@ -145,17 +135,13 @@ export async function evaluateAndSaveConversation(conversationId: string) {
                 });
                 console.log('[Evaluation Action] Created LOW_SCORE event');
 
-                // Sprint 2: 自动回流到评测数据集
-                try {
-                    await checkAndIngest({
-                        conversationId: conversation.id,
-                        overallScore: result.overallScore,
-                        overallGrade: result.overallGrade,
-                        issues: allIssues,
-                    });
-                } catch (ingestError) {
-                    console.error('[Evaluation Action] Auto-ingest failed:', ingestError);
-                }
+                // Sprint 2: 自动回流到评测数据集（事件驱动）
+                evalEvents.emit('evaluation:low-score', {
+                    conversationId: conversation.id,
+                    overallScore: result.overallScore,
+                    overallGrade: result.overallGrade,
+                    issues: allIssues,
+                });
             } catch (eventError) {
                 console.error('[Evaluation Action] Failed to create event:', eventError);
             }

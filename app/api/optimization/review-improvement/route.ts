@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin as checkAdmin } from '@/lib/auth/admin';
-import { prisma } from '@/lib/db/prisma';
 import { applyImprovements, revokeImprovements } from '@/lib/ai/optimization';
+import { findEvalById, updateEvalById } from '@/lib/eval/data-bridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,10 +40,7 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // 查找评估记录
-        const evaluation = await prisma.conversationEvaluation.findUnique({
-            where: { id: evaluationId },
-        });
+        const evaluation = findEvalById(evaluationId);
 
         if (!evaluation) {
             return NextResponse.json({
@@ -57,15 +54,13 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // 根据 action 执行对应操作
         let newStatus: string;
         let updateData: Record<string, unknown>;
         let promptModified = false;
 
         switch (action) {
             case 'adopt': {
-                // 自动修改 prompt 文件
-                const improvements = evaluation.improvements as string[] || [];
+                const improvements = evaluation.improvements || [];
                 if (improvements.length > 0) {
                     const result = applyImprovements(evaluationId, improvements);
                     if (!result.success) {
@@ -97,7 +92,6 @@ export async function POST(request: NextRequest) {
                 break;
 
             case 'revoke': {
-                // 撤回 = 恢复原始 prompt + 重置状态
                 const result = revokeImprovements(evaluationId);
                 if (!result.success) {
                     return NextResponse.json({
@@ -120,17 +114,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
         }
 
-        const updated = await prisma.conversationEvaluation.update({
-            where: { id: evaluationId },
-            data: updateData,
-        });
+        const updated = updateEvalById(evaluationId, updateData as any);
 
         console.log(`[Review] Evaluation ${evaluationId} ${action}ed by ${session?.user?.name}, promptModified: ${promptModified}`);
 
         return NextResponse.json({
             success: true,
-            reviewStatus: updated.reviewStatus,
-            reviewedAt: updated.reviewedAt?.toISOString(),
+            reviewStatus: updated?.reviewStatus,
+            reviewedAt: updated?.reviewedAt?.toISOString(),
             promptModified,
         });
 
