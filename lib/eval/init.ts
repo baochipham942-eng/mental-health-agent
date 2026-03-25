@@ -7,6 +7,7 @@
 
 import { evalEvents } from './eval-events';
 import { checkAndIngest } from './auto-ingest';
+import { handlePromptVersionRegistered } from './prompt-eval-trigger';
 
 evalEvents.on('evaluation:low-score', async (payload) => {
   try {
@@ -16,4 +17,12 @@ evalEvents.on('evaluation:low-score', async (payload) => {
   }
 });
 
-console.log('[EvalInit] 事件监听已注册');
+evalEvents.on('prompt:version-registered', async (payload) => {
+  try {
+    await handlePromptVersionRegistered(payload);
+  } catch (e) {
+    console.error('[EvalInit] Prompt eval trigger failed:', e);
+  }
+});
+
+console.log('[EvalInit] 事件监听已注册（evaluation:low-score + prompt:version-registered）');

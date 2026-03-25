@@ -12,6 +12,7 @@ import {
     findVersionEvaluations,
 } from './data-bridge';
 import * as crypto from 'crypto';
+import { evalEvents } from './eval-events';
 
 /**
  * 注册一个 Prompt 版本（自动去重）
@@ -26,6 +27,11 @@ export async function registerPrompt(
     // 检查是否已存在相同内容
     const existing = await findPromptVersionByHash(hash);
     if (existing) {
+        evalEvents.emit('prompt:version-registered', {
+            versionId: existing.id,
+            name,
+            isNew: false,
+        });
         return { id: existing.id, isNew: false };
     }
 
@@ -38,6 +44,13 @@ export async function registerPrompt(
         hash,
         parentId: latestSameName?.id || null,
         metadata,
+    });
+
+    // 发射新版本注册事件，触发自动评测
+    evalEvents.emit('prompt:version-registered', {
+        versionId: created.id,
+        name,
+        isNew: true,
     });
 
     return { id: created.id, isNew: true };

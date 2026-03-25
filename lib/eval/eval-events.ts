@@ -14,8 +14,15 @@ export interface EvalLowScorePayload {
   issues: string[];
 }
 
+export interface PromptVersionRegisteredPayload {
+  versionId: string;
+  name: string;
+  isNew: boolean;
+}
+
 export interface EvalEventMap {
   'evaluation:low-score': EvalLowScorePayload;
+  'prompt:version-registered': PromptVersionRegisteredPayload;
 }
 
 class EvalEventBus extends EventEmitter {

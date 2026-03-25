@@ -12,6 +12,7 @@ const NAV_GROUPS = [
             { href: '/dashboard/optimization/datasets', label: '数据集' },
             { href: '/dashboard/optimization/graders', label: '评分器' },
             { href: '/dashboard/optimization/calibration', label: '校准' },
+            { href: '/dashboard/optimization/ci-runs', label: 'CI' },
         ],
     },
     {
@@ -20,6 +21,7 @@ const NAV_GROUPS = [
             { href: '/dashboard/optimization/online-quality', label: '线上质量' },
             { href: '/dashboard/optimization/trace', label: '轨迹分析' },
             { href: '/dashboard/optimization/metrics', label: '观测统计' },
+            { href: '/dashboard/optimization/security', label: '安全红线' },
         ],
     },
     {
@@ -28,6 +30,13 @@ const NAV_GROUPS = [
             { href: '/dashboard/optimization/analysis', label: '根因分析' },
             { href: '/dashboard/optimization/prompt-versions', label: 'Prompt版本' },
             { href: '/dashboard/optimization/version-compare', label: '版本对比' },
+        ],
+    },
+    {
+        label: '标注',
+        items: [
+            { href: '/dashboard/optimization/annotation-queue', label: '标注队列' },
+            { href: '/dashboard/optimization/agreement', label: '一致性' },
         ],
     },
 ];
