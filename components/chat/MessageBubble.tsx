@@ -287,7 +287,7 @@ export function MessageBubble({
             {/* Generative UI Tool Calling Logic */}
             {toolCalls && toolCalls.length > 0 ? (
               <div className="space-y-4">
-                {displayContent && <ReactMarkdown className="prose prose-sm max-w-none" remarkPlugins={[remarkBreaks]}>{displayContent}</ReactMarkdown>}
+                {displayContent && <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkBreaks]}>{displayContent}</ReactMarkdown></div>}
                 {toolCalls.map((tc: any) => {
                   try {
                     if (!tc?.function?.arguments) return null;
