@@ -114,7 +114,7 @@ UI 更新（MessageList → MessageBubble → ConclusionSections）
 ## 三、文件结构
 
 ```
-心理疗愈agent/
+mental-health-agent/
 ├── docs/
 │   └── prd/
 │       ├── frontend-mvp-chat.md          # PRD 文档

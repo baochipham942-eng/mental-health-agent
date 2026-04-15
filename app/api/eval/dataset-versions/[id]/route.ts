@@ -13,10 +13,8 @@ import {
 export const dynamic = 'force-dynamic';
 
 /** 获取版本详情及用例 */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = await requireEvalAuth(request);
   if (denied) return denied;
 
@@ -35,10 +33,8 @@ export async function GET(
 }
 
 /** 删除版本（级联删除用例） */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const denied = await requireEvalAuth(request);
   if (denied) return denied;
 

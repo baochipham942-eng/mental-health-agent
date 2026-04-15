@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
 const SESSION_DURATION_SECONDS = 45 * 60; // 45 minutes
 
 interface SessionPageProps {
-    params: {
+    params: Promise<{
         sessionId: string;
-    };
+    }>;
 }
 
 /**
@@ -19,7 +19,8 @@ interface SessionPageProps {
  * 
  * 服务端计算剩余时间和是否超时，确保刷新页面时状态正确
  */
-export default async function SessionPage({ params }: SessionPageProps) {
+export default async function SessionPage(props: SessionPageProps) {
+    const params = await props.params;
     console.log('[SessionPage] Loading session:', params.sessionId);
 
     const session = await auth();

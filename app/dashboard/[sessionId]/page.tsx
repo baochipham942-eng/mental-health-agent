@@ -4,14 +4,15 @@ import { auth } from '@/auth';
 import { ChatShell } from '@/components/chat/ChatShell';
 
 interface ChatPageProps {
-    params: {
+    params: Promise<{
         sessionId: string;
-    };
+    }>;
 }
 
 export const dynamic = 'force-dynamic';
 
-export default async function ChatPage({ params }: ChatPageProps) {
+export default async function ChatPage(props: ChatPageProps) {
+    const params = await props.params;
     const session = await auth();
     if (!session?.user) {
         redirect('/login');

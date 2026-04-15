@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { conversationId: string } }
+    props: { params: Promise<{ conversationId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await auth();
         const isAdmin = isAdminSession(session);

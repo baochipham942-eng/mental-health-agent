@@ -1,9 +1,9 @@
+@import '../styles/mood-theme.css';
+@import '../styles/onboarding.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import '../styles/mood-theme.css';
-@import '../styles/onboarding.css';
 
 /* Tree float animation */
 @keyframes float {

@@ -60,7 +60,7 @@ npm run dev
 ## 📁 文件结构
 
 ```
-心理疗愈agent/
+mental-health-agent/
 ├── docs/prd/
 │   ├── README.md                    # 本文件
 │   ├── frontend-mvp-chat.md         # PRD 需求文档

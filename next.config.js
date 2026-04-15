@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // 优化生产构建
-  swcMinify: true,
+  // Turbopack：显式固定工作空间根目录，避免 Next 回退到 $HOME/package-lock.json
+  turbopack: {
+    root: __dirname,
+  },
   // 压缩输出
   compress: true,
   // 图片优化（Vercel 自动处理）
@@ -10,10 +12,9 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   output: 'standalone',
-  experimental: {
-    // @xenova/transformers 依赖 onnxruntime-node 原生模块，不能被 webpack 打包
-    serverComponentsExternalPackages: ['@xenova/transformers', 'onnxruntime-node', 'better-sqlite3', 'sql.js'],
-  },
+  // Next 15+：原 experimental.serverComponentsExternalPackages
+  // @xenova/transformers 依赖 onnxruntime-node 原生模块，不能被 webpack 打包
+  serverExternalPackages: ['@xenova/transformers', 'onnxruntime-node', 'better-sqlite3', 'sql.js'],
   // 确保验证文件可以被访问
   async rewrites() {
     return [
@@ -54,12 +55,9 @@ const nextConfig = {
       },
     ];
   },
-  // 忽略构建时的类型和Lint错误，避免因环境差异导致的构建失败
+  // 忽略构建时的类型错误，避免因环境差异导致的构建失败
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 }
 

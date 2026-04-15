@@ -5,10 +5,8 @@ import { requireEvalAdmin } from '../../auth-guard';
 
 const STATUS_DIR = path.join(process.cwd(), 'tests/eval/results/.status');
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { runId: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   try {
     const denied = await requireEvalAdmin();
     if (denied) return denied;

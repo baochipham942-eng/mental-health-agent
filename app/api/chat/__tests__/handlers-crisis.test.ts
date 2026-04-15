@@ -32,12 +32,12 @@ const mockStreamSupport = vi.mocked(streamSupportReply);
 const mockCreateEscalation = vi.mocked(createCrisisEscalation);
 const mockDeescalation = vi.mocked(assessCrisisDeescalation);
 
-// 创建 mock StreamData
+// 创建 mock StreamData（测试桩：绕过 ai SDK StreamData 内部字段约束）
 function createMockStreamData() {
     return {
         append: vi.fn(),
         close: vi.fn(),
-    };
+    } as any;
 }
 
 // 创建 mock 流式响应

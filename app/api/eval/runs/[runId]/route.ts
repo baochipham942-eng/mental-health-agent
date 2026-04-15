@@ -6,10 +6,8 @@ import { requireEvalAdmin } from '../../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { runId: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   try {
     const denied = await requireEvalAdmin();
     if (denied) return denied;
@@ -53,10 +51,8 @@ export async function GET(
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { runId: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ runId: string }> }) {
+  const params = await props.params;
   try {
     const denied = await requireEvalAdmin();
     if (denied) return denied;

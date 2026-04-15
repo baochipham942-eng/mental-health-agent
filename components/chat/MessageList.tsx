@@ -2,7 +2,7 @@
 
 import { Message } from '@/types/chat';
 import { MessageBubble } from './MessageBubble';
-import { useEffect, useRef, useState, useCallback, RefObject, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, RefObject } from 'react';
 import { useHasHydrated } from '@/store/chatStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -22,7 +22,7 @@ interface MessageListProps {
     toolCalls?: any[];
   }>;
   onSendMessage?: (text: string) => void;
-  scrollContainerRef?: RefObject<HTMLElement>;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
   sessionId: string;
 }
 

@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCaseById } from '../../db-reader';
 import { requireEvalAdmin } from '../../auth-guard';
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { caseId: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   try {
     const denied = await requireEvalAdmin();
     if (denied) return denied;
