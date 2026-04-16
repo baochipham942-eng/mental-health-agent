@@ -63,7 +63,7 @@ export function MoodTracker() {
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             placeholder="记录一下此时此刻的想法..."
-                            className="w-full h-24 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none bg-gray-50/50 transition-all placeholder:text-gray-400"
+                            className="w-full h-24 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none bg-gray-50/50 transition-all placeholder:text-gray-400"
                         />
                     </div>
 
@@ -71,7 +71,7 @@ export function MoodTracker() {
                         <button
                             onClick={handleSubmit}
                             disabled={!selectedMood}
-                            className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm ${selectedMood
+                            className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-200 shadow-xs ${selectedMood
                                 ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5'
                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 }`}

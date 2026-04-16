@@ -76,18 +76,14 @@ export async function quickCrisisCheck(
     if (!deepseekKey) return crisisKeywordFallback(message);
 
     try {
-        const { createOpenAI } = await import('@ai-sdk/openai');
-        const deepseek = createOpenAI({
-            baseURL: process.env.DEEPSEEK_API_URL?.replace(/\/chat\/completions$/, '') || 'https://api.deepseek.com/v1',
-            apiKey: deepseekKey,
-        });
+        const { deepseek } = await import('@/lib/ai/deepseek');
 
         const result = await Promise.race([
             generateText({
                 model: deepseek(process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat'),
                 prompt: CRISIS_FEW_SHOT_PROMPT + message,
                 temperature: 0,
-                maxTokens: 3,
+                maxOutputTokens: 3,
             }),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
         ]);

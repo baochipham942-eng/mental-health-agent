@@ -74,7 +74,7 @@ function EducationCard({ resource, expanded, onToggle }: { resource: PsychoEduca
                     </div>
                     <button
                         onClick={onToggle}
-                        className="mt-4 w-full py-2 text-sm text-blue-600 font-medium hover:bg-blue-100 rounded transition-colors"
+                        className="mt-4 w-full py-2 text-sm text-blue-600 font-medium hover:bg-blue-100 rounded-sm transition-colors"
                     >
                         收起文章
                     </button>
@@ -105,8 +105,8 @@ function StrategyCard({ resource, expanded, onToggle }: { resource: CopingStrate
                 <div className="mt-4 pt-4 border-t border-green-100">
                     <div className="space-y-2">
                         {resource.steps.map((step, idx) => (
-                            <div key={idx} className="flex gap-3 bg-white p-2 rounded border border-green-100">
-                                <span className="flex-shrink-0 w-5 h-5 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">
+                            <div key={idx} className="flex gap-3 bg-white p-2 rounded-sm border border-green-100">
+                                <span className="shrink-0 w-5 h-5 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">
                                     {idx + 1}
                                 </span>
                                 <p className="text-sm text-gray-700">{step}</p>

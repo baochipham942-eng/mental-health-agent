@@ -136,7 +136,7 @@ export function ProfileEditModal({
                                 `}
                                 title={profile.trait}
                             >
-                                <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-sm">
+                                <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-xs">
                                     <img
                                         src={profile.avatar}
                                         alt={profile.trait}
@@ -177,7 +177,7 @@ export function ProfileEditModal({
                             className={`
                                 w-full px-4 py-3 rounded-xl border text-gray-900
                                 transition-colors duration-200
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                                focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                 ${error ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}
                                 ${loading ? 'opacity-50 cursor-not-allowed' : ''}
                             `}

@@ -12,7 +12,7 @@ export function DashboardBackLink() {
     if (pathname.startsWith('/dashboard/optimization')) return null;
 
     return (
-        <div className="flex-shrink-0 px-6 pt-3 pb-1">
+        <div className="shrink-0 px-6 pt-3 pb-1">
             <Link
                 href="/"
                 className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"

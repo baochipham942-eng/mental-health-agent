@@ -133,12 +133,12 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-white animate-fade-in"
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-white animate-fade-in"
         >
-            <div className="w-full bg-white overflow-hidden flex flex-col h-[100dvh]">
+            <div className="w-full bg-white overflow-hidden flex flex-col h-dvh">
 
                 {/* Header */}
-                <div className="px-6 py-4 border-b bg-gradient-to-r from-violet-50 to-indigo-50 sticky top-0 z-10">
+                <div className="px-6 py-4 border-b bg-linear-to-r from-violet-50 to-indigo-50 sticky top-0 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="text-2xl">🎭</div>
@@ -199,10 +199,10 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                             {/* 消息渲染 */}
                             {msg.role === 'user' ? (
                                 <div className="flex gap-3 max-w-[80%] ml-auto flex-row-reverse">
-                                    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center border border-blue-600 shadow-sm">
+                                    <div className="shrink-0 w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center border border-blue-600 shadow-xs">
                                         <IconUser className="text-white text-sm" />
                                     </div>
-                                    <div className="px-4 py-3 rounded-xl bg-blue-600 text-white text-[15px] leading-relaxed shadow-sm">
+                                    <div className="px-4 py-3 rounded-xl bg-blue-600 text-white text-[15px] leading-relaxed shadow-xs">
                                         {msg.content}
                                     </div>
                                 </div>
@@ -244,19 +244,19 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
                             <button
                                 onClick={() => sendMessage('请各位继续讨论，进一步深入这个话题。')}
-                                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                                 继续讨论
                             </button>
                             <button
                                 onClick={() => sendMessage('请各位对刚才的讨论做一个简短的总结。')}
-                                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                                 总结观点
                             </button>
                             <button
                                 onClick={() => sendMessage('你们之间有没有互相不同意的地方？请指出来。')}
-                                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                                 挖掘分歧
                             </button>
@@ -269,7 +269,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                 value={input}
                                 onChange={(val) => setInput(val)}
                                 placeholder="发送新话题或追问..."
-                                className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
+                                className="bg-transparent! border-none! shadow-none! text-[15px] text-gray-900 placeholder:text-gray-400"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                                         e.preventDefault();
@@ -284,7 +284,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                 type="outline"
                                 onClick={stop}
                                 shape="circle"
-                                className="w-11 h-11 flex-shrink-0"
+                                className="w-11 h-11 shrink-0"
                             >
                                 ■
                             </Button>
@@ -293,7 +293,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                 type="primary"
                                 htmlType="submit"
                                 shape="circle"
-                                className="w-11 h-11 flex-shrink-0"
+                                className="w-11 h-11 shrink-0"
                                 icon={<IconSend />}
                                 disabled={!input.trim()}
                             />
@@ -324,8 +324,8 @@ function ModeratorBubble({ msg }: { msg: GroupMessage }) {
 
     return (
         <div className="flex justify-center py-1">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 max-w-[85%]">
-                <span className="text-sm flex-shrink-0">{actionIcon}</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-linear-to-r from-violet-50 to-indigo-50 border border-violet-100 max-w-[85%]">
+                <span className="text-sm shrink-0">{actionIcon}</span>
                 <span className="text-sm text-violet-700 font-medium leading-snug">
                     {msg.content}
                 </span>
@@ -340,7 +340,7 @@ function ModeratorBubble({ msg }: { msg: GroupMessage }) {
 function SynthesisBubble({ msg }: { msg: GroupMessage }) {
     return (
         <div className="mx-auto max-w-[90%] mt-4">
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+            <div className="bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-xs">
                 <div className="flex items-center gap-2 mb-3">
                     <span className="text-lg">📜</span>
                     <span className="text-sm font-bold text-amber-800">圆桌总结</span>
@@ -369,7 +369,7 @@ function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStream
 
     return (
         <div className="flex gap-3 max-w-[88%]">
-            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center border border-gray-200 shadow-sm">
+            <div className="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center border border-gray-200 shadow-xs">
                 <span className="text-lg">{msg.mentorAvatar || '🤔'}</span>
             </div>
 
@@ -384,7 +384,7 @@ function MentorMessageBubble({ msg, isStreaming }: { msg: GroupMessage; isStream
                 </div>
 
                 <div className={cn(
-                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-sm border",
+                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-xs border",
                     bubbleColor
                 )}>
                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 text-gray-800">

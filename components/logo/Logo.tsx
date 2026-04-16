@@ -20,7 +20,7 @@ export function Logo() {
 
 
                 {/* Tree Element */}
-                <div className="absolute inset-0 translate-y-[4px] transition-transform duration-500 ease-out group-hover:rotate-[12deg] group-hover:scale-110">
+                <div className="absolute inset-0 translate-y-[4px] transition-transform duration-500 ease-out group-hover:rotate-12 group-hover:scale-110">
                     <Image
                         src="/logo-tree.svg"
                         alt="树洞核心"
@@ -30,7 +30,7 @@ export function Logo() {
                 </div>
 
                 {/* Hat Element - z-30 to stay in front of snow */}
-                <div className="absolute -top-[3px] left-0 w-full h-full scale-[0.65] z-30 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-[12deg] group-hover:scale-[0.75] group-hover:translate-x-1">
+                <div className="absolute -top-[3px] left-0 w-full h-full scale-[0.65] z-30 transition-all duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-12 group-hover:scale-[0.75] group-hover:translate-x-1">
                     <Image
                         src="/logo-hat.svg"
                         alt="圣诞帽"

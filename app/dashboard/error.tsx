@@ -15,7 +15,7 @@ export default function DashboardError({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
-      <div role="alert" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
+      <div role="alert" className="bg-white rounded-2xl shadow-xs border border-gray-100 p-8 max-w-md w-full text-center">
         <div className="text-4xl mb-4">😵</div>
         <h2 className="text-lg font-semibold text-gray-800 mb-2">出了点问题</h2>
         <p className="text-sm text-gray-500 mb-6">

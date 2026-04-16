@@ -205,7 +205,7 @@ export function MemoryPageContent() {
     const renderMemoryCard = (memory: Memory, topicConfig: typeof TOPIC_CONFIG[string]) => (
         <div
             key={memory.id}
-            className={`group rounded-xl p-4 border transition-all ${topicConfig.bgClass} ${topicConfig.borderClass} hover:shadow-sm`}
+            className={`group rounded-xl p-4 border transition-all ${topicConfig.bgClass} ${topicConfig.borderClass} hover:shadow-xs`}
         >
             {editingId === memory.id ? (
                 <div className="space-y-3">
@@ -214,7 +214,7 @@ export function MemoryPageContent() {
                         onChange={setEditContent}
                         autoSize={{ minRows: 2, maxRows: 6 }}
                         autoFocus
-                        className="!bg-white"
+                        className="bg-white!"
                     />
                     <div className="flex gap-2 justify-end">
                         <Button
@@ -243,7 +243,7 @@ export function MemoryPageContent() {
                         {/* Phase 3 Visualization: Memory Strength */}
                         <StrengthIndicator strength={memory.memoryStrength} count={memory.accessCount} />
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 self-start">
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-start">
                         <Button
                             type="text"
                             size="mini"
@@ -264,9 +264,9 @@ export function MemoryPageContent() {
     );
 
     return (
-        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50">
+        <div className="h-dvh w-full flex flex-col overflow-hidden bg-gray-50">
             {/* 页面头部 - 与会话页保持一致的毛玻璃效果 */}
-            <header className="w-full bg-white/80 backdrop-blur-sm border-b border-gray-100 z-20 shrink-0">
+            <header className="w-full bg-white/80 backdrop-blur-xs border-b border-gray-100 z-20 shrink-0">
                 <div className="w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <h1 className="text-2xl font-bold text-gray-900">我的记忆</h1>
@@ -301,7 +301,7 @@ export function MemoryPageContent() {
                                         className={cn(
                                             "py-1.5 px-3 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap",
                                             activeTab === topic
-                                                ? "bg-white shadow-sm text-gray-800"
+                                                ? "bg-white shadow-xs text-gray-800"
                                                 : "text-gray-500 hover:text-gray-700"
                                         )}
                                     >

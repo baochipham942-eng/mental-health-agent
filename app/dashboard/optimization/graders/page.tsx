@@ -89,7 +89,7 @@ export default function GradersPage() {
       </div>
 
       {/* 失败漏斗 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <h2 className="text-base font-semibold text-gray-800 mb-3">失败漏斗 (Failure Funnel)</h2>
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           {FAILURE_FUNNEL.map((step, i) => (
@@ -158,7 +158,7 @@ function GraderCard({ grader }: { grader: GraderDimension }) {
   const weightPct = (grader.weight * 100).toFixed(1);
 
   return (
-    <Card className="shadow-sm" bodyStyle={{ padding: '16px 20px' }}>
+    <Card className="shadow-xs" bodyStyle={{ padding: '16px 20px' }}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">

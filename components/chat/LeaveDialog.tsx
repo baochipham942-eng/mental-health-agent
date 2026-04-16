@@ -28,7 +28,7 @@ export function LeaveDialog({ visible, onStay, onLeave, moodTheme }: LeaveDialog
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-250"
+      className="fixed inset-0 z-100 flex items-center justify-center transition-opacity duration-250"
       style={{
         background: 'rgba(0,0,0,0.25)',
         backdropFilter: 'blur(4px)',

@@ -263,7 +263,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
         {/* 左侧信息 */}
         <div className="p-4 flex-1 flex flex-col justify-center min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg flex-shrink-0" role="img">{visual.emoji}</span>
+            <span className="text-lg shrink-0" role="img">{visual.emoji}</span>
             <h4 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-blue-600 transition-colors">
               {card.title}
             </h4>
@@ -278,7 +278,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                 </motion.span>
               )}
             </AnimatePresence>
-            <span className={`ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full ${effort.color} bg-opacity-50 flex-shrink-0`}>
+            <span className={`ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full ${effort.color} bg-opacity-50 shrink-0`}>
               {effort.label}强度
             </span>
           </div>
@@ -286,10 +286,10 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
           <p className="text-sm text-gray-500 line-clamp-1 mb-3">{card.when}</p>
 
           <div className="flex items-center gap-3 text-xs text-gray-400">
-            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded">
+            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-sm">
               👣 {stepsCount}个步骤
             </span>
-            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded">
+            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-sm">
               ⏱️ 约{estimatedMinutes}分钟
             </span>
           </div>
@@ -308,7 +308,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
         </div>
 
         {/* 右侧动作按钮 — 固定尺寸容器，内容切换不影响 flex 布局 */}
-        <div className="p-4 bg-gray-50 md:bg-white md:border-l border-gray-100 flex flex-row md:flex-col justify-center items-center gap-3 md:w-32 md:min-h-[60px] flex-shrink-0 transition-colors">
+        <div className="p-4 bg-gray-50 md:bg-white md:border-l border-gray-100 flex flex-row md:flex-col justify-center items-center gap-3 md:w-32 md:min-h-[60px] shrink-0 transition-colors">
           {isExpanded ? (
             headerControl || (
               showRating ? (
@@ -325,9 +325,9 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
           ) : (
             <button
               onClick={handleMainAction}
-              className={`w-full md:w-auto px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-all transform hover:scale-105 active:scale-95 ${
+              className={`w-full md:w-auto px-4 py-2 rounded-full text-sm font-bold shadow-xs transition-all transform hover:scale-105 active:scale-95 ${
                 isCompleted
-                  ? 'bg-white border border-gray-200 text-gray-600 !font-medium hover:bg-gray-50 hover:text-blue-600'
+                  ? 'bg-white border border-gray-200 text-gray-600 font-medium! hover:bg-gray-50 hover:text-blue-600'
                   : isInProgress
                     ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                     : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md'
@@ -367,7 +367,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                       setIsExpanded(false);
                       setShowCompletionConfirm(false);
                     }}
-                    className="px-5 py-2 bg-green-600 text-white rounded-full text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
+                    className="px-5 py-2 bg-green-600 text-white rounded-full text-sm font-medium hover:bg-green-700 transition-colors shadow-xs"
                   >
                     ✓ 我知道了
                   </button>
@@ -427,7 +427,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                               onClick={() => handleStepToggle(idx)}
                             >
                               <motion.div
-                                className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${done
+                                className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${done
                                   ? 'bg-blue-500 text-white'
                                   : 'bg-gray-100 text-gray-500'
                                   }`}
@@ -447,7 +447,7 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                       <div className="pt-2 flex justify-end">
                         <button
                           onClick={handleManualComplete}
-                          className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-sm"
+                          className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-xs"
                         >
                           完成打卡
                         </button>

@@ -10,17 +10,14 @@ const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.c
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 // Vercel AI SDK Integration
-import { createOpenAI } from '@ai-sdk/openai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { streamText, generateText } from 'ai';
 
-// Create DeepSeek provider instance
-// Start with base URL but remove '/chat/completions' as the SDK appends it or uses standard endpoints
-// DeepSeek uses standard OpenAI compatible endpoints: https://api.deepseek.com/v1
 const deepseekBaseUrl = (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1').replace(/\/chat\/completions$/, '');
 
-export const deepseek = createOpenAI({
-  baseURL: deepseekBaseUrl,
+export const deepseek = createDeepSeek({
   apiKey: DEEPSEEK_API_KEY,
+  baseURL: deepseekBaseUrl,
 });
 
 export interface ChatMessage {
@@ -244,7 +241,7 @@ export async function streamChatCompletion(
     model: deepseek('deepseek-chat'),
     messages: coreMessages,
     temperature: options?.temperature ?? 0.7,
-    maxTokens: options?.max_tokens ?? 2000,
+    maxOutputTokens: options?.max_tokens ?? 2000,
     tools: options?.enableTools ? SDK_TOOLS : undefined, // Use unified SDK_TOOLS format when enabled
 
     onFinish: async ({ text, usage, finishReason, toolCalls }) => {
@@ -282,8 +279,8 @@ export async function streamChatCompletion(
           if (traceTarget) {
             const generation = createGeneration(traceTarget, 'DeepSeek Stream', messages, 'deepseek-chat');
             endGeneration(generation, text, {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
+              promptTokens: usage.inputTokens,
+              completionTokens: usage.outputTokens,
               totalTokens: usage.totalTokens,
             });
 
@@ -300,9 +297,9 @@ export async function streamChatCompletion(
             recordChatMetric({
               conversationId: convId,
               model: 'deepseek-chat',
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens,
+              promptTokens: usage.inputTokens ?? 0,
+              completionTokens: usage.outputTokens ?? 0,
+              totalTokens: usage.totalTokens ?? 0,
               latencyMs: parentCtx ? Date.now() - parentCtx.startTime : 0,
             }).catch(() => {});
           }

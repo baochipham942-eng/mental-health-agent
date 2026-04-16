@@ -244,14 +244,14 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
             }
           </p>
 
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 text-left">
+          <div className="bg-linear-to-br from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 text-left">
             <p className="text-xs font-medium text-indigo-600 mb-2">💡 不知道说什么？试试这些：</p>
             <div className="space-y-2">
               {examplePrompts.map((prompt, idx) => (
                 <button
                   key={idx}
                   onClick={() => onSendMessage?.(prompt)}
-                  className="w-full text-left px-3 py-2 bg-white rounded-xl text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-sm"
+                  className="w-full text-left px-3 py-2 bg-white rounded-xl text-sm text-gray-700 hover:bg-indigo-100 hover:text-indigo-700 transition-colors shadow-xs"
                 >
                   &quot;{prompt}&quot;
                 </button>

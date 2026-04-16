@@ -306,7 +306,7 @@ function GradeDistributionChart({ stats }: { stats: TraceStats | null }) {
               </div>
               {/* 等级标签 */}
               <span
-                className={`inline-block px-2.5 py-0.5 rounded text-xs font-medium ${colors.bg} ${colors.text}`}
+                className={`inline-block px-2.5 py-0.5 rounded-sm text-xs font-medium ${colors.bg} ${colors.text}`}
               >
                 {grade}
               </span>
@@ -350,7 +350,7 @@ function TraceRow({
           {item.traceScore.toFixed(1)}
         </td>
         <td className="py-2 text-center">
-          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${gradeColors.bg} ${gradeColors.text}`}>
+          <span className={`inline-block px-2 py-0.5 rounded-sm text-xs font-medium ${gradeColors.bg} ${gradeColors.text}`}>
             {item.traceGrade}
           </span>
         </td>
@@ -427,7 +427,7 @@ function TraceDetail({ item }: { item: TraceEvalItem }) {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-700">{STEP_LABELS[key]}</span>
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${verdictStyle}`}>
+                  <span className={`inline-block px-1.5 py-0.5 rounded-sm text-xs font-medium ${verdictStyle}`}>
                     {verdict}
                   </span>
                 </div>
@@ -500,7 +500,7 @@ function ScoreBreakdown({ item }: { item: TraceEvalItem }) {
         {evaluated.map((s, i) => (
           <span key={s.key} className="flex items-center gap-0.5">
             {i > 0 && <span className="text-gray-400 mx-0.5">+</span>}
-            <span className={`px-1.5 py-0.5 rounded font-medium ${VERDICT_STYLES[s.verdict]}`}>
+            <span className={`px-1.5 py-0.5 rounded-sm font-medium ${VERDICT_STYLES[s.verdict]}`}>
               {s.label} {s.score!.toFixed(1)}
             </span>
           </span>
@@ -509,7 +509,7 @@ function ScoreBreakdown({ item }: { item: TraceEvalItem }) {
         <span className="text-gray-500">÷ {evaluated.length}</span>
         <span className="text-gray-500">=</span>
         <span className="font-bold text-gray-900">{item.traceScore.toFixed(1)}</span>
-        <span className={`px-1.5 py-0.5 rounded font-medium ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).bg} ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).text}`}>
+        <span className={`px-1.5 py-0.5 rounded-sm font-medium ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).bg} ${(GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F).text}`}>
           {item.traceGrade}
         </span>
         {skipped.length > 0 && (
@@ -569,7 +569,7 @@ function TraceTimeline({ steps }: { steps: TraceStep[] }) {
                 </span>
               </div>
               {/* 时间条 */}
-              <div className="flex-1 h-6 bg-gray-50 rounded relative">
+              <div className="flex-1 h-6 bg-gray-50 rounded-sm relative">
                 <div
                   className={`absolute top-0 h-full rounded border ${
                     step.skipped ? 'bg-gray-100 border-gray-200' : `${colors.bg} ${colors.border}`

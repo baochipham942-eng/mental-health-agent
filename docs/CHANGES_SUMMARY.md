@@ -17,9 +17,9 @@
 
 - **ActionCardItem**:
   - 添加 `w-full min-w-0` 确保卡片不溢出
-  - 标题添加 `break-words` 防止长文本撑爆
+  - 标题添加 `wrap-break-word` 防止长文本撑爆
   - 按钮在移动端 `w-full`，桌面端 `w-auto self-start`
-  - 步骤文本添加 `break-words` 防止溢出
+  - 步骤文本添加 `wrap-break-word` 防止溢出
 
 #### 1.2 视觉层级优化
 - **ConclusionSections**:

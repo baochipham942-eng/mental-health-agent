@@ -205,7 +205,7 @@ export default function CalibrationPage() {
       </div>
 
       {/* 进度条 */}
-      <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+      <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
         <div className="flex items-center gap-4">
           <div className="flex-1">
             <Progress percent={progressPct} color={progressPct === 100 ? '#00b42a' : '#165dff'} />
@@ -223,11 +223,11 @@ export default function CalibrationPage() {
           <div className="lg:col-span-2 space-y-4">
             {/* 对话历史 */}
             {current.history.length > 0 && (
-              <Card className="shadow-sm" title={<span className="text-sm font-semibold">对话历史</span>}
+              <Card className="shadow-xs" title={<span className="text-sm font-semibold">对话历史</span>}
                 bodyStyle={{ maxHeight: 200, overflowY: 'auto' }}>
                 <div className="space-y-2">
                   {current.history.map((h, i) => (
-                    <div key={i} className={`text-sm p-2 rounded ${h.role === 'user' ? 'bg-blue-50 text-blue-800' : 'bg-gray-50 text-gray-700'}`}>
+                    <div key={i} className={`text-sm p-2 rounded-sm ${h.role === 'user' ? 'bg-blue-50 text-blue-800' : 'bg-gray-50 text-gray-700'}`}>
                       <span className="font-medium text-xs text-gray-400 mr-2">
                         {h.role === 'user' ? '用户' : 'AI'}
                       </span>
@@ -239,7 +239,7 @@ export default function CalibrationPage() {
             )}
 
             {/* 当前轮次 */}
-            <Card className="shadow-sm" title={
+            <Card className="shadow-xs" title={
               <span className="text-sm font-semibold">
                 当前轮次（第 {current.turnIndex + 1} 轮）
                 <Tag size="small" color="arcoblue" className="ml-2">{current.caseId}</Tag>
@@ -261,7 +261,7 @@ export default function CalibrationPage() {
           {/* 右侧：维度信息 + 标注操作 */}
           <div className="space-y-4">
             {/* 评估维度 */}
-            <Card className="shadow-sm" title={<span className="text-sm font-semibold">评估维度</span>}>
+            <Card className="shadow-xs" title={<span className="text-sm font-semibold">评估维度</span>}>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Tag color="orange" size="small">{dimMeta?.name || current.dimension}</Tag>
@@ -273,7 +273,7 @@ export default function CalibrationPage() {
             </Card>
 
             {/* 标注操作 */}
-            <Card className="shadow-sm" title={<span className="text-sm font-semibold">你的判断</span>}>
+            <Card className="shadow-xs" title={<span className="text-sm font-semibold">你的判断</span>}>
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <Button
@@ -317,7 +317,7 @@ export default function CalibrationPage() {
             </Card>
 
             {/* 导航 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '8px 12px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '8px 12px' }}>
               <div className="flex items-center justify-between text-sm">
                 <Button size="mini" disabled={currentIdx === 0}
                   onClick={() => { setCurrentIdx(Math.max(0, currentIdx - 1)); setNote(''); }}>
@@ -336,7 +336,7 @@ export default function CalibrationPage() {
 
       {/* 校准报告 */}
       {report && (
-        <Card className="shadow-sm" title={
+        <Card className="shadow-xs" title={
           <div className="flex items-center justify-between w-full">
             <span className="font-semibold">校准报告</span>
             <div className="flex items-center gap-3 text-sm">

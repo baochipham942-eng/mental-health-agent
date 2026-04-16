@@ -1,19 +1,18 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 /**
  * Prisma Client Singleton for Serverless Environment
  * Optimized for Vercel/Neon with connection pooling
+ *
+ * Prisma 7 要求通过 driver adapter 注入数据库连接（datasource url
+ * 从 schema.prisma 迁移到了 prisma.config.ts 与运行时 adapter）。
  */
 const prismaClientSingleton = () => {
+    const adapter = new PrismaPg(process.env.DATABASE_URL!);
     return new PrismaClient({
-        // Log only errors in production
+        adapter,
         log: process.env.NODE_ENV === 'production' ? ['error'] : ['query', 'error', 'warn'],
-        // Optimize for serverless: shorter connection timeout
-        datasources: {
-            db: {
-                url: process.env.DATABASE_URL,
-            },
-        },
     });
 };
 

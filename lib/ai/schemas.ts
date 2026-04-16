@@ -47,7 +47,7 @@ export const CrisisClassificationSchema = z.object({
 export const EntitySchema = z.object({
     name: z.string(),
     type: z.enum(['person', 'event', 'object', 'emotion', 'belief']),
-    attributes: z.record(z.string()).optional()
+    attributes: z.record(z.string(), z.string()).optional()
 });
 
 export const RelationshipSchema = z.object({

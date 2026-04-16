@@ -16,9 +16,9 @@ export function EmotionTrendPanel() {
   // 加载态
   if (isLoading) {
     return (
-      <div className="rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 p-5">
+      <div className="rounded-2xl bg-white/80 backdrop-blur-xs border border-gray-100 p-5">
         <div className="animate-pulse space-y-3">
-          <div className="h-4 w-24 bg-gray-200 rounded" />
+          <div className="h-4 w-24 bg-gray-200 rounded-sm" />
           <div className="h-[140px] bg-gray-100 rounded-xl" />
         </div>
       </div>
@@ -40,7 +40,7 @@ export function EmotionTrendPanel() {
   // 空状态
   if (emotions.length === 0) {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100/50 p-5 text-center">
+      <div className="rounded-2xl bg-linear-to-br from-purple-50 to-blue-50 border border-purple-100/50 p-5 text-center">
         <p className="text-sm text-gray-500 mb-1">还没有情绪记录</p>
         <p className="text-xs text-gray-400">开始第一次对话，你的情绪轨迹就会出现在这里</p>
       </div>
@@ -50,7 +50,7 @@ export function EmotionTrendPanel() {
   // 数据不足
   if (emotions.length < 2) {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100/50 p-5 text-center">
+      <div className="rounded-2xl bg-linear-to-br from-purple-50 to-blue-50 border border-purple-100/50 p-5 text-center">
         <p className="text-sm text-gray-500 mb-1">
           已记录 {emotions.length} 次情绪
         </p>
@@ -60,7 +60,7 @@ export function EmotionTrendPanel() {
   }
 
   return (
-    <div className="rounded-2xl bg-white/80 backdrop-blur-sm border border-gray-100 p-5 space-y-3">
+    <div className="rounded-2xl bg-white/80 backdrop-blur-xs border border-gray-100 p-5 space-y-3">
       {/* 标题行 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export function EmotionTrendPanel() {
               onClick={() => setDays(d)}
               className={`px-2.5 py-1 text-xs rounded-md transition-all ${
                 days === d
-                  ? 'bg-white text-gray-700 shadow-sm font-medium'
+                  ? 'bg-white text-gray-700 shadow-xs font-medium'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >

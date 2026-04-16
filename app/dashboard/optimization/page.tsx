@@ -400,7 +400,7 @@ export default function ExperimentsPage() {
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
       {/* 运行状态 */}
       {(running || runOutput) && (
-        <Card className="shadow-sm" title={
+        <Card className="shadow-xs" title={
           <span className="font-semibold text-sm flex items-center gap-2">
             {running && <IconLoading className="animate-spin" />}
             {running ? '评测运行中...' : '最近运行输出'}
@@ -444,7 +444,7 @@ export default function ExperimentsPage() {
           { label: '已完成', value: completedCount, color: '#00b42a' },
           { label: '最新通过率', value: latestPassRate > 0 ? `${latestPassRate}%` : '-', color: passRateHex(latestPassRate) },
         ].map(item => (
-          <Card key={item.label} className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+          <Card key={item.label} className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
             <div className="text-xs text-gray-500">{item.label}</div>
             <div className="text-2xl font-bold mt-1" style={{ color: item.color }}>{item.value}</div>
           </Card>
@@ -452,7 +452,7 @@ export default function ExperimentsPage() {
       </div>
 
       {/* 实验表格 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <Table
           columns={columns}
           data={filteredRuns}

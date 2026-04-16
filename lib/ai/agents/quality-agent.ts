@@ -130,7 +130,7 @@ class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
                 schema: QualityOutputSchema,
                 prompt,
                 temperature: 0,
-                maxTokens: 220,
+                maxOutputTokens: 220,
             });
 
             return normalizeQualityOutput(object);
@@ -142,7 +142,7 @@ class QualityAgentImpl extends BaseAgent<QualityInput, QualityOutput> {
                 model: fastConfig.provider(fastConfig.model),
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0,
-                maxTokens: 220,
+                maxOutputTokens: 220,
             });
 
             const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/\s*```$/, '');

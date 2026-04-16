@@ -19,7 +19,7 @@ export function EmotionIndicator({ emotion, className }: EmotionIndicatorProps) 
 
   return (
     <div className={cn('flex items-center gap-2.5 text-sm', className)}>
-      <span className={cn('px-3 py-1.5 rounded-md border-2 text-xs font-semibold shadow-sm', colorClass)}>
+      <span className={cn('px-3 py-1.5 rounded-md border-2 text-xs font-semibold shadow-xs', colorClass)}>
         {label}
       </span>
       <div className="flex-1 max-w-[120px]">

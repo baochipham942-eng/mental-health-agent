@@ -133,7 +133,7 @@ export function ConclusionSections({
       {/* 行动建议容器 - 紧凑工具卡样式 */}
       {shouldShowActions && (nextStepsLines.length > 0 || hasActionCards) && (
         <ActionCardContainer hasActionCards={hasActionCards}>
-          <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm w-full min-w-0 max-w-5xl mx-auto">
+          <div className="p-3 bg-white rounded-xl border border-gray-200 shadow-xs w-full min-w-0 max-w-5xl mx-auto">
             <h2 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-1.5">
               <span className="text-base">🎯</span>
               行动建议
@@ -168,7 +168,7 @@ export function ConclusionSections({
             </div>
             <button
               onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-              className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1"
+              className="shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1"
             >
               {isSummaryExpanded ? '收起' : '展开'}
             </button>
@@ -185,7 +185,7 @@ export function ConclusionSections({
             }`}
         >
           {routeType === 'crisis' && !isRiskTriageExpanded && (
-            <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded">
+            <div className="mb-2 p-2 bg-red-100 border border-red-300 rounded-sm">
               <p className="text-red-800 font-semibold text-xs">
                 ⚠️ 检测到高风险表达，建议立即寻求专业帮助
               </p>
@@ -200,7 +200,7 @@ export function ConclusionSections({
                     <ReactMarkdown>{riskTriage}</ReactMarkdown>
                   </div>
                   {routeType === 'crisis' && (
-                    <div className="mt-2 p-2 bg-white rounded border border-red-200">
+                    <div className="mt-2 p-2 bg-white rounded-sm border border-red-200">
                       <p className="text-xs font-semibold text-gray-800 mb-1.5">求助资源：</p>
                       <ul className="text-xs text-gray-700 space-y-0.5">
                         <li>• 全国24小时心理危机干预热线：400-161-9995</li>
@@ -217,7 +217,7 @@ export function ConclusionSections({
             </div>
             <button
               onClick={() => setIsRiskTriageExpanded(!isRiskTriageExpanded)}
-              className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1"
+              className="shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1"
             >
               {isRiskTriageExpanded ? '收起' : '了解更多'}
             </button>

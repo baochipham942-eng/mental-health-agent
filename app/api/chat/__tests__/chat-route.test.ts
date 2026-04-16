@@ -194,26 +194,33 @@ describe('POST /api/chat', () => {
     // ===== 路由分发 =====
 
     describe('路由分发', () => {
+        // v6 UIMessageStream 是 lazy — 测试必须 drain body 才能触发 execute
+        async function postAndDrain(req: any) {
+            const response = await POST(req);
+            await response.text();
+            return response;
+        }
+
         it('support 路由 → 调用 handleSupportRoute', async () => {
             mockDecideRoute.mockReturnValue({ routeType: 'support', reason: 'default' } as any);
-            await POST(createRequest({ message: '今天心情不好', sessionId: 'sess-1' }));
+            await postAndDrain(createRequest({ message: '今天心情不好', sessionId: 'sess-1' }));
             expect(mockHandleSupport).toHaveBeenCalled();
         });
 
         it('crisis 路由 → 调用 handleCrisisRoute', async () => {
             mockDecideRoute.mockReturnValue({ routeType: 'crisis', reason: 'crisis detected' } as any);
-            await POST(createRequest({ message: '我想死', sessionId: 'sess-1' }));
+            await postAndDrain(createRequest({ message: '我想死', sessionId: 'sess-1' }));
             expect(mockHandleCrisis).toHaveBeenCalled();
         });
 
         it('assessment 路由 → 调用 handleAssessmentRoute', async () => {
             mockDecideRoute.mockReturnValue({ routeType: 'assessment', reason: 'assessment request' } as any);
-            await POST(createRequest({ message: '测一下我的状态', sessionId: 'sess-1' }));
+            await postAndDrain(createRequest({ message: '测一下我的状态', sessionId: 'sess-1' }));
             expect(mockHandleAssessment).toHaveBeenCalled();
         });
 
         it('in_crisis state → 走 crisis 路由', async () => {
-            await POST(createRequest({ message: '你好', sessionId: 'sess-1', state: 'in_crisis' }));
+            await postAndDrain(createRequest({ message: '你好', sessionId: 'sess-1', state: 'in_crisis' }));
             expect(mockHandleCrisis).toHaveBeenCalled();
         });
     });
@@ -237,12 +244,14 @@ describe('POST /api/chat', () => {
     // ===== 错误处理 =====
 
     describe('错误处理', () => {
-        it('handler 抛错 → 500', async () => {
+        it('handler 抛错 → 200 + stream onError 携带错误信息', async () => {
+            // v6 流式语义变更：execute 内部抛错走 onError 写入流，
+            // 不再返回 500 状态码（HTTP headers 已发送，无法切换）
             mockHandleSupport.mockRejectedValue(new Error('Internal error'));
             const response = await POST(createRequest({ message: '你好', sessionId: 'sess-1' }));
-            expect(response.status).toBe(500);
-            const body = await response.json();
-            expect(body.error).toBeTruthy();
+            expect(response.status).toBe(200);
+            const text = await response.text();
+            expect(text).toContain('Internal error');
         });
     });
 });

@@ -4,14 +4,11 @@ import { quickCrisisCheck, quickCrisisKeywordCheck, classifyCrisisIntent } from 
 vi.mock('@/lib/ai/deepseek', () => ({
     chatStructuredCompletion: vi.fn(),
     chatCompletion: vi.fn(),
+    deepseek: vi.fn(() => (model: string) => model),
 }));
 
 vi.mock('ai', () => ({
     generateText: vi.fn(),
-}));
-
-vi.mock('@ai-sdk/openai', () => ({
-    createOpenAI: vi.fn(() => (model: string) => model),
 }));
 
 import { chatStructuredCompletion } from '@/lib/ai/deepseek';

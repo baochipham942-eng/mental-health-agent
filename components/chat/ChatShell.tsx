@@ -948,7 +948,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   return (
     <ChatActionProvider value={{ sendMessage: (content) => handleSend(content), isLoading }}>
       <div
-        className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-50 relative"
+        className="h-dvh w-full flex flex-col overflow-hidden bg-gray-50 relative"
         style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', position: 'relative' }}
       >
 
@@ -1018,7 +1018,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
               )}
               {(isReadOnly || isSessionEnded) && (
                 <>
-                  <Tag color="gray" size="small" className="!rounded-xl">已结束</Tag>
+                  <Tag color="gray" size="small" className="rounded-xl!">已结束</Tag>
                   <button
                     onClick={() => router.push('/')}
                     className="px-3 py-[6px] rounded-[10px] border border-gray-200 bg-white text-[13px] text-gray-500 cursor-pointer flex items-center gap-1 transition-all duration-200 hover:bg-gray-50"
@@ -1033,7 +1033,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* P5: 治疗师选择器（仅手动打开时显示，不再首次自动弹出） */}
         {showTherapistSelector && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/95 backdrop-blur-sm">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/95 backdrop-blur-xs">
             <TherapistSelector
               onSelect={() => setShowTherapistSelector(false)}
               onSkip={() => setShowTherapistSelector(false)}
@@ -1065,7 +1065,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         {/* 输入框 */}
         <footer
-          className="w-full z-30 shrink-0 pb-[env(safe-area-inset-bottom)]"
+          className="w-full z-30 shrink-0 pb-safe"
           style={{ flexShrink: 0, width: '100%', zIndex: 30 }}
         >
           <div className="mx-auto w-full max-w-4xl px-4 pt-1 pb-2">

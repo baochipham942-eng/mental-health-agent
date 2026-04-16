@@ -12,7 +12,7 @@ export function MentorSection() {
     return (
         <div className="space-y-6">
             {/* Header Area - Gold Theme */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100">
+            <div className="bg-linear-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -42,11 +42,11 @@ export function MentorSection() {
 
                         <div className="relative z-10 flex flex-col h-full">
                             <div className="flex items-start justify-between mb-4">
-                                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-3xl shadow-sm group-hover:scale-110 transition-transform bg-white border">
+                                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center text-3xl shadow-xs group-hover:scale-110 transition-transform bg-white border">
                                     {mentor.avatar}
                                 </div>
                                 <div className={cn(
-                                    "px-2 py-1 rounded text-xs font-medium",
+                                    "px-2 py-1 rounded-sm text-xs font-medium",
                                     mentor.themeColor === 'slate' && "bg-slate-100 text-slate-600",
                                     mentor.themeColor === 'indigo' && "bg-indigo-100 text-indigo-600",
                                     mentor.themeColor === 'orange' && "bg-orange-100 text-orange-600",
@@ -73,7 +73,7 @@ export function MentorSection() {
                             <Button
                                 type="outline"
                                 size="small"
-                                className="w-full border-gray-300 text-gray-600 group-hover:border-indigo-500 group-hover:text-indigo-600 hover:bg-indigo-50 transition-all !rounded-xl"
+                                className="w-full border-gray-300 text-gray-600 group-hover:border-indigo-500 group-hover:text-indigo-600 hover:bg-indigo-50 transition-all rounded-xl!"
                             >
                                 开始对话
                             </Button>

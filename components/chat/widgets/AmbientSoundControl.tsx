@@ -32,7 +32,7 @@ export function AmbientSoundControl({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.3 }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/10 backdrop-blur-sm"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/10 backdrop-blur-xs"
         >
           {/* 音色切换按钮 */}
           {SOUND_OPTIONS.map(({ type, icon, label }) => (
@@ -42,7 +42,7 @@ export function AmbientSoundControl({
               title={label}
               className={`w-7 h-7 rounded-full text-sm flex items-center justify-center transition-all ${
                 soundType === type
-                  ? 'bg-white/80 shadow-sm scale-110'
+                  ? 'bg-white/80 shadow-xs scale-110'
                   : 'hover:bg-white/40'
               }`}
             >

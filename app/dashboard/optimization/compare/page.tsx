@@ -113,7 +113,7 @@ export default function ComparePage() {
       </div>
 
       {/* 实验选择器 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <div className="text-xs text-gray-400 mb-1">实验 A</div>
@@ -171,7 +171,7 @@ export default function ComparePage() {
           {/* 汇总卡片 4 宫格 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* 通过率差异 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">通过率</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold" style={{ color: passRateHex(data.summary.run1.passRate) }}>
@@ -188,7 +188,7 @@ export default function ComparePage() {
             </Card>
 
             {/* 综合分差异 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">综合分</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold text-gray-800">
@@ -205,7 +205,7 @@ export default function ComparePage() {
             </Card>
 
             {/* TTFT 差异 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">TTFT</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold text-gray-800">
@@ -222,7 +222,7 @@ export default function ComparePage() {
             </Card>
 
             {/* Case 数 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">Case 数量</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold text-indigo-600">
@@ -238,7 +238,7 @@ export default function ComparePage() {
           </div>
 
           {/* 维度对比条形图 */}
-          <Card className="shadow-sm" title={<span className="text-sm font-semibold">维度对比</span>}>
+          <Card className="shadow-xs" title={<span className="text-sm font-semibold">维度对比</span>}>
             <div className="space-y-4">
               {data.comparison.map(item => {
                 const maxRate = Math.max(item.run1.rate, item.run2.rate, 1);
@@ -252,9 +252,9 @@ export default function ComparePage() {
                     {/* Run1 bar */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-6 text-right shrink-0">A</span>
-                      <div className="flex-1 h-5 bg-gray-100 rounded-sm overflow-hidden relative">
+                      <div className="flex-1 h-5 bg-gray-100 rounded-xs overflow-hidden relative">
                         <div
-                          className="h-full rounded-sm transition-all duration-300"
+                          className="h-full rounded-xs transition-all duration-300"
                           style={{
                             width: `${(item.run1.rate / 100) * 100}%`,
                             backgroundColor: '#3b82f6',
@@ -266,9 +266,9 @@ export default function ComparePage() {
                     {/* Run2 bar */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-6 text-right shrink-0">B</span>
-                      <div className="flex-1 h-5 bg-gray-100 rounded-sm overflow-hidden relative">
+                      <div className="flex-1 h-5 bg-gray-100 rounded-xs overflow-hidden relative">
                         <div
-                          className="h-full rounded-sm transition-all duration-300"
+                          className="h-full rounded-xs transition-all duration-300"
                           style={{
                             width: `${(item.run2.rate / 100) * 100}%`,
                             backgroundColor: '#f97316',
@@ -287,7 +287,7 @@ export default function ComparePage() {
           </Card>
 
           {/* 退化/改进列表 */}
-          <Card className="shadow-sm">
+          <Card className="shadow-xs">
             <Tabs defaultActiveTab="regressions">
               <TabPane key="regressions" title={
                 <span>退化 {data.regressions.length > 0 && <Tag size="small" color="red">{data.regressions.length}</Tag>}</span>

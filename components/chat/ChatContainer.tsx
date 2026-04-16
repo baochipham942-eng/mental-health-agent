@@ -36,7 +36,7 @@ export function ChatContainer() {
     <ChatActionProvider value={{ sendMessage, isLoading }}>
       <div className="flex flex-col h-screen bg-gray-100">
         {/* 头部 */}
-        <header className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center justify-between">
+        <header className="bg-white border-b border-gray-200 shadow-xs px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">心灵树洞</h1>
             <p className="text-sm text-gray-700 font-medium">随时陪你聊聊</p>
@@ -59,7 +59,7 @@ export function ChatContainer() {
 
         {/* 错误提示 */}
         {error && (
-          <div role="alert" className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
+          <div role="alert" className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 mx-4 mt-4 rounded-sm">
             <p className="text-sm">{error}</p>
           </div>
         )}

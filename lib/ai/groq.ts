@@ -4,7 +4,7 @@
  * 目标延迟: ~300ms
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import { chatStructuredCompletion } from './deepseek';
@@ -12,7 +12,8 @@ import { quickCrisisCheck } from './crisis-classifier';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-const groq = createOpenAI({
+const groq = createOpenAICompatible({
+    name: 'groq',
     baseURL: 'https://api.groq.com/openai/v1',
     apiKey: GROQ_API_KEY,
 });
@@ -151,7 +152,7 @@ export async function quickAnalyze(message: string, recentHistory: { role: strin
                 { role: 'user', content: message }
             ],
             temperature: 0,
-            maxTokens: 450,
+            maxOutputTokens: 450,
         });
 
         const duration = Date.now() - startTime;

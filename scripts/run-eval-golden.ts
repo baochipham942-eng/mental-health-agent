@@ -1,6 +1,6 @@
 
 import dotenv from 'dotenv';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 // Load envs BEFORE importing internal modules
 dotenv.config({ path: '.env.local' });
@@ -76,7 +76,7 @@ async function main() {
     async function runEval() {
         console.log('Starting Golden Case Evaluation...');
         const results: EvalResult[] = [];
-        let history: CoreMessage[] = [];
+        let history: ModelMessage[] = [];
 
         for (const input of GOLDEN_CASE_INPUTS) {
             console.log(`\n--------------------------------------------------`);

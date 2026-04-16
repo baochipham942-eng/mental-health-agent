@@ -99,7 +99,7 @@ export function TherapistSelector({ onSelect, onSkip }: TherapistSelectorProps) 
             className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
               selected === t.id
                 ? 'border-blue-400 bg-blue-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-xs'
             } ${isSubmitting ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <div className="flex items-start gap-3">

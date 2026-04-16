@@ -90,11 +90,11 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
     return (
       <div className="relative flex flex-col items-center justify-center h-[380px] px-6 text-center select-none overflow-hidden">
         {/* 天空背景 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-orange-50/30" />
+        <div className="absolute inset-0 bg-linear-to-b from-sky-200 via-sky-100 to-orange-50/30" />
         {/* 装饰云 */}
-        <div className="absolute top-8 left-[10%] w-20 h-6 bg-white/60 rounded-full blur-sm" />
-        <div className="absolute top-16 right-[15%] w-16 h-5 bg-white/40 rounded-full blur-sm" />
-        <div className="absolute top-28 left-[30%] w-12 h-4 bg-white/30 rounded-full blur-sm" />
+        <div className="absolute top-8 left-[10%] w-20 h-6 bg-white/60 rounded-full blur-xs" />
+        <div className="absolute top-16 right-[15%] w-16 h-5 bg-white/40 rounded-full blur-xs" />
+        <div className="absolute top-28 left-[30%] w-12 h-4 bg-white/30 rounded-full blur-xs" />
 
         <div className="relative z-10 flex flex-col items-center">
           {/* 气球插画 */}
@@ -128,7 +128,7 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
 
           <button
             onClick={handleStart}
-            className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-sky-400 to-violet-400 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
+            className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-linear-to-r from-sky-400 to-violet-400 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
           >
             开始练习
           </button>
@@ -198,13 +198,13 @@ export function LeavesOnStream({ onComplete, setHeaderControl, onStart }: Leaves
                 }
               }}
               placeholder="写下一个念头…"
-              className="flex-1 px-4 py-2.5 rounded-xl bg-transparent text-gray-600 placeholder:text-gray-300 focus:outline-none text-[13px]"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-transparent text-gray-600 placeholder:text-gray-300 focus:outline-hidden text-[13px]"
               autoComplete="off"
             />
             <button
               onClick={addBalloon}
               disabled={!inputText.trim()}
-              className="px-4 py-2.5 bg-gradient-to-r from-sky-400 to-violet-400 text-white rounded-xl text-[13px] font-semibold shadow-sm hover:shadow-md active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 bg-linear-to-r from-sky-400 to-violet-400 text-white rounded-xl text-[13px] font-semibold shadow-xs hover:shadow-md active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             >
               放飞
             </button>
@@ -222,7 +222,7 @@ function SkyBackground() {
   return (
     <div className="absolute inset-0 z-0">
       {/* 天空渐变 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-indigo-400 via-sky-300 to-sky-200" />
+      <div className="absolute inset-0 bg-linear-to-b from-indigo-400 via-sky-300 to-sky-200" />
 
       {/* 云朵 */}
       {[
@@ -257,7 +257,7 @@ function SkyBackground() {
       <div className="absolute top-[-20%] right-[-10%] w-60 h-60 bg-amber-100/20 rounded-full blur-3xl" />
 
       {/* 底部地平线柔化 */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-sky-100/40 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-20 bg-linear-to-t from-sky-100/40 to-transparent" />
     </div>
   );
 }
@@ -269,13 +269,13 @@ function MiniBallon({ color, size }: { color: typeof BALLOON_COLORS[0]; size: nu
   return (
     <div className="flex flex-col items-center">
       <div
-        className={`rounded-full bg-gradient-to-br ${color.body} shadow-lg relative`}
+        className={`rounded-full bg-linear-to-br ${color.body} shadow-lg relative`}
         style={{ width: size, height: size * 1.15 }}
       >
         {/* 高光 */}
         <div className={`absolute top-[15%] left-[20%] w-[30%] h-[25%] ${color.highlight} rounded-full blur-[2px]`} />
         {/* 底部尖角 */}
-        <div className={`absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-2 h-2 bg-gradient-to-b ${color.body} rotate-45`} />
+        <div className={`absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-2 h-2 bg-linear-to-b ${color.body} rotate-45`} />
       </div>
       {/* 线 */}
       <div className={`w-0 h-6 border-l border-dashed ${color.string}`} />
@@ -325,14 +325,14 @@ function FlyingBalloon({ balloon, onDone }: { balloon: Balloon; onDone: () => vo
         style={{ width: baseW, height: baseH }}
       >
         {/* 气球形状 */}
-        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${color.body} shadow-lg`}
+        <div className={`absolute inset-0 rounded-full bg-linear-to-br ${color.body} shadow-lg`}
           style={{ borderRadius: '50% 50% 50% 50% / 45% 45% 55% 55%' }}
         >
           {/* 高光 */}
           <div className={`absolute top-[12%] left-[18%] w-[35%] h-[28%] ${color.highlight} rounded-full blur-[3px]`} />
 
           {/* 底部收口 */}
-          <div className={`absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-3 h-3 bg-gradient-to-b ${color.body} rotate-45 rounded-sm`} />
+          <div className={`absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-3 h-3 bg-linear-to-b ${color.body} rotate-45 rounded-xs`} />
         </div>
 
         {/* 文字 */}

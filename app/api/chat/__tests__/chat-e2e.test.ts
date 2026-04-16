@@ -258,7 +258,7 @@ describe('Chat API E2E — 正常对话', () => {
         vi.mocked(detectDirectSkillRequest).mockReturnValue(null);
     });
 
-    it('正常消息 → 200 + stream response', async () => {
+    it('正常消息 → 200 + SSE stream response', async () => {
         const request = createRequest({
             message: '今天心情不好',
             history: [],
@@ -266,7 +266,8 @@ describe('Chat API E2E — 正常对话', () => {
 
         const response = await POST(request);
         expect(response.status).toBe(200);
-        expect(response.headers.get('Content-Type')).toContain('text/plain');
+        // v6 UIMessageStream 走 SSE 格式
+        expect(response.headers.get('Content-Type')).toContain('text/event-stream');
     });
 
     it('空消息 → 400', async () => {
@@ -399,7 +400,9 @@ describe('Chat API E2E — Provider 路由', () => {
             model: 'kimi-k2.5',
         }) as any;
 
-        await POST(request);
+        const response = await POST(request);
+        // v6 UIMessageStream 是 lazy — 必须 drain body 才会跑 execute
+        await response.text();
 
         // 验证 streamSupportReply 被调用时带有 providerOverride
         expect(streamSupportReply).toHaveBeenCalled();

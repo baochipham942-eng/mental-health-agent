@@ -245,8 +245,8 @@ function jsonSchemaToZod(schema: JsonSchemaProperty, isRequired: boolean = true)
 // SDK_TOOLS — 从 UI_TOOLS 自动推导 (Vercel AI SDK 格式)
 // =============================================================================
 
-function deriveSDKTools(): Record<string, ReturnType<typeof tool>> {
-    const result: Record<string, ReturnType<typeof tool>> = {};
+function deriveSDKTools(): Record<string, any> {
+    const result: Record<string, any> = {};
 
     for (const uiTool of UI_TOOLS) {
         const { name, description, parameters } = uiTool.function;
@@ -259,7 +259,7 @@ function deriveSDKTools(): Record<string, ReturnType<typeof tool>> {
 
         result[name] = tool({
             description,
-            parameters: z.object(shape),
+            inputSchema: z.object(shape),
         });
     }
 

@@ -113,7 +113,7 @@ export function PromptViewer({ data }: { data: Record<string, string> }) {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
+        <div className="bg-white rounded-xl shadow-xs border border-gray-200 h-full flex flex-col overflow-hidden">
             {/* Header Level 1: Categories (按执行顺序) */}
             <div className="flex-none px-6 py-4 bg-gray-50 border-b border-gray-200">
                 <Radio.Group
@@ -132,7 +132,7 @@ export function PromptViewer({ data }: { data: Record<string, string> }) {
             </div>
 
             {/* Header Level 2: Items in Category */}
-            <div className="flex-none px-4 pt-1 border-b border-gray-100 bg-white shadow-sm overflow-x-auto">
+            <div className="flex-none px-4 pt-1 border-b border-gray-100 bg-white shadow-xs overflow-x-auto">
                 <Tabs activeTab={activeTab} onChange={setActiveTab} type="line">
                     {currentCategory.items.map(item => (
                         <TabPane key={item} title={ITEM_LABELS[item] || item} />

@@ -32,33 +32,36 @@ const mockStreamSupport = vi.mocked(streamSupportReply);
 const mockCreateEscalation = vi.mocked(createCrisisEscalation);
 const mockDeescalation = vi.mocked(assessCrisisDeescalation);
 
-// 创建 mock StreamData（测试桩：绕过 ai SDK StreamData 内部字段约束）
-function createMockStreamData() {
+/**
+ * v6 mock writer — 替代旧的 StreamData mock
+ * 暴露 .write / .merge 用于断言；onError 设 undefined 满足类型
+ */
+function createMockWriter() {
     return {
-        append: vi.fn(),
-        close: vi.fn(),
+        write: vi.fn(),
+        merge: vi.fn(),
+        onError: undefined,
     } as any;
 }
 
-// 创建 mock 流式响应
+/**
+ * v6 mock streamText result — 暴露 toUIMessageStream() 返回一个空 ReadableStream
+ */
 function createMockStreamResult() {
-    const stream = new ReadableStream({
-        start(controller) {
-            controller.enqueue(new TextEncoder().encode('mock response'));
-            controller.close();
-        },
-    });
-
     return {
-        toDataStreamResponse: vi.fn(() => new Response(stream, {
-            headers: { 'Content-Type': 'text/plain' },
-        })),
-    };
+        toUIMessageStream: vi.fn(() =>
+            new ReadableStream({
+                start(controller) {
+                    controller.close();
+                },
+            }),
+        ),
+    } as any;
 }
 
 function createBaseParams(overrides?: Record<string, any>) {
     return {
-        data: createMockStreamData(),
+        writer: createMockWriter(),
         message: '我不想活了',
         history: [] as any[],
         processedHistory: [] as any[],
@@ -80,19 +83,16 @@ function createBaseParams(overrides?: Record<string, any>) {
 describe('handleCrisisRoute', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockStreamCrisis.mockResolvedValue(createMockStreamResult() as any);
-        mockStreamSupport.mockResolvedValue(createMockStreamResult() as any);
+        mockStreamCrisis.mockResolvedValue(createMockStreamResult());
+        mockStreamSupport.mockResolvedValue(createMockStreamResult());
     });
 
     // ===== 正常危机流程 =====
 
     describe('危机触发', () => {
-        it('危机消息 — 返回 Response 对象', async () => {
+        it('危机消息 — 正常完成（不抛错）', async () => {
             const params = createBaseParams();
-            const response = await handleCrisisRoute(params);
-
-            expect(response).toBeInstanceOf(Response);
-            expect(response.status).toBe(200);
+            await expect(handleCrisisRoute(params)).resolves.toBeUndefined();
         });
 
         it('危机消息 — 调用 streamCrisisReply', async () => {
@@ -140,16 +140,18 @@ describe('handleCrisisRoute', () => {
             );
         });
 
-        it('stream data 附加危机状态元数据', async () => {
+        it('writer 收到 data-route=crisis 和 data-state=in_crisis', async () => {
             const params = createBaseParams();
             await handleCrisisRoute(params);
 
-            expect(params.data.append).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    routeType: 'crisis',
-                    state: 'in_crisis',
-                }),
-            );
+            expect(params.writer.write).toHaveBeenCalledWith({
+                type: 'data-route',
+                data: { routeType: 'crisis' },
+            });
+            expect(params.writer.write).toHaveBeenCalledWith({
+                type: 'data-state',
+                data: { state: 'in_crisis' },
+            });
         });
     });
 
@@ -202,7 +204,7 @@ describe('handleCrisisRoute', () => {
             expect(mockDeescalation).not.toHaveBeenCalled();
         });
 
-        it('脱离后 — stream data 标记为 support', async () => {
+        it('脱离后 — writer 收到 data-route=support 和 data-state=normal', async () => {
             mockDeescalation.mockResolvedValue({
                 isSafe: true,
                 confidence: 'high',
@@ -215,12 +217,14 @@ describe('handleCrisisRoute', () => {
             });
             await handleCrisisRoute(params);
 
-            expect(params.data.append).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    routeType: 'support',
-                    state: 'normal',
-                }),
-            );
+            expect(params.writer.write).toHaveBeenCalledWith({
+                type: 'data-route',
+                data: { routeType: 'support' },
+            });
+            expect(params.writer.write).toHaveBeenCalledWith({
+                type: 'data-state',
+                data: { state: 'normal' },
+            });
         });
     });
 
@@ -241,10 +245,8 @@ describe('handleCrisisRoute', () => {
             mockCreateEscalation.mockRejectedValue(new Error('DB error'));
 
             const params = createBaseParams();
-            const response = await handleCrisisRoute(params);
+            await handleCrisisRoute(params);
 
-            // 主流程仍正常返回
-            expect(response).toBeInstanceOf(Response);
             expect(mockStreamCrisis).toHaveBeenCalled();
         });
     });

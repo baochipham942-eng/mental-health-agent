@@ -1,4 +1,4 @@
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 type FastProviderName = 'deepseek' | 'openrouter' | 'groq';
 
@@ -24,7 +24,7 @@ function resolveFastProvider(): FastProviderName {
 }
 
 export function getFastAgentConfig(): {
-  provider: ReturnType<typeof createOpenAI> | null;
+  provider: ReturnType<typeof createOpenAICompatible> | null;
   providerName: FastProviderName;
   model: string;
 } {
@@ -37,7 +37,8 @@ export function getFastAgentConfig(): {
     }
 
     return {
-      provider: createOpenAI({
+      provider: createOpenAICompatible({
+        name: 'deepseek-fast',
         baseURL: process.env.DEEPSEEK_API_URL?.replace(/\/chat\/completions$/, '') || 'https://api.deepseek.com/v1',
         apiKey,
       }),
@@ -53,7 +54,8 @@ export function getFastAgentConfig(): {
     }
 
     return {
-      provider: createOpenAI({
+      provider: createOpenAICompatible({
+        name: 'openrouter-fast',
         baseURL: process.env.OPENROUTER_API_BASE_URL || 'https://openrouter.ai/api/v1',
         apiKey,
       }),
@@ -68,7 +70,8 @@ export function getFastAgentConfig(): {
   }
 
   return {
-    provider: createOpenAI({
+    provider: createOpenAICompatible({
+      name: 'groq-fast',
       baseURL: 'https://api.groq.com/openai/v1',
       apiKey,
     }),

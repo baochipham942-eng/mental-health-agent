@@ -159,7 +159,7 @@ export default function CIRunsPage() {
           <Card
             key={status}
             size="small"
-            className="flex-1 cursor-pointer hover:shadow-sm transition-shadow"
+            className="flex-1 cursor-pointer hover:shadow-xs transition-shadow"
             style={{
               borderColor: statusFilter === status ? STATUS_COLOR[status] : undefined,
               borderWidth: statusFilter === status ? 2 : 1,
@@ -212,7 +212,7 @@ export default function CIRunsPage() {
           size="small"
           stripe
           expandedRowRender={(record) => record.errorMessage ? (
-            <div className="px-4 py-2 text-xs text-red-600 bg-red-50 rounded">
+            <div className="px-4 py-2 text-xs text-red-600 bg-red-50 rounded-sm">
               <span className="font-medium">错误信息：</span>{record.errorMessage}
             </div>
           ) : null}

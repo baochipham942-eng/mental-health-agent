@@ -124,7 +124,7 @@ export function VoiceInputButton({
             disabled={disabled || isTranscribing}
             className={cn(
                 'w-11 h-11 flex items-center justify-center rounded-full transition-colors duration-200',
-                'focus:outline-none focus:ring-0 border-none',
+                'focus:outline-hidden focus:ring-0 border-none',
                 isRecording && 'relative bg-red-500 text-white shadow-md',
                 isTranscribing && 'bg-blue-500 text-white shadow-md',
                 !isActive && !disabled && 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',

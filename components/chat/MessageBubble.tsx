@@ -112,7 +112,7 @@ export function MessageBubble({
     // return null;
     return (
       <div className="flex flex-col gap-2 mb-4 items-start opacity-50">
-        <div className="rounded-xl px-4 py-3 shadow-sm bg-gray-50 border border-dashed border-gray-300">
+        <div className="rounded-xl px-4 py-3 shadow-xs bg-gray-50 border border-dashed border-gray-300">
           <span className="text-xs text-gray-400">[Debug: Empty Assistant Message]</span>
         </div>
       </div>
@@ -164,11 +164,11 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          'rounded-xl px-4 py-3 shadow-sm',
+          'rounded-xl px-4 py-3 shadow-xs',
           isUser
             ? 'bg-blue-600 text-white max-w-[80%] sm:max-w-[80%]'
             : isSkillMessage
-              ? 'bg-white text-gray-900 shadow-sm w-full max-w-6xl mx-auto'
+              ? 'bg-white text-gray-900 shadow-xs w-full max-w-6xl mx-auto'
               : 'bg-white text-gray-900 shadow-glow max-w-[85%] sm:max-w-[80%] msg-bubble-ai'
         )}
       >
@@ -218,7 +218,7 @@ export function MessageBubble({
                     <div className="flex-1">
                       <span className="font-medium text-gray-700">情绪感知：</span>
                       <span className="text-gray-800 font-medium">{message.emotion.label}</span>
-                      <span className="text-gray-400 text-[10px] bg-gray-100 px-1 py-0.5 rounded ml-1">强度 {message.emotion.score}</span>
+                      <span className="text-gray-400 text-[10px] bg-gray-100 px-1 py-0.5 rounded-sm ml-1">强度 {message.emotion.score}</span>
                     </div>
                   </div>
                 )}
@@ -267,7 +267,7 @@ export function MessageBubble({
                       <span className="font-medium text-gray-700">安全约束：</span>
                       <div className="mt-1 space-y-1">
                         {message.metadata.safety.constraints.map((c: string, i: number) => (
-                          <div key={i} className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded inline-block mr-1">
+                          <div key={i} className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded-sm inline-block mr-1">
                             {c}
                           </div>
                         ))}
@@ -281,7 +281,7 @@ export function MessageBubble({
         )}
 
         {isUser ? (
-          <p className="whitespace-pre-wrap break-words leading-relaxed text-sm sm:text-base">{message.content}</p>
+          <p className="whitespace-pre-wrap wrap-break-word leading-relaxed text-sm sm:text-base">{message.content}</p>
         ) : (
           <>
             {/* Generative UI Tool Calling Logic */}
@@ -331,7 +331,7 @@ export function MessageBubble({
                         <button
                           key={tc.id}
                           onClick={() => router.push('/dashboard/lab')}
-                          className="mt-3 w-full text-left rounded-xl p-4 border border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors cursor-pointer group"
+                          className="mt-3 w-full text-left rounded-xl p-4 border border-purple-100 bg-linear-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors cursor-pointer group"
                         >
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-lg">{labEmoji[args.labType] || '🔬'}</span>
@@ -552,7 +552,7 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
         aria-label="有帮助"
         aria-pressed={rating === 1}
         className={cn(
-          "flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors bg-transparent border-none cursor-pointer outline-none",
+          "flex items-center gap-1 text-xs hover:text-indigo-600 transition-colors bg-transparent border-none cursor-pointer outline-hidden",
           rating === 1 ? "text-indigo-600" : "text-gray-500"
         )}
         title="有帮助"
@@ -564,7 +564,7 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
         aria-label="没帮助"
         aria-pressed={rating === -1}
         className={cn(
-          "flex items-center gap-1 text-xs hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer outline-none",
+          "flex items-center gap-1 text-xs hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer outline-hidden",
           rating === -1 ? "text-gray-900" : "text-gray-500"
         )}
         title="没感觉/不相关"

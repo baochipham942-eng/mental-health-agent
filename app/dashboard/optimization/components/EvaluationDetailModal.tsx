@@ -500,7 +500,7 @@ export default function EvaluationDetailModal({
             {/* 固定高度的内容容器 */}
             <div style={{ height: 'calc(90vh - 130px)', display: 'flex', flexDirection: 'column' }}>
                 {/* 顶部：基本会话信息（固定） */}
-                <div className="flex justify-between items-center pb-3 border-b border-gray-200 flex-shrink-0">
+                <div className="flex justify-between items-center pb-3 border-b border-gray-200 shrink-0">
                     <div>
                         <div className="text-sm text-gray-500">会话标题</div>
                         <div className="font-medium text-gray-900 text-lg">{evaluation.conversationTitle}</div>
@@ -658,11 +658,11 @@ export default function EvaluationDetailModal({
                                                                 <div className="text-sm font-medium text-gray-700">✨ 修改后 Prompt</div>
                                                                 <div className="flex gap-3 text-xs">
                                                                     <span className="flex items-center gap-1">
-                                                                        <span className="w-3 h-3 rounded bg-yellow-400"></span>
+                                                                        <span className="w-3 h-3 rounded-sm bg-yellow-400"></span>
                                                                         <span className="text-gray-600">修改内容</span>
                                                                     </span>
                                                                     <span className="flex items-center gap-1">
-                                                                        <span className="w-3 h-3 rounded bg-green-400"></span>
+                                                                        <span className="w-3 h-3 rounded-sm bg-green-400"></span>
                                                                         <span className="text-gray-600">新增内容</span>
                                                                     </span>
                                                                 </div>

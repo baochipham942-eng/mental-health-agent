@@ -36,7 +36,7 @@ export function LabContent() {
                 <div className="bg-gray-100/80 p-1.5 rounded-full inline-flex relative">
                     {/* Animated Background Pill */}
                     <div
-                        className="absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-sm transition-all duration-300 ease-in-out pointer-events-none"
+                        className="absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-xs transition-all duration-300 ease-in-out pointer-events-none"
                         style={{ left: pillLeft, width: tabWidth }}
                     />
 

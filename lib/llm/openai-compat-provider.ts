@@ -3,7 +3,7 @@
  * 消除 glm/openrouter/kimi/openai 四个 provider 的重复代码
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { streamText as sdkStreamText } from 'ai';
 import type { ChatMessage, ToolCall } from '@/lib/ai/deepseek';
 import type { GenerateTextOptions, StreamTextOptions } from './index';
@@ -54,7 +54,13 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
   const { name, baseURL, apiKey, defaultModel, extraHeaders } = config;
 
   const sdkProvider = apiKey
-    ? createOpenAI({ baseURL, apiKey })
+    ? createOpenAICompatible({
+        name: name.toLowerCase(),
+        baseURL,
+        apiKey,
+        headers: extraHeaders,
+        includeUsage: true,
+      })
     : null;
 
   async function compatGenerateText(
@@ -126,10 +132,9 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
 
     return sdkStreamText({
       model: sdkProvider(options?.modelOverride || defaultModel),
-      headers: extraHeaders,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: options?.temperature ?? 0.7,
-      maxTokens: options?.max_tokens ?? 2000,
+      maxOutputTokens: options?.max_tokens ?? 2000,
       onFinish: async ({ text, usage, toolCalls }) => {
         if (options?.onFinish) {
           const formattedToolCalls = toolCalls?.map((tc: any) => ({
@@ -137,7 +142,7 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
             type: 'function' as const,
             function: {
               name: tc.toolName,
-              arguments: tc.args,
+              arguments: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input ?? {}),
             },
           }));
           await options.onFinish(text, formattedToolCalls);
@@ -151,9 +156,9 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
               recordChatMetric({
                 conversationId: convId,
                 model: options?.modelOverride || defaultModel,
-                promptTokens: usage.promptTokens,
-                completionTokens: usage.completionTokens,
-                totalTokens: usage.totalTokens,
+                promptTokens: usage.inputTokens ?? 0,
+                completionTokens: usage.outputTokens ?? 0,
+                totalTokens: usage.totalTokens ?? 0,
                 latencyMs: Date.now() - streamStartMs,
               }).catch(() => {});
             }).catch(() => {});

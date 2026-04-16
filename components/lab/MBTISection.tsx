@@ -35,7 +35,7 @@ export function MBTISection() {
     return (
         <div className="space-y-6" style={{ width: '100%' }}>
             {/* Header Area */}
-            <div className="w-full bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
+            <div className="w-full bg-linear-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -57,7 +57,7 @@ export function MBTISection() {
                                 style={{ width: 130 }}
                                 value={userType}
                                 onChange={setUserType}
-                                className="[&_.arco-select-view]:!bg-transparent [&_.arco-select-view]:!border-none"
+                                className="[&_.arco-select-view]:bg-transparent! [&_.arco-select-view]:border-none!"
                                 triggerProps={{
                                     autoAlignPopupWidth: false,
                                     autoAlignPopupMinWidth: true,
@@ -75,7 +75,7 @@ export function MBTISection() {
 
                         <Button
                             type="primary"
-                            className="bg-purple-600 hover:bg-purple-700 !rounded-lg h-9 px-4"
+                            className="bg-purple-600 hover:bg-purple-700 rounded-lg! h-9 px-4"
                             icon={<IconSwap />}
                             onClick={handleRandomMatch}
                             loading={isRandomizing}
@@ -114,7 +114,7 @@ export function MBTISection() {
                                 bgColor
                             )}
                         >
-                            <div className="text-4xl mb-3 filter drop-shadow-sm group-hover:scale-110 transition-transform origin-left">
+                            <div className="text-4xl mb-3 filter drop-shadow-xs group-hover:scale-110 transition-transform origin-left">
                                 {persona.avatar}
                             </div>
                             <div>
@@ -129,7 +129,7 @@ export function MBTISection() {
 
                             {/* Hover Badge */}
                             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-xs bg-white/80 backdrop-blur px-2 py-1 rounded-full shadow-sm text-purple-600 font-medium">
+                                <span className="text-xs bg-white/80 backdrop-blur-sm px-2 py-1 rounded-full shadow-xs text-purple-600 font-medium">
                                     对话
                                 </span>
                             </div>

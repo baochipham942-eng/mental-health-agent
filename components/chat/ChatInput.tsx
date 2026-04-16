@@ -215,7 +215,7 @@ export function ChatInput({
             onClick={() => setDesktopMenuOpen(v => !v)}
             aria-label="解压工具箱"
             aria-expanded={desktopMenuOpen}
-            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
+            className="text-gray-400! hover:text-purple-600! hover:bg-purple-50! transition-colors flex! items-center! justify-center! p-0!"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
             <ToolboxIcon size={20} />
@@ -223,8 +223,8 @@ export function ChatInput({
 
           {/* 技能面板 — 始终在 DOM 中，CSS 控制显隐 */}
           <div
-            className={`absolute bottom-full left-0 mb-2 z-[2000]
-              bg-white rounded-xl shadow-sm border border-gray-200/80 p-3 min-w-[280px]
+            className={`absolute bottom-full left-0 mb-2 z-2000
+              bg-white rounded-xl shadow-xs border border-gray-200/80 p-3 min-w-[280px]
               transition-all duration-150 origin-bottom-left
               ${desktopMenuOpen
                 ? 'opacity-100 scale-100 pointer-events-auto'
@@ -252,7 +252,7 @@ export function ChatInput({
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); } }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
                 >
-                  <span className="text-xl flex-shrink-0">{skill.emoji}</span>
+                  <span className="text-xl shrink-0">{skill.emoji}</span>
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">{skill.label}</div>
                     <div className="text-[11px] text-gray-400">{skill.desc}</div>
@@ -276,7 +276,7 @@ export function ChatInput({
             shape="circle"
             onClick={() => setSkillsOpen(true)}
             aria-label="解压工具箱"
-            className="!text-gray-400 hover:!text-purple-600 hover:!bg-purple-50 transition-colors !flex !items-center !justify-center !p-0"
+            className="text-gray-400! hover:text-purple-600! hover:bg-purple-50! transition-colors flex! items-center! justify-center! p-0!"
             style={{ width: 44, height: 44, flexShrink: 0 }}
           >
             <ToolboxIcon size={22} />
@@ -314,7 +314,7 @@ export function ChatInput({
                   }}
                   className="flex flex-col items-center gap-2 p-2 active:scale-95 rounded-xl transition-all cursor-pointer"
                 >
-                  <div className={`w-12 h-12 bg-gradient-to-br ${skill.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-white/60`}>
+                  <div className={`w-12 h-12 bg-linear-to-br ${skill.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-xs border border-white/60`}>
                     {skill.emoji}
                   </div>
                   <span className="text-[11px] font-medium text-gray-600 text-center leading-tight">
@@ -354,8 +354,8 @@ export function ChatInput({
             className={cn(
               'flex-1 resize-none rounded-xl px-3',
               'text-gray-900 placeholder:text-gray-400',
-              'bg-transparent border-none outline-none ring-0',
-              'focus:outline-none focus:ring-0 focus:border-none shadow-none',
+              'bg-transparent border-none outline-hidden ring-0',
+              'focus:outline-hidden focus:ring-0 focus:border-none shadow-none',
               'overflow-y-auto transition-all duration-200',
               'text-[15px]',
               disabled && !isLoading && 'cursor-not-allowed opacity-60'
@@ -396,10 +396,10 @@ export function ChatInput({
           }
           onClick={doSend}
           className={cn(
-            'transition-all duration-200 !w-[44px] !h-[44px] !min-w-[44px] !min-h-[44px] !p-0',
+            'transition-all duration-200 w-[44px]! h-[44px]! min-w-[44px]! min-h-[44px]! p-0!',
             canSend && !isLoading && !disabled && 'shadow-md hover:shadow-lg',
             // 强制禁用状态样式
-            disabled && '!bg-gray-200 !text-gray-400 !cursor-not-allowed !border-gray-200'
+            disabled && 'bg-gray-200! text-gray-400! cursor-not-allowed! border-gray-200!'
           )}
           style={{
             fontSize: 18,

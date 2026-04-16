@@ -417,23 +417,23 @@ export default function ExperimentDetailPage() {
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">总用例</div>
           <div className="text-2xl font-bold mt-1">{cases.length}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">通过</div>
           <div className="text-2xl font-bold mt-1 text-green-600">{passCount}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">错误 (Wrong)</div>
           <div className="text-2xl font-bold mt-1 text-red-500">{failCount}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">偏离 (Drift)</div>
           <div className="text-2xl font-bold mt-1 text-amber-500">{runMeta?.driftCount || 0}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">通过率</div>
           <div className="text-2xl font-bold mt-1" style={{ color: passRateHex(passCount + failCount > 0 ? passCount / (passCount + failCount) * 100 : 0) }}>
             {passCount + failCount > 0 ? `${(passCount / (passCount + failCount) * 100).toFixed(1)}%` : '-'}
@@ -443,19 +443,19 @@ export default function ExperimentDetailPage() {
 
       {/* 性能统计 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">总轮次</div>
           <div className="text-2xl font-bold mt-1">{totalTurns}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">平均 TTFT</div>
           <div className="text-2xl font-bold mt-1">{avgTtft ? `${avgTtft}ms` : '-'}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">总耗时</div>
           <div className="text-2xl font-bold mt-1">{totalTimeMs > 0 ? `${(totalTimeMs / 1000).toFixed(1)}s` : '-'}</div>
         </Card>
-        <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+        <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
           <div className="text-xs text-gray-500">平均耗时/轮</div>
           <div className="text-2xl font-bold mt-1">{totalTurns > 0 ? `${(totalTimeMs / totalTurns / 1000).toFixed(1)}s` : '-'}</div>
         </Card>
@@ -473,7 +473,7 @@ export default function ExperimentDetailPage() {
       {Object.keys(categoryStats).length > 1 && (
         <div className="flex flex-wrap gap-2">
           {Object.entries(categoryStats).map(([cat, s]) => (
-            <Card key={cat} className="shadow-sm" bodyStyle={{ padding: '8px 12px' }}>
+            <Card key={cat} className="shadow-xs" bodyStyle={{ padding: '8px 12px' }}>
               <div className="text-xs text-gray-500 uppercase">{cat}</div>
               <div className="text-sm font-semibold">{s.total > 0 ? `${(s.pass / s.total * 100).toFixed(0)}%` : '-'} ({s.pass}/{s.total})</div>
             </Card>
@@ -482,7 +482,7 @@ export default function ExperimentDetailPage() {
       )}
 
       {/* AI 改进分析 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm text-gray-900">AI 改进分析</span>
@@ -497,7 +497,7 @@ export default function ExperimentDetailPage() {
               </Button>
             )}
             <select
-              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+              className="text-xs border border-gray-300 rounded-sm px-2 py-1 bg-white"
               value={analysisProvider}
               onChange={e => setAnalysisProvider(e.target.value)}
             >
@@ -545,7 +545,7 @@ export default function ExperimentDetailPage() {
                   </div>
                   <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
                   {s.dismissal_reason && (
-                    <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                    <div className="text-xs text-amber-600 bg-amber-50 rounded-sm px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
                   )}
                   <div className="flex flex-wrap gap-1">
                     {(s.tags || []).map((tag: string) => (
@@ -573,7 +573,7 @@ export default function ExperimentDetailPage() {
       </Card>
 
       {/* 用例列表 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <Table
           columns={caseColumns}
           data={cases}
@@ -687,11 +687,11 @@ export default function ExperimentDetailPage() {
                             {t.reference_strategy && <Tag size="small" color="purple">{t.reference_strategy}</Tag>}
                           </div>
                           <div className="grid grid-cols-[2fr_3fr] gap-2">
-                            <div className="bg-blue-50 rounded p-2.5">
+                            <div className="bg-blue-50 rounded-sm p-2.5">
                               <div className="text-xs text-blue-500 font-medium mb-1">用户</div>
                               <div className="text-sm text-gray-700">{t.user_input}</div>
                             </div>
-                            <div className={`rounded p-2.5 ${allPass ? 'bg-green-50' : hasWrong ? 'bg-red-50' : 'bg-amber-50'}`}>
+                            <div className={`rounded-sm p-2.5 ${allPass ? 'bg-green-50' : hasWrong ? 'bg-red-50' : 'bg-amber-50'}`}>
                               <div className={`text-xs font-medium mb-1 ${allPass ? 'text-green-600' : hasWrong ? 'text-red-500' : 'text-amber-600'}`}>AI</div>
                               <div className="text-sm text-gray-700 whitespace-pre-wrap">{t.ai_reply}</div>
                             </div>
@@ -701,7 +701,7 @@ export default function ExperimentDetailPage() {
                               <summary className="text-xs text-purple-500 cursor-pointer hover:text-purple-700">
                                 {t.ai_reply ? '查看参考回复 Diff' : '查看参考回复'}
                               </summary>
-                              <div className="bg-purple-50 rounded p-2.5 mt-1">
+                              <div className="bg-purple-50 rounded-sm p-2.5 mt-1">
                                 {t.ai_reply ? (
                                   <DiffView reference={t.reference_reply} actual={t.ai_reply} />
                                 ) : (
@@ -717,7 +717,7 @@ export default function ExperimentDetailPage() {
                                 const normalized = isJudge ? normalizeJudgeResult(v.result) : null;
                                 const isDrift = normalized === 'Drift';
                                 return (
-                                  <div key={dim} className={`text-xs rounded px-2 py-1 ${isDrift ? 'text-amber-700 bg-amber-50' : 'text-red-600 bg-red-50'}`}>
+                                  <div key={dim} className={`text-xs rounded-sm px-2 py-1 ${isDrift ? 'text-amber-700 bg-amber-50' : 'text-red-600 bg-red-50'}`}>
                                     <b>{DIM_LABELS[dim] || dim}{isDrift ? ' [偏离]' : ''}:</b> {isJudge ? v.critique : '未通过'}
                                   </div>
                                 );
@@ -736,7 +736,7 @@ export default function ExperimentDetailPage() {
                       const judges = t.judge_results_json ? JSON.parse(t.judge_results_json) : {};
                       const codes = t.code_checks_json ? JSON.parse(t.code_checks_json) : {};
                       return (
-                        <Card key={t.turn_index} className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+                        <Card key={t.turn_index} className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
                           <div className="text-xs font-medium text-gray-500 mb-2">Turn {t.turn_index + 1}</div>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {Object.entries({ ...codes }).map(([check, result]) => (
@@ -800,7 +800,7 @@ export default function ExperimentDetailPage() {
                               </div>
                               <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
                               {s.dismissal_reason && (
-                                <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                                <div className="text-xs text-amber-600 bg-amber-50 rounded-sm px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
                               )}
                               {s.betterReply && (
                                 <div className="bg-green-50 border border-green-100 rounded-lg p-2.5 mb-1.5">

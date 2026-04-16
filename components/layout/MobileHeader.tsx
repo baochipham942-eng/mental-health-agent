@@ -12,7 +12,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
     return (
-        <header className="flex md:hidden items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-40">
+        <header className="flex md:hidden items-center justify-between px-4 py-3 bg-white/80 backdrop-blur-xs border-b border-gray-100 sticky top-0 z-40">
             <Link href="/" className="scale-75 origin-left block cursor-pointer">
                 <Logo />
             </Link>
