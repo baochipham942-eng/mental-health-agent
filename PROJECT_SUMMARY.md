@@ -73,6 +73,8 @@
 ### 3.1 智能对话
 
 - Multi-Agent 编排：Triage（分类）→ Safety（安全）→ Counselor（回复）
+- **Scene Recognition v1**：首个 triage LLM 节点直接输出 `scene`（职场边界 / 学生压力 / 照护负担 / 通用支持）
+- **Realtime WebSearch v1**：动态事实问题按需走 OpenAI `Responses + web_search`，搜索结果作为外部事实上下文注入
 - 流式响应 + 并行预取（记忆 / 分类 / 安全同时进行，~800ms 节省）
 - 极速技能路径：直接 skill 请求跳过所有 LLM 调用
 - 情绪识别：7 类情绪 + 0-10 强度评分

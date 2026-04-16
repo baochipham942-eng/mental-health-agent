@@ -7,6 +7,9 @@
 
 import type { UIMessage, InferUIMessageChunk } from 'ai';
 import type { SKILL_CARDS } from '@/lib/ai/skills';
+import type { SceneContext } from '@/lib/ai/scene';
+import type { WebSearchDecision } from '@/lib/ai/websearch';
+import type { WebSearchProcess } from '@/types/chat';
 
 /** SkillCard 类型从 SKILL_CARDS 常量推导，避免重复定义 */
 export type SkillCard = (typeof SKILL_CARDS)[keyof typeof SKILL_CARDS];
@@ -35,6 +38,9 @@ export type ChatUIMessage = UIMessage<
     };
     'persona': { mode: string; reasoning?: string };
     'memory': { check?: string; retrieved?: string };
+    'scene': SceneContext;
+    'websearch': WebSearchDecision;
+    'websearch-process': WebSearchProcess;
     'dialogue': {
       turn: number;
       phase: string;

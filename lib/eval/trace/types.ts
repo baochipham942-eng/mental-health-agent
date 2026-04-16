@@ -51,6 +51,12 @@ export interface TraceEvalInput {
   toolCalls?: any[];
   /** output guard 检查结果 */
   guardResult?: { safe: boolean; issues: string[] };
+  /** 可选真值标注：用于后续统计 scene 命中率 */
+  expectedSceneId?: string;
+  /** 可选真值标注：用于后续统计 websearch need 命中率 */
+  expectedWebSearchNeed?: 'none' | 'suggested' | 'required';
+  /** 可选真值标注：用于后续统计是否应该触发搜索 */
+  expectedShouldSearch?: boolean;
 }
 
 /** evaluateTrace() 的输出结果 */

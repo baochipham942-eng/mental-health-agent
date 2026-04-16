@@ -35,6 +35,8 @@ import { runWithTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
 import { checkRateLimit } from '@/lib/api/rate-limit';
 import { SKILL_CARDS, detectDirectSkillRequest } from '@/lib/ai/skills';
+import { resolveSceneContext } from '@/lib/ai/scene';
+import { assessWebSearchNeed, executeWebSearchIfNeeded, resolveWebSearchCapability } from '@/lib/ai/websearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -307,6 +309,53 @@ export async function POST(request: NextRequest) {
           reasoning: analysis.personaReasoning || '根据对话上下文动态调整',
         };
 
+        const sceneContext = resolveSceneContext({
+          message,
+          triageScene: analysis.scene || null,
+        });
+
+        const webSearchCapability = resolveWebSearchCapability();
+        let webSearchDecision = assessWebSearchNeed({
+          message,
+          routeType,
+          scene: sceneContext,
+          capability: webSearchCapability,
+        });
+        const shouldExecuteWebSearch =
+          webSearchCapability.mode === 'enabled' &&
+          webSearchDecision.toolReady &&
+          (webSearchDecision.need === 'required' ||
+            (webSearchDecision.need === 'suggested' && webSearchCapability.autoSearchSuggested));
+
+        if (shouldExecuteWebSearch) {
+          writer.write({
+            type: 'data-websearch-process',
+            data: {
+              status: 'started',
+              reason: webSearchDecision.reason,
+              queryHint: webSearchDecision.queryHint,
+            },
+          });
+        }
+
+        webSearchDecision = await executeWebSearchIfNeeded({
+          message,
+          scene: sceneContext,
+          decision: webSearchDecision,
+          capability: webSearchCapability,
+        });
+
+        if (shouldExecuteWebSearch) {
+          writer.write({
+            type: 'data-websearch-process',
+            data: {
+              status: webSearchDecision.status === 'completed' ? 'completed' : 'failed',
+              reason: webSearchDecision.reason,
+              error: webSearchDecision.error,
+            },
+          });
+        }
+
         const memoryData = {
           check: analysis.memoryCheck || '无',
           retrieved: typeof retrievalResult !== 'string' && (retrievalResult as any).memories?.length > 0
@@ -339,6 +388,7 @@ export async function POST(request: NextRequest) {
           output: {
             safety: analysis.safety, route: analysis.route,
             emotion: analysis.emotion, adaptiveMode: analysis.adaptiveMode,
+            scene: sceneContext,
           },
           reasoning: analysis.safetyReasoning,
         });
@@ -367,6 +417,29 @@ export async function POST(request: NextRequest) {
           output: { label: analysis.emotion.label, score: analysis.emotion.score },
         });
 
+        agentTrace.push({
+          agent: 'websearch',
+          startMs: 0,
+          durationMs: webSearchDecision.latencyMs || 0,
+          result: webSearchDecision.status,
+          input: {
+            need: webSearchDecision.need,
+            queryHint: webSearchDecision.queryHint,
+            sceneId: sceneContext.id,
+            sceneSource: sceneContext.source,
+            sceneConfidence: sceneContext.confidence,
+          },
+          output: {
+            status: webSearchDecision.status,
+            toolReady: webSearchDecision.toolReady,
+            sourceCount: webSearchDecision.sources?.length || 0,
+            citationCount: webSearchDecision.citationCount,
+            latencyMs: webSearchDecision.latencyMs,
+            shouldOfferSearch: webSearchDecision.shouldOfferSearch,
+          },
+          reasoning: webSearchDecision.reason,
+        } as any);
+
         const counselorStartMs = Date.now() - requestStartedAt;
         agentTrace.push({
           agent: 'counselor', startMs: counselorStartMs, durationMs: 0, result: routeType,
@@ -380,6 +453,8 @@ export async function POST(request: NextRequest) {
         writer.write({ type: 'data-safety', data: safetyData });
         writer.write({ type: 'data-persona', data: personaData });
         writer.write({ type: 'data-memory', data: memoryData });
+        writer.write({ type: 'data-scene', data: sceneContext });
+        writer.write({ type: 'data-websearch', data: webSearchDecision });
         writer.write({
           type: 'data-dialogue',
           data: {
@@ -396,6 +471,8 @@ export async function POST(request: NextRequest) {
             questionnaireDetected: questionnaireType || undefined,
             emotionTrajectory: dialogueCtx?.emotionTrajectory || [],
             dialogueIntent: (analysis as any).dialogueIntent || null,
+            scene: sceneContext,
+            webSearch: webSearchDecision,
             scebProgress: dialogueCtx?.scebProgress || null,
             agentTrace,
           },
@@ -411,6 +488,15 @@ export async function POST(request: NextRequest) {
               userId, sessionId, routeType,
               emotion: analysis.emotion,
               safetyLabel: safetyData.label,
+              scene: sceneContext,
+              sceneId: sceneContext.id,
+              sceneSource: sceneContext.source,
+              sceneConfidence: sceneContext.confidence,
+              webSearch: webSearchDecision,
+              webSearchNeed: webSearchDecision.need,
+              webSearchStatus: webSearchDecision.status,
+              webSearchLatencyMs: webSearchDecision.latencyMs,
+              webSearchCitationCount: webSearchDecision.citationCount,
               machineState: dialogueCtx?.state,
               turn: conversationTurn,
               preStreamDurationMs: Date.now() - requestStartedAt,
@@ -455,6 +541,7 @@ export async function POST(request: NextRequest) {
             writer, message, history, processedHistory, sessionId, userId, traceMetadata,
             requestStartedAt, saveAssistantMessage, scheduleConversationSummaryRefresh,
             safetyData, stateData, adaptiveMode, state, emotionObj, analysis, agentTrace,
+            sceneContext, webSearchDecision,
           });
           return;
         }
@@ -467,6 +554,7 @@ export async function POST(request: NextRequest) {
             exerciseInjection, stateMachinePrompt, memoryContext, userTherapistPref,
             userPreferences, providerOverride: effectiveProviderOverride,
             modelOverride: effectiveModelOverride, agentTrace,
+            sceneContext, webSearchDecision,
           });
           return;
         }
@@ -476,6 +564,7 @@ export async function POST(request: NextRequest) {
             writer, message, history, processedHistory, sessionId, userId, traceMetadata,
             requestStartedAt, saveAssistantMessage, scheduleConversationSummaryRefresh,
             safetyData, stateData, adaptiveMode, assessmentStage, memoryContext, agentTrace,
+            sceneContext, webSearchDecision,
           });
           return;
         }

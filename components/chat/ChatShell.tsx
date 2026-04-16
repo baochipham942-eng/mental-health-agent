@@ -22,6 +22,40 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+type AssistantMessageMetadata = NonNullable<Message['metadata']>;
+
+function readStreamWebSearch(data: any): AssistantMessageMetadata['webSearch'] | undefined {
+  return data?.webSearch ?? data?.websearch ?? data?.['websearch'];
+}
+
+function readStreamWebSearchProcess(data: any): AssistantMessageMetadata['webSearchProcess'] | undefined {
+  return data?.webSearchProcess ?? data?.websearchProcess ?? data?.['websearch-process'];
+}
+
+function mergeAssistantMetadata(
+  current: AssistantMessageMetadata | undefined,
+  next: Partial<AssistantMessageMetadata>,
+): AssistantMessageMetadata {
+  return {
+    ...(current || {}),
+    ...next,
+    safety: next.safety ?? current?.safety,
+    state: next.state ?? current?.state,
+    scene: next.scene ?? current?.scene,
+    webSearch: next.webSearch ?? current?.webSearch,
+    webSearchProcess: next.webSearchProcess ?? current?.webSearchProcess,
+    routeType: next.routeType ?? current?.routeType,
+    assessmentStage: next.assessmentStage ?? current?.assessmentStage,
+    actionCards: next.actionCards ?? current?.actionCards,
+    assistantQuestions: next.assistantQuestions ?? current?.assistantQuestions,
+    validationError: next.validationError ?? current?.validationError,
+    persona: next.persona ?? current?.persona,
+    memory: next.memory ?? current?.memory,
+    adaptiveMode: next.adaptiveMode ?? current?.adaptiveMode,
+    toolCalls: next.toolCalls ?? current?.toolCalls,
+  };
+}
+
 import { Session } from 'next-auth';
 
 const SESSION_DURATION_SECONDS = 45 * 60; // 45 minutes
@@ -766,10 +800,16 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         addMessage(placeholderMessage);
 
         let localAccumulatedContent = '';
-        // Capture metadata progressively to ensure no data loss on final update
-        let capturedSafety: any = null;
-        let capturedState: any = null;
-        let capturedActionCards: any[] | undefined = undefined;
+
+        const updateAssistantMetadata = (partial: Partial<AssistantMessageMetadata>) => {
+          const currentMetadata = useChatStore.getState().messages.find(
+            (msg) => msg.id === assistantMsgId,
+          )?.metadata as AssistantMessageMetadata | undefined;
+
+          updateMessage(assistantMsgId, {
+            metadata: mergeAssistantMetadata(currentMetadata, partial),
+          } as any);
+        };
 
         console.log('[ChatShell] Calling sendChatMessage...', { sessionId: currentSessionId });
         const { response: finalResponse, error: finalApiError } = await sendChatMessage({
@@ -789,26 +829,22 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
             }
           },
           onDataChunk: (data) => {
-            // Update captured metadata
-            if (data.safety) capturedSafety = data.safety;
-            if (data.state) capturedState = data.state;
-            if (data.actionCards) capturedActionCards = data.actionCards;
-
-            updateMessage(assistantMsgId, {
-              metadata: {
-                safety: data.safety || capturedSafety,
-                state: data.state || capturedState,
-                routeType: data.routeType,
-                assessmentStage: data.assessmentStage,
-                actionCards: data.actionCards || capturedActionCards,
-                assistantQuestions: data.assistantQuestions,
-                validationError: data.validationError,
-                toolCalls: data.toolCalls,
-                persona: data.persona,
-                memory: data.memory,
-                adaptiveMode: data.adaptiveMode,
-              }
-            } as any);
+            updateAssistantMetadata({
+              safety: data.safety,
+              state: data.state,
+              scene: data.scene,
+              webSearch: readStreamWebSearch(data),
+              webSearchProcess: readStreamWebSearchProcess(data),
+              routeType: data.routeType,
+              assessmentStage: data.assessmentStage,
+              actionCards: data.actionCards,
+              assistantQuestions: data.assistantQuestions,
+              validationError: data.validationError,
+              toolCalls: data.toolCalls,
+              persona: data.persona,
+              memory: data.memory,
+              adaptiveMode: data.adaptiveMode,
+            });
           },
         });
         console.log('[ChatShell] sendChatMessage returned', { hasError: !!finalApiError });
@@ -866,19 +902,25 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           timestamp: responseData.timestamp,
           emotion: responseData.emotion,
           metadata: {
-            routeType: responseData.routeType,
-            assessmentStage: responseData.assessmentStage,
-            actionCards: responseData.actionCards || capturedActionCards,
-            assistantQuestions: responseData.assistantQuestions,
-            validationError: responseData.validationError,
-            toolCalls: responseData.toolCalls,
-            // MERGE: Ensure we don't lose safety/state if responseData misses them
-            safety: responseData.safety || capturedSafety,
-            state: responseData.state || capturedState,
-            // MERGE: Preserve persona/memory data from stream
-            persona: responseData.persona,
-            memory: responseData.memory,
-            adaptiveMode: responseData.adaptiveMode,
+            ...mergeAssistantMetadata(
+              (useChatStore.getState().messages.find((msg) => msg.id === assistantMsgId)?.metadata as AssistantMessageMetadata | undefined),
+              {
+                routeType: responseData.routeType,
+                assessmentStage: responseData.assessmentStage,
+                actionCards: responseData.actionCards,
+                assistantQuestions: responseData.assistantQuestions,
+                validationError: responseData.validationError,
+                toolCalls: responseData.toolCalls,
+                safety: responseData.safety as AssistantMessageMetadata['safety'],
+                state: responseData.state,
+                scene: responseData.scene,
+                webSearch: readStreamWebSearch(responseData),
+                webSearchProcess: readStreamWebSearchProcess(responseData),
+                persona: responseData.persona,
+                memory: responseData.memory,
+                adaptiveMode: responseData.adaptiveMode,
+              },
+            ),
           }
         } as any);
 

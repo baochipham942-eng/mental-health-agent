@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Input, InputNumber, Radio, Space, Message, Divider, Spin, Tag } from '@arco-design/web-react';
+import { Card, Button, Input, InputNumber, Radio, Space, Select, Message, Divider, Spin, Tag } from '@arco-design/web-react';
 import { IconCheck, IconClose, IconRight } from '@arco-design/web-react/icon';
 import { useSearchParams } from 'next/navigation';
 
@@ -44,12 +44,41 @@ interface EvaluationDetail {
   improvements: string[];
 }
 
+interface TraceEvalDetail {
+  id: number;
+  conversationId: string;
+  traceScore?: number;
+  traceGrade?: string;
+  expectedSceneId?: string | null;
+  expectedWebSearchNeed?: string | null;
+  expectedShouldSearch?: boolean | null;
+}
+
+interface TraceTruthLabels {
+  expectedSceneId: string | null;
+  expectedWebSearchNeed: 'none' | 'suggested' | 'required' | null;
+  expectedShouldSearch: boolean | null;
+}
+
 // 4 个评估维度
 const DIMENSIONS = [
   { key: 'legal', label: '合规性', scoreKey: 'legalScore' as const, issuesKey: 'legalIssues' as const },
   { key: 'ethical', label: '伦理性', scoreKey: 'ethicalScore' as const, issuesKey: 'ethicalIssues' as const },
   { key: 'professional', label: '专业性', scoreKey: 'professionalScore' as const, issuesKey: 'professionalIssues' as const },
   { key: 'ux', label: '用户体验', scoreKey: 'uxScore' as const, issuesKey: 'uxIssues' as const },
+];
+
+const SCENE_OPTIONS = [
+  { label: '职场边界与耗竭', value: 'workplace_boundary' },
+  { label: '学生压力与自我怀疑', value: 'student_pressure' },
+  { label: '照护者耗竭与 guilt', value: 'caregiver_burden' },
+  { label: '通用支持', value: 'general_support' },
+];
+
+const WEBSEARCH_NEED_OPTIONS = [
+  { label: 'none', value: 'none' },
+  { label: 'suggested', value: 'suggested' },
+  { label: 'required', value: 'required' },
 ];
 
 // --------------------------------------------------------------------------
@@ -63,8 +92,15 @@ export default function AnnotationWorkbenchPage() {
   const [task, setTask] = useState<AnnotationTask | null>(null);
   const [messages, setMessages] = useState<ConvMessage[]>([]);
   const [evaluation, setEvaluation] = useState<EvaluationDetail | null>(null);
+  const [traceEval, setTraceEval] = useState<TraceEvalDetail | null>(null);
+  const [traceLabels, setTraceLabels] = useState<TraceTruthLabels>({
+    expectedSceneId: null,
+    expectedWebSearchNeed: null,
+    expectedShouldSearch: null,
+  });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [savingTraceLabels, setSavingTraceLabels] = useState(false);
 
   // 标注状态：每个维度的同意/不同意 + 人工分数 + 备注
   const [annotations, setAnnotations] = useState<Record<string, {
@@ -118,6 +154,7 @@ export default function AnnotationWorkbenchPage() {
       await Promise.all([
         loadConversation(taskData.conversationId),
         loadEvaluation(taskData.evaluationId),
+        loadTraceEval(taskData.conversationId),
       ]);
 
       // 重置标注状态
@@ -189,6 +226,55 @@ export default function AnnotationWorkbenchPage() {
     }
   };
 
+  const loadTraceEval = async (conversationId: string) => {
+    try {
+      const res = await fetch(`/api/eval/trace?conversationId=${conversationId}&limit=1`);
+      if (!res.ok) {
+        setTraceEval(null);
+        setTraceLabels({
+          expectedSceneId: null,
+          expectedWebSearchNeed: null,
+          expectedShouldSearch: null,
+        });
+        return;
+      }
+
+      const data = await res.json();
+      const latest = data.data?.[0];
+      if (!latest) {
+        setTraceEval(null);
+        setTraceLabels({
+          expectedSceneId: null,
+          expectedWebSearchNeed: null,
+          expectedShouldSearch: null,
+        });
+        return;
+      }
+
+      setTraceEval({
+        id: latest.id,
+        conversationId: latest.conversationId,
+        traceScore: latest.traceScore,
+        traceGrade: latest.traceGrade,
+        expectedSceneId: latest.expectedSceneId ?? null,
+        expectedWebSearchNeed: latest.expectedWebSearchNeed ?? null,
+        expectedShouldSearch: latest.expectedShouldSearch ?? null,
+      });
+      setTraceLabels({
+        expectedSceneId: latest.expectedSceneId ?? null,
+        expectedWebSearchNeed: latest.expectedWebSearchNeed ?? null,
+        expectedShouldSearch: latest.expectedShouldSearch ?? null,
+      });
+    } catch {
+      setTraceEval(null);
+      setTraceLabels({
+        expectedSceneId: null,
+        expectedWebSearchNeed: null,
+        expectedShouldSearch: null,
+      });
+    }
+  };
+
   useEffect(() => {
     loadTask(initialTaskId || undefined);
   }, [initialTaskId, loadTask]);
@@ -216,11 +302,82 @@ export default function AnnotationWorkbenchPage() {
     }));
   };
 
+  const updateTraceLabel = (field: keyof TraceTruthLabels, value: TraceTruthLabels[keyof TraceTruthLabels]) => {
+    setTraceLabels((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const hasTraceLabelSelection =
+    traceLabels.expectedSceneId !== null ||
+    traceLabels.expectedWebSearchNeed !== null ||
+    traceLabels.expectedShouldSearch !== null;
+
+  const handleSaveTraceLabels = async (opts?: { silent?: boolean }): Promise<boolean> => {
+    if (!task) return true;
+
+    if (!traceEval?.id) {
+      if (hasTraceLabelSelection) {
+        Message.warning('当前还没有 trace 评测记录，真值标签无法保存。');
+        return false;
+      }
+      return true;
+    }
+
+    setSavingTraceLabels(true);
+    try {
+      const res = await fetch('/api/eval/trace', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          traceEvalId: traceEval.id,
+          conversationId: task.conversationId,
+          expectedSceneId: traceLabels.expectedSceneId,
+          expectedWebSearchNeed: traceLabels.expectedWebSearchNeed,
+          expectedShouldSearch: traceLabels.expectedShouldSearch,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || '真值标签保存失败');
+      }
+
+      setTraceEval((prev) => prev ? {
+        ...prev,
+        expectedSceneId: data.traceEval?.expectedSceneId ?? null,
+        expectedWebSearchNeed: data.traceEval?.expectedWebSearchNeed ?? null,
+        expectedShouldSearch: data.traceEval?.expectedShouldSearch ?? null,
+      } : prev);
+      setTraceLabels({
+        expectedSceneId: data.traceEval?.expectedSceneId ?? null,
+        expectedWebSearchNeed: data.traceEval?.expectedWebSearchNeed ?? null,
+        expectedShouldSearch: data.traceEval?.expectedShouldSearch ?? null,
+      });
+
+      if (!opts?.silent) {
+        Message.success('真值标签已保存');
+      }
+      return true;
+    } catch (e: any) {
+      Message.error(e.message || '真值标签保存失败');
+      return false;
+    } finally {
+      setSavingTraceLabels(false);
+    }
+  };
+
   // 提交标注并进入下一个
   const handleSubmitAndNext = async () => {
     if (!task) return;
     setSubmitting(true);
     try {
+      const traceSaved = await handleSaveTraceLabels({ silent: true });
+      if (!traceSaved) {
+        return;
+      }
+
       // 构建标注备注
       const noteLines: string[] = [];
       for (const dim of DIMENSIONS) {
@@ -432,6 +589,92 @@ export default function AnnotationWorkbenchPage() {
         <div className="col-span-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
           <Card title="人工标注" size="small" className="h-full">
             <div className="space-y-5">
+              <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">场景 / 搜索真值</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      用于后续校验 scene 命中率和 search precision
+                    </div>
+                  </div>
+                  {traceEval ? (
+                    <div className="flex items-center gap-2">
+                      {traceEval.traceGrade && <Tag color="arcoblue">Trace {traceEval.traceGrade}</Tag>}
+                      {typeof traceEval.traceScore === 'number' && (
+                        <span className="text-xs text-gray-400">{traceEval.traceScore.toFixed(1)}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <Tag color="gray">暂无 Trace</Tag>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">expectedSceneId</div>
+                    <Select
+                      allowClear
+                      size="small"
+                      placeholder="选择场景真值"
+                      value={traceLabels.expectedSceneId ?? undefined}
+                      options={SCENE_OPTIONS}
+                      onChange={(value) => updateTraceLabel('expectedSceneId', (value as string) || null)}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">expectedWebSearchNeed</div>
+                    <Select
+                      allowClear
+                      size="small"
+                      placeholder="选择 search need 真值"
+                      value={traceLabels.expectedWebSearchNeed ?? undefined}
+                      options={WEBSEARCH_NEED_OPTIONS}
+                      onChange={(value) =>
+                        updateTraceLabel('expectedWebSearchNeed', (value as TraceTruthLabels['expectedWebSearchNeed']) || null)
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">expectedShouldSearch</div>
+                    <Radio.Group
+                      size="small"
+                      type="button"
+                      value={
+                        traceLabels.expectedShouldSearch === null
+                          ? undefined
+                          : traceLabels.expectedShouldSearch ? 'true' : 'false'
+                      }
+                      onChange={(value) => {
+                        if (value === 'true') updateTraceLabel('expectedShouldSearch', true);
+                        else if (value === 'false') updateTraceLabel('expectedShouldSearch', false);
+                        else updateTraceLabel('expectedShouldSearch', null);
+                      }}
+                    >
+                      <Radio value="true">true</Radio>
+                      <Radio value="false">false</Radio>
+                    </Radio.Group>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] text-gray-400">
+                    {traceEval
+                      ? `保存到 trace #${traceEval.id}`
+                      : '当前对话还没有 trace 评测记录，无法保存真值标签'}
+                  </div>
+                  <Button
+                    size="small"
+                    loading={savingTraceLabels}
+                    disabled={!traceEval}
+                    onClick={() => handleSaveTraceLabels()}
+                  >
+                    保存真值标签
+                  </Button>
+                </div>
+              </div>
+
               {DIMENSIONS.map(dim => {
                 const ann = annotations[dim.key];
                 return (

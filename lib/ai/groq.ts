@@ -29,6 +29,13 @@ export interface QuickAnalysis {
     personaReasoning: string; // 角色选择理由
     memoryCheck: string; // 记忆检查结果：是否值得记录？关键词是什么？
     dialogueIntent?: 'opening' | 'sharing' | 'exploring' | 'seeking_solutions' | 'wrapping_up';
+    scene?: {
+        id?: 'workplace_boundary' | 'student_pressure' | 'caregiver_burden' | 'general_support';
+        role?: 'knowledge_worker' | 'student' | 'caregiver' | 'unknown';
+        conflict?: string;
+        intent?: 'vent' | 'sensemaking' | 'prep' | 'action' | 'support';
+        confidence?: number;
+    };
 }
 
 export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速分析用户消息，直接输出 JSON（不要任何其他文字）：
@@ -43,7 +50,14 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
   "adaptiveMode": "guardian" | "companion" | "guide" | "coach",
   "personaReasoning": "选择该角色的理由（1句话）",
   "memoryCheck": "是否有值得长期记忆的关键信息（如偏好、重大事件）？若无则填'无'，若有请简述关键词",
-  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up"
+  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up",
+  "scene": {
+    "id": "workplace_boundary" | "student_pressure" | "caregiver_burden" | "general_support",
+    "role": "knowledge_worker" | "student" | "caregiver" | "unknown",
+    "conflict": "一句话概括现实处境里的结构性矛盾",
+    "intent": "vent" | "sensemaking" | "prep" | "action" | "support",
+    "confidence": 0-1
+  }
 }
 
 对话意图 (dialogueIntent) 分类：
@@ -92,6 +106,13 @@ export const QUICK_ANALYSIS_PROMPT = `你是心理咨询预分析助手。快速
 - crisis: 仅当 safety=crisis 或 urgent 时。
 - assessment: 用户明确求助，有负面情绪需深入探索
 - support: 日常倾诉、正面情绪、问候、闲聊、初步建立关系
+
+scene 规则（v1）：
+- workplace_boundary: 工作里职责边界被侵蚀、被甩锅、被当文员/协调工具人、流程成本被转嫁。
+- student_pressure: 考试、导师、论文、延毕、求职等学业/评价压力。
+- caregiver_burden: 带娃、照护家人、持续打断、家务和 guilt 叠加。
+- general_support: 其他不明确场景。
+- scene 是辅助字段，不确定时给 general_support，confidence 保守。
 
 EFT共情判断 (needsValidation):
 - true: 当 emotion.score >= 7 且 用户处于高唤起状态（哭诉、愤怒、绝望）时。

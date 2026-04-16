@@ -52,6 +52,9 @@ function ensureTraceTable(db: Database.Database) {
       trace_grade TEXT,
       evaluated_by TEXT DEFAULT 'deepseek',
       eval_source TEXT DEFAULT 'auto',
+      expected_scene_id TEXT,
+      expected_websearch_need TEXT,
+      expected_should_search INTEGER,
       evaluated_at TEXT DEFAULT (datetime('now')),
       conv_eval_id TEXT
     );
@@ -59,6 +62,21 @@ function ensureTraceTable(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_trace_grade ON trace_evaluations(trace_grade);
     CREATE INDEX IF NOT EXISTS idx_trace_eval_at ON trace_evaluations(evaluated_at);
   `);
+
+  const columns = new Set(
+    (db.prepare(`PRAGMA table_info(trace_evaluations)`).all() as Array<{ name: string }>)
+      .map((column) => column.name),
+  );
+
+  if (!columns.has('expected_scene_id')) {
+    db.exec('ALTER TABLE trace_evaluations ADD COLUMN expected_scene_id TEXT');
+  }
+  if (!columns.has('expected_websearch_need')) {
+    db.exec('ALTER TABLE trace_evaluations ADD COLUMN expected_websearch_need TEXT');
+  }
+  if (!columns.has('expected_should_search')) {
+    db.exec('ALTER TABLE trace_evaluations ADD COLUMN expected_should_search INTEGER');
+  }
 }
 
 /** 查找某步骤的评测结果 */
@@ -79,6 +97,9 @@ export function writeTraceEval(
     aiReply?: string;
     evalSource?: string;
     convEvalId?: string;
+    expectedSceneId?: string;
+    expectedWebSearchNeed?: 'none' | 'suggested' | 'required';
+    expectedShouldSearch?: boolean;
   },
 ): number {
   const db = getDb();
@@ -99,7 +120,9 @@ export function writeTraceEval(
       emotion_result, emotion_critique,
       tool_result, tool_critique,
       guard_result, guard_critique,
-      trace_score, trace_grade, evaluated_by, eval_source, conv_eval_id
+      trace_score, trace_grade, evaluated_by, eval_source,
+      expected_scene_id, expected_websearch_need, expected_should_search,
+      conv_eval_id
     ) VALUES (
       ?, ?, ?, ?, ?, ?,
       ?, ?,
@@ -108,7 +131,9 @@ export function writeTraceEval(
       ?, ?,
       ?, ?,
       ?, ?,
-      ?, ?, ?, ?, ?
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?
     )
   `);
 
@@ -129,6 +154,9 @@ export function writeTraceEval(
     result.traceGrade,
     result.evaluatedBy,
     extra?.evalSource ?? 'auto',
+    extra?.expectedSceneId ?? null,
+    extra?.expectedWebSearchNeed ?? null,
+    typeof extra?.expectedShouldSearch === 'boolean' ? Number(extra.expectedShouldSearch) : null,
     extra?.convEvalId ?? null,
   );
 
@@ -161,8 +189,48 @@ export interface TraceEvalRow {
   trace_grade: string | null;
   evaluated_by: string | null;
   eval_source: string | null;
+  expected_scene_id: string | null;
+  expected_websearch_need: string | null;
+  expected_should_search: number | null;
   evaluated_at: string | null;
   conv_eval_id: string | null;
+}
+
+export function updateTraceEvalLabels(input: {
+  id?: number;
+  conversationId?: string;
+  expectedSceneId?: string | null;
+  expectedWebSearchNeed?: 'none' | 'suggested' | 'required' | null;
+  expectedShouldSearch?: boolean | null;
+}): TraceEvalRow | null {
+  const db = getDb();
+
+  const targetRow = input.id
+    ? db.prepare('SELECT * FROM trace_evaluations WHERE id = ?').get(input.id) as TraceEvalRow | undefined
+    : input.conversationId
+      ? db.prepare(
+          'SELECT * FROM trace_evaluations WHERE conversation_id = ? ORDER BY evaluated_at DESC, id DESC LIMIT 1',
+        ).get(input.conversationId) as TraceEvalRow | undefined
+      : undefined;
+
+  if (!targetRow) {
+    return null;
+  }
+
+  db.prepare(`
+    UPDATE trace_evaluations
+    SET expected_scene_id = ?,
+        expected_websearch_need = ?,
+        expected_should_search = ?
+    WHERE id = ?
+  `).run(
+    input.expectedSceneId ?? null,
+    input.expectedWebSearchNeed ?? null,
+    typeof input.expectedShouldSearch === 'boolean' ? Number(input.expectedShouldSearch) : null,
+    targetRow.id,
+  );
+
+  return db.prepare('SELECT * FROM trace_evaluations WHERE id = ?').get(targetRow.id) as TraceEvalRow;
 }
 
 /**
@@ -205,16 +273,96 @@ export interface TraceStats {
   gradeDistribution: Record<string, number>;
   avgScore: number;
   stepPassRates: Record<string, { pass: number; wrong: number; drift: number; skip: number; total: number }>;
+  truthMatchRates: {
+    scene: { labeled: number; matched: number; mismatched: number };
+    webSearchNeed: { labeled: number; matched: number; mismatched: number };
+    shouldSearch: { labeled: number; matched: number; mismatched: number };
+  };
+}
+
+interface TraceStatsQuery {
+  conversationId?: string;
+  grade?: string;
+}
+
+interface ParsedTraceStep {
+  agent?: string;
+  result?: string;
+  input?: Record<string, any>;
+  output?: Record<string, any>;
+}
+
+function parseTraceSteps(traceJson: string | null): ParsedTraceStep[] {
+  if (!traceJson) return [];
+
+  try {
+    const parsed = JSON.parse(traceJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function extractTracePredictions(traceJson: string | null): {
+  sceneId: string | null;
+  webSearchNeed: string | null;
+  shouldSearch: boolean | null;
+} {
+  const steps = parseTraceSteps(traceJson);
+  const triageStep = steps.find((step) => step.agent === 'triage');
+  const webSearchStep = steps.find((step) => step.agent === 'websearch');
+
+  const sceneId =
+    typeof triageStep?.output?.scene?.id === 'string'
+      ? triageStep.output.scene.id
+      : typeof webSearchStep?.input?.sceneId === 'string'
+        ? webSearchStep.input.sceneId
+        : null;
+
+  const webSearchNeed =
+    typeof webSearchStep?.input?.need === 'string'
+      ? webSearchStep.input.need
+      : null;
+
+  const shouldSearch =
+    webSearchStep?.result === 'completed' || webSearchStep?.result === 'failed'
+      ? true
+      : webSearchStep?.result === 'skipped' || webSearchStep?.result === 'not_needed'
+        ? false
+        : null;
+
+  return { sceneId, webSearchNeed, shouldSearch };
+}
+
+function buildTraceFilters(opts?: TraceStatsQuery): { where: string; params: any[] } {
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (opts?.conversationId) {
+    conditions.push('conversation_id = ?');
+    params.push(opts.conversationId);
+  }
+
+  if (opts?.grade) {
+    conditions.push('trace_grade = ?');
+    params.push(opts.grade);
+  }
+
+  return {
+    where: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    params,
+  };
 }
 
 /**
  * 获取轨迹评测统计数据
  */
-export function getTraceStats(): TraceStats {
+export function getTraceStats(opts?: TraceStatsQuery): TraceStats {
   const db = getDb();
+  const { where, params } = buildTraceFilters(opts);
 
   // 总数
-  const totalRow = db.prepare('SELECT COUNT(*) as cnt FROM trace_evaluations').get() as any;
+  const totalRow = db.prepare(`SELECT COUNT(*) as cnt FROM trace_evaluations ${where}`).get(...params) as any;
   const total: number = totalRow.cnt;
 
   if (total === 0) {
@@ -223,13 +371,18 @@ export function getTraceStats(): TraceStats {
       gradeDistribution: {},
       avgScore: 0,
       stepPassRates: {},
+      truthMatchRates: {
+        scene: { labeled: 0, matched: 0, mismatched: 0 },
+        webSearchNeed: { labeled: 0, matched: 0, mismatched: 0 },
+        shouldSearch: { labeled: 0, matched: 0, mismatched: 0 },
+      },
     };
   }
 
   // 等级分布
   const gradeRows = db.prepare(
-    'SELECT trace_grade, COUNT(*) as cnt FROM trace_evaluations GROUP BY trace_grade'
-  ).all() as Array<{ trace_grade: string; cnt: number }>;
+    `SELECT trace_grade, COUNT(*) as cnt FROM trace_evaluations ${where} GROUP BY trace_grade`
+  ).all(...params) as Array<{ trace_grade: string; cnt: number }>;
   const gradeDistribution: Record<string, number> = {};
   for (const row of gradeRows) {
     gradeDistribution[row.trace_grade] = row.cnt;
@@ -237,8 +390,8 @@ export function getTraceStats(): TraceStats {
 
   // 平均分
   const avgRow = db.prepare(
-    'SELECT AVG(trace_score) as avg_score FROM trace_evaluations'
-  ).get() as any;
+    `SELECT AVG(trace_score) as avg_score FROM trace_evaluations ${where}`
+  ).get(...params) as any;
   const avgScore: number = avgRow.avg_score ?? 0;
 
   // 各步骤通过率统计
@@ -248,8 +401,8 @@ export function getTraceStats(): TraceStats {
   for (const step of stepNames) {
     const col = `${step}_result`;
     const rows = db.prepare(
-      `SELECT ${col} as result, COUNT(*) as cnt FROM trace_evaluations GROUP BY ${col}`
-    ).all() as Array<{ result: string | null; cnt: number }>;
+      `SELECT ${col} as result, COUNT(*) as cnt FROM trace_evaluations ${where} GROUP BY ${col}`
+    ).all(...params) as Array<{ result: string | null; cnt: number }>;
 
     const stats = { pass: 0, wrong: 0, drift: 0, skip: 0, total };
     for (const row of rows) {
@@ -261,5 +414,47 @@ export function getTraceStats(): TraceStats {
     stepPassRates[step] = stats;
   }
 
-  return { total, gradeDistribution, avgScore, stepPassRates };
+  const truthMatchRates = {
+    scene: { labeled: 0, matched: 0, mismatched: 0 },
+    webSearchNeed: { labeled: 0, matched: 0, mismatched: 0 },
+    shouldSearch: { labeled: 0, matched: 0, mismatched: 0 },
+  };
+
+  const truthRows = db.prepare(`
+    SELECT trace_json, expected_scene_id, expected_websearch_need, expected_should_search
+    FROM trace_evaluations
+    ${where ? `${where} AND` : 'WHERE'}
+      (expected_scene_id IS NOT NULL
+       OR expected_websearch_need IS NOT NULL
+       OR expected_should_search IS NOT NULL)
+  `).all(...params) as Array<{
+    trace_json: string | null;
+    expected_scene_id: string | null;
+    expected_websearch_need: string | null;
+    expected_should_search: number | null;
+  }>;
+
+  for (const row of truthRows) {
+    const predicted = extractTracePredictions(row.trace_json);
+
+    if (row.expected_scene_id) {
+      truthMatchRates.scene.labeled += 1;
+      if (predicted.sceneId === row.expected_scene_id) truthMatchRates.scene.matched += 1;
+      else truthMatchRates.scene.mismatched += 1;
+    }
+
+    if (row.expected_websearch_need) {
+      truthMatchRates.webSearchNeed.labeled += 1;
+      if (predicted.webSearchNeed === row.expected_websearch_need) truthMatchRates.webSearchNeed.matched += 1;
+      else truthMatchRates.webSearchNeed.mismatched += 1;
+    }
+
+    if (typeof row.expected_should_search === 'number') {
+      truthMatchRates.shouldSearch.labeled += 1;
+      if (predicted.shouldSearch === Boolean(row.expected_should_search)) truthMatchRates.shouldSearch.matched += 1;
+      else truthMatchRates.shouldSearch.mismatched += 1;
+    }
+  }
+
+  return { total, gradeDistribution, avgScore, stepPassRates, truthMatchRates };
 }

@@ -15,10 +15,20 @@ import {
   writeTraceEval,
   getTraceEvals,
   getTraceStats,
+  updateTraceEvalLabels,
 } from '@/lib/eval/trace';
 import type { TraceEvalInput } from '@/lib/eval/trace';
 
 export const dynamic = 'force-dynamic';
+
+const EXPECTED_SCENE_IDS = new Set([
+  'workplace_boundary',
+  'student_pressure',
+  'caregiver_burden',
+  'general_support',
+]);
+
+const EXPECTED_WEBSEARCH_NEEDS = new Set(['none', 'suggested', 'required']);
 
 /** 获取 LLM Judge 配置 */
 function getEvalConfig() {
@@ -46,7 +56,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const rows = getTraceEvals({ limit, grade, conversationId });
-    const stats = getTraceStats();
+    const stats = getTraceStats({ grade, conversationId });
 
     return NextResponse.json({
       data: rows.map((r) => ({
@@ -69,6 +79,12 @@ export async function GET(request: NextRequest) {
         toolCritique: r.tool_critique,
         guardResult: r.guard_result,
         guardCritique: r.guard_critique,
+        expectedSceneId: r.expected_scene_id,
+        expectedWebSearchNeed: r.expected_websearch_need,
+        expectedShouldSearch:
+          typeof r.expected_should_search === 'number'
+            ? Boolean(r.expected_should_search)
+            : null,
         evaluatedAt: r.evaluated_at,
         convEvalId: r.conv_eval_id,
       })),
@@ -90,10 +106,35 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { conversationId } = body;
+    const {
+      conversationId,
+      expectedSceneId,
+      expectedWebSearchNeed,
+      expectedShouldSearch,
+    } = body;
 
     if (!conversationId || typeof conversationId !== 'string') {
       return NextResponse.json({ error: 'conversationId 必填' }, { status: 400 });
+    }
+
+    if (expectedSceneId !== undefined && expectedSceneId !== null && !EXPECTED_SCENE_IDS.has(expectedSceneId)) {
+      return NextResponse.json({ error: 'expectedSceneId 不合法' }, { status: 400 });
+    }
+
+    if (
+      expectedWebSearchNeed !== undefined &&
+      expectedWebSearchNeed !== null &&
+      !EXPECTED_WEBSEARCH_NEEDS.has(expectedWebSearchNeed)
+    ) {
+      return NextResponse.json({ error: 'expectedWebSearchNeed 不合法' }, { status: 400 });
+    }
+
+    if (
+      expectedShouldSearch !== undefined &&
+      expectedShouldSearch !== null &&
+      typeof expectedShouldSearch !== 'boolean'
+    ) {
+      return NextResponse.json({ error: 'expectedShouldSearch 必须是 boolean' }, { status: 400 });
     }
 
     // 从 data-bridge 查询对话消息 + meta
@@ -148,6 +189,9 @@ export async function POST(request: NextRequest) {
       adaptiveMode,
       toolCalls,
       guardResult: metaGuardResult,
+      expectedSceneId,
+      expectedWebSearchNeed,
+      expectedShouldSearch,
     };
 
     logInfo('trace-eval-start', { conversationId });
@@ -160,6 +204,9 @@ export async function POST(request: NextRequest) {
       aiReply: lastAssistantMsg.content,
       historyJson: JSON.stringify(history),
       evalSource: 'manual',
+      expectedSceneId,
+      expectedWebSearchNeed,
+      expectedShouldSearch,
     });
 
     logInfo('trace-eval-complete', {
@@ -171,6 +218,87 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, result });
   } catch (e: any) {
     logError('trace-eval-error', { error: e.message, stack: e.stack });
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PATCH — 更新已有轨迹评测的真值标注
+// ---------------------------------------------------------------------------
+
+export async function PATCH(request: NextRequest) {
+  const denied = await requireEvalAuth(request);
+  if (denied) return denied;
+
+  try {
+    const body = await request.json();
+    const {
+      traceEvalId,
+      conversationId,
+      expectedSceneId,
+      expectedWebSearchNeed,
+      expectedShouldSearch,
+    } = body;
+
+    if (!traceEvalId && !conversationId) {
+      return NextResponse.json({ error: 'traceEvalId 或 conversationId 至少传一个' }, { status: 400 });
+    }
+
+    if (traceEvalId !== undefined && traceEvalId !== null && typeof traceEvalId !== 'number') {
+      return NextResponse.json({ error: 'traceEvalId 必须是 number' }, { status: 400 });
+    }
+
+    if (conversationId !== undefined && conversationId !== null && typeof conversationId !== 'string') {
+      return NextResponse.json({ error: 'conversationId 必须是 string' }, { status: 400 });
+    }
+
+    if (expectedSceneId !== undefined && expectedSceneId !== null && !EXPECTED_SCENE_IDS.has(expectedSceneId)) {
+      return NextResponse.json({ error: 'expectedSceneId 不合法' }, { status: 400 });
+    }
+
+    if (
+      expectedWebSearchNeed !== undefined &&
+      expectedWebSearchNeed !== null &&
+      !EXPECTED_WEBSEARCH_NEEDS.has(expectedWebSearchNeed)
+    ) {
+      return NextResponse.json({ error: 'expectedWebSearchNeed 不合法' }, { status: 400 });
+    }
+
+    if (
+      expectedShouldSearch !== undefined &&
+      expectedShouldSearch !== null &&
+      typeof expectedShouldSearch !== 'boolean'
+    ) {
+      return NextResponse.json({ error: 'expectedShouldSearch 必须是 boolean' }, { status: 400 });
+    }
+
+    const updated = updateTraceEvalLabels({
+      id: traceEvalId,
+      conversationId,
+      expectedSceneId: expectedSceneId ?? null,
+      expectedWebSearchNeed: expectedWebSearchNeed ?? null,
+      expectedShouldSearch: expectedShouldSearch ?? null,
+    });
+
+    if (!updated) {
+      return NextResponse.json({ error: '没有找到可更新的 trace 评测记录' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      traceEval: {
+        id: updated.id,
+        conversationId: updated.conversation_id,
+        expectedSceneId: updated.expected_scene_id,
+        expectedWebSearchNeed: updated.expected_websearch_need,
+        expectedShouldSearch:
+          typeof updated.expected_should_search === 'number'
+            ? Boolean(updated.expected_should_search)
+            : null,
+      },
+    });
+  } catch (e: any) {
+    logError('trace-eval-patch-error', { error: e.message, stack: e.stack });
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

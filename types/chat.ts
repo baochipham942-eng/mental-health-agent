@@ -1,4 +1,15 @@
 import { AnyResource } from '@/lib/rag/types';
+import type { SceneContext } from '@/lib/ai/scene';
+import type { WebSearchDecision } from '@/lib/ai/websearch';
+
+export type WebSearchProcessStatus = 'started' | 'completed' | 'failed';
+
+export interface WebSearchProcess {
+  status: WebSearchProcessStatus;
+  reason?: string;
+  queryHint?: string;
+  error?: string;
+}
 
 export interface Message {
   id: string;
@@ -23,7 +34,7 @@ export interface Message {
       score: number;
       constraints?: string[];
     };
-    state?: {
+    state?: ChatState | {
       reasoning: string;
       overallProgress: number;
     };
@@ -36,6 +47,10 @@ export interface Message {
       check: string;
       retrieved?: string;
     };
+    scene?: SceneContext;
+    webSearch?: WebSearchDecision;
+    webSearchProcess?: WebSearchProcess;
+    toolCalls?: ToolCall[];
     dialogue?: {
       turn: number;
       phase: string;
@@ -131,7 +146,7 @@ export type GroupSSEEvent =
 
 // Agent Trace — 用于评测系统可视化各阶段耗时
 export interface AgentTraceStep {
-  agent: 'triage' | 'safety' | 'counselor' | 'quality' | 'prefetch';
+  agent: 'triage' | 'safety' | 'counselor' | 'quality' | 'prefetch' | 'websearch';
   startMs: number;    // 相对于请求开始的毫秒
   durationMs: number;
   model?: string;     // 使用的模型
@@ -169,6 +184,9 @@ export interface ChatResponse {
     check: string;
     retrieved?: string;
   };
+  scene?: SceneContext;
+  webSearch?: WebSearchDecision;
+  webSearchProcess?: WebSearchProcess;
   adaptiveMode?: string;
   // Simplified debug/meta
   debugPrompts?: {

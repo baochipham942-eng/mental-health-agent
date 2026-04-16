@@ -10,6 +10,8 @@
 - **8 种解压技能** — 呼吸练习、正念冥想、认知重构、空椅子技术等
 - **探索工坊** — 与 10 位历史先驱对话、16 种 MBTI 人格互动、圆桌论道
 - **情绪洞察** — 实时情绪识别 + 7/30 天趋势追踪
+- **场景识别 v1** — 首个 triage LLM 节点识别用户现实处境，不只贴情绪标签
+- **实时 WebSearch v1** — 只在动态事实问题上按需补外部搜索，不占默认主链
 - **专业评估** — 情绪健康度 (PHQ-9)、压力指数 (GAD-7)，对话式自然收集
 - **多 LLM 支持** — DeepSeek / OpenAI / Kimi / OpenRouter / GLM 可切换
 - **学术评测** — 3 套学术数据集 + 双层评分 + 定性分析
@@ -108,6 +110,7 @@ bun typecheck            # TypeScript 类型检查
 | [PROJECT_CONSTITUTION.md](./PROJECT_CONSTITUTION.md) | 部署规则、构建宪法、CI/CD |
 | [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) | 项目全貌、功能清单、技术决策 |
 | [DESIGN_GUIDE.md](./DESIGN_GUIDE.md) | 设计系统、颜色、弹窗规范 |
+| [docs/prd/scene-recognition-v1.md](./docs/prd/scene-recognition-v1.md) | 场景识别 + 实时 WebSearch 的产品与实现边界 |
 | [docs/](./docs/) | 变更日志、操作手册、设计文档 |
 
 ## 注意事项

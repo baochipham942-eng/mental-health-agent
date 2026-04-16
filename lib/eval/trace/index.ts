@@ -20,7 +20,7 @@ import { judge as guardJudge } from './judges/guard-judge';
 export type { TraceEvalInput, TraceEvalResult, StepEvalResult } from './types';
 export type { TraceStep, TraceStepName, StepVerdict } from './types';
 export { TRACE_STEP_WEIGHTS, computeTraceScore } from './weights';
-export { writeTraceEval, getTraceEvals, getTraceStats } from './db';
+export { writeTraceEval, getTraceEvals, getTraceStats, updateTraceEvalLabels } from './db';
 export type { TraceEvalRow, TraceStats } from './db';
 
 interface EvalConfig {

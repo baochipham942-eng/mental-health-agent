@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
-import { Message } from '@/types/chat';
+import { Message, WebSearchProcess } from '@/types/chat';
 import { Message as Toast } from '@arco-design/web-react';
 import { IconThumbUp, IconThumbDown, IconThumbUpFill, IconThumbDownFill } from '@arco-design/web-react/icon';
 import { formatTime } from '@/lib/utils/format';
@@ -15,7 +15,11 @@ import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/store/chatStore';
 import { ResourceCard } from './ResourceCard';
 import { ActionCardGrid } from './ActionCardGrid';
+import type { SceneContext } from '@/lib/ai/scene';
+import type { WebSearchDecision } from '@/lib/ai/websearch';
 import { parseThoughtTags, stripDuplicateFollowupText } from './message-utils';
+
+const SCENE_HIGH_CONFIDENCE_THRESHOLD = 0.7;
 
 interface MessageBubbleProps {
   message: Message;
@@ -49,6 +53,8 @@ export function MessageBubble({
   const { currentState, isLoading } = useChatStore();
   const [showReasoning, setShowReasoning] = useState(false);
   const isUser = message.role === 'user';
+  const webSearchProcess = !isUser ? message.metadata?.webSearchProcess : undefined;
+  const isRealtimeSearchInProgress = !isUser && webSearchProcess?.status === 'started';
 
   // 检测是否是占位符消息（正在等待AI回复）
   const isPlaceholderMessage = !isUser && (message.content?.includes('让我整理一下思绪') || message.content?.includes('正在深入思考...'));
@@ -82,6 +88,11 @@ export function MessageBubble({
   if (!isUser && !hasTextContent && !hasSpecialContent) {
     // 如果正在加载中、正在发送中、或是占位符消息，显示 Loading 动画 + 安抚文案
     if (isLoading || isSending || isPlaceholderMessage) {
+      const loadingTitle = isRealtimeSearchInProgress ? '正在补充实时信息...' : '正在深入思考...';
+      const loadingCaption = isRealtimeSearchInProgress
+        ? '这部分会单独标成外部信息，不和我的判断混在一起。'
+        : comfortMessages[comfortIndex];
+
       return (
         <div className="flex flex-col gap-2 mb-6 items-start animate-in fade-in slide-in-from-bottom-2 duration-500" aria-busy="true" aria-label="AI正在思考">
           <div className="rounded-xl px-5 py-4 shadow-glow bg-white border border-indigo-50/50 msg-bubble-ai">
@@ -94,12 +105,19 @@ export function MessageBubble({
                   <div className="thinking-orb-core" />
                 </div>
                 <span className="text-sm font-medium thinking-text-gradient">
-                  正在深入思考...
+                  {loadingTitle}
                 </span>
               </div>
+              {isRealtimeSearchInProgress && (
+                <div className="inline-flex max-w-full items-center gap-1 self-start rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-500">
+                  <span className="truncate">
+                    {webSearchProcess?.queryHint ? `检索线索：${webSearchProcess.queryHint}` : '正在核对可引用来源'}
+                  </span>
+                </div>
+              )}
               <div className="h-4 overflow-hidden relative">
                 <span className="text-xs thinking-comfort-text italic whitespace-nowrap transition-all duration-700 block translate-y-0">
-                  {comfortMessages[comfortIndex]}
+                  {loadingCaption}
                 </span>
               </div>
             </div>
@@ -153,6 +171,12 @@ export function MessageBubble({
     message.metadata.memory?.retrieved
   );
 
+  const sceneInsight = !isUser ? buildSceneInsight(message.metadata?.scene) : null;
+  const webSearchInsight = !isUser
+    ? buildWebSearchInsight(message.metadata?.webSearch, webSearchProcess)
+    : null;
+  const hasUnderstandingSummary = Boolean(sceneInsight || webSearchInsight);
+
   return (
     <div
       className={cn(
@@ -172,6 +196,100 @@ export function MessageBubble({
               : 'bg-white text-gray-900 shadow-glow max-w-[85%] sm:max-w-[80%] msg-bubble-ai'
         )}
       >
+        {hasUnderstandingSummary && (
+          <div className="mb-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3 text-[12px] leading-relaxed text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
+              <span className="inline-flex h-5 items-center rounded-full bg-white px-2 text-[10px] tracking-wide text-slate-500 border border-slate-100">
+                理解层
+              </span>
+              <span>我是怎么理解你的</span>
+            </div>
+
+            <div className="mt-2 space-y-2">
+              {sceneInsight && (
+                <div className="rounded-xl border border-slate-100 bg-white/80 px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-slate-800">场景理解</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      {sceneInsight.confidenceLabel}
+                    </span>
+                    {sceneInsight.sourceLabel && (
+                      <span className="text-[10px] text-slate-400">{sceneInsight.sourceLabel}</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-slate-700">{sceneInsight.summary}</p>
+                </div>
+              )}
+
+              {webSearchInsight && (
+                <div className={cn(
+                  'rounded-xl border px-3 py-2.5',
+                  webSearchInsight.kind === 'failed'
+                    ? 'border-amber-100 bg-amber-50/80'
+                    : webSearchInsight.kind === 'started'
+                      ? 'border-sky-100 bg-sky-50/80'
+                    : 'border-slate-100 bg-white/80'
+                )}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn(
+                      'text-sm font-medium',
+                      webSearchInsight.kind === 'failed'
+                        ? 'text-amber-900'
+                        : webSearchInsight.kind === 'started'
+                          ? 'text-sky-900'
+                          : 'text-slate-800'
+                    )}>
+                      实时信息补充
+                    </span>
+                    <span className={cn(
+                      'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      webSearchInsight.kind === 'failed'
+                        ? 'bg-amber-100 text-amber-700'
+                        : webSearchInsight.kind === 'started'
+                          ? 'bg-sky-100 text-sky-700'
+                        : 'bg-slate-100 text-slate-500'
+                    )}>
+                      {webSearchInsight.kind === 'failed'
+                        ? '未接上'
+                        : webSearchInsight.kind === 'started'
+                          ? '检索中'
+                          : '已补充'}
+                    </span>
+                  </div>
+
+                  <p className={cn(
+                    'mt-1 text-slate-700',
+                    webSearchInsight.kind === 'failed' && 'text-amber-900/80',
+                    webSearchInsight.kind === 'started' && 'text-sky-900/80'
+                  )}>
+                    {webSearchInsight.summary}
+                  </p>
+
+                  {webSearchInsight.sources.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {webSearchInsight.sources.slice(0, 3).map((source) => (
+                        <a
+                          key={source.url}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-500 transition-colors hover:bg-slate-200"
+                        >
+                          <span className="truncate">{source.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {webSearchInsight.kind === 'completed' && webSearchInsight.sources.length === 0 && (
+                    <p className="mt-2 text-[11px] text-slate-400">这次没有返回可点击来源，但实时摘要已经补上。</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Logic Chain Visualization (CoT) */}
         {hasThinkingContent && (
           <div className="mb-3 border-b border-indigo-50 pb-2">
@@ -517,6 +635,87 @@ export function MessageBubble({
   );
 }
 
+function buildSceneInsight(scene?: SceneContext | null): {
+  summary: string;
+  confidenceLabel: string;
+  sourceLabel?: string;
+} | null {
+  if (!scene || scene.source !== 'triage' || typeof scene.confidence !== 'number' || scene.confidence < SCENE_HIGH_CONFIDENCE_THRESHOLD) {
+    return null;
+  }
+
+  const confidenceLabel =
+    scene.confidence >= 0.85 ? '把握很高' :
+      scene.confidence >= 0.75 ? '把握较高' : '高置信';
+
+  const sourceLabel = scene.source === 'triage' ? '来自首轮理解' : undefined;
+
+  const summaryByScene: Record<string, string> = {
+    workplace_boundary: '我先把它理解成职场边界和职责被往你身上推的处境，先看问题本身，再看怎么把边界说清。',
+    student_pressure: '我先把它理解成学业压力和自我怀疑绑在一起的处境，先稳住，再把事情拆成更小的一步。',
+    caregiver_burden: '我先把它理解成照护负担和 guilt 叠在一起的处境，先帮你保留一点恢复空间，再谈下一步。',
+    general_support: '我先按通用支持来理解你，不急着硬套具体场景，先接住，再慢慢把卡住的地方说清。',
+  };
+
+  return {
+    summary: summaryByScene[scene.id] || `我先把它理解成「${scene.label}」，先按这个现实处境来接住你。`,
+    confidenceLabel,
+    sourceLabel,
+  };
+}
+
+function buildWebSearchInsight(
+  webSearch?: WebSearchDecision | null,
+  webSearchProcess?: WebSearchProcess | null,
+): {
+  kind: 'started' | 'completed' | 'failed';
+  summary: string;
+  sources: Array<{ title: string; url: string }>;
+} | null {
+  if (webSearchProcess?.status === 'started') {
+    return {
+      kind: 'started',
+      summary: webSearchProcess.queryHint
+        ? `我正在补充和「${webSearchProcess.queryHint}」相关的实时信息，等会会把外部事实和我的判断分开说。`
+        : '我正在补充可核对的实时信息，等会会把外部事实和我的判断分开说。',
+      sources: [],
+    };
+  }
+
+  if (!webSearch) return null;
+
+  if (webSearch.status === 'completed') {
+    return {
+      kind: 'completed',
+      summary: webSearch.summary || '实时检索已经完成，下面是可核对的来源。',
+      sources: (webSearch.sources || [])
+        .filter((source) => Boolean(source?.url))
+        .map((source) => ({
+          title: source.title || getSourceHost(source.url),
+          url: source.url,
+        })),
+    };
+  }
+
+  if (webSearch.status === 'failed') {
+    return {
+      kind: 'failed',
+      summary: '这轮实时查询没接上，我先按已有信息继续，不把未核实内容说成事实。',
+      sources: [],
+    };
+  }
+
+  return null;
+}
+
+function getSourceHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 function FeedbackButtons({ messageId }: { messageId: string }) {
   const [rating, setRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -574,7 +773,3 @@ function FeedbackButtons({ messageId }: { messageId: string }) {
     </div>
   );
 }
-
-
-
-

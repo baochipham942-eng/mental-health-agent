@@ -43,6 +43,40 @@ const ChatResponseSchema = z.object({
     check: z.string().optional(),
     retrieved: z.string().optional(),
   }).optional(),
+  scene: z.object({
+    id: z.enum(['workplace_boundary', 'student_pressure', 'caregiver_burden', 'general_support']),
+    label: z.string(),
+    role: z.enum(['knowledge_worker', 'student', 'caregiver', 'unknown']),
+    conflict: z.string(),
+    intent: z.enum(['vent', 'sensemaking', 'prep', 'action', 'support']),
+    confidence: z.number(),
+    reasons: z.array(z.string()),
+    source: z.enum(['fallback', 'triage']),
+  }).optional(),
+  webSearch: z.object({
+    need: z.enum(['none', 'suggested', 'required']),
+    capabilityMode: z.enum(['off', 'advisor', 'enabled']),
+    provider: z.string().optional(),
+    toolReady: z.boolean(),
+    shouldOfferSearch: z.boolean(),
+    reason: z.string(),
+    queryHint: z.string().optional(),
+    status: z.enum(['not_needed', 'skipped', 'completed', 'failed']),
+    summary: z.string().optional(),
+    sources: z.array(z.object({
+      title: z.string(),
+      url: z.string(),
+    })).optional(),
+    latencyMs: z.number().optional(),
+    citationCount: z.number().optional(),
+    error: z.string().optional(),
+  }).optional(),
+  webSearchProcess: z.object({
+    status: z.enum(['started', 'completed', 'failed']),
+    reason: z.string().optional(),
+    queryHint: z.string().optional(),
+    error: z.string().optional(),
+  }).optional(),
   adaptiveMode: z.string().optional(),
   gate: z.object({
     pass: z.boolean(),
@@ -259,6 +293,13 @@ export async function sendChatMessage(options: {
                 // Vercel SDK sends an array of data items
                 const items = Array.isArray(data) ? data : [data];
                 items.forEach(item => {
+                  if (item && typeof item === 'object') {
+                    const normalizedItem = item as Record<string, any>;
+                    if (!normalizedItem.webSearchProcess) {
+                      normalizedItem.webSearchProcess =
+                        normalizedItem.websearchProcess || normalizedItem['websearch-process'];
+                    }
+                  }
                   // Special handling for array fields - concatenate instead of overwrite
                   if (item.actionCards && assembledData.actionCards) {
                     item.actionCards = [...assembledData.actionCards, ...item.actionCards];
@@ -298,6 +339,11 @@ export async function sendChatMessage(options: {
       reply: (accumulatedReply && accumulatedReply.trim().length > 0) ? accumulatedReply : (assembledData.reply || ''),
       toolCalls: assembledData.toolCalls || [],
     };
+
+    if (!data.webSearchProcess) {
+      data.webSearchProcess =
+        assembledData.webSearchProcess || assembledData.websearchProcess || assembledData['websearch-process'];
+    }
 
     // Client-Side Adapter: Convert tool calls to legacy fields (actionCards, assistantQuestions)
     // Handle both old format (call.function.name) and new Vercel AI SDK format (call.toolName)

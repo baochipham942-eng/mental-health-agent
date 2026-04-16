@@ -39,6 +39,10 @@ import { trackFunnel } from '@/lib/observability/funnel';
 import { recordMetric } from '@/lib/ai/progress/tracker';
 import type { DialogueContext } from '@/lib/ai/dialogue/state-machine';
 import type { AdaptiveMode } from '@/lib/ai/persona-manager';
+import type { SceneContext } from '@/lib/ai/scene';
+import { buildSceneSystemInjection } from '@/lib/ai/scene';
+import type { WebSearchDecision } from '@/lib/ai/websearch';
+import { buildWebSearchSystemInjection } from '@/lib/ai/websearch';
 
 type SaveAssistantMessage = (content: string, meta?: Record<string, any>) => Promise<void>;
 type RefreshSummary = (params: {
@@ -64,6 +68,8 @@ interface BaseHandlerParams {
   stateData: any;
   adaptiveMode: AdaptiveMode;
   agentTrace?: any[];
+  sceneContext?: SceneContext;
+  webSearchDecision?: WebSearchDecision;
 }
 
 /**
@@ -232,7 +238,12 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
       writer, message, history, sessionId, userId, requestStartedAt,
       saveAssistantMessage, scheduleConversationSummaryRefresh,
       safetyData, routeType: 'support', adaptiveMode,
-      extraMeta: { state: stateData, agentTrace },
+      extraMeta: {
+        state: stateData,
+        agentTrace,
+        scene: params.sceneContext,
+        webSearch: params.webSearchDecision,
+      },
       skipQualityCheck: true,
     });
 
@@ -259,7 +270,12 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     writer, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'crisis', adaptiveMode: 'guardian',
-    extraMeta: { state: stateData, agentTrace },
+    extraMeta: {
+      state: stateData,
+      agentTrace,
+      scene: params.sceneContext,
+      webSearch: params.webSearchDecision,
+    },
   });
 
   const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
@@ -290,6 +306,8 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     safetyData,
     stateData,
     adaptiveMode,
+    sceneContext,
+    webSearchDecision,
     emotionObj,
     dialogueCtx,
     exerciseInjection,
@@ -323,7 +341,14 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     writer, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'support', adaptiveMode,
-    extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx, agentTrace },
+    extraMeta: {
+      state: stateData,
+      adaptiveMode,
+      dialogueContext: dialogueCtx,
+      scene: sceneContext,
+      webSearch: webSearchDecision,
+      agentTrace,
+    },
     afterFinish: (text) => {
       // SFBT 练习总结提取并写入 ProgressMetric
       if (sfbtMatch && userId) {
@@ -338,6 +363,10 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
   let combinedInjection = sfbtInstruction || '';
   if (exerciseInjection) combinedInjection += exerciseInjection;
   if (stateMachinePrompt) combinedInjection += stateMachinePrompt;
+  const sceneInjection = sceneContext ? buildSceneSystemInjection(sceneContext) : undefined;
+  if (sceneInjection) combinedInjection += `${combinedInjection ? '\n\n' : ''}${sceneInjection}`;
+  const webSearchInjection = webSearchDecision ? buildWebSearchSystemInjection(webSearchDecision) : undefined;
+  if (webSearchInjection) combinedInjection += `${combinedInjection ? '\n\n' : ''}${webSearchInjection}`;
   if (safetyData.constraints && safetyData.constraints.length > 0) {
     combinedInjection += `\n\n**安全约束（必须遵守）**：\n${safetyData.constraints.map((c: string) => `- ${c}`).join('\n')}`;
   }
@@ -385,11 +414,18 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
     const stage: AssessmentStageName = isConclusion ? 'conclusion' : 'intake';
 
     const baseFinish = createOnFinishCallback({
-      writer, message, history, sessionId, userId, requestStartedAt,
-      saveAssistantMessage, scheduleConversationSummaryRefresh,
-      safetyData, routeType: 'assessment', adaptiveMode,
-      extraMeta: { state: stateData, routeType: 'assessment', assessmentStage: stage, agentTrace },
-      assessmentStage: stage,
+        writer, message, history, sessionId, userId, requestStartedAt,
+        saveAssistantMessage, scheduleConversationSummaryRefresh,
+        safetyData, routeType: 'assessment', adaptiveMode,
+        extraMeta: {
+          state: stateData,
+          routeType: 'assessment',
+          assessmentStage: stage,
+          scene: params.sceneContext,
+          webSearch: params.webSearchDecision,
+          agentTrace,
+        },
+        assessmentStage: stage,
       afterFinish: () => {
         if (!isConclusion && sessionId) {
           analyzeConversationForStuckLoop(sessionId).then(result => {
@@ -414,7 +450,14 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
         writer, message, history, sessionId, userId, requestStartedAt,
         saveAssistantMessage, scheduleConversationSummaryRefresh,
         safetyData, routeType: 'assessment', adaptiveMode,
-        extraMeta: { routeType: 'assessment', assessmentStage: 'conclusion', actionCards, agentTrace },
+        extraMeta: {
+          routeType: 'assessment',
+          assessmentStage: 'conclusion',
+          actionCards,
+          scene: params.sceneContext,
+          webSearch: params.webSearchDecision,
+          agentTrace,
+        },
         assessmentStage: 'conclusion',
         actionCards,
         skipQualityCheck: true,

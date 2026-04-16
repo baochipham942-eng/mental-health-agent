@@ -138,6 +138,26 @@ describe('MessageBubble', () => {
             expect(screen.getByTitle('有帮助')).toBeInTheDocument();
             expect(screen.getByTitle('没感觉/不相关')).toBeInTheDocument();
         });
+
+        it('实时搜索进行中时显示明确状态', () => {
+            render(
+                <MessageBubble
+                    message={makeMsg({
+                        content: '让我整理一下思绪',
+                        metadata: {
+                            webSearchProcess: {
+                                status: 'started',
+                                queryHint: '劳动法怎么规定产假',
+                            },
+                        },
+                    })}
+                    sessionId="s1"
+                />
+            );
+
+            expect(screen.getByText('正在补充实时信息...')).toBeInTheDocument();
+            expect(screen.getByText('检索线索：劳动法怎么规定产假')).toBeInTheDocument();
+        });
     });
 
     // ====== 空消息处理 ======

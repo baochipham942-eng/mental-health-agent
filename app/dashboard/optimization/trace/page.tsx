@@ -11,6 +11,8 @@ interface TraceStep {
   model?: string;
   skipped?: boolean;
   result?: string;
+  input?: Record<string, any>;
+  output?: Record<string, any>;
 }
 
 interface TraceEvalItem {
@@ -33,6 +35,9 @@ interface TraceEvalItem {
   toolCritique?: string;
   guardResult?: string;
   guardCritique?: string;
+  expectedSceneId?: string | null;
+  expectedWebSearchNeed?: string | null;
+  expectedShouldSearch?: boolean | null;
   evaluatedAt: string;
   convEvalId?: string;
 }
@@ -50,7 +55,36 @@ interface TraceStats {
   avgScore: number;
   gradeDistribution: Record<string, number>;
   stepPassRates: Record<string, StepPassRate>;
+  truthMatchRates: {
+    scene: { labeled: number; matched: number; mismatched: number };
+    webSearchNeed: { labeled: number; matched: number; mismatched: number };
+    shouldSearch: { labeled: number; matched: number; mismatched: number };
+  };
 }
+
+interface TracePredictions {
+  sceneId: string | null;
+  webSearchNeed: string | null;
+  shouldSearch: boolean | null;
+}
+
+interface TruthBadge {
+  key: string;
+  label: string;
+  matched: boolean;
+}
+
+interface TruthMismatchState {
+  scene: boolean | null;
+  need: boolean | null;
+  shouldSearch: boolean | null;
+  labeledCount: number;
+  mismatchCount: number;
+  hasMismatch: boolean;
+}
+
+type TruthFilterMode = 'all' | 'any' | 'scene' | 'need' | 'should-search';
+type TraceSortMode = 'truth-first' | 'score';
 
 /* ---------- 常量 ---------- */
 
@@ -110,6 +144,127 @@ function getFailedSteps(item: TraceEvalItem): Array<{ step: string; verdict: str
   return failed;
 }
 
+function parseTraceSteps(traceJson?: string): TraceStep[] {
+  if (!traceJson) return [];
+  try {
+    const parsed = JSON.parse(traceJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function extractPredictionsFromTrace(traceJson?: string): TracePredictions {
+  const steps = parseTraceSteps(traceJson);
+  const triageStep = steps.find((step) => step.agent === 'triage');
+  const webSearchStep = steps.find((step) => step.agent === 'websearch');
+
+  const sceneId =
+    typeof triageStep?.output?.scene?.id === 'string'
+      ? triageStep.output.scene.id
+      : typeof webSearchStep?.input?.sceneId === 'string'
+        ? webSearchStep.input.sceneId
+        : null;
+
+  const webSearchNeed =
+    typeof webSearchStep?.input?.need === 'string'
+      ? webSearchStep.input.need
+      : null;
+
+  const shouldSearch =
+    webSearchStep?.result === 'completed' || webSearchStep?.result === 'failed'
+      ? true
+      : webSearchStep?.result === 'skipped' || webSearchStep?.result === 'not_needed'
+        ? false
+        : null;
+
+  return {
+    sceneId,
+    webSearchNeed,
+    shouldSearch,
+  };
+}
+
+function buildTruthBadges(item: TraceEvalItem): TruthBadge[] {
+  const predicted = extractPredictionsFromTrace(item.traceJson);
+  const badges: TruthBadge[] = [];
+
+  if (item.expectedSceneId) {
+    badges.push({
+      key: 'scene',
+      label: 'S',
+      matched: predicted.sceneId === item.expectedSceneId,
+    });
+  }
+
+  if (item.expectedWebSearchNeed) {
+    badges.push({
+      key: 'need',
+      label: 'N',
+      matched: predicted.webSearchNeed === item.expectedWebSearchNeed,
+    });
+  }
+
+  if (typeof item.expectedShouldSearch === 'boolean') {
+    badges.push({
+      key: 'should-search',
+      label: 'Q',
+      matched: predicted.shouldSearch === item.expectedShouldSearch,
+    });
+  }
+
+  return badges;
+}
+
+function getTruthMismatchState(item: TraceEvalItem): TruthMismatchState {
+  const predicted = extractPredictionsFromTrace(item.traceJson);
+  const scene = item.expectedSceneId ? predicted.sceneId !== item.expectedSceneId : null;
+  const need = item.expectedWebSearchNeed ? predicted.webSearchNeed !== item.expectedWebSearchNeed : null;
+  const shouldSearch =
+    typeof item.expectedShouldSearch === 'boolean'
+      ? predicted.shouldSearch !== item.expectedShouldSearch
+      : null;
+
+  const mismatchCount = [scene, need, shouldSearch].filter((value) => value === true).length;
+  const labeledCount = [scene, need, shouldSearch].filter((value) => value !== null).length;
+
+  return {
+    scene,
+    need,
+    shouldSearch,
+    labeledCount,
+    mismatchCount,
+    hasMismatch: mismatchCount > 0,
+  };
+}
+
+function matchesTruthFilter(mismatch: TruthMismatchState, filter: TruthFilterMode): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'any') return mismatch.hasMismatch;
+  if (filter === 'scene') return mismatch.scene === true;
+  if (filter === 'need') return mismatch.need === true;
+  return mismatch.shouldSearch === true;
+}
+
+function compareTraceItems(
+  left: { item: TraceEvalItem; mismatch: TruthMismatchState },
+  right: { item: TraceEvalItem; mismatch: TruthMismatchState },
+  sortMode: TraceSortMode,
+): number {
+  if (sortMode === 'truth-first') {
+    const mismatchDelta = right.mismatch.mismatchCount - left.mismatch.mismatchCount;
+    if (mismatchDelta !== 0) return mismatchDelta;
+
+    const labeledDelta = right.mismatch.labeledCount - left.mismatch.labeledCount;
+    if (labeledDelta !== 0) return labeledDelta;
+  }
+
+  const scoreDelta = left.item.traceScore - right.item.traceScore;
+  if (scoreDelta !== 0) return scoreDelta;
+
+  return new Date(right.item.evaluatedAt).getTime() - new Date(left.item.evaluatedAt).getTime();
+}
+
 /* ---------- 组件 ---------- */
 
 export default function TraceAnalysisPage() {
@@ -118,6 +273,8 @@ export default function TraceAnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [truthFilter, setTruthFilter] = useState<TruthFilterMode>('any');
+  const [sortMode, setSortMode] = useState<TraceSortMode>('truth-first');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -143,6 +300,26 @@ export default function TraceAnalysisPage() {
   const toggleExpand = (id: number) => {
     setExpandedId(prev => prev === id ? null : id);
   };
+
+  const enrichedData = data.map((item) => ({
+    item,
+    mismatch: getTruthMismatchState(item),
+  }));
+  const labeledCount = enrichedData.filter(({ mismatch }) => mismatch.labeledCount > 0).length;
+  const mismatchCount = enrichedData.filter(({ mismatch }) => mismatch.hasMismatch).length;
+  const filteredData = enrichedData.filter(({ mismatch }) => matchesTruthFilter(mismatch, truthFilter));
+  const displayedData = [...filteredData].sort((left, right) => compareTraceItems(left, right, sortMode));
+
+  const filterSummary =
+    truthFilter === 'all'
+      ? `已标注 ${labeledCount} 条，未命中 ${mismatchCount} 条`
+      : truthFilter === 'any'
+        ? `当前筛出 ${filteredData.length} 条真值未命中样本`
+        : truthFilter === 'scene'
+          ? `当前筛出 ${filteredData.length} 条 Scene 未命中样本`
+          : truthFilter === 'need'
+            ? `当前筛出 ${filteredData.length} 条 Search Need 未命中样本`
+            : `当前筛出 ${filteredData.length} 条 Should Search 未命中样本`;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -183,19 +360,54 @@ export default function TraceAnalysisPage() {
           {/* 步骤 Pass Rate 卡片 */}
           <StepPassRateCards stats={stats} />
 
+          {/* 真值命中卡片 */}
+          <TruthMatchCards stats={stats} />
+
           {/* 评分分布图 */}
           <GradeDistributionChart stats={stats} />
 
           {/* 低分轨迹列表 */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">
-              轨迹列表
-              <span className="ml-2 text-xs text-gray-400 font-normal">
-                {data.length} 条{gradeFilter !== 'all' ? ` (等级 ${gradeFilter})` : ''}
-              </span>
-            </h3>
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  轨迹列表
+                  <span className="ml-2 text-xs text-gray-400 font-normal">
+                    {displayedData.length} 条
+                    {gradeFilter !== 'all' ? ` (等级 ${gradeFilter})` : ''}
+                  </span>
+                </h3>
+                <div className="mt-1 text-xs text-gray-500">
+                  {filterSummary}
+                  <span className="ml-2 text-gray-400">
+                    {sortMode === 'truth-first' ? '当前按误差优先排序' : '当前按评分升序排序'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={truthFilter}
+                  onChange={e => setTruthFilter(e.target.value as TruthFilterMode)}
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                >
+                  <option value="any">只看真值误差</option>
+                  <option value="all">全部样本</option>
+                  <option value="scene">只看 Scene 未命中</option>
+                  <option value="need">只看 Search Need 未命中</option>
+                  <option value="should-search">只看 Should Search 未命中</option>
+                </select>
+                <select
+                  value={sortMode}
+                  onChange={e => setSortMode(e.target.value as TraceSortMode)}
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                >
+                  <option value="truth-first">误差优先</option>
+                  <option value="score">按评分升序</option>
+                </select>
+              </div>
+            </div>
 
-            {data.length === 0 ? (
+            {displayedData.length === 0 ? (
               <div className="text-center py-10 text-gray-400 text-sm">暂无轨迹评测数据</div>
             ) : (
               <div className="overflow-x-auto">
@@ -206,17 +418,17 @@ export default function TraceAnalysisPage() {
                       <th className="pb-2 font-medium">用户消息预览</th>
                       <th className="pb-2 font-medium w-[70px] text-center">评分</th>
                       <th className="pb-2 font-medium w-[50px] text-center">等级</th>
+                      <th className="pb-2 font-medium w-[90px] text-center">真值</th>
                       <th className="pb-2 font-medium w-[200px]">失败步骤</th>
                       <th className="pb-2 font-medium w-[140px]">评测时间</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data
-                      .sort((a, b) => a.traceScore - b.traceScore)
-                      .map(item => (
+                    {displayedData.map(({ item, mismatch }) => (
                         <TraceRow
                           key={item.id}
                           item={item}
+                          mismatch={mismatch}
                           expanded={expandedId === item.id}
                           onToggle={() => toggleExpand(item.id)}
                         />
@@ -228,6 +440,43 @@ export default function TraceAnalysisPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function TruthMatchCards({ stats }: { stats: TraceStats | null }) {
+  if (!stats) return null;
+
+  const cards = [
+    { key: 'scene', label: 'Scene 命中', data: stats.truthMatchRates.scene },
+    { key: 'webSearchNeed', label: 'Search Need 命中', data: stats.truthMatchRates.webSearchNeed },
+    { key: 'shouldSearch', label: 'Should Search 命中', data: stats.truthMatchRates.shouldSearch },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {cards.map((card) => {
+        const rate = card.data.labeled > 0
+          ? Math.round((card.data.matched / card.data.labeled) * 100)
+          : 0;
+
+        return (
+          <div key={card.key} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="text-xs text-gray-500 mb-1">{card.label}</div>
+            <div
+              className="text-2xl font-bold"
+              style={{ color: card.data.labeled > 0 ? passRateColor(rate) : '#9ca3af' }}
+            >
+              {card.data.labeled > 0 ? `${rate}%` : '-'}
+            </div>
+            <div className="mt-1 text-xs text-gray-400">
+              {card.data.labeled > 0
+                ? `${card.data.matched}/${card.data.labeled}，未命中 ${card.data.mismatched}`
+                : '暂无真值标注'}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -324,20 +573,25 @@ function GradeDistributionChart({ stats }: { stats: TraceStats | null }) {
 
 function TraceRow({
   item,
+  mismatch,
   expanded,
   onToggle,
 }: {
   item: TraceEvalItem;
+  mismatch: TruthMismatchState;
   expanded: boolean;
   onToggle: () => void;
 }) {
   const failedSteps = getFailedSteps(item);
+  const truthBadges = buildTruthBadges(item);
   const gradeColors = GRADE_COLORS[item.traceGrade] || GRADE_COLORS.F;
 
   return (
     <>
       <tr
-        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+        className={`border-b border-gray-100 cursor-pointer transition-colors ${
+          mismatch.hasMismatch ? 'bg-rose-50/40 hover:bg-rose-50' : 'hover:bg-gray-50'
+        }`}
         onClick={onToggle}
       >
         <td className="py-2 font-mono text-xs text-indigo-600" title={item.conversationId}>
@@ -353,6 +607,27 @@ function TraceRow({
           <span className={`inline-block px-2 py-0.5 rounded-sm text-xs font-medium ${gradeColors.bg} ${gradeColors.text}`}>
             {item.traceGrade}
           </span>
+        </td>
+        <td className="py-2">
+          <div className="flex items-center justify-center gap-1">
+            {truthBadges.length === 0 ? (
+              <span className="text-xs text-gray-300">-</span>
+            ) : (
+              truthBadges.map((badge) => (
+                <span
+                  key={badge.key}
+                  className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                    badge.matched
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                  title={`${badge.label}: ${badge.matched ? '命中' : '未命中'}`}
+                >
+                  {badge.label}
+                </span>
+              ))
+            )}
+          </div>
         </td>
         <td className="py-2">
           <div className="flex flex-wrap gap-1">
@@ -382,7 +657,7 @@ function TraceRow({
       {/* 展开详情 */}
       {expanded && (
         <tr>
-          <td colSpan={6} className="p-0">
+          <td colSpan={7} className="p-0">
             <TraceDetail item={item} />
           </td>
         </tr>
@@ -395,10 +670,8 @@ function TraceRow({
 
 function TraceDetail({ item }: { item: TraceEvalItem }) {
   // 解析 trace JSON
-  let traceSteps: TraceStep[] = [];
-  try {
-    if (item.traceJson) traceSteps = JSON.parse(item.traceJson);
-  } catch { /* ignore */ }
+  const traceSteps = parseTraceSteps(item.traceJson);
+  const predictions = extractPredictionsFromTrace(item.traceJson);
 
   return (
     <div className="bg-gray-50 border-t border-gray-100 px-6 py-4 space-y-4">
@@ -463,6 +736,66 @@ function TraceDetail({ item }: { item: TraceEvalItem }) {
                 <div className="text-sm text-gray-700 whitespace-pre-wrap">{item.aiReply}</div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {(item.expectedSceneId || item.expectedWebSearchNeed || item.expectedShouldSearch !== null) && (
+        <div>
+          <h4 className="text-xs font-semibold text-gray-500 mb-3">真值标注</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">expectedSceneId</div>
+              <div className="text-sm text-gray-700 font-mono">{item.expectedSceneId || '-'}</div>
+              <div className="mt-2 text-xs text-gray-400">
+                predicted: {predictions.sceneId || '-'}
+              </div>
+              {item.expectedSceneId && (
+                <div className={`mt-2 inline-flex rounded-sm px-1.5 py-0.5 text-xs font-medium ${
+                  predictions.sceneId === item.expectedSceneId
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {predictions.sceneId === item.expectedSceneId ? '命中' : '未命中'}
+                </div>
+              )}
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">expectedWebSearchNeed</div>
+              <div className="text-sm text-gray-700 font-mono">{item.expectedWebSearchNeed || '-'}</div>
+              <div className="mt-2 text-xs text-gray-400">
+                predicted: {predictions.webSearchNeed || '-'}
+              </div>
+              {item.expectedWebSearchNeed && (
+                <div className={`mt-2 inline-flex rounded-sm px-1.5 py-0.5 text-xs font-medium ${
+                  predictions.webSearchNeed === item.expectedWebSearchNeed
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {predictions.webSearchNeed === item.expectedWebSearchNeed ? '命中' : '未命中'}
+                </div>
+              )}
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">expectedShouldSearch</div>
+              <div className="text-sm text-gray-700 font-mono">
+                {item.expectedShouldSearch === null || item.expectedShouldSearch === undefined
+                  ? '-'
+                  : item.expectedShouldSearch ? 'true' : 'false'}
+              </div>
+              <div className="mt-2 text-xs text-gray-400">
+                predicted: {predictions.shouldSearch === null ? '-' : predictions.shouldSearch ? 'true' : 'false'}
+              </div>
+              {typeof item.expectedShouldSearch === 'boolean' && (
+                <div className={`mt-2 inline-flex rounded-sm px-1.5 py-0.5 text-xs font-medium ${
+                  predictions.shouldSearch === item.expectedShouldSearch
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {predictions.shouldSearch === item.expectedShouldSearch ? '命中' : '未命中'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
