@@ -24,7 +24,7 @@ export async function registerUser(prevState: string | undefined, formData: Form
     const validatedFields = RegisterSchema.safeParse({ phone, password, inviteCode });
 
     if (!validatedFields.success) {
-        return { success: false, error: validatedFields.error.errors[0].message };
+        return { success: false, error: validatedFields.error.issues[0].message };
     }
 
     try {

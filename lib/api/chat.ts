@@ -58,7 +58,7 @@ const ChatResponseSchema = z.object({
     })),
     selectedSkillIds: z.array(z.string()).optional(),
     selectionReason: z.string().optional(),
-    slotValues: z.record(z.any()).optional(),
+    slotValues: z.record(z.string(), z.any()).optional(),
   }).optional(),
   toolCalls: z.array(z.any()).optional(), // Add toolCalls
   perf: z.object({
