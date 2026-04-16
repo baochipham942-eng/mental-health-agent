@@ -53,7 +53,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
             setHeaderControl(
                 <button
                     onClick={() => onComplete(Math.round((Date.now() - startTimeRef.current) / 1000))}
-                    className="px-4 py-1.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-full text-xs font-semibold shadow-md shadow-violet-200/50 hover:shadow-lg transition-all"
+                    className="px-4 py-1.5 bg-linear-to-r from-violet-500 to-purple-500 text-white rounded-full text-xs font-semibold shadow-md shadow-violet-200/50 hover:shadow-lg transition-all"
                 >
                     完成练习
                 </button>
@@ -97,7 +97,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
             {/* 背景渐变 — 随阶段变色 */}
             <motion.div
                 key={stage}
-                className={`absolute inset-0 bg-gradient-to-b ${theme.bg}`}
+                className={`absolute inset-0 bg-linear-to-b ${theme.bg}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8 }}
@@ -127,7 +127,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 }`}>{step.label}</span>
                             </div>
                             {i < STAGE_STEPS.length - 1 && (
-                                <div className={`w-6 h-[1px] mb-4 transition-colors duration-500 ${
+                                <div className={`w-6 h-px mb-4 transition-colors duration-500 ${
                                     i < currentStepIdx ? 'bg-violet-300' : 'bg-gray-200'
                                 }`} />
                             )}
@@ -156,7 +156,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                     animate={{ y: [0, -4, 0] }}
                                     transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                                 >
-                                    <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center text-4xl shadow-lg shadow-amber-100/50 border border-amber-200/30">
+                                    <div className="w-20 h-20 bg-linear-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center text-4xl shadow-lg shadow-amber-100/50 border border-amber-200/30">
                                         🪑
                                     </div>
                                     {/* 柔光 */}
@@ -183,13 +183,13 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                         }
                                     }}
                                     placeholder="例如：我的父亲 / 高中的自己"
-                                    className="w-full px-4 py-3 rounded-xl bg-white/80 backdrop-blur-sm border border-amber-200/50 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-300/40 focus:border-amber-300/60 text-center text-[14px] transition-all"
+                                    className="w-full px-4 py-3 rounded-xl bg-white/80 backdrop-blur-xs border border-amber-200/50 text-gray-600 placeholder:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-amber-300/40 focus:border-amber-300/60 text-center text-[14px] transition-all"
                                     autoFocus
                                 />
                                 <button
                                     onClick={handleSetupSubmit}
                                     disabled={!targetName.trim()}
-                                    className="w-full py-2.5 rounded-xl text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-200/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                                    className="w-full py-2.5 rounded-xl text-[14px] font-semibold transition-all duration-300 bg-linear-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-200/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
                                 >
                                     邀请入座
                                 </button>
@@ -209,7 +209,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                         >
                             {/* 角色指示 */}
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-9 h-9 bg-gradient-to-br from-rose-100 to-pink-100 rounded-full flex items-center justify-center text-base shadow-sm border border-rose-200/30">
+                                <div className="w-9 h-9 bg-linear-to-br from-rose-100 to-pink-100 rounded-full flex items-center justify-center text-base shadow-xs border border-rose-200/30">
                                     🫵
                                 </div>
                                 <div className="flex-1">
@@ -221,7 +221,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                             <textarea
                                 value={userContent}
                                 onChange={(e) => setUserContent(e.target.value)}
-                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-rose-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-rose-200/40 focus:border-rose-300/50 resize-none text-[14px] leading-relaxed transition-all"
+                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-xs border border-rose-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-rose-200/40 focus:border-rose-300/50 resize-none text-[14px] leading-relaxed transition-all"
                                 placeholder="我想对你说……"
                                 autoFocus
                             />
@@ -230,7 +230,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 <button
                                     onClick={handleSpeakToSubmit}
                                     disabled={!userContent.trim()}
-                                    className="px-5 py-2 rounded-xl text-[13px] font-semibold transition-all bg-gradient-to-r from-rose-400 to-pink-400 text-white shadow-md shadow-rose-200/40 hover:shadow-lg active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="px-5 py-2 rounded-xl text-[13px] font-semibold transition-all bg-linear-to-r from-rose-400 to-pink-400 text-white shadow-md shadow-rose-200/40 hover:shadow-lg active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                     说完了
                                 </button>
@@ -254,7 +254,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 animate={{ rotate: [0, 180, 360] }}
                                 transition={{ duration: 2, ease: 'easeInOut' }}
                             >
-                                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-full flex items-center justify-center shadow-lg shadow-indigo-100/50 border border-indigo-200/30">
+                                <div className="w-20 h-20 bg-linear-to-br from-indigo-100 to-violet-100 rounded-full flex items-center justify-center shadow-lg shadow-indigo-100/50 border border-indigo-200/30">
                                     <span className="text-3xl">🔄</span>
                                 </div>
                             </motion.div>
@@ -269,7 +269,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
 
                             <button
                                 onClick={handleSwitchReady}
-                                className="px-8 py-3 rounded-full text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-200/50 hover:shadow-xl hover:scale-[1.03] active:scale-[0.97]"
+                                className="px-8 py-3 rounded-full text-[14px] font-semibold transition-all duration-300 bg-linear-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-200/50 hover:shadow-xl hover:scale-[1.03] active:scale-[0.97]"
                             >
                                 我准备好了
                             </button>
@@ -288,7 +288,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                         >
                             {/* 角色指示 — 反向 */}
                             <div className="flex items-center gap-3 mb-4 flex-row-reverse">
-                                <div className="w-9 h-9 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-full flex items-center justify-center text-base shadow-sm border border-teal-200/30">
+                                <div className="w-9 h-9 bg-linear-to-br from-teal-100 to-emerald-100 rounded-full flex items-center justify-center text-base shadow-xs border border-teal-200/30">
                                     💬
                                 </div>
                                 <div className="flex-1 text-right">
@@ -300,7 +300,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                             <textarea
                                 value={targetContent}
                                 onChange={(e) => setTargetContent(e.target.value)}
-                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-sm border border-teal-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-200/40 focus:border-teal-300/50 resize-none text-[14px] leading-relaxed transition-all"
+                                className="w-full h-36 px-4 py-3 rounded-xl bg-white/70 backdrop-blur-xs border border-teal-200/40 text-gray-600 placeholder:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-teal-200/40 focus:border-teal-300/50 resize-none text-[14px] leading-relaxed transition-all"
                                 placeholder="其实我想说……"
                                 autoFocus
                             />
@@ -309,7 +309,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 <button
                                     onClick={handleSpeakAsSubmit}
                                     disabled={!targetContent.trim()}
-                                    className="px-5 py-2 rounded-xl text-[13px] font-semibold transition-all bg-gradient-to-r from-teal-400 to-emerald-400 text-white shadow-md shadow-teal-200/40 hover:shadow-lg active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="px-5 py-2 rounded-xl text-[13px] font-semibold transition-all bg-linear-to-r from-teal-400 to-emerald-400 text-white shadow-md shadow-teal-200/40 hover:shadow-lg active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                     结束对话
                                 </button>
@@ -331,7 +331,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                                 className="mb-6 inline-flex"
                             >
-                                <div className="w-20 h-20 bg-gradient-to-br from-violet-100 to-purple-100 rounded-full flex items-center justify-center shadow-lg shadow-violet-100/50 border border-violet-200/30">
+                                <div className="w-20 h-20 bg-linear-to-br from-violet-100 to-purple-100 rounded-full flex items-center justify-center shadow-lg shadow-violet-100/50 border border-violet-200/30">
                                     <span className="text-3xl">🕊️</span>
                                 </div>
                             </motion.div>
@@ -344,7 +344,7 @@ export function BasicEmptyChair({ onComplete, setHeaderControl, onStart }: Basic
                                 但你已经迈出了勇敢的一步
                             </p>
 
-                            <div className="bg-white/60 backdrop-blur-sm rounded-xl px-4 py-3 border border-violet-100/50 text-[12px] text-gray-400 inline-block">
+                            <div className="bg-white/60 backdrop-blur-xs rounded-xl px-4 py-3 border border-violet-100/50 text-[12px] text-gray-400 inline-block">
                                 点击右上角 <b className="text-violet-500">完成练习</b> 记录你的感受
                             </div>
                         </motion.div>

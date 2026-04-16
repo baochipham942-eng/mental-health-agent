@@ -97,28 +97,28 @@ export default function EvaluationDetail({ evaluation }: EvaluationDetailProps) 
             <div className="bg-gray-50 p-4 rounded-lg mb-6">
                 <h3 className="text-base font-semibold mb-4">📊 各维度评分</h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center justify-between p-3 bg-white rounded border">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-sm border">
                         <span className="text-sm font-medium text-gray-700">法律合规</span>
                         <Space>
                             <Tag color={getGradeColor(legalGrade)}>{legalGrade}</Tag>
                             <span className="text-sm font-semibold">{evaluation.legalScore} 分</span>
                         </Space>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-white rounded border">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-sm border">
                         <span className="text-sm font-medium text-gray-700">伦理标准</span>
                         <Space>
                             <Tag color={getGradeColor(ethicalGrade)}>{ethicalGrade}</Tag>
                             <span className="text-sm font-semibold">{evaluation.ethicalScore} 分</span>
                         </Space>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-white rounded border">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-sm border">
                         <span className="text-sm font-medium text-gray-700">专业性</span>
                         <Space>
                             <Tag color={getGradeColor(professionalGrade)}>{professionalGrade}</Tag>
                             <span className="text-sm font-semibold">{evaluation.professionalScore} 分</span>
                         </Space>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-white rounded border">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-sm border">
                         <span className="text-sm font-medium text-gray-700">用户体验</span>
                         <Space>
                             <Tag color={getGradeColor(uxGrade)}>{uxGrade}</Tag>

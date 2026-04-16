@@ -82,7 +82,7 @@ export function CustomMasterSection() {
     return (
         <div className="space-y-6">
             {/* Header Area */}
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
+            <div className="bg-linear-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -98,7 +98,7 @@ export function CustomMasterSection() {
             </div>
 
             {/* Form Area */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-sm max-w-3xl mx-auto">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 shadow-xs max-w-3xl mx-auto">
                 <div className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -109,7 +109,7 @@ export function CustomMasterSection() {
                             value={name}
                             onChange={setName}
                             prefix={<IconRobot />}
-                            className="bg-gray-50 border-gray-200 hover:bg-white focus:bg-white !rounded-lg py-1"
+                            className="bg-gray-50 border-gray-200 hover:bg-white focus:bg-white rounded-lg! py-1"
                         />
                     </div>
 
@@ -122,7 +122,7 @@ export function CustomMasterSection() {
                             value={prompt}
                             onChange={setPrompt}
                             rows={8}
-                            className="bg-gray-50 border-gray-200 hover:bg-white focus:bg-white !rounded-lg text-sm leading-relaxed"
+                            className="bg-gray-50 border-gray-200 hover:bg-white focus:bg-white rounded-lg! text-sm leading-relaxed"
                             style={{ resize: 'none' }}
                         />
                         <p className="text-xs text-gray-400 mt-2 text-right">

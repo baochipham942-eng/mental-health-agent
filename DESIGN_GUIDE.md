@@ -57,7 +57,7 @@
 **使用规范**：
 - 所有情绪标签必须使用 `font-semibold`（字重 600）
 - 边框使用 `border-2`（2px 宽度）
-- 添加 `shadow-sm` 轻微阴影提升层次感
+- 添加 `shadow-xs` 轻微阴影提升层次感
 
 ### 语义颜色
 
@@ -140,9 +140,9 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 
 | 用途 | Tailwind 类名 | 说明 |
 |------|---------------|------|
-| **轻微阴影** | `shadow-sm` | 消息气泡、情绪标签，提升层次感 |
+| **轻微阴影** | `shadow-xs` | 消息气泡、情绪标签，提升层次感 |
 | **内阴影** | `shadow-inner` | 进度条背景，营造凹陷感 |
-| **头部阴影** | `shadow-sm` | 页面头部，与内容区分 |
+| **头部阴影** | `shadow-xs` | 页面头部，与内容区分 |
 
 ## 六、组件样式规范
 
@@ -151,7 +151,7 @@ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
 #### AI 消息气泡
 
 ```tsx
-className="max-w-[80%] rounded-lg px-4 py-3 shadow-sm 
+className="max-w-[80%] rounded-lg px-4 py-3 shadow-xs 
   bg-white text-gray-900 border border-gray-200"
 ```
 
@@ -161,13 +161,13 @@ className="max-w-[80%] rounded-lg px-4 py-3 shadow-sm
 - 文字：`gray-900`
 - 边框：`border-gray-200`（1px）
 - 圆角：`rounded-lg` (8px)
-- 阴影：`shadow-sm`
+- 阴影：`shadow-xs`
 - 行高：`leading-relaxed` (1.625)
 
 #### 用户消息气泡
 
 ```tsx
-className="max-w-[80%] rounded-lg px-4 py-3 shadow-sm 
+className="max-w-[80%] rounded-lg px-4 py-3 shadow-xs 
   bg-blue-600 text-white"
 ```
 
@@ -183,7 +183,7 @@ className="max-w-[80%] rounded-lg px-4 py-3 shadow-sm
 ```tsx
 className="flex-1 resize-none rounded-lg border border-gray-300 
   px-4 py-2 text-gray-900 placeholder:text-gray-500
-  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+  focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500
   disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
   max-h-32 overflow-y-auto transition-colors duration-200"
 style={{ minHeight: '44px', height: 'auto' }}
@@ -205,7 +205,7 @@ style={{ minHeight: '44px', height: 'auto' }}
 className="px-6 py-2 rounded-lg font-medium transition-colors
   bg-blue-500 text-white hover:bg-blue-600
   disabled:bg-gray-300 disabled:cursor-not-allowed
-  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+  focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 ```
 
 **规范**：
@@ -233,7 +233,7 @@ className="px-4 py-2 text-sm font-medium text-gray-700
 #### 标签样式
 
 ```tsx
-className="px-3 py-1.5 rounded-md border-2 text-xs font-semibold shadow-sm
+className="px-3 py-1.5 rounded-md border-2 text-xs font-semibold shadow-xs
   {EMOTION_COLORS[label]}"
 ```
 
@@ -242,7 +242,7 @@ className="px-3 py-1.5 rounded-md border-2 text-xs font-semibold shadow-sm
 - 圆角：`rounded-md` (6px)
 - 边框：`border-2` (2px)
 - 字重：`font-semibold` (600)
-- 阴影：`shadow-sm`
+- 阴影：`shadow-xs`
 - 颜色：根据情绪类型使用对应的 `EMOTION_COLORS`
 
 #### 进度条样式
@@ -295,7 +295,7 @@ className="text-xs px-2 font-medium text-gray-600"
 ### 6. 加载动画（Loading）
 
 ```tsx
-<div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+<div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-xs">
   <div className="flex gap-1.5">
     <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" 
       style={{ animationDelay: '0ms' }} />
@@ -331,14 +331,14 @@ import { Alert } from '@arco-design/web-react';
 ### 8. 头部（Header）
 
 ```tsx
-className="bg-white border-b border-gray-200 shadow-sm 
+className="bg-white border-b border-gray-200 shadow-xs 
   px-4 py-3 flex items-center justify-between"
 ```
 
 **规范**：
 - 背景：白色
 - 底部边框：`border-b border-gray-200`
-- 阴影：`shadow-sm`
+- 阴影：`shadow-xs`
 - 内边距：`px-4 py-3` (16px × 12px)
 
 ## 七、弹窗规范（Modal）
@@ -406,7 +406,7 @@ className="bg-white border-b border-gray-200 shadow-sm
 
 - **输入框**：`focus:ring-2 focus:ring-blue-500 focus:border-blue-500`
 - **按钮**：`focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`
-- **移除默认轮廓**：`focus:outline-none`
+- **移除默认轮廓**：`focus:outline-hidden`
 
 ### 3. 悬停状态
 

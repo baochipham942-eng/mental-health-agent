@@ -120,14 +120,14 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-white animate-fade-in"
+            className="fixed inset-0 z-9999 flex items-center justify-center bg-white animate-fade-in"
         >
-            <div className="w-full bg-white overflow-hidden flex flex-col h-[100dvh]">
+            <div className="w-full bg-white overflow-hidden flex flex-col h-dvh">
 
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex items-center justify-between ${headerClass} sticky top-0 z-10`}>
                     <div className="flex items-center gap-3">
-                        <div className="text-3xl filter drop-shadow-sm">{targetPersona.avatar}</div>
+                        <div className="text-3xl filter drop-shadow-xs">{targetPersona.avatar}</div>
                         <div>
                             <h3 className="font-bold text-lg text-gray-900 leading-tight">
                                 {targetPersona.name} <span className="opacity-60 text-sm font-normal">({targetPersona.type})</span>
@@ -167,7 +167,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                         >
                             {/* Avatar */}
                             <div className={cn(
-                                "flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border shadow-sm",
+                                "shrink-0 w-9 h-9 rounded-full flex items-center justify-center border shadow-xs",
                                 m.role === 'user' ? "bg-blue-600 border-blue-600" : "bg-white border-gray-200"
                             )}>
                                 {m.role === 'user' ? (
@@ -180,7 +180,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             {/* Message Bubble */}
                             <div
                                 className={cn(
-                                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-sm",
+                                    "px-4 py-3 rounded-xl text-[15px] leading-relaxed shadow-xs",
                                     m.role === 'user'
                                         ? "bg-blue-600 text-white"
                                         : "bg-white text-gray-900 shadow-glow border border-indigo-50/50 msg-bubble-ai"
@@ -215,7 +215,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                                 value={input}
                                 onChange={(value) => setInput(value)}
                                 placeholder={`作为 ${userMbti}，你想对 TA 说...`}
-                                className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
+                                className="bg-transparent! border-none! shadow-none! text-[15px] text-gray-900 placeholder:text-gray-400"
                                 autoFocus
                             />
                         </div>
@@ -223,7 +223,7 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                             type="primary"
                             htmlType="submit"
                             shape="circle"
-                            className="w-11 h-11 flex-shrink-0"
+                            className="w-11 h-11 shrink-0"
                             icon={<IconSend />}
                             loading={isLoading}
                             disabled={!input.trim() || isLoading}

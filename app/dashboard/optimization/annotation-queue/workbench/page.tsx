@@ -343,7 +343,7 @@ export default function AnnotationWorkbenchPage() {
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                      <div className="whitespace-pre-wrap wrap-break-word">{msg.content}</div>
                       <div className={`text-[10px] mt-1 ${
                         msg.role === 'user' ? 'text-blue-200' : 'text-gray-400'
                       }`}>

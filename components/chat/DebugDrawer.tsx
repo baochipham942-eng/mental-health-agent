@@ -49,7 +49,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
                 <h4 className="text-sm font-semibold text-gray-800 mb-2">情绪分析：</h4>
                 <div className="space-y-2">
                   {emotions.map((item, idx) => (
-                    <div key={idx} className="text-xs bg-gray-50 p-2 rounded border border-gray-200">
+                    <div key={idx} className="text-xs bg-gray-50 p-2 rounded-sm border border-gray-200">
                       <p className="font-semibold text-gray-700 mb-1">消息 {idx + 1}:</p>
                       <p className="text-gray-600">
                         {item.emotion.label} {item.emotion.score}/10
@@ -70,7 +70,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
                   <span>{showValidationError ? '▼' : '▶'}</span>
                 </button>
                 {showValidationError && (
-                  <div className="text-xs bg-red-50 border border-red-200 rounded p-3 overflow-x-auto">
+                  <div className="text-xs bg-red-50 border border-red-200 rounded-sm p-3 overflow-x-auto">
                     <pre className="whitespace-pre-wrap text-red-800">
                       {JSON.stringify(validationError, null, 2)}
                     </pre>
@@ -89,7 +89,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
                   <span>{showRequestPayload ? '▼' : '▶'}</span>
                 </button>
                 {showRequestPayload && (
-                  <div className="text-xs bg-gray-50 border border-gray-200 rounded p-3 overflow-x-auto">
+                  <div className="text-xs bg-gray-50 border border-gray-200 rounded-sm p-3 overflow-x-auto">
                     <pre className="whitespace-pre-wrap text-gray-800">
                       {JSON.stringify(lastRequestPayload, null, 2)}
                     </pre>
@@ -105,7 +105,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
                 {debugPrompts.systemPrompt && (
                   <div>
                     <p className="text-xs font-semibold text-gray-700 mb-1">System Prompt:</p>
-                    <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto max-h-32">
+                    <pre className="text-xs bg-gray-100 p-2 rounded-sm overflow-x-auto max-h-32">
                       {debugPrompts.systemPrompt}
                     </pre>
                   </div>
@@ -114,7 +114,7 @@ export function DebugDrawer({ debugPrompts, validationError, emotions, lastReque
                 {debugPrompts.userPrompt && (
                   <div>
                     <p className="text-xs font-semibold text-gray-700 mb-1">User Prompt:</p>
-                    <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto max-h-32">
+                    <pre className="text-xs bg-gray-100 p-2 rounded-sm overflow-x-auto max-h-32">
                       {debugPrompts.userPrompt}
                     </pre>
                   </div>

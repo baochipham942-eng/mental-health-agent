@@ -195,7 +195,7 @@ export function SettingsPanel({
     >
       <div className="flex h-[min(580px,75vh)]">
         {/* 左侧标签栏 */}
-        <div className="w-[180px] border-r border-gray-100 pr-2 py-4 flex-shrink-0 flex flex-col">
+        <div className="w-[180px] border-r border-gray-100 pr-2 py-4 shrink-0 flex flex-col">
           <h2 className="text-lg font-bold text-gray-900 px-3 mb-4">设置</h2>
           <nav aria-label="设置导航" className="space-y-0.5 flex-1">
             {tabs.map((tab) => (
@@ -274,7 +274,7 @@ export function SettingsPanel({
                             : 'hover:bg-gray-50 hover:ring-2 hover:ring-gray-200'
                           }`}
                       >
-                        <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-sm">
+                        <div className="aspect-square rounded-lg overflow-hidden bg-white shadow-xs">
                           <img src={profile.avatar} alt={profile.trait} className="w-full h-full object-cover" />
                         </div>
                         {editAvatar === profile.avatar && (
@@ -298,7 +298,7 @@ export function SettingsPanel({
                     placeholder="请输入昵称"
                     aria-label="昵称"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm
-                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                      focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
                   />
                 </div>
               </div>
@@ -336,7 +336,7 @@ export function SettingsPanel({
                       >
                         <div className="flex items-center gap-2.5 mb-1.5">
                           <div
-                            className="w-5 h-5 rounded-full flex-shrink-0"
+                            className="w-5 h-5 rounded-full shrink-0"
                             style={{ backgroundColor: `rgb(${theme.color})` }}
                           />
                           <span className="text-sm font-medium text-gray-800">{card.hint}</span>
@@ -370,7 +370,7 @@ export function SettingsPanel({
                       className={`w-full text-left p-4 rounded-xl border transition-all
                         ${selectedTherapist === t.id
                           ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200'
-                          : 'border-gray-150 bg-white hover:border-gray-300 hover:shadow-sm'
+                          : 'border-gray-150 bg-white hover:border-gray-300 hover:shadow-xs'
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -505,13 +505,13 @@ export function SettingsPanel({
 
           {/* 底部保存按钮 — 固定在底部，与左侧退出登录对齐 */}
           {saveAction && (
-            <div className="flex-shrink-0 pt-3 border-t border-gray-100 mt-2">
+            <div className="shrink-0 pt-3 border-t border-gray-100 mt-2">
               <button
                 onClick={saveAction.onClick}
                 disabled={saveAction.disabled}
                 className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all
                   ${!saveAction.disabled
-                    ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm'
+                    ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-xs'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
               >

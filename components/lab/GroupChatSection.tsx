@@ -52,7 +52,7 @@ export function GroupChatSection() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl p-6 border border-violet-100">
+            <div className="bg-linear-to-r from-violet-50 to-indigo-50 rounded-xl p-6 border border-violet-100">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     🎭 圆桌论道 (Roundtable)
                     <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs font-bold border border-violet-200">NEW</span>
@@ -71,7 +71,7 @@ export function GroupChatSection() {
                     value={topic}
                     onChange={(val) => setTopic(val)}
                     placeholder="输入一个话题，例如：人应该追求自由还是安全？"
-                    className="!rounded-xl"
+                    className="rounded-xl!"
                     maxLength={200}
                 />
             </div>
@@ -159,9 +159,9 @@ export function GroupChatSection() {
                     disabled={!canStart}
                     onClick={handleStart}
                     className={cn(
-                        "!rounded-xl !px-8 !h-12 !text-base font-bold transition-all",
+                        "rounded-xl! px-8! h-12! text-base! font-bold transition-all",
                         canStart
-                            ? "!bg-violet-600 hover:!bg-violet-700 shadow-lg shadow-violet-200"
+                            ? "bg-violet-600! hover:bg-violet-700! shadow-lg shadow-violet-200"
                             : ""
                     )}
                 >

@@ -182,7 +182,7 @@ export default function RootCauseOverviewPage() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
       {/* 实验选择 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 shrink-0">选择实验</span>
           <Select
@@ -222,12 +222,12 @@ export default function RootCauseOverviewPage() {
       )}
 
       {selectedRun && !loading && !analysis && (
-        <Card className="shadow-sm">
+        <Card className="shadow-xs">
           <div className="text-center py-8">
             <div className="text-sm text-gray-500 mb-3">该实验尚未进行 AI 分析</div>
             <div className="flex items-center justify-center gap-2">
               <select
-                className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
+                className="text-xs border border-gray-300 rounded-sm px-2 py-1.5 bg-white"
                 value={analysisProvider}
                 onChange={e => setAnalysisProvider(e.target.value)}
               >
@@ -238,7 +238,7 @@ export default function RootCauseOverviewPage() {
                 <option value="openrouter">OpenRouter</option>
               </select>
               <button
-                className="px-4 py-1.5 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600 disabled:opacity-50 transition-colors"
+                className="px-4 py-1.5 bg-indigo-500 text-white text-sm rounded-sm hover:bg-indigo-600 disabled:opacity-50 transition-colors"
                 disabled={analyzing}
                 onClick={async () => {
                   setAnalyzing(true);
@@ -274,7 +274,7 @@ export default function RootCauseOverviewPage() {
       {selectedRun && !loading && analysis && (
         <>
           {/* 概览 */}
-          <Card className="shadow-sm">
+          <Card className="shadow-xs">
             <div className="flex items-center gap-4 mb-3">
               <div className="text-sm text-gray-700">
                 {analysis.summary}
@@ -330,7 +330,7 @@ export default function RootCauseOverviewPage() {
 
           {/* 按层级分组展示建议 */}
           {groupedByLayer.map(({ layer, items }) => (
-            <Card key={layer} className="shadow-sm">
+            <Card key={layer} className="shadow-xs">
               <div className="flex items-center gap-2 mb-3">
                 <Tag color={LAYER_COLORS[layer] || 'gray'}>{LAYER_LABELS[layer] || layer}</Tag>
                 <span className="text-xs text-gray-400">{items.length} 条建议</span>
@@ -350,7 +350,7 @@ export default function RootCauseOverviewPage() {
                       </div>
                       <div className="text-xs text-gray-600 mb-1.5">{s.description}</div>
                       {s.dismissal_reason && (
-                        <div className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
+                        <div className="text-xs text-amber-600 bg-amber-50 rounded-sm px-2 py-1 mb-1.5">排除上层: {s.dismissal_reason}</div>
                       )}
                       <div className="flex flex-wrap gap-1 mb-2">
                         {(s.tags || []).map(tag => (
@@ -363,9 +363,9 @@ export default function RootCauseOverviewPage() {
                       </div>
                       {/* 状态按钮 + 备注 */}
                       <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
-                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'accepted' ? 'bg-green-100 text-green-700 font-medium' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'accepted' ? '' : 'accepted')}>采纳</button>
-                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'rejected' ? 'bg-red-100 text-red-600 font-medium' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'rejected' ? '' : 'rejected')}>拒绝</button>
-                        <button className={`text-xs px-2 py-0.5 rounded ${s.status === 'deferred' ? 'bg-amber-100 text-amber-700 font-medium' : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'deferred' ? '' : 'deferred')}>搁置</button>
+                        <button className={`text-xs px-2 py-0.5 rounded-sm ${s.status === 'accepted' ? 'bg-green-100 text-green-700 font-medium' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'accepted' ? '' : 'accepted')}>采纳</button>
+                        <button className={`text-xs px-2 py-0.5 rounded-sm ${s.status === 'rejected' ? 'bg-red-100 text-red-600 font-medium' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'rejected' ? '' : 'rejected')}>拒绝</button>
+                        <button className={`text-xs px-2 py-0.5 rounded-sm ${s.status === 'deferred' ? 'bg-amber-100 text-amber-700 font-medium' : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'}`} onClick={() => updateSuggestionStatus(gi, s.status === 'deferred' ? '' : 'deferred')}>搁置</button>
                         <span className="border-l border-gray-200 h-3 mx-1" />
                         {!isEditing ? (
                           <button className="text-xs text-gray-400 hover:text-indigo-500" onClick={() => { setEditingNote(gi); setNoteInput(s.note || ''); }}>
@@ -390,7 +390,7 @@ export default function RootCauseOverviewPage() {
           ))}
 
           {groupedByLayer.length === 0 && (
-            <Card className="shadow-sm">
+            <Card className="shadow-xs">
               <Empty description={filterTag ? `没有匹配标签「${filterTag}」的建议` : '没有改进建议'} />
             </Card>
           )}

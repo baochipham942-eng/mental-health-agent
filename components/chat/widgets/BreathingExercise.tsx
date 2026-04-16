@@ -79,7 +79,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                 onClick={handleStop}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     cycleCount >= 4
-                        ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-white shadow-md shadow-emerald-200/50'
+                        ? 'bg-linear-to-r from-emerald-400 to-teal-400 text-white shadow-md shadow-emerald-200/50'
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-violet-600'
                 }`}
             >
@@ -130,7 +130,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
         return (
             <div className="relative flex flex-col items-center justify-center h-[340px] px-6 text-center select-none overflow-hidden">
                 {/* 背景 */}
-                <div className="absolute inset-0 bg-gradient-to-b from-sky-100 via-blue-50 to-white" />
+                <div className="absolute inset-0 bg-linear-to-b from-sky-100 via-blue-50 to-white" />
                 {/* 装饰光晕 */}
                 <div className="absolute top-[-10%] right-[-10%] w-48 h-48 bg-sky-200/30 rounded-full blur-3xl" />
                 <div className="absolute bottom-[-5%] left-[-10%] w-36 h-36 bg-blue-100/30 rounded-full blur-3xl" />
@@ -142,7 +142,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                         animate={{ scale: [1, 1.08, 1] }}
                         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                     >
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-sky-300 to-blue-400 shadow-xl shadow-sky-200/50 flex items-center justify-center">
+                        <div className="w-24 h-24 rounded-full bg-linear-to-br from-sky-300 to-blue-400 shadow-xl shadow-sky-200/50 flex items-center justify-center">
                             <div className="w-[40%] h-[35%] bg-white/30 rounded-full blur-[2px] absolute top-[18%] left-[22%]" />
                         </div>
                         <div className="absolute -inset-4 bg-sky-200/30 rounded-full blur-xl -z-10" />
@@ -158,7 +158,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                     <button
                         onClick={handleStart}
                         aria-label="开始呼吸练习"
-                        className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-gradient-to-r from-sky-400 to-blue-500 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
+                        className="group relative px-7 py-2.5 rounded-full text-[14px] font-semibold transition-all duration-300 bg-linear-to-r from-sky-400 to-blue-500 text-white shadow-lg shadow-sky-200/50 hover:shadow-xl hover:shadow-sky-200/60 hover:scale-[1.03] active:scale-[0.97]"
                     >
                         开始呼吸
                     </button>
@@ -174,7 +174,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
         <div className="relative h-[380px] rounded-2xl overflow-hidden select-none">
             {/* 动态背景 — 随阶段变色 */}
             <motion.div
-                className="absolute inset-0 bg-gradient-to-b from-gray-50 to-white"
+                className="absolute inset-0 bg-linear-to-b from-gray-50 to-white"
                 key={phase}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -194,7 +194,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                 <div className="relative w-48 h-48 flex items-center justify-center mb-8">
                     {/* 外环 — 跟随呼吸缩放 */}
                     <motion.div
-                        className={`absolute inset-0 rounded-full bg-gradient-to-br ${colors.ring} opacity-40 blur-md`}
+                        className={`absolute inset-0 rounded-full bg-linear-to-br ${colors.ring} opacity-40 blur-md`}
                         variants={breatheVariants}
                         animate={phase}
                         initial="ready"
@@ -213,7 +213,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
 
                     {/* 核心球 */}
                     <motion.div
-                        className={`relative w-28 h-28 rounded-full bg-gradient-to-br ${colors.core} shadow-2xl flex items-center justify-center z-10`}
+                        className={`relative w-28 h-28 rounded-full bg-linear-to-br ${colors.core} shadow-2xl flex items-center justify-center z-10`}
                         variants={breatheVariants}
                         animate={phase}
                         initial="ready"
@@ -222,7 +222,7 @@ export function BreathingExercise({ onComplete, setHeaderControl, onStart }: Bre
                         <div className="absolute top-[15%] left-[20%] w-[35%] h-[28%] bg-white/30 rounded-full blur-[3px]" />
 
                         {/* 阶段文字 */}
-                        <span className="text-white text-2xl font-bold drop-shadow-sm">
+                        <span className="text-white text-2xl font-bold drop-shadow-xs">
                             {phaseLabel}
                         </span>
                     </motion.div>

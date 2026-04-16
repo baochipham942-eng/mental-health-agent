@@ -78,7 +78,7 @@ export function SidebarHeaderClient({ createNewSessionAction }: SidebarHeaderCli
                 onClick={handleNewChat}
                 className="relative flex w-full items-center justify-center rounded-lg bg-indigo-50 px-4 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
             >
-                <IconPlus className="absolute left-[4.5rem]" style={{ fontSize: 14 }} />
+                <IconPlus className="absolute left-18" style={{ fontSize: 14 }} />
                 <span>新对话</span>
             </button>
         </>

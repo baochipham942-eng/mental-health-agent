@@ -144,7 +144,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                         {session.title || '未命名对话'}
                     </span>
                     <span className={`
-                        text-xs flex-shrink-0 transition-opacity
+                        text-xs shrink-0 transition-opacity
                         ${isActive ? 'text-indigo-400' : 'text-gray-400 group-hover:text-indigo-400'}
                         group-hover:opacity-0
                     `}
@@ -171,7 +171,7 @@ export function SidebarItem({ session, relativeDate, onHide }: SidebarItemProps)
                         e.stopPropagation();
                         handleDelete(e as any);
                     }}
-                    className="!bg-white/80 hover:!bg-red-50"
+                    className="bg-white/80! hover:bg-red-50!"
                 />
             </div>
         </div>

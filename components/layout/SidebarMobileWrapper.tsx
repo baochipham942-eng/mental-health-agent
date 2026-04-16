@@ -61,7 +61,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
         const className = cn(
             "flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all border h-[80px]",
             isActive
-                ? "bg-indigo-50 border-indigo-100 shadow-sm"
+                ? "bg-indigo-50 border-indigo-100 shadow-xs"
                 : "bg-gray-50 border-gray-100 hover:bg-gray-100 active:bg-gray-200"
         );
 
@@ -104,7 +104,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                                 {history}
                             </div>
                         </div>
-                        <div className="flex-shrink-0 mt-auto pt-3 border-t border-gray-100">
+                        <div className="shrink-0 mt-auto pt-3 border-t border-gray-100">
                             {userMenu}
                         </div>
                     </div>
@@ -129,7 +129,7 @@ export function SidebarMobileWrapper({ header, history, userMenu, user, isAdmin 
                     {/* 1. Header: Compact User Info - reduced top padding */}
                     <div className="px-6 pt-3 pb-2 flex items-center justify-center">
                         <div className="flex flex-col items-center gap-1.5">
-                            <Avatar size={56} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
+                            <Avatar size={56} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-xs">
                                 {user?.avatar ? (
                                     <img src={user.avatar} alt={user.name || 'User'} />
                                 ) : (

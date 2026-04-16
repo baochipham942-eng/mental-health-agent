@@ -32,7 +32,7 @@ export function InlineMoodRating({ onRate }: InlineMoodRatingProps) {
                             onClick={() => onRate(score)}
                             onMouseEnter={() => setHovered(score)}
                             onMouseLeave={() => setHovered(null)}
-                            className={`w-12 h-12 text-2xl rounded-full transition-all transform hover:scale-110 flex items-center justify-center ${colors[index]} bg-gray-50 border border-gray-100 shadow-sm`}
+                            className={`w-12 h-12 text-2xl rounded-full transition-all transform hover:scale-110 flex items-center justify-center ${colors[index]} bg-gray-50 border border-gray-100 shadow-xs`}
                             title={`${score}分`}
                         >
                             <span className={`transition-transform duration-200 ${hovered === score ? 'scale-125' : ''}`}>

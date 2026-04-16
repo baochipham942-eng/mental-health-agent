@@ -140,7 +140,7 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
     const currentStepData = steps[currentStep];
 
     return (
-        <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-purple-50 to-white rounded-xl border border-purple-100 min-h-[300px]">
+        <div className="flex flex-col items-center justify-center p-6 bg-linear-to-b from-purple-50 to-white rounded-xl border border-purple-100 min-h-[300px]">
             <div className="relative w-48 h-48 flex items-center justify-center mb-6">
                 {/* 外圈光晕 */}
                 <motion.div
@@ -151,7 +151,7 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
 
                 {/* 核心冥想球 */}
                 <motion.div
-                    className="relative w-28 h-28 bg-gradient-to-br from-purple-400 to-indigo-600 rounded-full shadow-lg flex items-center justify-center z-10"
+                    className="relative w-28 h-28 bg-linear-to-br from-purple-400 to-indigo-600 rounded-full shadow-lg flex items-center justify-center z-10"
                     variants={pulseVariants}
                     animate={isRunning ? 'active' : 'idle'}
                 >
@@ -162,11 +162,11 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
             </div>
 
             <div className="text-center space-y-4 z-10">
-                <h3 className="text-xl font-bold text-gray-800 min-h-[2rem]">
+                <h3 className="text-xl font-bold text-gray-800 min-h-8">
                     {isRunning ? currentStepData.text : '准备好开始正念冥想了吗？'}
                 </h3>
 
-                <p className="text-sm text-gray-500 min-h-[1.5rem]">
+                <p className="text-sm text-gray-500 min-h-6">
                     {isRunning ? (
                         <span>
                             已冥想 <span className="font-bold text-purple-600">{formatTime(elapsedSeconds)}</span> / 约 {formatTime(totalDuration)}
@@ -197,7 +197,7 @@ export function MeditationExercise({ onComplete, setHeaderControl, onStart }: Me
                 {!isRunning && (
                     <button
                         onClick={handleStart}
-                        className="mt-2 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full text-sm font-semibold shadow-md hover:shadow-lg hover:from-purple-600 hover:to-indigo-600 transition-all active:scale-95"
+                        className="mt-2 px-6 py-2.5 bg-linear-to-r from-purple-500 to-indigo-500 text-white rounded-full text-sm font-semibold shadow-md hover:shadow-lg hover:from-purple-600 hover:to-indigo-600 transition-all active:scale-95"
                     >
                         开始冥想
                     </button>

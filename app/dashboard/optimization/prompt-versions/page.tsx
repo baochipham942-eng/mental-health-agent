@@ -59,7 +59,7 @@ export default function PromptVersionsPage() {
             ) : versions.length === 0 ? (
                 <div className="text-center py-20 text-gray-400">
                     <p>暂无 Prompt 版本记录</p>
-                    <p className="text-xs mt-2">调用 <code className="bg-gray-100 px-1 rounded">registerPrompt()</code> 注册第一个版本</p>
+                    <p className="text-xs mt-2">调用 <code className="bg-gray-100 px-1 rounded-sm">registerPrompt()</code> 注册第一个版本</p>
                 </div>
             ) : (
                 <>
@@ -122,7 +122,7 @@ export default function PromptVersionsPage() {
                                                             else if (!selectedB) setSelectedB(v.id);
                                                             else { setSelectedA(selectedB); setSelectedB(v.id); }
                                                         }}
-                                                        className="rounded"
+                                                        className="rounded-sm"
                                                     />
                                                 </td>
                                                 <td className="py-2 font-mono text-xs text-gray-600">{v.hash.slice(0, 10)}</td>
@@ -193,11 +193,11 @@ export default function PromptVersionsPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <div className="text-xs text-gray-400 mb-1">{versionA.hash.slice(0, 8)}</div>
-                                        <pre className="bg-gray-50 p-3 rounded text-xs whitespace-pre-wrap max-h-80 overflow-y-auto">{versionA.content}</pre>
+                                        <pre className="bg-gray-50 p-3 rounded-sm text-xs whitespace-pre-wrap max-h-80 overflow-y-auto">{versionA.content}</pre>
                                     </div>
                                     <div>
                                         <div className="text-xs text-gray-400 mb-1">{versionB.hash.slice(0, 8)}</div>
-                                        <pre className="bg-gray-50 p-3 rounded text-xs whitespace-pre-wrap max-h-80 overflow-y-auto">{versionB.content}</pre>
+                                        <pre className="bg-gray-50 p-3 rounded-sm text-xs whitespace-pre-wrap max-h-80 overflow-y-auto">{versionB.content}</pre>
                                     </div>
                                 </div>
                             )}
@@ -219,14 +219,14 @@ function DiffDisplay({ contentA, contentB }: { contentA: string; contentB: strin
     const added = linesB.filter(l => !setA.has(l));
 
     return (
-        <div className="bg-gray-50 p-3 rounded text-xs font-mono max-h-80 overflow-y-auto space-y-0.5">
+        <div className="bg-gray-50 p-3 rounded-sm text-xs font-mono max-h-80 overflow-y-auto space-y-0.5">
             {removed.map((line, i) => (
-                <div key={`r-${i}`} className="bg-red-50 text-red-700 px-2 py-0.5 rounded-sm">
+                <div key={`r-${i}`} className="bg-red-50 text-red-700 px-2 py-0.5 rounded-xs">
                     - {line}
                 </div>
             ))}
             {added.map((line, i) => (
-                <div key={`a-${i}`} className="bg-green-50 text-green-700 px-2 py-0.5 rounded-sm">
+                <div key={`a-${i}`} className="bg-green-50 text-green-700 px-2 py-0.5 rounded-xs">
                     + {line}
                 </div>
             ))}

@@ -130,12 +130,12 @@ export function UserMenu({ userName, nickname, avatar, isAdmin = false, onSignOu
     const UserButton = ({ onClick }: { onClick?: () => void }) => (
         <button
             onClick={onClick}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 hover:bg-indigo-50 active:scale-95 transition-all group cursor-pointer shadow-sm border border-gray-100"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 hover:bg-indigo-50 active:scale-95 transition-all group cursor-pointer shadow-xs border border-gray-100"
         >
-            <div className="relative flex-shrink-0">
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm z-10"></div>
+            <div className="relative shrink-0">
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-xs z-10"></div>
                 <div className="w-[34px] h-[34px] rounded-full ring-2 ring-white shadow-md overflow-hidden bg-white flex items-center justify-center
-                    transition-transform duration-500 ease-out group-hover:rotate-[12deg] group-hover:scale-105">
+                    transition-transform duration-500 ease-out group-hover:rotate-12 group-hover:scale-105">
                     {avatar ? (
                         <img src={avatar} alt={nickname || userName} className="w-full h-full object-cover" />
                     ) : (

@@ -269,7 +269,7 @@ export default function DatasetVersionsPage() {
           {versions.map(v => (
             <Card
               key={v.id}
-              className="shadow-sm hover:shadow-md transition-shadow"
+              className="shadow-xs hover:shadow-md transition-shadow"
               hoverable
             >
               <div className="space-y-3">
@@ -325,7 +325,7 @@ export default function DatasetVersionsPage() {
 
       {/* 版本对比 */}
       {versions.length >= 2 && (
-        <Card className="shadow-sm" title={
+        <Card className="shadow-xs" title={
           <div className="flex items-center gap-2">
             <IconSwap className="text-indigo-500" />
             <span className="font-semibold">版本对比</span>

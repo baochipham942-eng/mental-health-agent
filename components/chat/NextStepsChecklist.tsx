@@ -87,7 +87,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
     });
 
   return (
-    <div className="p-4 bg-white rounded-xl border border-blue-200 shadow-sm">
+    <div className="p-4 bg-white rounded-xl border border-blue-200 shadow-xs">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">下一步行动清单</h3>
         <span className="text-sm text-gray-600 font-medium">
@@ -121,7 +121,7 @@ export function NextStepsChecklist({ items, messageId }: NextStepsChecklistProps
                 id={`next-step-${messageId}-${index}`}
                 checked={isCompleted}
                 onChange={() => toggleCompleted(index)}
-                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded-sm focus:ring-blue-500"
               />
               <label
                 htmlFor={`next-step-${messageId}-${index}`}

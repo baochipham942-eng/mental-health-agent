@@ -104,7 +104,7 @@ export default function OptimizationSuggestions({
                         <h4 className="text-base font-semibold mb-3">💡 问题汇总</h4>
                         <div className="grid grid-cols-2 gap-4">
                             {log.commonIssues.legal.length > 0 && (
-                                <div className="p-3 bg-red-50 rounded border border-red-200">
+                                <div className="p-3 bg-red-50 rounded-sm border border-red-200">
                                     <div className="text-sm font-medium text-red-700 mb-2">法律问题</div>
                                     <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
                                         {log.commonIssues.legal.map((issue, i) => (
@@ -114,7 +114,7 @@ export default function OptimizationSuggestions({
                                 </div>
                             )}
                             {log.commonIssues.professional.length > 0 && (
-                                <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
+                                <div className="p-3 bg-yellow-50 rounded-sm border border-yellow-200">
                                     <div className="text-sm font-medium text-yellow-700 mb-2">专业性问题</div>
                                     <ul className="list-disc list-inside text-sm text-yellow-600 space-y-1">
                                         {log.commonIssues.professional.map((issue, i) => (
@@ -124,7 +124,7 @@ export default function OptimizationSuggestions({
                                 </div>
                             )}
                             {log.commonIssues.ux.length > 0 && (
-                                <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                                <div className="p-3 bg-blue-50 rounded-sm border border-blue-200">
                                     <div className="text-sm font-medium text-blue-700 mb-2">用户体验问题</div>
                                     <ul className="list-disc list-inside text-sm text-blue-600 space-y-1">
                                         {log.commonIssues.ux.map((issue, i) => (
@@ -146,7 +146,7 @@ export default function OptimizationSuggestions({
                                     header={`建议 #${index + 1}`}
                                     name={String(index)}
                                 >
-                                    <div className="p-4 bg-gray-50 rounded">
+                                    <div className="p-4 bg-gray-50 rounded-sm">
                                         <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
                                             {suggestion}
                                         </pre>

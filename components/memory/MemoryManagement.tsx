@@ -168,7 +168,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
                                     <p className="text-sm text-gray-700 flex-1 leading-relaxed">
                                         {memory.content}
                                     </p>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                         <Button
                                             type="text"
                                             size="mini"
@@ -195,7 +195,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
     return (
         <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             {/* 头部 */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
                     <span className="text-xl">🧠</span>
                     <h2 className="text-lg font-semibold text-gray-800">我的记忆</h2>
@@ -260,7 +260,7 @@ export function MemoryManagement({ onClose }: { onClose?: () => void }) {
             </div>
 
             {/* 底部说明 */}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex-shrink-0">
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 shrink-0">
                 <p className="text-xs text-gray-500 text-center">
                     💡 记忆帮助我更好地了解你，你可以随时编辑或删除
                 </p>

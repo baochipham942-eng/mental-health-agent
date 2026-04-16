@@ -183,7 +183,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-indigo-50 p-4">
+        <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 to-indigo-50 p-4">
             <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
                 {/* Header Image/Logo Area */}
                 <div className="bg-indigo-600 px-8 py-10 text-center relative overflow-hidden">

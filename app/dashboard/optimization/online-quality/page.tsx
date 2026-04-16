@@ -292,9 +292,9 @@ export default function OnlineQualityPage() {
                                         ))}
                                     </svg>
                                     <div className="flex justify-center gap-4 mt-2 text-xs text-gray-500">
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" />通过</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-yellow-500 inline-block" />警告</span>
-                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block" />不通过</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-green-500 inline-block" />通过</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-yellow-500 inline-block" />警告</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-red-500 inline-block" />不通过</span>
                                     </div>
                                 </div>
                             )}
@@ -389,7 +389,7 @@ export default function OnlineQualityPage() {
                                     <div className="space-y-1.5">
                                         <div className="text-xs text-gray-500 font-medium">关键发现:</div>
                                         {insight.topSuggestions.map((s, i) => (
-                                            <div key={i} className="text-xs text-gray-600 bg-gray-50 rounded px-3 py-2">
+                                            <div key={i} className="text-xs text-gray-600 bg-gray-50 rounded-sm px-3 py-2">
                                                 {s.length > 200 ? s.slice(0, 200) + '...' : s}
                                             </div>
                                         ))}
@@ -444,7 +444,7 @@ function GradeBadge({ grade }: { grade: string }) {
         F: 'bg-red-100 text-red-800',
     };
     return (
-        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${styles[grade] || 'bg-gray-100 text-gray-600'}`}>
+        <span className={`inline-block px-2 py-0.5 rounded-sm text-xs font-medium ${styles[grade] || 'bg-gray-100 text-gray-600'}`}>
             {grade}
         </span>
     );
@@ -453,7 +453,7 @@ function GradeBadge({ grade }: { grade: string }) {
 function SourceBadge({ source }: { source: string }) {
     const isAuto = source.startsWith('auto');
     return (
-        <span className={`inline-block px-2 py-0.5 rounded text-xs ${isAuto ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+        <span className={`inline-block px-2 py-0.5 rounded-sm text-xs ${isAuto ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
             {isAuto ? '自动' : '手动'}
         </span>
     );

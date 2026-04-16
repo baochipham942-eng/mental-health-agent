@@ -123,7 +123,7 @@ export function SessionListPage({
   return (
     <div className="h-full flex flex-col bg-[#F7F8FA]">
       {/* 顶部栏 */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 md:px-10 py-4 bg-white border-b border-gray-100">
+      <div className="shrink-0 flex items-center justify-between px-6 md:px-10 py-4 bg-white border-b border-gray-100">
         <Logo />
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 hidden md:inline">
@@ -135,7 +135,7 @@ export function SessionListPage({
             aria-label="打开设置"
             className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
           >
-            <Avatar size={32} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-sm">
+            <Avatar size={32} className="bg-indigo-100 text-indigo-600 ring-2 ring-white shadow-xs">
               {avatar ? (
                 <img src={avatar} alt={displayName} />
               ) : (
@@ -159,24 +159,24 @@ export function SessionListPage({
       {/* 主内容 — 双栏 */}
       <div className="flex-1 overflow-hidden flex justify-center px-6 md:px-10 py-6 md:py-8 gap-6 md:gap-8">
         {/* 左栏：新对话 + 快捷功能 */}
-        <div className="w-[300px] flex-shrink-0 flex-col gap-3 hidden md:flex">
+        <div className="w-[300px] shrink-0 flex-col gap-3 hidden md:flex">
           {/* 新对话卡片 */}
           <div
             onClick={handleNewChat}
-            className="relative bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/25 active:scale-[0.97] overflow-hidden aspect-square flex flex-col justify-end group"
+            className="relative bg-linear-to-br from-indigo-500 via-purple-500 to-purple-600 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/25 active:scale-[0.97] overflow-hidden aspect-square flex flex-col justify-end group"
           >
             {/* 光晕背景 */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/5" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-white/5" />
             {/* 装饰元素（debug 模式下跳过 blur 避免 CDP 截图超时） */}
             {!isDebug && (
               <>
-                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/[0.07] blur-sm" />
+                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/[0.07] blur-xs" />
                 <div className="absolute top-1/3 -right-6 w-20 h-20 rounded-full bg-purple-400/20 blur-md" />
-                <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-indigo-400/10 blur-sm" />
+                <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-indigo-400/10 blur-xs" />
               </>
             )}
             {/* 微光扫过动画 */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent translate-x-[-100%] group-hover:translate-x-[100%]" style={{ transition: 'opacity 0.7s, transform 1s' }} />
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-linear-to-r from-transparent via-white/8 to-transparent -translate-x-full group-hover:translate-x-full" style={{ transition: 'opacity 0.7s, transform 1s' }} />
             {/* 内容 */}
             <div className="relative z-10">
               <div className={`w-[52px] h-[52px] rounded-2xl bg-white/15 ${isDebug ? '' : 'backdrop-blur-md'} border border-white/20 flex items-center justify-center text-white mb-5 group-hover:bg-white/20 transition-colors`}>
@@ -197,14 +197,14 @@ export function SessionListPage({
                 href={action.path}
                 className={`flex items-center gap-3.5 px-4 py-3 bg-white rounded-2xl cursor-pointer transition-all hover:shadow-md hover:translate-x-0.5 active:scale-[0.98] border border-transparent ${action.hoverBorder} flex-1 min-h-0`}
               >
-                <div className={`w-[38px] h-[38px] rounded-xl ${action.iconBg} ${action.iconColor} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-[38px] h-[38px] rounded-xl ${action.iconBg} ${action.iconColor} flex items-center justify-center shrink-0`}>
                   {action.icon}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800">{action.label}</div>
                   <div className="text-[11px] text-gray-400 mt-0.5">{action.desc}</div>
                 </div>
-                <span className="text-gray-300 text-base flex-shrink-0 transition-transform group-hover:translate-x-1">›</span>
+                <span className="text-gray-300 text-base shrink-0 transition-transform group-hover:translate-x-1">›</span>
               </Link>
             ))}
 
@@ -213,14 +213,14 @@ export function SessionListPage({
               onClick={() => setSettingsVisible(true)}
               className="flex items-center gap-3.5 px-4 py-3 bg-white rounded-2xl cursor-pointer transition-all hover:shadow-md border border-transparent hover:border-gray-200 flex-1 min-h-0 w-full text-left"
             >
-              <div className="w-[38px] h-[38px] rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center flex-shrink-0">
+              <div className="w-[38px] h-[38px] rounded-xl bg-gray-50 text-gray-500 flex items-center justify-center shrink-0">
                 <span className="text-xl leading-none">⚙️</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-800">设置</div>
                 <div className="text-[11px] text-gray-400 mt-0.5">个人偏好与管理</div>
               </div>
-              <span className="text-gray-300 text-base flex-shrink-0">›</span>
+              <span className="text-gray-300 text-base shrink-0">›</span>
             </button>
           </div>
         </div>
@@ -231,7 +231,7 @@ export function SessionListPage({
           <div className="md:hidden mb-4">
             <button
               onClick={handleNewChat}
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl py-4 text-base font-medium shadow-lg active:scale-[0.98] transition-transform"
+              className="w-full bg-linear-to-r from-indigo-500 to-purple-600 text-white rounded-2xl py-4 text-base font-medium shadow-lg active:scale-[0.98] transition-transform"
             >
               + 开始新对话
             </button>
@@ -265,13 +265,13 @@ export function SessionListPage({
       </div>
 
       {/* 移动端快捷入口 */}
-      <div className="md:hidden flex-shrink-0 px-4 pb-4">
+      <div className="md:hidden shrink-0 px-4 pb-4">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.key}
               href={action.path}
-              className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-gray-100 text-sm text-gray-600 whitespace-nowrap flex-shrink-0"
+              className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-gray-100 text-sm text-gray-600 whitespace-nowrap shrink-0"
             >
               <span className={action.iconColor}>{action.icon}</span>
               {action.label}
@@ -356,7 +356,7 @@ function SessionItem({
       className="group flex items-center gap-3.5 px-4 py-3.5 cursor-pointer transition-all hover:bg-[#fafbff] border-b border-gray-50 last:border-b-0"
     >
       {/* 情绪色圆点 */}
-      <div className="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center flex-shrink-0">
+      <div className="w-[38px] h-[38px] rounded-full bg-linear-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0">
         <span className="text-base">💬</span>
       </div>
 
@@ -377,12 +377,12 @@ function SessionItem({
         onClick={handleDelete}
         disabled={isHiding}
         aria-label="删除会话"
-        className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0"
+        className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 shrink-0"
       >
         <IconDelete style={{ fontSize: 14 }} />
       </button>
 
-      <span className="text-gray-300 text-base flex-shrink-0 group-hover:translate-x-0.5 transition-transform">›</span>
+      <span className="text-gray-300 text-base shrink-0 group-hover:translate-x-0.5 transition-transform">›</span>
     </Link>
   );
 }

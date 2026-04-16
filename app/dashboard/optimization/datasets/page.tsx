@@ -139,7 +139,7 @@ export default function DatasetsPage() {
             {datasets.map(ds => (
               <Card
                 key={ds.id}
-                className={`shadow-sm cursor-pointer transition-all hover:shadow-md ${selectedDs === ds.id ? 'ring-2 ring-indigo-300' : ''}`}
+                className={`shadow-xs cursor-pointer transition-all hover:shadow-md ${selectedDs === ds.id ? 'ring-2 ring-indigo-300' : ''}`}
                 onClick={() => loadCases(ds.id)}
               >
                 <div className="flex items-start justify-between">
@@ -167,7 +167,7 @@ export default function DatasetsPage() {
 
       {/* 用例列表 */}
       {selectedDs && (
-        <Card className="shadow-sm" title={
+        <Card className="shadow-xs" title={
           <div className="flex items-center gap-2">
             <span className="font-semibold text-base">用例列表</span>
             <Tag color="arcoblue" size="small">{selectedDs}</Tag>
@@ -216,7 +216,7 @@ export default function DatasetsPage() {
                   </div>
                   <button
                     onClick={() => { setDetailVisible(false); setCaseDetail(null); }}
-                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors shrink-0"
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-sm hover:bg-gray-100 transition-colors shrink-0"
                   >✕</button>
                 </div>
 
@@ -232,7 +232,7 @@ export default function DatasetsPage() {
                     {caseDetail.dialog.map((turn, i) => (
                       <div key={i} className={`rounded-lg p-3 ${turn.role === 'user' ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50 border border-gray-100'}`}>
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${turn.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'}`}>
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-sm ${turn.role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'}`}>
                             {turn.role === 'user' ? '用户' : '参考回复'}
                           </span>
                           {turn.strategy && <Tag size="small" color="purple">{turn.strategy}</Tag>}
@@ -251,12 +251,12 @@ export default function DatasetsPage() {
                         <div key={i} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
                           <div className={`max-w-[80%] rounded-lg px-3 py-2 ${isUser ? 'bg-blue-50 border border-blue-100' : 'bg-gray-50 border border-gray-100'}`}>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <span className={`text-[10px] font-semibold px-1 py-px rounded ${isUser ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
+                              <span className={`text-[10px] font-semibold px-1 py-px rounded-sm ${isUser ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
                                 {isUser ? '用户' : '参考回复'}
                               </span>
                               <span className="text-[10px] text-gray-300">#{i + 1}</span>
-                              {turn.strategy && <Tag size="small" color="purple" className="!text-[10px] !px-1">{turn.strategy}</Tag>}
-                              {turn.emotion && <Tag size="small" color="orange" className="!text-[10px] !px-1">{turn.emotion}</Tag>}
+                              {turn.strategy && <Tag size="small" color="purple" className="text-[10px]! px-1!">{turn.strategy}</Tag>}
+                              {turn.emotion && <Tag size="small" color="orange" className="text-[10px]! px-1!">{turn.emotion}</Tag>}
                             </div>
                             <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{turn.content}</div>
                           </div>

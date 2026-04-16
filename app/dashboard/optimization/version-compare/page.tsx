@@ -201,7 +201,7 @@ export default function VersionComparePage() {
       </div>
 
       {/* 版本选择器 */}
-      <Card className="shadow-sm">
+      <Card className="shadow-xs">
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <div className="text-xs text-gray-400 mb-1">版本 A</div>
@@ -253,7 +253,7 @@ export default function VersionComparePage() {
           {/* 汇总卡片 4 宫格 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* 平均分差异 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">平均分</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold text-indigo-600">{data.stats1.avgScore}</span>
@@ -266,7 +266,7 @@ export default function VersionComparePage() {
             </Card>
 
             {/* 等级分布对比 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">等级分布</div>
               <div className="flex flex-col gap-0.5 mt-1">
                 {['EXCELLENT', 'GOOD', 'ACCEPTABLE', 'POOR', 'CRITICAL'].map(grade => {
@@ -286,7 +286,7 @@ export default function VersionComparePage() {
             </Card>
 
             {/* 最大维度差异 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">最大维度差异</div>
               {maxDimDiff && maxDimDiff.key ? (
                 <>
@@ -303,7 +303,7 @@ export default function VersionComparePage() {
             </Card>
 
             {/* 评估数量 */}
-            <Card className="shadow-sm" bodyStyle={{ padding: '12px 16px' }}>
+            <Card className="shadow-xs" bodyStyle={{ padding: '12px 16px' }}>
               <div className="text-xs text-gray-500">评估数量</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-lg font-bold text-indigo-600">{data.stats1.evalCount}</span>
@@ -317,7 +317,7 @@ export default function VersionComparePage() {
           </div>
 
           {/* 维度对比条形图 */}
-          <Card className="shadow-sm" title={<span className="text-sm font-semibold">维度对比（满分 10）</span>}>
+          <Card className="shadow-xs" title={<span className="text-sm font-semibold">维度对比（满分 10）</span>}>
             <div className="space-y-4">
               {dimKeys.map(key => {
                 const s1 = data.stats1.dimensions[key];
@@ -332,9 +332,9 @@ export default function VersionComparePage() {
                     {/* Version A bar */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-6 text-right shrink-0">A</span>
-                      <div className="flex-1 h-5 bg-gray-100 rounded-sm overflow-hidden">
+                      <div className="flex-1 h-5 bg-gray-100 rounded-xs overflow-hidden">
                         <div
-                          className="h-full rounded-sm transition-all duration-300"
+                          className="h-full rounded-xs transition-all duration-300"
                           style={{ width: `${(s1 / 10) * 100}%`, backgroundColor: '#6366f1' }}
                         />
                       </div>
@@ -343,9 +343,9 @@ export default function VersionComparePage() {
                     {/* Version B bar */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-6 text-right shrink-0">B</span>
-                      <div className="flex-1 h-5 bg-gray-100 rounded-sm overflow-hidden">
+                      <div className="flex-1 h-5 bg-gray-100 rounded-xs overflow-hidden">
                         <div
-                          className="h-full rounded-sm transition-all duration-300"
+                          className="h-full rounded-xs transition-all duration-300"
                           style={{ width: `${(s2 / 10) * 100}%`, backgroundColor: '#a855f7' }}
                         />
                       </div>
@@ -359,7 +359,7 @@ export default function VersionComparePage() {
 
           {/* Case 级对比表格 */}
           <Card
-            className="shadow-sm"
+            className="shadow-xs"
             title={
               <span className="text-sm font-semibold">
                 Case 级对比

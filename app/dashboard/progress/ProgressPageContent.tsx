@@ -99,7 +99,7 @@ export function ProgressPageContent() {
   const encouragement = getEncouragement(timeline);
 
   return (
-    <div className={`min-h-full bg-gradient-to-b ${theme.bg}`}>
+    <div className={`min-h-full bg-linear-to-b ${theme.bg}`}>
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
 
         {/* ==================== 顶部：鼓励语 + 时间切换 ==================== */}
@@ -109,14 +109,14 @@ export function ProgressPageContent() {
         </div>
 
         <div className="flex justify-center">
-          <div className="flex bg-white/60 backdrop-blur-sm rounded-full p-1 shadow-sm border border-gray-100/80">
+          <div className="flex bg-white/60 backdrop-blur-xs rounded-full p-1 shadow-xs border border-gray-100/80">
             {[7, 30, 90].map(d => (
               <button
                 key={d}
                 onClick={() => setDays(d)}
                 className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
                   days === d
-                    ? 'bg-white text-gray-700 shadow-sm'
+                    ? 'bg-white text-gray-700 shadow-xs'
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
@@ -127,7 +127,7 @@ export function ProgressPageContent() {
         </div>
 
         {/* ==================== 情绪曲线卡片 ==================== */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-100/80 p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-600">情绪轨迹</span>
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${theme.badge}`}>
@@ -154,7 +154,7 @@ export function ProgressPageContent() {
         </div>
 
         {/* ==================== 成长足迹（统计 + 里程碑） ==================== */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5">
+        <div className="bg-white rounded-2xl shadow-xs border border-gray-100/80 p-5">
           <span className="text-sm font-medium text-gray-600">成长足迹</span>
 
           {/* 统计数字 */}
@@ -184,7 +184,7 @@ export function ProgressPageContent() {
 
         {/* ==================== 探索足迹 ==================== */}
         {timeline.labExplorations.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-100/80 p-5">
             <span className="text-sm font-medium text-gray-600">探索足迹</span>
             <div className="mt-3 space-y-2.5">
               {timeline.labExplorations.map((e, i) => {
@@ -228,7 +228,7 @@ function QuestionnaireSection({ phq9, gad7 }: {
 }) {
   if (phq9.length === 0 && gad7.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5 text-center">
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-100/80 p-5 text-center">
         <span className="text-sm font-medium text-gray-600 block mb-3">深度了解自己</span>
         <div className="py-4">
           <span className="text-3xl">🪞</span>
@@ -240,7 +240,7 @@ function QuestionnaireSection({ phq9, gad7 }: {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-5 space-y-4">
+    <div className="bg-white rounded-2xl shadow-xs border border-gray-100/80 p-5 space-y-4">
       <span className="text-sm font-medium text-gray-600">深度了解</span>
 
       {phq9.length > 0 && (
@@ -291,7 +291,7 @@ function ScoreTimeline({ title, maxScore, records, gradientFrom, gradientTo }: {
       {/* 进度条 */}
       <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
         <div
-          className={`h-full rounded-full bg-gradient-to-r ${gradientFrom} ${gradientTo} transition-all duration-700`}
+          className={`h-full rounded-full bg-linear-to-r ${gradientFrom} ${gradientTo} transition-all duration-700`}
           style={{ width: `${Math.max(4, (latest.score / maxScore) * 100)}%` }}
         />
       </div>
@@ -302,7 +302,7 @@ function ScoreTimeline({ title, maxScore, records, gradientFrom, gradientTo }: {
           {records.map((r, i) => (
             <div key={i} className="flex flex-col items-center shrink-0" title={`${r.date}: ${r.score}分`}>
               <div
-                className={`w-2 h-2 rounded-full bg-gradient-to-r ${gradientFrom} ${gradientTo}`}
+                className={`w-2 h-2 rounded-full bg-linear-to-r ${gradientFrom} ${gradientTo}`}
                 style={{ opacity: 0.3 + (i / records.length) * 0.7 }}
               />
               <span className="text-[9px] text-gray-300 mt-0.5">{r.date.slice(5)}</span>

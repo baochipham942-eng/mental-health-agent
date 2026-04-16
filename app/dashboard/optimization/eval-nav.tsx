@@ -45,7 +45,7 @@ export default function EvalNav() {
     const pathname = usePathname();
 
     return (
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6">
+        <div className="shrink-0 bg-white border-b border-gray-200 px-6">
             <div className="max-w-7xl mx-auto flex items-center gap-4 h-12">
                 <Link
                     href="/"
