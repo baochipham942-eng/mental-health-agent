@@ -2,13 +2,14 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { Button, Input, Message } from '@arco-design/web-react';
 import { IconSend, IconClose, IconUser } from '@arco-design/web-react/icon';
 import { MBTIPersona } from '@/lib/ai/mbti/personas';
 import { cn } from '@/lib/utils/cn';
 import ReactMarkdown from 'react-markdown';
-// VoiceInputButton not used in lab chat
+import type { ChatUIMessage } from '@/types/chat-ui-message';
 
 interface MBTIChatWindowProps {
     userMbti: string; // The user's own type
@@ -16,32 +17,39 @@ interface MBTIChatWindowProps {
     onClose: () => void;
 }
 
+/** v6: 从 message.parts 提取文本内容 */
+function getMessageText(m: ChatUIMessage): string {
+    return m.parts
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join('');
+}
+
 export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
+    const [input, setInput] = useState('');
 
     useEffect(() => {
         setMounted(true);
-        // Prevent body scroll when modal is open
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
         };
     }, []);
 
-    // Use Vercel AI SDK hook for ephemeral chat
-    const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
-        api: '/api/chat/mbti',
-        body: {
-            mbtiType: targetPersona.type,
-            userMbti: userMbti, // Optional context
-        },
-        initialMessages: [
+    // v6 useChat — body 通过 transport 注入；input 状态本地管理
+    const { messages, sendMessage, status, stop } = useChat<ChatUIMessage>({
+        transport: new DefaultChatTransport({
+            api: '/api/chat/mbti',
+            body: { mbtiType: targetPersona.type, userMbti },
+        }),
+        messages: [
             {
                 id: 'intro',
                 role: 'assistant',
-                content: targetPersona.probing_question,
-            }
+                parts: [{ type: 'text', text: targetPersona.probing_question }],
+            } as ChatUIMessage,
         ],
         onError: (error) => {
             Message.error(`连接中断: ${error.message}`);
@@ -50,6 +58,15 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
             console.log('[MBTIChat] Stream finished');
         },
     });
+
+    const isLoading = status === 'submitted' || status === 'streaming';
+
+    const handleSend = async () => {
+        if (!input.trim() || isLoading) return;
+        const text = input;
+        setInput('');
+        await sendMessage({ text });
+    };
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -81,13 +98,18 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
     const handleClose = () => {
         // Trigger background extraction and session recording
         if (messages.length >= 2) {
+            // 把 v6 parts 结构展平为 {role, content} 给后端 lab-extract 用
+            const flatMessages = messages.map((m) => ({
+                role: m.role,
+                content: getMessageText(m),
+            }));
             fetch('/api/memory/lab-extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages,
+                    messages: flatMessages,
                     contextType: 'mbti',
-                    contextId: targetPersona.type, // 使用 MBTI 类型（如 INTJ）
+                    contextId: targetPersona.type,
                 }),
             }).catch(e => console.error('Background extraction failed:', e));
         }
@@ -133,7 +155,9 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                         </span>
                     </div>
 
-                    {messages.map((m) => (
+                    {messages.map((m) => {
+                        const text = getMessageText(m);
+                        return (
                         <div
                             key={m.id}
                             className={cn(
@@ -163,15 +187,16 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                                 )}
                             >
                                 {m.role === 'user' ? (
-                                    m.content
+                                    text
                                 ) : (
                                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 text-gray-800">
-                                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                                        <ReactMarkdown>{text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Removed redundant loading bubble - content streams in real-time */}
                 </div>
@@ -180,15 +205,15 @@ export function MBTIChatWindow({ userMbti, targetPersona, onClose }: MBTIChatWin
                 <div className="p-4 bg-white border-t border-gray-100">
                     <form
                         onSubmit={(e) => {
-                            if (!input.trim()) { e.preventDefault(); return; }
-                            handleSubmit(e);
+                            e.preventDefault();
+                            handleSend();
                         }}
                         className="flex gap-2 items-center"
                     >
                         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5">
                             <Input
                                 value={input}
-                                onChange={(e) => handleInputChange({ target: { value: e } } as any)}
+                                onChange={(value) => setInput(value)}
                                 placeholder={`作为 ${userMbti}，你想对 TA 说...`}
                                 className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
                                 autoFocus

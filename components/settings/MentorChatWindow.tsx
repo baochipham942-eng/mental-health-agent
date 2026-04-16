@@ -1,53 +1,73 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { Button, Input, Avatar, Spin, Message } from '@arco-design/web-react';
 import { IconSend, IconClose, IconRobot, IconUser } from '@arco-design/web-react/icon';
 import { MentorPersona } from '@/lib/ai/mentors/personas';
 import { cn } from '@/lib/utils/cn';
 import ReactMarkdown from 'react-markdown';
+import type { ChatUIMessage } from '@/types/chat-ui-message';
 
 interface MentorChatWindowProps {
     mentor: MentorPersona;
     onClose: () => void;
 }
 
+/** v6: 从 message.parts 提取文本内容 */
+function getMessageText(m: ChatUIMessage): string {
+    return m.parts
+        .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+        .map((p) => p.text)
+        .join('');
+}
+
 export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
+    const [input, setInput] = useState('');
     const labSessionIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
-        // Prevent body scroll
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
         };
     }, []);
 
-    // Use Vercel AI SDK hook for ephemeral chat
-    const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
-        api: '/api/chat/mentor',
-        body: {
-            mentorId: mentor.id,
-            customMentor: mentor,
-            sessionId: labSessionIdRef.current,
-        },
-        initialMessages: [
+    // v6: 自定义 transport — body 是函数（每次发送时读最新 ref 值），
+    // fetch 是中间件（拦截 response 头里的 X-Lab-Session-Id）
+    const transport = useMemo(
+        () =>
+            new DefaultChatTransport({
+                api: '/api/chat/mentor',
+                body: () => ({
+                    mentorId: mentor.id,
+                    customMentor: mentor,
+                    sessionId: labSessionIdRef.current,
+                }),
+                fetch: async (input, init) => {
+                    const response = await fetch(input, init);
+                    const sid = response.headers.get('X-Lab-Session-Id');
+                    if (sid) labSessionIdRef.current = sid;
+                    return response;
+                },
+            }),
+        [mentor],
+    );
+
+    const { messages, sendMessage, status, stop } = useChat<ChatUIMessage>({
+        transport,
+        messages: [
             {
                 id: 'intro',
                 role: 'assistant',
-                content: mentor.openingMessage,
-            }
+                parts: [{ type: 'text', text: mentor.openingMessage }],
+            } as ChatUIMessage,
         ],
-        onResponse: (response) => {
-            // 捕获后端返回的 LabSession ID，后续请求复用
-            const sid = response.headers.get('X-Lab-Session-Id');
-            if (sid) labSessionIdRef.current = sid;
-        },
         onError: (error) => {
             Message.error(`连接中断: ${error.message}`);
         },
@@ -55,6 +75,15 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
             console.log('[MentorChat] Stream finished');
         },
     });
+
+    const isLoading = status === 'submitted' || status === 'streaming';
+
+    const handleSend = async () => {
+        if (!input.trim() || isLoading) return;
+        const text = input;
+        setInput('');
+        await sendMessage({ text });
+    };
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -93,14 +122,18 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
     const handleClose = () => {
         // Trigger background extraction and session recording
         if (messages.length >= 2) {
-            // 检查是否为自定义大师（内置大师有固定ID如 socrates, jung 等）
             const builtinMentorIds = ['socrates', 'jung', 'adler', 'seligman', 'satir', 'kahneman', 'wittgenstein', 'sartre', 'naval', 'hayek'];
             const isCustom = !builtinMentorIds.includes(mentor.id);
+            // 把 v6 parts 结构展平为 {role, content} 给后端 lab-extract 用
+            const flatMessages = messages.map((m) => ({
+                role: m.role,
+                content: getMessageText(m),
+            }));
             fetch('/api/memory/lab-extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages,
+                    messages: flatMessages,
                     contextType: 'mentor',
                     contextId: mentor.id,
                     customName: isCustom ? mentor.name : undefined,
@@ -147,7 +180,9 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                         </span>
                     </div>
 
-                    {messages.map((m) => (
+                    {messages.map((m) => {
+                        const text = getMessageText(m);
+                        return (
                         <div
                             key={m.id}
                             className={cn(
@@ -177,15 +212,16 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                                 )}
                             >
                                 {m.role === 'user' ? (
-                                    m.content
+                                    text
                                 ) : (
                                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 text-gray-800">
-                                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                                        <ReactMarkdown>{text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Removed redundant loading bubble - content streams in real-time */}
                 </div>
@@ -194,24 +230,21 @@ export function MentorChatWindow({ mentor, onClose }: MentorChatWindowProps) {
                 <div className="p-4 bg-white border-t border-gray-100">
                     <form
                         onSubmit={(e) => {
-                            if (!input.trim()) { e.preventDefault(); return; }
-                            handleSubmit(e);
+                            e.preventDefault();
+                            handleSend();
                         }}
                         className="flex items-center gap-2"
                     >
                         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-glow-card p-1.5">
                             <Input
                                 value={input}
-                                onChange={(e) => handleInputChange({ target: { value: e } } as any)}
+                                onChange={(value) => setInput(value)}
                                 placeholder={`向${mentor.name}提问...`}
                                 className="!bg-transparent !border-none !shadow-none text-[15px] text-gray-900 placeholder:text-gray-400"
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
                                         e.preventDefault();
-                                        if (input.trim()) {
-                                            const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
-                                            handleSubmit(fakeEvent);
-                                        }
+                                        handleSend();
                                     }
                                 }}
                                 autoFocus

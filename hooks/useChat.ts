@@ -1,135 +1,140 @@
 'use client';
 
-import { useChat as useAiChat } from 'ai/react';
+import { useChat as useAiChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { useEffect, useMemo, useState } from 'react';
 import { Message } from '@/types/chat';
 import { generateId } from '@/lib/utils/format';
 import { STORAGE_KEYS } from '@/lib/constants';
-import { useEffect, useMemo, useState } from 'react';
+import type { ChatUIMessage } from '@/types/chat-ui-message';
 
+/**
+ * v6 useChat 包装层 — 对外保持 { messages, isLoading, error, sendMessage, clearHistory, sessionId } 公共 API
+ * 内部把 v6 ChatUIMessage[] 转成项目自定义的 Message[] 结构（含 13 个 metadata 字段）
+ */
 export function useChat() {
   const [sessionId] = useState(() => generateId());
 
-  // 使用 Vercel AI SDK 的 useChat
-  // onFinish 回调用于持久化存储或后续处理
   const {
     messages: aiMessages,
-    isLoading,
-    error,
-    append,
+    sendMessage: aiSendMessage,
     setMessages: setAiMessages,
-    reload
-  } = useAiChat({
-    api: '/api/chat',
-    onResponse: (response) => {
-      if (!response.ok) {
-        console.error('Chat API Error:', response.statusText);
-      }
-    },
-    onFinish: (message) => {
-      // 可以在这里处理完成后的逻辑
-    },
-    onError: (error) => {
-      console.error('Chat Error:', error);
+    status,
+    error,
+  } = useAiChat<ChatUIMessage>({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    onError: (err) => {
+      console.error('Chat Error:', err);
     },
   });
 
-  // 从本地存储加载历史记录
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CHAT_HISTORY);
-      if (saved) {
-        const parsed: Message[] = JSON.parse(saved);
-        // 将自定义 Message 格式转换为 AI SDK Message 格式
-        // 注意：AI SDK 的 data 字段是 JSONValue[]，我们需要适配
-        const mappedMessages = parsed.map(msg => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          createdAt: new Date(msg.timestamp),
-          // 恢复 data 字段（如果有）- 这里简化处理，因为 data 主要是流式传输用的
-          // 我们主要依赖 messages state 映射回 UI
-        }));
-        // setAiMessages(mappedMessages as any); 
-        // 类型不完全匹配，暂不自动加载，或者需要转换层
-        // 为了兼容现有逻辑，我们可能需要一个自定义的转换函数
-      }
-    } catch (e) {
-      console.error('Failed to load chat history:', e);
-    }
-  }, [setAiMessages]);
+  const isLoading = status === 'submitted' || status === 'streaming';
 
-  // 将 aiMessages 转换为我们的 Message 类型
+  // v6 ChatUIMessage[] → 项目自定义 Message[]（提取 13 个 typed data parts）
   const messages: Message[] = useMemo(() => {
-    return aiMessages.map(m => {
-      // 解析 data 字段中的元数据
-      // StreamData 通常是数组，包含多个 appended 的对象
-      const dataItems = m.data as any[];
-      let emotion = undefined;
-      let resources = undefined;
-      let metadata: Message['metadata'] = undefined;
+    return aiMessages.map((m) => {
+      let textContent = '';
+      let emotion: Message['emotion'] | undefined;
+      let metadata: Message['metadata'] | undefined;
 
-      if (dataItems && Array.isArray(dataItems)) {
-        // 查找包含 emotion 或 resources 的项
-        // 通常最后一个包含最新状态
-        // 我们遍历所有项合并信息
-        dataItems.forEach(item => {
-          if (item?.emotion) emotion = item.emotion;
-          if (item?.resources) resources = item.resources;
-          // 提取 safety, state, routeType, assessmentStage, actionCards, persona, memory, adaptiveMode
-          if (item?.safety || item?.state || item?.routeType || item?.assessmentStage || item?.actionCards || item?.persona || item?.memory || item?.adaptiveMode) {
-            metadata = {
-              ...metadata,
-              safety: item.safety || metadata?.safety,
-              state: item.state || metadata?.state,
-              routeType: item.routeType || metadata?.routeType,
-              assessmentStage: item.assessmentStage || metadata?.assessmentStage,
-              actionCards: item.actionCards || metadata?.actionCards,
-              persona: item.persona || metadata?.persona,
-              memory: item.memory || metadata?.memory,
-              adaptiveMode: item.adaptiveMode || metadata?.adaptiveMode,
-            };
-          }
-          // 提取 dialogue 和 guardBlocked
-          if (item?.dialogue) {
-            metadata = { ...metadata, dialogue: item.dialogue };
-          }
-          if (item?.guardBlocked) {
-            metadata = { ...metadata, guardBlocked: item.guardBlocked };
-          }
-        });
+      for (const part of m.parts) {
+        if (part.type === 'text') {
+          textContent += part.text;
+          continue;
+        }
+        if (part.type === 'data-emotion') {
+          emotion = part.data;
+          continue;
+        }
+        if (part.type === 'data-route') {
+          metadata = { ...metadata, routeType: part.data.routeType };
+          continue;
+        }
+        if (part.type === 'data-safety') {
+          metadata = { ...metadata, safety: part.data as NonNullable<Message['metadata']>['safety'] };
+          continue;
+        }
+        if (part.type === 'data-state') {
+          // 老结构 state 是 {reasoning, overallProgress}；v6 part 只带 state 字符串和 reasoning，做最小映射
+          metadata = {
+            ...metadata,
+            state: { reasoning: part.data.reasoning || part.data.state, overallProgress: 0 },
+          };
+          continue;
+        }
+        if (part.type === 'data-persona') {
+          metadata = {
+            ...metadata,
+            persona: { mode: part.data.mode, reasoning: part.data.reasoning || '' },
+          };
+          continue;
+        }
+        if (part.type === 'data-memory') {
+          metadata = {
+            ...metadata,
+            memory: { check: part.data.check || '无', retrieved: part.data.retrieved },
+          };
+          continue;
+        }
+        if (part.type === 'data-dialogue') {
+          metadata = {
+            ...metadata,
+            dialogue: {
+              turn: part.data.turn,
+              phase: part.data.phase,
+              riskLevel: part.data.riskLevel,
+            },
+          };
+          continue;
+        }
+        if (part.type === 'data-adaptive-mode') {
+          metadata = { ...metadata, adaptiveMode: part.data.mode };
+          continue;
+        }
+        if (part.type === 'data-assessment-stage') {
+          metadata = { ...metadata, assessmentStage: part.data.stage };
+          continue;
+        }
+        if (part.type === 'data-action-cards') {
+          metadata = { ...metadata, actionCards: part.data.cards as any };
+          continue;
+        }
+        if (part.type === 'data-guard-input-blocked') {
+          metadata = { ...metadata, guardBlocked: part.data.reason };
+          continue;
+        }
+        // data-relevant-memories / data-guard-output-redacted / data-trace
+        // 暂不映射到 Message.metadata，前端 UI 没消费（trace 由 dashboard 单独读）
       }
 
       return {
         id: m.id,
         role: m.role as 'user' | 'assistant',
-        content: m.content,
-        timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
+        content: textContent,
+        timestamp: new Date().toISOString(),
         emotion,
-        resources,
         metadata,
       };
     });
   }, [aiMessages]);
 
-  // 发送消息适配器
   const sendMessage = async (content: string) => {
-    await append({
-      role: 'user',
-      content,
-    });
+    await aiSendMessage({ text: content });
   };
 
-  // 清空历史
   const clearHistory = () => {
     setAiMessages([]);
-    localStorage.removeItem(STORAGE_KEYS.CHAT_HISTORY);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CHAT_HISTORY);
+    } catch {}
   };
 
-  // 监听 messages 变化并保存到 localStorage
-  // 注意：保存我们自定义格式的 messages
+  // 持久化 messages 到 localStorage（与老版本行为一致，便于刷新后保留显示）
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem(STORAGE_KEYS.CHAT_HISTORY, JSON.stringify(messages));
+      try {
+        localStorage.setItem(STORAGE_KEYS.CHAT_HISTORY, JSON.stringify(messages));
+      } catch {}
     }
   }, [messages]);
 
