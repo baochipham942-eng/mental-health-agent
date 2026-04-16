@@ -24,7 +24,7 @@
         "framer-motion": "^12.38.0",
         "groq-sdk": "^1.1.2",
         "langfuse": "^3.38.20",
-        "next": "^16.2.3",
+        "next": "^16.2.4",
         "next-auth": "^5.0.0-beta.31",
         "pg": "^8.20.0",
         "posthog-js": "^1.369.0",
@@ -43,7 +43,6 @@
         "@testing-library/react": "^16.3.2",
         "@types/bcryptjs": "^3.0.0",
         "@types/better-sqlite3": "^7.6.13",
-        "@types/diff": "^8.0.0",
         "@types/node": "^20.19.39",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
@@ -387,23 +386,23 @@
 
     "@kurkle/color": ["@kurkle/color@0.3.4", "https://registry.npmmirror.com/@kurkle/color/-/color-0.3.4.tgz", {}, "sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w=="],
 
-    "@next/env": ["@next/env@16.2.3", "https://registry.npmmirror.com/@next/env/-/env-16.2.3.tgz", {}, "sha512-ZWXyj4uNu4GCWQw9cjRxWlbD+33mcDszIo9iQxFnBX3Wmgq9ulaSJcl6VhuWx5pCWqqD+9W6Wfz7N0lM5lYPMA=="],
+    "@next/env": ["@next/env@16.2.4", "https://registry.npmmirror.com/@next/env/-/env-16.2.4.tgz", {}, "sha512-dKkkOzOSwFYe5RX6y26fZgkSpVAlIOJKQHIiydQcrWH6y/97+RceSOAdjZ14Qa3zLduVUy0TXcn+EiM6t4rPgw=="],
 
-    "@next/swc-darwin-arm64": ["@next/swc-darwin-arm64@16.2.3", "https://registry.npmmirror.com/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.2.3.tgz", { "os": "darwin", "cpu": "arm64" }, "sha512-u37KDKTKQ+OQLvY+z7SNXixwo4Q2/IAJFDzU1fYe66IbCE51aDSAzkNDkWmLN0yjTUh4BKBd+hb69jYn6qqqSg=="],
+    "@next/swc-darwin-arm64": ["@next/swc-darwin-arm64@16.2.4", "https://registry.npmmirror.com/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.2.4.tgz", { "os": "darwin", "cpu": "arm64" }, "sha512-OXTFFox5EKN1Ym08vfrz+OXxmCcEjT4SFMbNRsWZE99dMqt2Kcusl5MqPXcW232RYkMLQTy0hqgAMEsfEd/l2A=="],
 
-    "@next/swc-darwin-x64": ["@next/swc-darwin-x64@16.2.3", "https://registry.npmmirror.com/@next/swc-darwin-x64/-/swc-darwin-x64-16.2.3.tgz", { "os": "darwin", "cpu": "x64" }, "sha512-gHjL/qy6Q6CG3176FWbAKyKh9IfntKZTB3RY/YOJdDFpHGsUDXVH38U4mMNpHVGXmeYW4wj22dMp1lTfmu/bTQ=="],
+    "@next/swc-darwin-x64": ["@next/swc-darwin-x64@16.2.4", "https://registry.npmmirror.com/@next/swc-darwin-x64/-/swc-darwin-x64-16.2.4.tgz", { "os": "darwin", "cpu": "x64" }, "sha512-XhpVnUfmYWvD3YrXu55XdcAkQtOnvaI6wtQa8fuF5fGoKoxIUZ0kWPtcOfqJEWngFF/lOS9l3+O9CcownhiQxQ=="],
 
-    "@next/swc-linux-arm64-gnu": ["@next/swc-linux-arm64-gnu@16.2.3", "https://registry.npmmirror.com/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.2.3.tgz", { "os": "linux", "cpu": "arm64" }, "sha512-U6vtblPtU/P14Y/b/n9ZY0GOxbbIhTFuaFR7F4/uMBidCi2nSdaOFhA0Go81L61Zd6527+yvuX44T4ksnf8T+Q=="],
+    "@next/swc-linux-arm64-gnu": ["@next/swc-linux-arm64-gnu@16.2.4", "https://registry.npmmirror.com/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.2.4.tgz", { "os": "linux", "cpu": "arm64" }, "sha512-Mx/tjlNA3G8kg14QvuGAJ4xBwPk1tUHq56JxZ8CXnZwz1Etz714soCEzGQQzVMz4bEnGPowzkV6Xrp6wAkEWOQ=="],
 
-    "@next/swc-linux-arm64-musl": ["@next/swc-linux-arm64-musl@16.2.3", "https://registry.npmmirror.com/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.2.3.tgz", { "os": "linux", "cpu": "arm64" }, "sha512-/YV0LgjHUmfhQpn9bVoGc4x4nan64pkhWR5wyEV8yCOfwwrH630KpvRg86olQHTwHIn1z59uh6JwKvHq1h4QEw=="],
+    "@next/swc-linux-arm64-musl": ["@next/swc-linux-arm64-musl@16.2.4", "https://registry.npmmirror.com/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.2.4.tgz", { "os": "linux", "cpu": "arm64" }, "sha512-iVMMp14514u7Nup2umQS03nT/bN9HurK8ufylC3FZNykrwjtx7V1A7+4kvhbDSCeonTVqV3Txnv0Lu+m2oDXNg=="],
 
-    "@next/swc-linux-x64-gnu": ["@next/swc-linux-x64-gnu@16.2.3", "https://registry.npmmirror.com/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.3.tgz", { "os": "linux", "cpu": "x64" }, "sha512-/HiWEcp+WMZ7VajuiMEFGZ6cg0+aYZPqCJD3YJEfpVWQsKYSjXQG06vJP6F1rdA03COD9Fef4aODs3YxKx+RDQ=="],
+    "@next/swc-linux-x64-gnu": ["@next/swc-linux-x64-gnu@16.2.4", "https://registry.npmmirror.com/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.2.4.tgz", { "os": "linux", "cpu": "x64" }, "sha512-EZOvm1aQWgnI/N/xcWOlnS3RQBk0VtVav5Zo7n4p0A7UKyTDx047k8opDbXgBpHl4CulRqRfbw3QrX2w5UOXMQ=="],
 
-    "@next/swc-linux-x64-musl": ["@next/swc-linux-x64-musl@16.2.3", "https://registry.npmmirror.com/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.3.tgz", { "os": "linux", "cpu": "x64" }, "sha512-Kt44hGJfZSefebhk/7nIdivoDr3Ugp5+oNz9VvF3GUtfxutucUIHfIO0ZYO8QlOPDQloUVQn4NVC/9JvHRk9hw=="],
+    "@next/swc-linux-x64-musl": ["@next/swc-linux-x64-musl@16.2.4", "https://registry.npmmirror.com/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.2.4.tgz", { "os": "linux", "cpu": "x64" }, "sha512-h9FxsngCm9cTBf71AR4fGznDEDx1hS7+kSEiIRjq5kO1oXWm07DxVGZjCvk0SGx7TSjlUqhI8oOyz7NfwAdPoA=="],
 
-    "@next/swc-win32-arm64-msvc": ["@next/swc-win32-arm64-msvc@16.2.3", "https://registry.npmmirror.com/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.2.3.tgz", { "os": "win32", "cpu": "arm64" }, "sha512-O2NZ9ie3Tq6xj5Z5CSwBT3+aWAMW2PIZ4egUi9MaWLkwaehgtB7YZjPm+UpcNpKOme0IQuqDcor7BsW6QBiQBw=="],
+    "@next/swc-win32-arm64-msvc": ["@next/swc-win32-arm64-msvc@16.2.4", "https://registry.npmmirror.com/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.2.4.tgz", { "os": "win32", "cpu": "arm64" }, "sha512-3NdJV5OXMSOeJYijX+bjaLge3mJBlh4ybydbT4GFoB/2hAojWHtMhl3CYlYoMrjPuodp0nzFVi4Tj2+WaMg+Ow=="],
 
-    "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.2.3", "https://registry.npmmirror.com/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.2.3.tgz", { "os": "win32", "cpu": "x64" }, "sha512-Ibm29/GgB/ab5n7XKqlStkm54qqZE8v2FnijUPBgrd67FWrac45o/RsNlaOWjme/B5UqeWt/8KM4aWBwA1D2Kw=="],
+    "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.2.4", "https://registry.npmmirror.com/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.2.4.tgz", { "os": "win32", "cpu": "x64" }, "sha512-kMVGgsqhO5YTYODD9IPGGhA6iprWidQckK3LmPeW08PIFENRmgfb4MjXHO+p//d+ts2rpjvK5gXWzXSMrPl9cw=="],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "https://registry.npmmirror.com/@opentelemetry/api/-/api-1.9.0.tgz", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
 
@@ -617,8 +616,6 @@
 
     "@types/deep-eql": ["@types/deep-eql@4.0.2", "https://registry.npmmirror.com/@types/deep-eql/-/deep-eql-4.0.2.tgz", {}, "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw=="],
 
-    "@types/diff": ["@types/diff@8.0.0", "https://registry.npmmirror.com/@types/diff/-/diff-8.0.0.tgz", { "dependencies": { "diff": "8.0.3" } }, "sha512-o7jqJM04gfaYrdCecCVMbZhNdG6T1MHg/oQoRFdERLV+4d+V7FijhiEAbFu0Usww84Yijk9yH58U4Jk4HbtzZw=="],
-
     "@types/estree": ["@types/estree@1.0.8", "https://registry.npmmirror.com/@types/estree/-/estree-1.0.8.tgz", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
 
     "@types/estree-jsx": ["@types/estree-jsx@1.0.5", "https://registry.npmmirror.com/@types/estree-jsx/-/estree-jsx-1.0.5.tgz", { "dependencies": { "@types/estree": "1.0.8" } }, "sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg=="],
@@ -777,7 +774,7 @@
 
     "c12": ["c12@3.1.0", "https://registry.npmmirror.com/c12/-/c12-3.1.0.tgz", { "dependencies": { "chokidar": "^4.0.3", "confbox": "^0.2.2", "defu": "^6.1.4", "dotenv": "^16.6.1", "exsolve": "^1.0.7", "giget": "^2.0.0", "jiti": "^2.4.2", "ohash": "^2.0.11", "pathe": "^2.0.3", "perfect-debounce": "^1.0.0", "pkg-types": "^2.2.0", "rc9": "^2.1.2" }, "peerDependencies": { "magicast": "^0.3.5" }, "optionalPeers": ["magicast"] }, "sha512-uWoS8OU1MEIsOv8p/5a82c3H31LsWVR5qiyXVfBNOzfffjUWtPnhAb4BYI2uG2HfGmZmFjCtui5XNWaps+iFuw=="],
 
-    "caniuse-lite": ["caniuse-lite@1.0.30001761", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz", {}, "sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g=="],
+    "caniuse-lite": ["caniuse-lite@1.0.30001788", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001788.tgz", {}, "sha512-6q8HFp+lOQtcf7wBK+uEenxymVWkGKkjFpCvw5W25cmMwEDU45p1xQFBQv8JDlMMry7eNxyBaR+qxgmTUZkIRQ=="],
 
     "caseless": ["caseless@0.12.0", "https://registry.npmmirror.com/caseless/-/caseless-0.12.0.tgz", {}, "sha512-4tYFyifaFfGacoiObjJegolkwSU4xQNGbVgUiNYVUxbQ2x2lUsFvY4hVgVzGiIe6WLOPqycWXA40l+PWsxthUw=="],
 
@@ -1277,7 +1274,7 @@
 
     "napi-build-utils": ["napi-build-utils@2.0.0", "https://registry.npmmirror.com/napi-build-utils/-/napi-build-utils-2.0.0.tgz", {}, "sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA=="],
 
-    "next": ["next@16.2.3", "https://registry.npmmirror.com/next/-/next-16.2.3.tgz", { "dependencies": { "@next/env": "16.2.3", "@swc/helpers": "0.5.15", "baseline-browser-mapping": "2.10.19", "caniuse-lite": "1.0.30001761", "postcss": "8.4.31", "styled-jsx": "5.1.6" }, "optionalDependencies": { "@next/swc-darwin-arm64": "16.2.3", "@next/swc-darwin-x64": "16.2.3", "@next/swc-linux-arm64-gnu": "16.2.3", "@next/swc-linux-arm64-musl": "16.2.3", "@next/swc-linux-x64-gnu": "16.2.3", "@next/swc-linux-x64-musl": "16.2.3", "@next/swc-win32-arm64-msvc": "16.2.3", "@next/swc-win32-x64-msvc": "16.2.3", "@opentelemetry/api": "1.9.0", "sharp": "0.34.5" }, "peerDependencies": { "react": "19.2.5", "react-dom": "19.2.5" }, "bin": { "next": "dist/bin/next" } }, "sha512-9V3zV4oZFza3PVev5/poB9g0dEafVcgNyQ8eTRop8GvxZjV2G15FC5ARuG1eFD42QgeYkzJBJzHghNP8Ad9xtA=="],
+    "next": ["next@16.2.4", "https://registry.npmmirror.com/next/-/next-16.2.4.tgz", { "dependencies": { "@next/env": "16.2.4", "@swc/helpers": "0.5.15", "baseline-browser-mapping": "^2.9.19", "caniuse-lite": "^1.0.30001579", "postcss": "8.4.31", "styled-jsx": "5.1.6" }, "optionalDependencies": { "@next/swc-darwin-arm64": "16.2.4", "@next/swc-darwin-x64": "16.2.4", "@next/swc-linux-arm64-gnu": "16.2.4", "@next/swc-linux-arm64-musl": "16.2.4", "@next/swc-linux-x64-gnu": "16.2.4", "@next/swc-linux-x64-musl": "16.2.4", "@next/swc-win32-arm64-msvc": "16.2.4", "@next/swc-win32-x64-msvc": "16.2.4", "sharp": "^0.34.5" }, "peerDependencies": { "@opentelemetry/api": "^1.1.0", "@playwright/test": "^1.51.1", "babel-plugin-react-compiler": "*", "react": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "react-dom": "^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0", "sass": "^1.3.0" }, "optionalPeers": ["@opentelemetry/api", "@playwright/test", "babel-plugin-react-compiler", "sass"], "bin": { "next": "dist/bin/next" } }, "sha512-kPvz56wF5frc+FxlHI5qnklCzbq53HTwORaWBGdT0vNoKh1Aya9XC8aPauH4NJxqtzbWsS5mAbctm4cr+EkQ2Q=="],
 
     "next-auth": ["next-auth@5.0.0-beta.31", "https://registry.npmmirror.com/next-auth/-/next-auth-5.0.0-beta.31.tgz", { "dependencies": { "@auth/core": "0.41.2" }, "peerDependencies": { "@simplewebauthn/browser": "^9.0.1", "@simplewebauthn/server": "^9.0.2", "next": "^14.0.0-0 || ^15.0.0 || ^16.0.0", "nodemailer": "^7.0.7", "react": "^18.2.0 || ^19.0.0" }, "optionalPeers": ["@simplewebauthn/browser", "@simplewebauthn/server", "nodemailer"] }, "sha512-1OBgCKPzo+S7UWWMp3xgvGvIJ0OpV7B3vR4ZDRqD9a4Ch+OT6dakLXG9ivhtmIWVa71nTSXattOHyCg8sNi8/Q=="],
 
@@ -1851,11 +1848,7 @@
 
     "@types/better-sqlite3/@types/node": ["@types/node@20.19.27", "https://registry.npmmirror.com/@types/node/-/node-20.19.27.tgz", { "dependencies": { "undici-types": "6.21.0" } }, "sha512-N2clP5pJhB2YnZJ3PIHFk5RkygRX5WO/5f0WC08tp0wd+sv0rsJk3MqWn3CbNmT2J505a5336jaQj4ph1AdMug=="],
 
-    "@types/diff/diff": ["diff@8.0.3", "https://registry.npmmirror.com/diff/-/diff-8.0.3.tgz", {}, "sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ=="],
-
     "@xenova/transformers/sharp": ["sharp@0.32.6", "https://registry.npmmirror.com/sharp/-/sharp-0.32.6.tgz", { "dependencies": { "color": "4.2.3", "detect-libc": "2.1.2", "node-addon-api": "6.1.0", "prebuild-install": "7.1.3", "semver": "7.7.3", "simple-get": "4.0.1", "tar-fs": "3.1.1", "tunnel-agent": "0.6.0" } }, "sha512-KyLTWwgcR9Oe4d9HwCwNM2l7+J0dUQwn/yf7S0EnTtb0eVS4RxO0eUSvxPtzT4F3SY+C4K6fqdv/DO27sJ/v/w=="],
-
-    "browserslist/caniuse-lite": ["caniuse-lite@1.0.30001788", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001788.tgz", {}, "sha512-6q8HFp+lOQtcf7wBK+uEenxymVWkGKkjFpCvw5W25cmMwEDU45p1xQFBQv8JDlMMry7eNxyBaR+qxgmTUZkIRQ=="],
 
     "c12/dotenv": ["dotenv@16.6.1", "https://registry.npmmirror.com/dotenv/-/dotenv-16.6.1.tgz", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
 
@@ -2039,6 +2032,8 @@
 
     "update-browserslist-db/browserslist/baseline-browser-mapping": ["baseline-browser-mapping@2.9.11", "https://registry.npmmirror.com/baseline-browser-mapping/-/baseline-browser-mapping-2.9.11.tgz", { "bin": { "baseline-browser-mapping": "dist/cli.js" } }, "sha512-Sg0xJUNDU1sJNGdfGWhVHX0kkZ+HWcvmVymJbj6NSgZZmW/8S9Y2HQ5euytnIgakgxN6papOAWiwDo1ctFDcoQ=="],
 
+    "update-browserslist-db/browserslist/caniuse-lite": ["caniuse-lite@1.0.30001761", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz", {}, "sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g=="],
+
     "update-browserslist-db/browserslist/electron-to-chromium": ["electron-to-chromium@1.5.267", "https://registry.npmmirror.com/electron-to-chromium/-/electron-to-chromium-1.5.267.tgz", {}, "sha512-0Drusm6MVRXSOJpGbaSVgcQsuB4hEkMpHXaVstcPmhu5LIedxs1xNK/nIxmQIU/RPC0+1/o0AVZfBTkTNJOdUw=="],
 
     "update-browserslist-db/browserslist/node-releases": ["node-releases@2.0.27", "https://registry.npmmirror.com/node-releases/-/node-releases-2.0.27.tgz", {}, "sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA=="],
@@ -2062,6 +2057,8 @@
     "@xenova/transformers/sharp/color/color-convert/color-name": ["color-name@1.1.4", "https://registry.npmmirror.com/color-name/-/color-name-1.1.4.tgz", {}, "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA=="],
 
     "styled-jsx/@babel/core/@babel/helper-compilation-targets/browserslist/baseline-browser-mapping": ["baseline-browser-mapping@2.9.11", "https://registry.npmmirror.com/baseline-browser-mapping/-/baseline-browser-mapping-2.9.11.tgz", { "bin": { "baseline-browser-mapping": "dist/cli.js" } }, "sha512-Sg0xJUNDU1sJNGdfGWhVHX0kkZ+HWcvmVymJbj6NSgZZmW/8S9Y2HQ5euytnIgakgxN6papOAWiwDo1ctFDcoQ=="],
+
+    "styled-jsx/@babel/core/@babel/helper-compilation-targets/browserslist/caniuse-lite": ["caniuse-lite@1.0.30001761", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz", {}, "sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g=="],
 
     "styled-jsx/@babel/core/@babel/helper-compilation-targets/browserslist/electron-to-chromium": ["electron-to-chromium@1.5.267", "https://registry.npmmirror.com/electron-to-chromium/-/electron-to-chromium-1.5.267.tgz", {}, "sha512-0Drusm6MVRXSOJpGbaSVgcQsuB4hEkMpHXaVstcPmhu5LIedxs1xNK/nIxmQIU/RPC0+1/o0AVZfBTkTNJOdUw=="],
 
