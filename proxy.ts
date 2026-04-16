@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import NextAuth from 'next-auth';
+
 import { authConfig } from './auth.config';
 
-const authMiddleware = NextAuth(authConfig).auth;
+const authProxy = NextAuth(authConfig).auth;
 
-export default function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
 
     // 处理微信验证文件
@@ -18,11 +20,11 @@ export default function middleware(request: NextRequest) {
     }
 
     // 其他请求走 NextAuth
-    return (authMiddleware as any)(request);
+    return (authProxy as any)(request);
 }
 
 export const config = {
-    // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
+    // https://nextjs.org/docs/app/api-reference/file-conventions/proxy#matcher
     matcher: [
         // 包含 .txt 验证文件(显式匹配)
         '/96400d7a291688c1138f110395a17948.txt',
