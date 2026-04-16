@@ -14,26 +14,26 @@ AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊
 ## Tech Stack
 
 ### Frontend
-- **Next.js 14** with App Router
-- **React 18** + **TypeScript 5.3**
-- **TailwindCSS 3.4** + **ArcoDesign 2.66**
+- **Next.js 16** with App Router
+- **React 19** + **TypeScript 6**
+- **TailwindCSS 4** + **ArcoDesign 2.66**
 - **Framer Motion 12** (animations)
-- **Zustand 4.4** (state management)
+- **Zustand 5** (state management)
 
 ### Backend
 - **Next.js API Routes** (serverless)
-- **NextAuth 5.0.0-beta.30** (authentication)
-- **Prisma ORM 5.22** with PostgreSQL
+- **NextAuth 5.0.0-beta.31** (authentication)
+- **Prisma ORM 7** with PostgreSQL (driver adapter mode)
 - **Langfuse 3.38** (LLM observability)
 
 ### AI Integration
 - **DeepSeek Chat API** - primary LLM
-- **Vercel AI SDK 3.4** - unified interface
+- **AI SDK 6** - unified interface
 - **Groq** / **OpenAI** - fallback options
 
 ### Key Libraries
-- Zod (validation), bcryptjs (password hashing)
-- react-markdown (content rendering)
+- Zod 4 (validation), bcryptjs (password hashing)
+- react-markdown 10 (content rendering)
 - Baidu AIP SDK (speech synthesis)
 
 ## Project Structure
