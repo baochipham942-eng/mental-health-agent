@@ -239,7 +239,7 @@ Identifies 11 emotion types with 0-10 intensity scoring:
 2. **Alibaba Cloud FC** (Production)
    - Manual deployment only
    - Domain: `mental.llmxy.xyz`
-   - Requires: `bun run deploy:build && s deploy -y`
+   - Requires: `source /tmp/mha-env.sh && bun run deploy:build && yes | s deploy`
 
 ### Critical Notes
 - Build command: Use `bun run deploy:build` (not `next build`)
@@ -247,6 +247,41 @@ Identifies 11 emotion types with 0-10 intensity scoring:
 - **Lockfile 双更新**: 改 `package.json` 后必须同时运行 `pnpm install --lockfile-only` 更新 `pnpm-lock.yaml`（Vercel 用 pnpm 部署，lockfile 不同步会导致部署失败）
 - Middleware: Must exclude static assets to prevent FC 404s
 - Vercel Hobby: 10s timeout; Pro: 60s timeout
+
+## 错题本
+
+### bun install 需要三个代理变量
+
+bun 不像 curl 那样只认 `HTTPS_PROXY`，需要同时设 `HTTP_PROXY` + `HTTPS_PROXY` + `ALL_PROXY` 才能走代理。否则 resolving dependencies 会无限卡住。
+
+```bash
+HTTP_PROXY=http://127.0.0.1:7897 HTTPS_PROXY=http://127.0.0.1:7897 ALL_PROXY=http://127.0.0.1:7897 bun install
+```
+
+### vite 大版本升级必须用 overrides 统一
+
+vitest 会在 `node_modules/vitest/node_modules/vite/` 嵌套安装自己兼容的 vite 版本。当顶层 vite 和 vitest 内部 vite 跨大版本（如 vite 8 Rolldown vs vite 7 Rollup）时，`@vitejs/plugin-react` 返回的 Plugin 类型不兼容，typecheck 报 `hotUpdate` / `MinimalPluginContext` 类型冲突。
+
+解法：在 `package.json` 加 `overrides`（bun/npm）和 `pnpm.overrides` 强制统一：
+
+```json
+"overrides": { "vite": "^8.0.0" },
+"pnpm": { "overrides": { "vite": "^8.0.0" } }
+```
+
+### deploy:build 的 cp 命令缺少 mkdir -p
+
+`deploy:build` 脚本中 `cp node_modules/sql.js/dist/sql-wasm.wasm .next/standalone/node_modules/sql.js/dist/` 假设目标目录存在，但 Next.js standalone 不一定会 trace 到 sql.js。需要在 cp 前加 `mkdir -p`。
+
+### s deploy 环境变量加载的三个坑
+
+1. **shell source 解析失败**：`.env` 中 URL 含 `&` 字符，`source .env` 会报 `parse error near '&'`。用 node 脚本解析 `.env` 再 `source` 生成的 export 文件。
+2. **.env.production 占位值覆盖真实值**：`.env.production` 中 `LANGFUSE_SECRET_KEY="a"` 等占位值会覆盖 `.env.local` 的真实 key。部署时只加载 `.env` + `.env.local`，不加载 `.env.production`。
+3. **多次确认提示**：`s deploy` 会弹多个 Y/n 确认（函数配置 + trigger 配置），`echo "y"` 只能答一次，需要用 `yes | s deploy`。
+
+### Tailwind 4 codemod 的 rounded 重命名逻辑
+
+Tailwind 4 的 rename 不是简单的全局替换。`rounded-sm`（v3, 2px）→ `rounded-xs`（v4），`rounded`（v3, 4px）→ `rounded-sm`（v4）。codemod 会正确区分，但人工检查时容易误判"rounded-sm 没改"——实际上它可能是从旧 `rounded` 改过来的，语义正确。
 
 ## Development Principles
 1. All documentation in Chinese
