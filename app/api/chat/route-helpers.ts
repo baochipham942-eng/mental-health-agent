@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server.js';
-import { StreamData } from 'ai';
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import type { ChatUIMessage, ChatUIChunk } from '@/types/chat-ui-message';
 import { ChatService } from '@/lib/services/chat-service';
 import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import {
@@ -37,79 +37,62 @@ export function getSkillIntroMessage(skillType: SkillType): string {
 }
 
 /**
- * 创建固定字符串内容的流式响应，兼容 Vercel AI SDK data stream 协议。
+ * 写一段固定文本到 UIMessageStream writer
+ * （v6 没有 sendText helper，手动构造 text-start + text-delta + text-end 三个 chunk）
  */
-export function createFixedStreamResponse(content: string, data: StreamData): NextResponse {
-  const stream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(encoder.encode(`0:${JSON.stringify(content)}\n`));
-      data.close();
-      const reader = data.stream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(value);
-        }
-      } catch (e) {
-        console.error('Error reading data stream', e);
-      }
-      controller.close();
-    }
-  });
-
-  return new NextResponse(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-Vercel-AI-Data-Stream': 'v1',
-    },
-  });
+function writeFixedText(
+  writer: { write: (chunk: any) => void },
+  content: string,
+  textId: string = 'fixed-text',
+): void {
+  writer.write({ type: 'text-start', id: textId });
+  writer.write({ type: 'text-delta', id: textId, delta: content });
+  writer.write({ type: 'text-end', id: textId });
 }
 
 /**
- * 创建带技能卡的极速响应，完全跳过 LLM。
+ * 创建固定字符串内容的流式响应（input guard 阻断时用）
+ */
+export function createFixedStreamResponse(
+  content: string,
+  preludeParts: ChatUIChunk[] = [],
+): Response {
+  const stream = createUIMessageStream<ChatUIMessage>({
+    execute: ({ writer }) => {
+      for (const part of preludeParts) writer.write(part);
+      writeFixedText(writer, content);
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
+}
+
+/**
+ * 创建带技能卡的极速响应，完全跳过 LLM
  */
 export function createSkillCardStreamResponse(
   skillType: SkillType,
-  data: StreamData,
-  metadata: Record<string, any>
-): NextResponse {
+  metadata: {
+    emotion?: { label: string; score: number };
+    safety?: { label: string; score: number; reasoning: string; constraints: string[] };
+  },
+): Response {
   const skill = SKILL_CARDS[skillType];
+  const intro = getSkillIntroMessage(skillType);
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(encoder.encode(`0:${JSON.stringify(getSkillIntroMessage(skillType))}\n`));
-
-      data.append({
-        ...metadata,
-        routeType: 'support',
-        actionCards: [skill],
-        fastSkillResponse: true,
-      } as any);
-
-      data.close();
-      const reader = data.stream.getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(value);
-        }
-      } catch (e) {
-        console.error('Error reading data stream', e);
+  const stream = createUIMessageStream<ChatUIMessage>({
+    execute: ({ writer }) => {
+      writer.write({ type: 'data-route', data: { routeType: 'support' } });
+      if (metadata.emotion) {
+        writer.write({ type: 'data-emotion', data: metadata.emotion });
       }
-      controller.close();
-    }
-  });
-
-  return new NextResponse(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-Vercel-AI-Data-Stream': 'v1',
+      if (metadata.safety) {
+        writer.write({ type: 'data-safety', data: metadata.safety });
+      }
+      writer.write({ type: 'data-action-cards', data: { cards: [skill] } });
+      writeFixedText(writer, intro);
     },
   });
+  return createUIMessageStreamResponse({ stream });
 }
 
 export function createAssistantMessageSaver(sessionId?: string) {

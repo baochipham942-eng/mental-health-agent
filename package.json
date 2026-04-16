@@ -34,13 +34,16 @@
     "eval:academic:quick": "bun scripts/eval-academic/run.ts --limit 5 --skip-judge"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^0.0.72",
+    "@ai-sdk/deepseek": "^2",
+    "@ai-sdk/openai": "^3",
+    "@ai-sdk/openai-compatible": "^2",
+    "@ai-sdk/react": "^3",
     "@arco-design/web-react": "^2.66.13",
     "@auth/prisma-adapter": "^2.11.2",
     "@prisma/client": "5.22.0",
     "@tanstack/react-virtual": "^3.13.23",
     "@xenova/transformers": "^2.17.2",
-    "ai": "^3.4.33",
+    "ai": "^6",
     "baidu-aip-sdk": "^4.16.16",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",

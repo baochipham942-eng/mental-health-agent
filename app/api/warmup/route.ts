@@ -33,7 +33,7 @@ export async function POST() {
     await generateText({
       model: deepseek('deepseek-chat'),
       prompt: 'hi',
-      maxTokens: 1,
+      maxOutputTokens: 1,
     });
     results.llm = { ok: true, ms: Date.now() - llmStart };
   } catch {

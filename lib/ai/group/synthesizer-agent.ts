@@ -56,7 +56,7 @@ ${discussion}`;
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.6,
-        maxTokens: 400,
+        maxOutputTokens: 400,
       });
 
       if (text && text.trim().length > 0) return text;

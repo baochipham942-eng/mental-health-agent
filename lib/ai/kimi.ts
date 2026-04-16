@@ -9,7 +9,7 @@
  *   - 流式响应从第一个 chunk 就有 content，不会因 reasoning 超时导致空响应
  */
 
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 const KIMI_API_URL = process.env.KIMI_API_URL || 'https://cn.haioi.net/v1';
 const KIMI_API_KEY = process.env.KIMI_API_KEY;
@@ -21,7 +21,6 @@ const kimiNoReasoningFetch: typeof globalThis.fetch = async (input, init) => {
   if (init?.body && typeof init.body === 'string') {
     try {
       const body = JSON.parse(init.body);
-      // 仅对 kimi-k2.5 注入，其他模型不影响
       if (body.model?.startsWith('kimi-k2')) {
         body.reasoning_effort = 'none';
         init = { ...init, body: JSON.stringify(body) };
@@ -33,10 +32,12 @@ const kimiNoReasoningFetch: typeof globalThis.fetch = async (input, init) => {
   return globalThis.fetch(input, init);
 };
 
-export const kimi = createOpenAI({
+export const kimi = createOpenAICompatible({
+  name: 'kimi',
   baseURL: KIMI_API_URL,
   apiKey: KIMI_API_KEY,
   fetch: kimiNoReasoningFetch,
+  includeUsage: true,
 });
 
 // 默认模型：kimi-k2.5（通过 cn.haioi.net 代理）

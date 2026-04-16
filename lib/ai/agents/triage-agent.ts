@@ -90,7 +90,7 @@ class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {
                 { role: 'user', content: input.message }
             ],
             temperature: 0,
-            maxTokens: 220,
+            maxOutputTokens: 220,
         });
 
         const cleaned = text.trim().replace(/```json\n?|\n?```/g, '');

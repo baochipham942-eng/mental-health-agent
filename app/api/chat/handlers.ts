@@ -1,4 +1,28 @@
-import type { StreamData } from 'ai';
+import type { UIMessageStreamWriter } from 'ai';
+import type { ChatUIMessage, ChatUIChunk, AssessmentStageName, SkillCard } from '@/types/chat-ui-message';
+
+interface FirstTokenLogParams {
+  sessionId?: string;
+  userId?: string;
+  routeType: string;
+  requestStartedAt: number;
+  traceMetadata?: Record<string, any>;
+}
+
+/**
+ * 把 LLM 流接到 writer 上的统一入口：
+ *   1. 把 SDK 默认的宽 UIMessageStream 类型 cast 成 ChatUIMessage 的窄类型
+ *   2. 串接首字日志 transform
+ * 用法：writer.merge(pipeLLMStream(result, params))
+ */
+function pipeLLMStream(
+  result: { toUIMessageStream: () => ReadableStream<unknown> },
+  params: FirstTokenLogParams,
+): ReadableStream<ChatUIChunk> {
+  return (result.toUIMessageStream() as ReadableStream<ChatUIChunk>).pipeThrough(
+    createFirstTokenLogger<ChatUIChunk>(params),
+  );
+}
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
 import type { LlmProviderName } from '@/lib/llm';
@@ -26,7 +50,7 @@ type RefreshSummary = (params: {
 }) => void;
 
 interface BaseHandlerParams {
-  data: StreamData;
+  writer: UIMessageStreamWriter<ChatUIMessage>;
   message: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;
   processedHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
@@ -43,10 +67,30 @@ interface BaseHandlerParams {
 }
 
 /**
- * onFinish 回调工厂 — 统一处理 save/refresh/log/stream-close/quality-check
+ * 首字延迟日志 transform — 替代旧的 withStreamMetrics
+ * 在 LLM 流的第一个 chunk 时打 chat-first-token 日志
  */
-function createOnFinishCallback(params: {
-  data: StreamData;
+function createFirstTokenLogger<T>(params: FirstTokenLogParams): TransformStream<T, T> {
+  let logged = false;
+  return new TransformStream({
+    transform(chunk, controller) {
+      if (!logged) {
+        logged = true;
+        logInfo('chat-first-token', {
+          sessionId: params.sessionId,
+          userId: params.userId,
+          routeType: params.routeType,
+          llmFirstTokenMs: Date.now() - params.requestStartedAt,
+          ...params.traceMetadata,
+        });
+      }
+      controller.enqueue(chunk);
+    },
+  });
+}
+
+interface OnFinishCallbackParams {
+  writer: UIMessageStreamWriter<ChatUIMessage>;
   message: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;
   sessionId?: string;
@@ -63,14 +107,21 @@ function createOnFinishCallback(params: {
   afterFinish?: (text: string, toolCalls?: any[]) => void;
   /** 是否跳过质检 */
   skipQualityCheck?: boolean;
-  /** 额外的 stream append 字段 */
-  extraStreamData?: Record<string, any>;
-}) {
+  /** assessment stage 写入（assessment 路由专用） */
+  assessmentStage?: AssessmentStageName;
+  /** action cards 写入（assessment 结论专用） */
+  actionCards?: SkillCard[];
+}
+
+/**
+ * onFinish 回调工厂 — 统一处理 save/refresh/log/quality-check 以及结束阶段的 part 写入
+ */
+function createOnFinishCallback(params: OnFinishCallbackParams) {
   const {
-    data, message, history, sessionId, userId, requestStartedAt,
+    writer, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType, adaptiveMode,
-    extraMeta, afterFinish, skipQualityCheck, extraStreamData,
+    extraMeta, afterFinish, skipQualityCheck, assessmentStage, actionCards,
   } = params;
 
   return async (text: string, toolCalls?: any[]) => {
@@ -82,6 +133,10 @@ function createOnFinishCallback(params: {
         issues: guardResult.issues,
         sessionId,
         routeType,
+      });
+      writer.write({
+        type: 'data-guard-output-redacted',
+        data: { issues: guardResult.issues },
       });
     }
 
@@ -99,17 +154,12 @@ function createOnFinishCallback(params: {
       responseLength: safeText.length,
     });
 
-    data.append({
-      reply: safeText,
-      toolCalls,
-      safety: safetyData,
-      guardResult: {
-        safe: guardResult.safe,
-        issues: guardResult.issues,
-      },
-      ...extraStreamData,
-    } as any);
-    data.close();
+    if (assessmentStage) {
+      writer.write({ type: 'data-assessment-stage', data: { stage: assessmentStage } });
+    }
+    if (actionCards && actionCards.length > 0) {
+      writer.write({ type: 'data-action-cards', data: { cards: actionCards } });
+    }
 
     if (!skipQualityCheck && sessionId) {
       triggerQualityCheck({
@@ -133,73 +183,13 @@ function createOnFinishCallback(params: {
   };
 }
 
-function withStreamMetrics(
-  response: Response,
-  params: {
-    sessionId?: string;
-    userId?: string;
-    routeType: string;
-    requestStartedAt: number;
-    traceMetadata?: Record<string, any>;
-  }
-): Response {
-  if (!response.body) return response;
-
-  let firstChunkLogged = false;
-  const { sessionId, userId, routeType, requestStartedAt, traceMetadata } = params;
-
-  const stream = new ReadableStream({
-    start(controller) {
-      const reader = response.body!.getReader();
-
-      const pump = (): void => {
-        reader.read()
-          .then(({ done, value }) => {
-            if (done) {
-              controller.close();
-              return;
-            }
-
-            if (!firstChunkLogged) {
-              firstChunkLogged = true;
-              logInfo('chat-first-token', {
-                sessionId,
-                userId,
-                routeType,
-                llmFirstTokenMs: Date.now() - requestStartedAt,
-                ...traceMetadata,
-              });
-            }
-
-            controller.enqueue(value);
-            pump();
-          })
-          .catch((error) => {
-            controller.error(error);
-          });
-      };
-
-      pump();
-    },
-    cancel(reason) {
-      return response.body?.cancel(reason);
-    },
-  });
-
-  return new Response(stream, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
-}
-
 export async function handleCrisisRoute(params: BaseHandlerParams & {
   state?: string;
   emotionObj: { label: string; score: number };
   analysis: { safety: string };
-}): Promise<Response> {
+}): Promise<void> {
   const {
-    data,
+    writer,
     message,
     history,
     sessionId,
@@ -235,10 +225,11 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
 
   if (state === 'in_crisis' && isDeescalated) {
     logInfo('crisis-deescalation', { sessionId, userId });
-    data.append({ timestamp: new Date().toISOString(), routeType: 'support', state: 'normal', emotion: null });
+    writer.write({ type: 'data-route', data: { routeType: 'support' } });
+    writer.write({ type: 'data-state', data: { state: 'normal' } });
 
     const onDeescalateFinish = createOnFinishCallback({
-      data, message, history, sessionId, userId, requestStartedAt,
+      writer, message, history, sessionId, userId, requestStartedAt,
       saveAssistantMessage, scheduleConversationSummaryRefresh,
       safetyData, routeType: 'support', adaptiveMode,
       extraMeta: { state: stateData, agentTrace },
@@ -246,16 +237,13 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
     });
 
     const result = await streamSupportReply(message, history, { onFinish: onDeescalateFinish, traceMetadata });
-    return withStreamMetrics(result.toDataStreamResponse({ data }), {
-      sessionId,
-      userId,
-      routeType: 'support',
-      requestStartedAt,
-      traceMetadata,
-    });
+    writer.merge(pipeLLMStream(result, { sessionId, userId, routeType: 'support', requestStartedAt, traceMetadata }));
+    return;
   }
 
-  data.append({ timestamp: new Date().toISOString(), routeType: 'crisis', state: 'in_crisis', emotion: emotionObj });
+  writer.write({ type: 'data-route', data: { routeType: 'crisis' } });
+  writer.write({ type: 'data-state', data: { state: 'in_crisis' } });
+  writer.write({ type: 'data-emotion', data: emotionObj });
 
   if (userId && sessionId) {
     createCrisisEscalation({
@@ -268,20 +256,14 @@ export async function handleCrisisRoute(params: BaseHandlerParams & {
   }
 
   const onCrisisFinish = createOnFinishCallback({
-    data, message, history, sessionId, userId, requestStartedAt,
+    writer, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'crisis', adaptiveMode: 'guardian',
     extraMeta: { state: stateData, agentTrace },
   });
 
   const result = await streamCrisisReply(message, history, state === 'in_crisis', { onFinish: onCrisisFinish, traceMetadata });
-  return withStreamMetrics(result.toDataStreamResponse({ data }), {
-    sessionId,
-    userId,
-    routeType: 'crisis',
-    requestStartedAt,
-    traceMetadata,
-  });
+  writer.merge(pipeLLMStream(result, { sessionId, userId, routeType: 'crisis', requestStartedAt, traceMetadata }));
 }
 
 export async function handleSupportRoute(params: BaseHandlerParams & {
@@ -294,9 +276,9 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
   userPreferences: string[];
   providerOverride?: LlmProviderName;
   modelOverride?: string;
-}): Promise<Response> {
+}): Promise<void> {
   const {
-    data,
+    writer,
     message,
     processedHistory,
     sessionId,
@@ -321,39 +303,11 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     agentTrace,
   } = params;
 
-  if (process.env.MOCK_SUPPORT_REPLY === '1') {
-    const mockText = '我在本地运行，看起来你的状态需要支持。';
-    data.append({
-      reply: mockText,
-      routeType: 'support',
-      safety: safetyData,
-    } as any);
-    data.close();
-
-    const stream = new ReadableStream({
-      start(controller) {
-        const encoder = new TextEncoder();
-        controller.enqueue(encoder.encode(`0:${JSON.stringify(mockText)}\n`));
-        controller.close();
-      },
-    });
-
-    return withStreamMetrics(new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Vercel-AI-Data-Stream': 'v1',
-      },
-    }), {
-      sessionId,
-      userId,
-      routeType: 'support',
-      requestStartedAt,
-      traceMetadata,
-    });
-  }
+  // TODO: MOCK_SUPPORT_REPLY=1 mock 路径在 v6 升级时移除 —
+  // 如需恢复 mock，改用 streamText({model: createMockProvider(), ...}) 或 ai 的 simulateReadableStream
 
   let sfbtInstruction = undefined;
-  const sfbtMatch = message.match(/我完成了“(.+)”练习，现在感觉：.*\((\d+)分\)/);
+  const sfbtMatch = message.match(/我完成了"(.+)"练习，现在感觉：.*\((\d+)分\)/);
   if (sfbtMatch) {
     const [_, exerciseName, scoreStr] = sfbtMatch;
     const postScore = parseInt(scoreStr);
@@ -361,15 +315,12 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     logInfo('sfbt-trigger', { exerciseName, postScore });
   }
 
-  data.append({
-    timestamp: new Date().toISOString(),
-    routeType: 'support',
-    state: 'normal',
-    emotion: emotionObj,
-  });
+  writer.write({ type: 'data-route', data: { routeType: 'support' } });
+  writer.write({ type: 'data-state', data: { state: 'normal' } });
+  writer.write({ type: 'data-emotion', data: emotionObj });
 
   const onFinishWithMeta = createOnFinishCallback({
-    data, message, history, sessionId, userId, requestStartedAt,
+    writer, message, history, sessionId, userId, requestStartedAt,
     saveAssistantMessage, scheduleConversationSummaryRefresh,
     safetyData, routeType: 'support', adaptiveMode,
     extraMeta: { state: stateData, adaptiveMode, dialogueContext: dialogueCtx, agentTrace },
@@ -403,21 +354,15 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     modelOverride,
   });
 
-  return withStreamMetrics(result.toDataStreamResponse({ data }), {
-    sessionId,
-    userId,
-    routeType: 'support',
-    requestStartedAt,
-    traceMetadata,
-  });
+  writer.merge(pipeLLMStream(result, { sessionId, userId, routeType: 'support', requestStartedAt, traceMetadata }));
 }
 
 export async function handleAssessmentRoute(params: BaseHandlerParams & {
   assessmentStage?: string;
   memoryContext: string;
-}): Promise<Response> {
+}): Promise<void> {
   const {
-    data,
+    writer,
     message,
     history,
     processedHistory,
@@ -437,14 +382,14 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
 
   const onAssessmentFinish = async (text: string, toolCalls?: any[]) => {
     const isConclusion = toolCalls?.some(tc => tc.function.name === 'finish_assessment') || false;
-    const stage = isConclusion ? 'conclusion' : 'intake';
+    const stage: AssessmentStageName = isConclusion ? 'conclusion' : 'intake';
 
     const baseFinish = createOnFinishCallback({
-      data, message, history, sessionId, userId, requestStartedAt,
+      writer, message, history, sessionId, userId, requestStartedAt,
       saveAssistantMessage, scheduleConversationSummaryRefresh,
       safetyData, routeType: 'assessment', adaptiveMode,
       extraMeta: { state: stateData, routeType: 'assessment', assessmentStage: stage, agentTrace },
-      extraStreamData: { routeType: 'assessment', assessmentStage: stage },
+      assessmentStage: stage,
       afterFinish: () => {
         if (!isConclusion && sessionId) {
           analyzeConversationForStuckLoop(sessionId).then(result => {
@@ -466,11 +411,12 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
 
     const onConclusionFinish = async (text: string, actionCards: any[]) => {
       const baseFinish = createOnFinishCallback({
-        data, message, history, sessionId, userId, requestStartedAt,
+        writer, message, history, sessionId, userId, requestStartedAt,
         saveAssistantMessage, scheduleConversationSummaryRefresh,
         safetyData, routeType: 'assessment', adaptiveMode,
         extraMeta: { routeType: 'assessment', assessmentStage: 'conclusion', actionCards, agentTrace },
-        extraStreamData: { actionCards, routeType: 'assessment', assessmentStage: 'conclusion' },
+        assessmentStage: 'conclusion',
+        actionCards,
         skipQualityCheck: true,
       });
       await baseFinish(text);
@@ -478,28 +424,17 @@ export async function handleAssessmentRoute(params: BaseHandlerParams & {
 
     const conclusionResult = await streamAssessmentConclusion(initialMsg, followupStr, history, {
       traceMetadata,
-      onFinish: onConclusionFinish
+      onFinish: onConclusionFinish,
     });
-    return withStreamMetrics(conclusionResult.toDataStreamResponse({ data }), {
-      sessionId,
-      userId,
-      routeType: 'assessment',
-      requestStartedAt,
-      traceMetadata,
-    });
+    writer.merge(pipeLLMStream(conclusionResult, { sessionId, userId, routeType: 'assessment', requestStartedAt, traceMetadata }));
+    return;
   }
 
   const assessmentResult = await streamAssessmentReply(message, processedHistory, {
     traceMetadata,
     memoryContext,
-    onFinish: onAssessmentFinish
+    onFinish: onAssessmentFinish,
   });
 
-  return withStreamMetrics(assessmentResult.toDataStreamResponse({ data }), {
-    sessionId,
-    userId,
-    routeType: 'assessment',
-    requestStartedAt,
-    traceMetadata,
-  });
+  writer.merge(pipeLLMStream(assessmentResult, { sessionId, userId, routeType: 'assessment', requestStartedAt, traceMetadata }));
 }

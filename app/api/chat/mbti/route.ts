@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { StreamData } from 'ai';
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import type { ChatUIMessage, ChatUIChunk } from '@/types/chat-ui-message';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryContextService } from '@/lib/memory';
@@ -45,10 +46,12 @@ export async function POST(request: NextRequest) {
 
         // 2. 记忆上下文检索（只读）
         let memoryContext = '';
+        let memoryRetrieved = false;
         try {
             const { injectedText } = await memoryContextService.getContext(userId, messageContent);
             if (injectedText) {
                 memoryContext = `\n\n【用户背景记忆（仅供参考，无需主动提及，除非用户相关）】\n${injectedText}`;
+                memoryRetrieved = true;
             }
         } catch (e) {
             console.error('[MBTIChat] Failed to retrieve memories:', e);
@@ -84,13 +87,30 @@ ${memoryContext}
             });
         }
 
-        // 4. Stream Response
-        const result = await streamChatCompletion(coreMessages, {
-            temperature: 0.9,
-            max_tokens: 800,
+        // 4. Stream Response（v6 UIMessageStream — 顺带补 persona / memory part）
+        const stream = createUIMessageStream<ChatUIMessage>({
+            execute: async ({ writer }) => {
+                writer.write({
+                    type: 'data-persona',
+                    data: { mode: persona.name, reasoning: `MBTI: ${mbtiType}` },
+                });
+                if (memoryRetrieved) {
+                    writer.write({ type: 'data-memory', data: { retrieved: 'yes' } });
+                }
+
+                const result = await streamChatCompletion(coreMessages, {
+                    temperature: 0.9,
+                    max_tokens: 800,
+                });
+                writer.merge(result.toUIMessageStream() as ReadableStream<ChatUIChunk>);
+            },
+            onError: (error) => {
+                console.error('MBTI stream error:', error);
+                return error instanceof Error ? error.message : 'MBTI 处理失败';
+            },
         });
 
-        return result.toDataStreamResponse();
+        return createUIMessageStreamResponse({ stream });
 
     } catch (error: any) {
         console.error('MBTI Chat API Error:', error);

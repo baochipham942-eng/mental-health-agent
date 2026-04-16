@@ -45,7 +45,7 @@ export async function generateOpening(
 参与的大师有：${mentorList}
 请写一段开场白，引出话题并点名第一位发言者。`,
     temperature: 0.8,
-    maxTokens: 150,
+    maxOutputTokens: 150,
   });
 
   return text;
@@ -118,7 +118,7 @@ export async function generateTransition(
 上一轮讨论：
 ${summary}`,
     temperature: 0.7,
-    maxTokens: 120,
+    maxOutputTokens: 120,
   });
 
   const shouldEnd = text.includes('[END]') || roundNumber >= 3;

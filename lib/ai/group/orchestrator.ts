@@ -408,7 +408,7 @@ async function generateRound1Parallel(
                     model: getKimiModel(),
                     messages,
                     temperature: 0.9,
-                    maxTokens: 400,
+                    maxOutputTokens: 400,
                 }));
 
                 if (text && text.trim().length > 0) {
@@ -477,7 +477,7 @@ async function streamMentorReply(
                 model: getKimiModel(),
                 messages,
                 temperature: 0.9,
-                maxTokens: 400,
+                maxOutputTokens: 400,
             });
 
             for await (const chunk of result.textStream) {

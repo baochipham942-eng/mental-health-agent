@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import type { ChatUIMessage, ChatUIChunk } from '@/types/chat-ui-message';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryContextService } from '@/lib/memory';
@@ -118,86 +120,74 @@ ${memoryContext}
             });
         }
 
-        const result = await streamChatCompletion(coreMessages, {
-            temperature: 0.9,
-            max_tokens: 800,
-        });
-
-        // 6. Collect full reply for persistence (intercept stream)
-        const originalResponse = result.toDataStreamResponse();
-        const originalBody = originalResponse.body;
-        if (!originalBody) {
-            return originalResponse;
-        }
-
+        // 6. v6 UIMessageStream — 顺带写 persona/memory part，
+        //    用 onFinish 直接拿 fullReply（替代旧的手动 stream 拦截）
         let fullReply = '';
-        const reader = originalBody.getReader();
-        const decoder = new TextDecoder();
 
-        const interceptedStream = new ReadableStream({
-            async start(controller) {
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        // Forward chunk to client
-                        controller.enqueue(value);
-                        // Parse text content from stream
-                        const chunk = decoder.decode(value, { stream: true });
-                        for (const line of chunk.split('\n')) {
-                            if (line.startsWith('0:')) {
-                                try { fullReply += JSON.parse(line.slice(2)); } catch {}
-                            }
-                        }
-                    }
-                } finally {
-                    controller.close();
-
-                    // 7. Async: Save assistant message + extract insights
-                    const trimmedReply = fullReply.trim();
-                    if (trimmedReply && labSessionId) {
-                        // Save assistant message
-                        prisma.labMessage.create({
-                            data: {
-                                sessionId: labSessionId,
-                                role: 'assistant',
-                                content: trimmedReply,
-                                mentorId: mentor!.id,
-                                meta: { mentorId: mentor!.id, memoryRetrieved },
-                            },
-                        }).then(() =>
-                            // Update message count
-                            prisma.labSession.update({
-                                where: { id: labSessionId! },
-                                data: { messageCount: { increment: 2 } }, // user + assistant
-                            })
-                        ).catch(e => logError('mentor-chat-save-failed', { error: e?.message }));
-
-                        // Extract insights (async, non-blocking)
-                        const allMessages = [
-                            ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-                            { role: 'assistant', content: trimmedReply },
-                        ];
-                        extractLabInsights(userId, allMessages, 'mentor', mentorId || 'custom')
-                            .then(count => {
-                                if (count > 0) logInfo('mentor-chat-insights-extracted', { count });
-                            })
-                            .catch(e => logError('mentor-chat-insight-extraction-failed', { error: e?.message }));
-                    }
+        const stream = createUIMessageStream<ChatUIMessage>({
+            execute: async ({ writer }) => {
+                writer.write({
+                    type: 'data-persona',
+                    data: {
+                        mode: mentor!.name,
+                        reasoning: customMentor ? 'custom mentor' : `wisdom: ${mentor!.id}`,
+                    },
+                });
+                if (memoryRetrieved) {
+                    writer.write({ type: 'data-memory', data: { retrieved: 'yes' } });
                 }
+
+                const result = await streamChatCompletion(coreMessages, {
+                    temperature: 0.9,
+                    max_tokens: 800,
+                    onFinish: async (text) => { fullReply = text; },
+                });
+                writer.merge(result.toUIMessageStream() as ReadableStream<ChatUIChunk>);
+            },
+            onFinish: async () => {
+                // 7. Async: Save assistant message + extract insights
+                const trimmedReply = fullReply.trim();
+                if (trimmedReply && labSessionId) {
+                    prisma.labMessage.create({
+                        data: {
+                            sessionId: labSessionId,
+                            role: 'assistant',
+                            content: trimmedReply,
+                            mentorId: mentor!.id,
+                            meta: { mentorId: mentor!.id, memoryRetrieved },
+                        },
+                    }).then(() =>
+                        prisma.labSession.update({
+                            where: { id: labSessionId! },
+                            data: { messageCount: { increment: 2 } },
+                        }),
+                    ).catch(e => logError('mentor-chat-save-failed', { error: e?.message }));
+
+                    const allMessages = [
+                        ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                        { role: 'assistant', content: trimmedReply },
+                    ];
+                    extractLabInsights(userId, allMessages, 'mentor', mentorId || 'custom')
+                        .then(count => {
+                            if (count > 0) logInfo('mentor-chat-insights-extracted', { count });
+                        })
+                        .catch(e => logError('mentor-chat-insight-extraction-failed', { error: e?.message }));
+                }
+            },
+            onError: (error) => {
+                logError('mentor-chat-stream-error', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                return error instanceof Error ? error.message : '导师对话处理失败';
             },
         });
 
-        const headers = new Headers(originalResponse.headers);
+        const headers: Record<string, string> = {};
         if (labSessionId) {
-            headers.set('X-Lab-Session-Id', labSessionId);
+            headers['X-Lab-Session-Id'] = labSessionId;
         }
 
-        return new Response(interceptedStream, {
-            status: originalResponse.status,
-            statusText: originalResponse.statusText,
-            headers,
-        });
+        return createUIMessageStreamResponse({ stream, headers });
 
     } catch (error: any) {
         logError('mentor-chat-api-error', { error: error.message });
