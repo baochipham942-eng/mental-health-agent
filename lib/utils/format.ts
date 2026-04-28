@@ -1,9 +1,11 @@
-export function formatTime(timestamp: string): string {
+export function formatTime(timestamp: string | undefined | null): string {
+  if (!timestamp) return '刚刚';
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '刚刚';
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
-  
+
   if (minutes < 1) return '刚刚';
   if (minutes < 60) return `${minutes}分钟前`;
   

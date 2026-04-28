@@ -899,7 +899,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
 
         updateMessage(assistantMsgId, {
           content: responseData.reply,
-          timestamp: responseData.timestamp,
+          timestamp: responseData.timestamp || new Date().toISOString(),
           emotion: responseData.emotion,
           metadata: {
             ...mergeAssistantMetadata(
