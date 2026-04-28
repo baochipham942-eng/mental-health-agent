@@ -12,6 +12,18 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   output: 'standalone',
+  // Turbopack 会把 db-reader 的运行时 fs 探测误判成整仓库 trace，
+  // 实际不需要把 next.config.js 带进这些 eval 路由的 NFT。
+  outputFileTracingExcludes: {
+    '/api/eval/annotate': ['./next.config.js'],
+    '/api/eval/coding': ['./next.config.js'],
+    '/api/eval/compare': ['./next.config.js'],
+    '/api/eval/datasets': ['./next.config.js'],
+    '/api/eval/datasets/\\[caseId\\]': ['./next.config.js'],
+    '/api/eval/runs': ['./next.config.js'],
+    '/api/eval/runs/\\[runId\\]': ['./next.config.js'],
+    '/api/eval/runs/\\[runId\\]/cases': ['./next.config.js'],
+  },
   // Next 15+：原 experimental.serverComponentsExternalPackages
   // @xenova/transformers 依赖 onnxruntime-node 原生模块，不能被 webpack 打包
   serverExternalPackages: ['@xenova/transformers', 'onnxruntime-node', 'better-sqlite3', 'sql.js'],
@@ -62,7 +74,6 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
-
 
 
 

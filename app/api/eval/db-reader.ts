@@ -14,8 +14,8 @@ import path from 'path';
 import fs from 'fs';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
-const DEV_DB_PATH = path.join(process.cwd(), 'scripts/eval-academic/eval-academic.db');
-const PROD_BUNDLE_PATH = path.join(process.cwd(), 'data/eval/eval-academic.db');
+const DEV_DB_PATH = path.join(/* turbopackIgnore: true */ process.cwd(), 'scripts', 'eval-academic', 'eval-academic.db');
+const PROD_BUNDLE_PATH = path.join(/* turbopackIgnore: true */ process.cwd(), 'data', 'eval', 'eval-academic.db');
 const PROD_TMP_PATH = '/tmp/eval-academic.db';
 
 function resolveDbPath(): string | null {
@@ -33,11 +33,11 @@ function resolveDbPath(): string | null {
 /** 定位 sql-wasm.wasm 文件，兼容不同包管理器布局 */
 function resolveWasmPath(): Buffer | undefined {
   const candidates = [
-    path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.join(/* turbopackIgnore: true */ process.cwd(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
     // pnpm 嵌套路径（Vercel）
     ...(() => {
       try {
-        const sqlJsMain = require.resolve('sql.js');
+        const sqlJsMain = require.resolve(/* turbopackIgnore: true */ 'sql.js');
         return [path.join(path.dirname(sqlJsMain), 'sql-wasm.wasm')];
       } catch { return []; }
     })(),

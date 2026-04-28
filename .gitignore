@@ -43,3 +43,8 @@ next-env.d.ts
 cookies.txt
 .playwright-mcp/
 s.yaml
+
+# 本地 agent / 知识库副产品（不进 git，wiki 内容同步到 Obsidian Vault）
+/AGENTS.md
+/wiki/
+
