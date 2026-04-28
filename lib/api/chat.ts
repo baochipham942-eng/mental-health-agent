@@ -265,64 +265,60 @@ export async function sendChatMessage(options: {
           buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
 
           for (const line of lines) {
-            if (!line) continue;
+            if (!line || !line.startsWith('data: ')) continue;
+            const payload = line.slice(6);
+            if (payload === '[DONE]') continue;
 
-            if (line.startsWith('0:')) {
-              // Text chunk: 0:"text"
-              try {
-                const text = JSON.parse(line.substring(2));
-                accumulatedReply += text;
-                if (onTextChunk) {
-                  onTextChunk(text);
-                }
-              } catch (e) {
-                console.error('Error parsing text chunk', e);
-              }
-            } else if (line.startsWith('d:')) {
-              // Data chunk (Legacy): d:{...}
-              try {
-                const data = JSON.parse(line.substring(2));
-                assembledData = { ...assembledData, ...data };
-              } catch (e) {
-                console.error('Error parsing data chunk (d:)', e);
-              }
-            } else if (line.startsWith('2:')) {
-              // Data chunk (New Protocol): 2:[...]
-              try {
-                const data = JSON.parse(line.substring(2));
-                // Vercel SDK sends an array of data items
-                const items = Array.isArray(data) ? data : [data];
-                items.forEach(item => {
-                  if (item && typeof item === 'object') {
-                    const normalizedItem = item as Record<string, any>;
-                    if (!normalizedItem.webSearchProcess) {
-                      normalizedItem.webSearchProcess =
-                        normalizedItem.websearchProcess || normalizedItem['websearch-process'];
-                    }
-                  }
-                  // Special handling for array fields - concatenate instead of overwrite
-                  if (item.actionCards && assembledData.actionCards) {
-                    item.actionCards = [...assembledData.actionCards, ...item.actionCards];
-                  }
-                  assembledData = { ...assembledData, ...item };
-                  // Callback for real-time updates
-                  if (onDataChunk) {
-                    onDataChunk(assembledData);
-                  }
-                });
-              } catch (e) {
-                console.error('Error parsing data chunk (2:)', e);
-              }
-            } else if (line.startsWith('9:')) {
-              // Tool Call (New Protocol): 9:{...}
-              try {
-                const toolCall = JSON.parse(line.substring(2));
-                if (!assembledData.toolCalls) assembledData.toolCalls = [];
-                assembledData.toolCalls.push(toolCall);
-              } catch (e) {
-                console.error('Error parsing tool call chunk (9:)', e);
-              }
+            let chunk: any;
+            try {
+              chunk = JSON.parse(payload);
+            } catch (e) {
+              console.error('Error parsing SSE chunk', payload, e);
+              continue;
             }
+            if (!chunk || typeof chunk !== 'object') continue;
+
+            if (chunk.type === 'text-delta') {
+              if (typeof chunk.delta === 'string') {
+                accumulatedReply += chunk.delta;
+                if (onTextChunk) onTextChunk(chunk.delta);
+              }
+            } else if (chunk.type === 'error') {
+              console.error('[API] Stream error event:', chunk.errorText);
+              assembledData._streamError = chunk.errorText;
+            } else if (typeof chunk.type === 'string' && chunk.type.startsWith('data-')) {
+              // 把 data-action-cards 等 type 名转成 camelCase key
+              const camelKey = chunk.type
+                .slice(5)
+                .replace(/-(.)/g, (_: string, c: string) => c.toUpperCase());
+              if (chunk.data !== undefined) {
+                // 既挂到分组 key 下（兼容期待整对象的读取方），也平铺到顶层
+                // （兼容期待 routeType/assessmentStage 这种平铺字段的读取方）
+                assembledData[camelKey] = chunk.data;
+                if (chunk.data && typeof chunk.data === 'object' && !Array.isArray(chunk.data)) {
+                  if (
+                    Array.isArray((chunk.data as any).actionCards) &&
+                    Array.isArray(assembledData.actionCards)
+                  ) {
+                    (chunk.data as any).actionCards = [
+                      ...assembledData.actionCards,
+                      ...(chunk.data as any).actionCards,
+                    ];
+                  }
+                  Object.assign(assembledData, chunk.data);
+                }
+              }
+              if (onDataChunk) onDataChunk(assembledData);
+            } else if (chunk.type === 'tool-input-available') {
+              if (!assembledData.toolCalls) assembledData.toolCalls = [];
+              assembledData.toolCalls.push({
+                toolCallId: chunk.id,
+                toolName: chunk.toolName,
+                args: chunk.input,
+              });
+            }
+            // 其他 chunk type（start / start-step / text-start / text-end /
+            // finish-step / finish / tool-input-start / tool-input-delta）不影响 reply，忽略
           }
         }
       }
@@ -397,6 +393,17 @@ export async function sendChatMessage(options: {
       data = {
         ...data,
         reply: '',
+      };
+    }
+
+    // 优先处理 server 通过 SSE 发的 error event（v6 协议），让上层走 finalApiError 分支
+    if (assembledData._streamError && (!accumulatedReply || accumulatedReply.trim() === '')) {
+      return {
+        response: {} as ValidatedChatResponse,
+        error: {
+          error: String(assembledData._streamError),
+          details: 'STREAM_ERROR',
+        },
       };
     }
 
