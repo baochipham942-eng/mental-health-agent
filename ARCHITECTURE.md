@@ -267,7 +267,7 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 |----------|---------|---------|
 | DeepSeek | V3.2, V3.2 推理 | 中文对话基线，高性价比 |
 | Kimi | K2.5 | 中文长上下文 |
-| OpenAI | GPT-5.4, GPT-5, GPT-5 Mini | 英文基线，指令遵循 |
+| OpenAI | GPT-5.5, GPT-5, GPT-5.5 Mini | 英文基线，指令遵循 |
 | OpenRouter | Claude Opus/Sonnet 4.6, Gemini 3.1 Pro/Flash Lite | 安全性对比，多模型横评 |
 
 ### 4.4 6 层根因诊断

@@ -6,6 +6,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { streamText as sdkStreamText } from 'ai';
 import type { ChatMessage, ToolCall } from '@/lib/ai/deepseek';
+import { SDK_TOOLS } from '@/lib/ai/tools';
 import type { GenerateTextOptions, StreamTextOptions } from './index';
 
 type OpenAICompatChoice = {
@@ -135,6 +136,7 @@ export function createOpenAICompatProvider(config: ProviderConfig) {
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: options?.temperature ?? 0.7,
       maxOutputTokens: options?.max_tokens ?? 2000,
+      tools: options?.enableTools ? SDK_TOOLS : undefined,
       onFinish: async ({ text, usage, toolCalls }) => {
         if (options?.onFinish) {
           const formattedToolCalls = toolCalls?.map((tc: any) => ({

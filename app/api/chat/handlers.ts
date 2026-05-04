@@ -119,6 +119,62 @@ interface OnFinishCallbackParams {
   actionCards?: SkillCard[];
 }
 
+function getToolName(toolCall: any): string | undefined {
+  return toolCall?.toolName || toolCall?.function?.name;
+}
+
+function getToolInput(toolCall: any): Record<string, any> | undefined {
+  if (toolCall?.args && typeof toolCall.args === 'object') return toolCall.args;
+  if (toolCall?.input && typeof toolCall.input === 'object') return toolCall.input;
+
+  const rawArguments = toolCall?.function?.arguments;
+  if (!rawArguments) return undefined;
+
+  if (typeof rawArguments === 'object') return rawArguments;
+
+  try {
+    return JSON.parse(rawArguments);
+  } catch {
+    return undefined;
+  }
+}
+
+function findSkillCardToolCall(toolCalls?: any[]) {
+  return toolCalls?.find((tc: any) => getToolName(tc) === 'recommend_skill_card');
+}
+
+function buildSkillCardFallbackReply(toolCalls?: any[]): string | null {
+  const skillCall = findSkillCardToolCall(toolCalls);
+  if (!skillCall) return null;
+
+  const input = getToolInput(skillCall);
+  const widget = input?.card?.widget;
+
+  switch (widget) {
+    case 'breathing':
+      return '听起来这会儿身体和脑子都绷得很紧。先看下面这个呼吸练习，帮自己慢慢缓下来一点。';
+    case 'meditation':
+    case 'leaves_stream':
+      return '听起来脑子一直停不下来，确实很耗人。先看下面这个小练习，把注意力慢慢放回当下。';
+    case 'empty_chair':
+      return '这些话一直压在心里会很难受。先看下面这个练习，给自己一个把话说出来的空间。';
+    case 'mood_tracker':
+      return '现在的感受值得被认真看见。先看下面这张卡，把这一刻的情绪简单记录下来。';
+    default:
+      return '听起来这会儿确实有些紧绷。先看下面这个小练习，帮自己慢慢缓下来一点。';
+  }
+}
+
+function writeFixedText(
+  writer: UIMessageStreamWriter<ChatUIMessage>,
+  content: string,
+  textId: string = 'tool-fallback-text',
+): void {
+  writer.write({ type: 'text-start', id: textId });
+  writer.write({ type: 'text-delta', id: textId, delta: content });
+  writer.write({ type: 'text-end', id: textId });
+}
+
 /**
  * onFinish 回调工厂 — 统一处理 save/refresh/log/quality-check 以及结束阶段的 part 写入
  */
@@ -131,9 +187,13 @@ function createOnFinishCallback(params: OnFinishCallbackParams) {
   } = params;
 
   return async (text: string, toolCalls?: any[]) => {
+    const rawText = text.trim().length > 0
+      ? text
+      : buildSkillCardFallbackReply(toolCalls) ?? text;
+
     // Output guard — 检测有害内容/PII/系统泄露
-    const guardResult = guardOutput(text);
-    const safeText = guardResult.safe ? text : guardResult.redactedResponse;
+    const guardResult = guardOutput(rawText);
+    const safeText = guardResult.safe ? rawText : guardResult.redactedResponse;
     if (!guardResult.safe) {
       logWarn('output-guard-triggered', {
         issues: guardResult.issues,
@@ -144,6 +204,10 @@ function createOnFinishCallback(params: OnFinishCallbackParams) {
         type: 'data-guard-output-redacted',
         data: { issues: guardResult.issues },
       });
+    }
+
+    if (text.trim().length === 0 && safeText.trim().length > 0) {
+      writeFixedText(writer, safeText);
     }
 
     saveAssistantMessage(safeText, {
@@ -173,19 +237,19 @@ function createOnFinishCallback(params: OnFinishCallbackParams) {
         routeType,
         adaptiveMode,
         safetyLevel: safetyData.label,
-        reply: text,
+        reply: safeText,
         userMessage: message,
       });
     }
 
     // 漏斗埋点：检测技能推荐
-    if (toolCalls?.some((tc: any) => tc.function?.name === 'recommend_skill_card' || tc.toolName === 'recommend_skill_card')) {
-      const skillCall = toolCalls.find((tc: any) => tc.function?.name === 'recommend_skill_card' || tc.toolName === 'recommend_skill_card');
-      const skillType = skillCall?.function?.arguments ? JSON.parse(skillCall.function.arguments)?.widget : undefined;
+    const skillCall = findSkillCardToolCall(toolCalls);
+    if (skillCall) {
+      const skillType = getToolInput(skillCall)?.card?.widget;
       trackFunnel('l1_skill_recommended', { userId, sessionId, skillType }).catch(() => {});
     }
 
-    afterFinish?.(text, toolCalls);
+    afterFinish?.(safeText, toolCalls);
   };
 }
 

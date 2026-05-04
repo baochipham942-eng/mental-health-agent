@@ -127,7 +127,7 @@ async function testStreamText(model: string) {
 async function main() {
   requireEnv('OPENROUTER_API_KEY');
 
-  const model = process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-4.1-mini';
+  const model = process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-5.5';
   console.log('== OpenRouter Provider Smoke ==');
   console.log(`model=${model}`);
   console.log(`baseURL=${process.env.OPENROUTER_API_BASE_URL || 'https://openrouter.ai/api/v1'}`);

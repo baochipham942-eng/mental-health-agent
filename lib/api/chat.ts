@@ -16,7 +16,7 @@ const ChatResponseSchema = z.object({
     label: z.string(),
     score: z.number(),
   }).optional(),
-  timestamp: z.string(),
+  timestamp: z.string().optional(),
   routeType: z.enum(['crisis', 'assessment', 'support']),
   // state can be either a string (legacy) or an object (new format with reasoning)
   state: z.union([
@@ -77,7 +77,10 @@ const ChatResponseSchema = z.object({
     queryHint: z.string().optional(),
     error: z.string().optional(),
   }).optional(),
-  adaptiveMode: z.string().optional(),
+  adaptiveMode: z.union([
+    z.string(),
+    z.object({ mode: z.string() }),
+  ]).optional(),
   gate: z.object({
     pass: z.boolean(),
     fixed: z.boolean().optional(),
@@ -117,6 +120,58 @@ export interface ValidatedChatResponse extends ChatResponse {
     actionCards?: string;
     nextStepsLines?: string;
   };
+}
+
+function getToolInput(toolCall: any): Record<string, any> | undefined {
+  if (toolCall?.args && typeof toolCall.args === 'object') return toolCall.args;
+  if (toolCall?.input && typeof toolCall.input === 'object') return toolCall.input;
+
+  const rawArguments = toolCall?.function?.arguments;
+  if (!rawArguments) return undefined;
+  if (typeof rawArguments === 'object') return rawArguments;
+
+  try {
+    return JSON.parse(rawArguments);
+  } catch {
+    return undefined;
+  }
+}
+
+function getPrimaryActionWidget(data: {
+  actionCards?: Array<{ widget?: string }>;
+  toolCalls?: any[];
+}): string | undefined {
+  const cardWidget = data.actionCards?.find((card) => card?.widget)?.widget;
+  if (cardWidget) return cardWidget;
+
+  const skillCall = data.toolCalls?.find((call: any) =>
+    call?.toolName === 'recommend_skill_card' || call?.function?.name === 'recommend_skill_card'
+  );
+  return getToolInput(skillCall)?.card?.widget;
+}
+
+export function getStructuredReplyFallback(data: {
+  actionCards?: Array<{ widget?: string }>;
+  assistantQuestions?: string[];
+  toolCalls?: any[];
+}): string {
+  if (data.actionCards && data.actionCards.length > 0) {
+    switch (getPrimaryActionWidget(data)) {
+      case 'breathing':
+        return '听起来这会儿身体和脑子都绷得很紧。先看下面这个呼吸练习，帮自己慢慢缓下来一点。';
+      case 'meditation':
+      case 'leaves_stream':
+        return '听起来脑子一直停不下来，确实很耗人。先看下面这个小练习，把注意力慢慢放回当下。';
+      case 'empty_chair':
+        return '这些话一直压在心里会很难受。先看下面这个练习，给自己一个把话说出来的空间。';
+      case 'mood_tracker':
+        return '现在的感受值得被认真看见。先看下面这张卡，把这一刻的情绪简单记录下来。';
+      default:
+        return '听起来这会儿确实有些紧绷。先看下面这个小练习，帮自己慢慢缓下来一点。';
+    }
+  }
+
+  return '我先把能继续往下走的内容放在下面，你可以按自己的节奏看。';
 }
 
 /**
@@ -419,7 +474,7 @@ export async function sendChatMessage(options: {
       if (hasStructuredContent) {
         // Empty reply but has structured content - use a default message
         console.log('[API] Empty reply but has structured content, using default message');
-        data.reply = '请查看下方的建议：';
+        data.reply = getStructuredReplyFallback(data);
       } else {
         const errorMsg = '服务器返回了空回复';
         console.error('[API Error]', errorMsg, data);

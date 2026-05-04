@@ -17,7 +17,7 @@ async function main() {
   const baseUrl = normalizeBaseUrl(
     process.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1'
   );
-  const model = process.env.OPENAI_CHAT_MODEL || 'gpt-5.4';
+  const model = process.env.OPENAI_CHAT_MODEL || 'gpt-5.5';
 
   console.log('== OpenAI Responses Smoke ==');
   console.log(`model=${model}`);
@@ -49,7 +49,7 @@ async function main() {
           content: [
             {
               type: 'input_text',
-              text: '回复“5.4 可用”或说明不可用原因。',
+              text: '回复“5.5 可用”或说明不可用原因。',
             },
           ],
         },

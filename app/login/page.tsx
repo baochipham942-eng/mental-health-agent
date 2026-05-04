@@ -3,13 +3,22 @@
 import { useState, useEffect } from 'react';
 import { registerUser } from '@/lib/actions/register';
 import { signIn } from 'next-auth/react';
-import { Button, Input, Message, Avatar } from '@arco-design/web-react';
+import { Button, Input, Avatar } from '@arco-design/web-react';
 import { IconUser, IconLock, IconPhone, IconSafe } from '@arco-design/web-react/icon';
 import { useRouter } from 'next/navigation';
+
+type LoginNotice = { type: 'success' | 'warning' | 'error'; content: string };
+
+const NOTICE_STYLES: Record<LoginNotice['type'], string> = {
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    error: 'border-red-200 bg-red-50 text-red-700',
+};
 
 export default function LoginPage() {
     const router = useRouter();
     const [view, setView] = useState<'LOGIN' | 'REGISTER' | 'QUICK'>('LOGIN');
+    const [notice, setNotice] = useState<LoginNotice | null>(null);
 
     // Quick Login State
     const [quickUser, setQuickUser] = useState<{ nickname: string; avatar: string; phone: string; token: string } | null>(null);
@@ -34,6 +43,16 @@ export default function LoginPage() {
         }
     }, []);
 
+    useEffect(() => {
+        if (!notice) return;
+        const timer = setTimeout(() => setNotice(null), 3000);
+        return () => clearTimeout(timer);
+    }, [notice]);
+
+    const showNotice = (type: LoginNotice['type'], content: string) => {
+        setNotice({ type, content });
+    };
+
     // 标准登录处理
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -44,15 +63,15 @@ export default function LoginPage() {
 
         // 前端验证
         if (!username) {
-            Message.warning('请输入手机号或账号');
+            showNotice('warning', '请输入手机号或账号');
             return;
         }
         if (!password) {
-            Message.warning('请输入密码');
+            showNotice('warning', '请输入密码');
             return;
         }
         if (password.length < 6) {
-            Message.warning('密码至少需要6位');
+            showNotice('warning', '密码至少需要6位');
             return;
         }
 
@@ -66,14 +85,14 @@ export default function LoginPage() {
             });
 
             if (result?.ok && !result?.error) {
-                Message.success('登录成功！');
+                showNotice('success', '登录成功！');
                 router.push('/');
             } else {
-                Message.error(result?.error === 'CredentialsSignin' ? '账号或密码错误' : '登录失败，请重试');
+                showNotice('error', result?.error === 'CredentialsSignin' ? '账号或密码错误' : '登录失败，请重试');
             }
         } catch (error: any) {
             console.error('Login error:', error);
-            Message.error('登录发生错误，请稍后重试');
+            showNotice('error', '登录发生错误，请稍后重试');
         } finally {
             setIsLoggingIn(false);
         }
@@ -91,17 +110,17 @@ export default function LoginPage() {
             });
 
             if (result?.ok && !result?.error) {
-                Message.success('登录成功！');
+                showNotice('success', '登录成功！');
                 router.push('/');
             } else {
-                Message.error('快捷登录已过期，请重新登录');
+                showNotice('error', '快捷登录已过期，请重新登录');
                 setQuickUser(null);
                 localStorage.removeItem('quick_login_info');
                 setView('LOGIN');
             }
         } catch (e) {
             console.error('Quick login error:', e);
-            Message.error('快捷登录已过期，请重新登录');
+            showNotice('error', '快捷登录已过期，请重新登录');
             setQuickUser(null);
             localStorage.removeItem('quick_login_info');
             setView('LOGIN');
@@ -120,23 +139,23 @@ export default function LoginPage() {
 
         // 前端验证
         if (!phone) {
-            Message.warning('请输入手机号');
+            showNotice('warning', '请输入手机号');
             return;
         }
         if (!/^1[3-9]\d{9}$/.test(phone)) {
-            Message.warning('请输入有效的11位手机号');
+            showNotice('warning', '请输入有效的11位手机号');
             return;
         }
         if (!password) {
-            Message.warning('请设置密码');
+            showNotice('warning', '请设置密码');
             return;
         }
         if (password.length < 6) {
-            Message.warning('密码至少需要6位');
+            showNotice('warning', '密码至少需要6位');
             return;
         }
         if (!inviteCode) {
-            Message.warning('请输入邀请码');
+            showNotice('warning', '请输入邀请码');
             return;
         }
 
@@ -145,7 +164,7 @@ export default function LoginPage() {
         try {
             const result: any = await registerUser(undefined, formData);
             if (result.success && result.user) {
-                Message.success('注册成功！');
+                showNotice('success', '注册成功！');
 
                 // Save to LocalStorage
                 const userInfo = {
@@ -163,20 +182,20 @@ export default function LoginPage() {
                 });
 
                 if (loginResult?.ok && !loginResult?.error) {
-                    Message.success('自动登录成功！');
+                    showNotice('success', '自动登录成功！');
                     router.push('/');
                 } else {
                     console.error('Auto login failed:', loginResult?.error);
-                    Message.warning('注册成功，请手动登录');
+                    showNotice('warning', '注册成功，请手动登录');
                     setView('LOGIN');
                 }
             } else {
-                Message.error(result.error || '注册失败');
+                showNotice('error', result.error || '注册失败');
             }
         } catch (error: any) {
             console.error('Registration error:', error);
             const errorMessage = error?.message || error?.error || '注册发生错误，请稍后重试';
-            Message.error(errorMessage);
+            showNotice('error', errorMessage);
         } finally {
             setIsRegistering(false);
         }
@@ -194,6 +213,15 @@ export default function LoginPage() {
                 </div>
 
                 <div className="p-8">
+                    {notice && (
+                        <div
+                            role="status"
+                            className={`mb-4 rounded-lg border px-3 py-2 text-sm ${NOTICE_STYLES[notice.type]}`}
+                        >
+                            {notice.content}
+                        </div>
+                    )}
+
                     {/* QUICK LOGIN VIEW */}
                     {view === 'QUICK' && quickUser && (
                         <div className="space-y-6 text-center animate-fade-in">

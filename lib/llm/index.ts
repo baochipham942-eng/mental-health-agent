@@ -69,7 +69,7 @@ const openrouterProvider = createOpenAICompatProvider({
   name: 'OpenRouter',
   baseURL: process.env.OPENROUTER_API_BASE_URL || 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
-  defaultModel: process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-5.4-mini',
+  defaultModel: process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-5.5-mini',
   extraHeaders: {
     ...(process.env.OPENROUTER_HTTP_REFERER ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER } : {}),
     ...(process.env.OPENROUTER_APP_TITLE ? { 'X-Title': process.env.OPENROUTER_APP_TITLE } : {}),
@@ -87,7 +87,7 @@ const openaiLlmProvider = createOpenAICompatProvider({
   name: 'OpenAI',
   baseURL: process.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
   apiKey: process.env.OPENAI_API_KEY,
-  defaultModel: process.env.OPENAI_CHAT_MODEL || 'gpt-5.4',
+  defaultModel: process.env.OPENAI_CHAT_MODEL || 'gpt-5.5',
 });
 
 // =================================================================================

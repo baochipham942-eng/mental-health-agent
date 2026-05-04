@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useChatStore, CHAT_MODELS } from '@/store/chatStore';
-import { sendChatMessage } from '@/lib/api/chat';
+import { getStructuredReplyFallback, sendChatMessage } from '@/lib/api/chat';
 import { Message, SessionStatus } from '@/types/chat';
 import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
@@ -463,7 +463,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     // Determine timeout based on the state
     // If ONLY isLoading is stuck (isSending=false), stream is done, fast recovery
     // If BOTH are stuck, allow more time for remote request to finish (but not too long)
-    const timeoutMs = (isLoading && isSending) ? 5000 : 1500;
+    const timeoutMs = (isLoading && isSending) ? 30000 : 1500;
 
     const timer = setTimeout(() => {
       if (isLoading || isSending) {
@@ -893,7 +893,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         }
 
         if (isEmptyReply && hasStructuredContent) {
-          responseData.reply = '请查看下方的建议：';
+          responseData.reply = getStructuredReplyFallback(responseData);
           updateMessage(assistantMsgId, { content: responseData.reply });
         }
 

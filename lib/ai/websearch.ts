@@ -146,7 +146,7 @@ async function runOpenAIRealtimeSearch(query: string): Promise<{ summary: string
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: process.env.MENTAL_WEBSEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || 'gpt-5.4-mini',
+      model: process.env.MENTAL_WEBSEARCH_MODEL || process.env.OPENAI_CHAT_MODEL || 'gpt-5.5-mini',
       input: query,
       reasoning: { effort: 'low' },
       tools: [

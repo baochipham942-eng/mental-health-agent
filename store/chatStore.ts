@@ -23,7 +23,7 @@ export type ChatModelId = 'deepseek' | 'kimi' | 'openrouter';
 export const CHAT_MODELS: Record<ChatModelId, { label: string; modelName: string }> = {
   deepseek: { label: 'DeepSeek R3', modelName: 'deepseek-chat' },
   kimi: { label: 'Kimi K2.5', modelName: 'kimi-k2.5' },
-  openrouter: { label: 'GPT 5.4', modelName: 'openai/gpt-5.4' },
+  openrouter: { label: 'GPT 5.5', modelName: 'openai/gpt-5.5' },
 };
 
 // 组合类型：所有 slice 的联合

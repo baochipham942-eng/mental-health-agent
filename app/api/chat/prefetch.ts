@@ -18,15 +18,19 @@ export function startEarlyPrefetch(params: {
 }) {
   const { message, history } = params;
   const recentContext = history.slice(-2);
+  const isFirstTurn = history.length === 0;
+  const skipFirstTurnOrchestration = process.env.SKIP_FIRST_TURN_ORCHESTRATION === '1';
 
-  const orchestrationPromise = orchestrate({
-    message,
-    history: history as ChatMessage[],
-    recentHistory: recentContext,
-  }).catch((error) => {
-    logWarn('prefetch-orchestration-failed', { error: String(error) });
-    return null;
-  });
+  const orchestrationPromise = isFirstTurn && skipFirstTurnOrchestration
+    ? Promise.resolve(null)
+    : orchestrate({
+        message,
+        history: history as ChatMessage[],
+        recentHistory: recentContext,
+      }).catch((error) => {
+        logWarn('prefetch-orchestration-failed', { error: String(error) });
+        return null;
+      });
 
   const crisisCheckPromise = quickCrisisCheck(message);
 
@@ -110,7 +114,7 @@ export async function buildChatPrefetchContext(params: {
     : Promise.resolve(null);
 
   // lastAssistantMsg 也纳入并行批次（之前在 route.ts 中单独启动）
-  const lastAssistantMsgPromise = (sessionId && !shouldSkipDb)
+  const lastAssistantMsgPromise = (sessionId && !isFirstTurn && !shouldSkipDb)
     ? prisma.message.findFirst({
       where: { conversationId: sessionId, role: 'assistant' },
       orderBy: { createdAt: 'desc' },

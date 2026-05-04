@@ -50,7 +50,7 @@ export function getFastAgentConfig(): {
   if (providerName === 'openrouter') {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return { provider: null, providerName, model: process.env.OPENROUTER_FAST_MODEL || 'openai/gpt-5.4-mini' };
+      return { provider: null, providerName, model: process.env.OPENROUTER_FAST_MODEL || 'openai/gpt-5.5-mini' };
     }
 
     return {
@@ -60,7 +60,7 @@ export function getFastAgentConfig(): {
         apiKey,
       }),
       providerName,
-      model: process.env.OPENROUTER_FAST_MODEL || 'openai/gpt-5.4-mini',
+      model: process.env.OPENROUTER_FAST_MODEL || 'openai/gpt-5.5-mini',
     };
   }
 

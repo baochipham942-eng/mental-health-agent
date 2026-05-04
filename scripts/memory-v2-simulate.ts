@@ -18,7 +18,7 @@ async function openrouterChat(messages: Array<{ role: Role | 'system'; content: 
   json?: boolean;
 }) {
   const apiKey = requireEnv('OPENROUTER_API_KEY');
-  const model = process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-5.4';
+  const model = process.env.OPENROUTER_CHAT_MODEL || 'openai/gpt-5.5';
   const baseUrl = process.env.OPENROUTER_API_BASE_URL || 'https://openrouter.ai/api/v1';
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
