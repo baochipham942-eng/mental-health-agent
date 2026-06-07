@@ -283,6 +283,20 @@ vitest 会在 `node_modules/vitest/node_modules/vite/` 嵌套安装自己兼容�
 
 Tailwind 4 的 rename 不是简单的全局替换。`rounded-sm`（v3, 2px）→ `rounded-xs`（v4），`rounded`（v3, 4px）→ `rounded-sm`（v4）。codemod 会正确区分，但人工检查时容易误判"rounded-sm 没改"——实际上它可能是从旧 `rounded` 改过来的，语义正确。
 
+### fire-and-forget 后台任务不能放在流式响应外的微任务里（2026-06-07 #16 根因）
+
+**问题**：聊天对话从不生成记忆。根因是 `triggerAsyncMemoryExtraction(finalSessionId, finalUserId)` 放在 `createUIMessageStream(...)` 之外、用 `Promise.resolve().then()` 触发。但 `finalSessionId/finalUserId` 是在 stream 的 `execute` 回调里赋值的，而 execute 是**惰性的**（流被消费时才跑）；微任务先于 execute 执行，读到的 ID 是 `undefined`，触发函数 `if (!sessionId) return` 直接早退，且静默无日志。
+
+**通用原则**：
+1. **依赖"流式回调内才赋值的变量"的后台任务，必须放进回调内、在该变量确定之后触发**，不能放在创建流之后的外层微任务里——外层代码先于流回调执行。
+2. **serverless（Vercel/阿里云 FC）下，响应返回后的 fire-and-forget 不可靠**：实例可能被立刻冻结，含 LLM 调用的后台任务会半路被掐。用 `after()`(next/server) 包裹，运行时会等任务跑完再回收。封装成 `runAfterResponse()` 并带 try/catch 回退（不在 request scope 时退回 fire-and-forget），见 `route-helpers.ts`。
+3. **结构化输出（LLM → Zod）对单条越界要做 per-field 兜底**：用 `z.enum([...]).catch('默认值')`，否则一条脏数据（如 topic 越界）会让整批 `.parse()` 失败、好数据全丢。
+4. **静默 `catch → return []` 是排障黑洞**：抽取失败这类后台任务务必留 warn 日志，否则线上限流/超时时无人知晓（本项目 `MemoryExtractionLog` 表当前只读不写，已是反面教材）。
+
+### 调试归因要靠证据，别被"看起来合理"的假设带偏（2026-06-07 #16 过程教训）
+
+初判 #16 是"本地 openrouter 额度假象 + 20 轮 summary 门槛"，**被 DB 证据推翻**：切 DeepSeek 重现后聊天仍 0 候选、提取日志为空，才定位到真根因是竞态。教训：**怀疑环境/外部因素前，先用最小重现坐实**；DB 里的 `MemoryExtractionLog`、候选计数是比代码推理更硬的证据。
+
 ## Development Principles
 1. All documentation in Chinese
 2. Never discard previous docs - use incremental updates
