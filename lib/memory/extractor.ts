@@ -14,6 +14,7 @@ import { MEMORY_EXTRACTION_PROMPT } from './prompts';
 import { redactPII } from './redact';
 import { MemoryExtractionSchema } from '@/lib/ai/schemas';
 import type { ExtractedMemory, ConversationMessage } from './types';
+import { logError } from '@/lib/observability/logger';
 
 /**
  * 从对话消息中提取记忆
@@ -61,7 +62,14 @@ export async function extractMemoriesFromMessages(
             confidence: Math.min(1, Math.max(0.5, m.confidence || 0.8)),
         }));
     } catch (error) {
-        console.error('[MemoryExtractor] Extraction failed:', error);
+        // 结构化记录失败，让线上限流/超时/schema 不匹配等可观测（不再只 console.error 静默吞掉）。
+        // 仍返回 [] 以不打断调用方；调用方日志的 count:0 因此可能是「失败」也可能是「真无记忆」，
+        // 两者靠本条 ERROR 事件区分。
+        logError('memory-extraction-llm-failed', {
+            error: error instanceof Error ? error.message : String(error),
+            messageCount: messages.length,
+            provider: getMemoryLlmProvider(),
+        });
         return [];
     }
 }
