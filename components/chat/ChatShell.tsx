@@ -22,6 +22,28 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// 把上游/后端原始错误映射成友好的用户文案，避免把限流额度、provider URL、堆栈等技术细节裸糊到用户气泡里。
+// 原始错误仍保留在 metadata.originalError 中供调试，但不进入用户可见的 content。
+function friendlyChatError(rawError?: string, code?: string): string {
+  const raw = (rawError || '').toLowerCase();
+  const c = (code || '').toLowerCase();
+  const match = (...keys: string[]) => keys.some(k => raw.includes(k) || c.includes(k));
+
+  if (match('token', 'limit', 'quota', 'credit', 'exceed', 'rate', '429', 'insufficient')) {
+    return '刚才聊得有点久，我这边需要缓一下。你的消息已经帮你放回输入框了，稍等片刻再点发送就好。';
+  }
+  if (match('timeout', 'timed out', 'etimedout', 'deadline', '504', '408')) {
+    return '我想得有点慢，这次没能及时回上。你的消息已恢复到输入框，再试一次就好。';
+  }
+  if (match('content', 'moderation', 'safety', 'flagged', 'policy', 'blocked', 'sensitive')) {
+    return '这条内容我这边没法继续接下去。你的消息已恢复到输入框，可以换个说法再试试。';
+  }
+  if (match('network', 'fetch', 'econnreset', 'econnrefused', 'enotfound', 'socket', 'aborted')) {
+    return '网络好像断了一下，没连上我。你的消息已恢复到输入框，网络恢复后再点发送。';
+  }
+  return '抱歉，刚才出了点小状况，没能回上。你的消息已恢复到输入框，可以点击重试。';
+}
+
 type AssistantMessageMetadata = NonNullable<Message['metadata']>;
 
 function readStreamWebSearch(data: any): AssistantMessageMetadata['webSearch'] | undefined {
@@ -850,17 +872,19 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         console.log('[ChatShell] sendChatMessage returned', { hasError: !!finalApiError });
 
         if (finalApiError) {
+          const errorCode = (finalApiError as any).details || 'UNKNOWN_ERROR';
+          const friendly = friendlyChatError(finalApiError.error, errorCode);
           setDraft(originalContent);
           updateMessage(assistantMsgId, {
-            content: `发送失败：${finalApiError.error}。你的消息已恢复到输入框，可以点击重试。`,
+            content: friendly,
             metadata: {
               error: true,
-              errorCode: (finalApiError as any).details || 'UNKNOWN_ERROR',
-              originalError: finalApiError.error,
+              errorCode,
+              originalError: finalApiError.error, // 仅用于调试，不展示给用户
               isSystemError: true,
             }
           } as any);
-          setError(finalApiError.error);
+          setError(friendly);
           setIsSending(false);
           setLoading(false);
           return;
@@ -943,14 +967,15 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
       } catch (err: any) {
         console.error('[ChatShell] handleSend error:', err);
         setDraft(originalContent);
+        const friendly = friendlyChatError(err?.message);
         addMessage({
           id: generateId(),
           role: 'assistant',
-          content: `抱歉，发送过程中出现了未预料的错误：${err.message}。请检查控制台或稍后重试。`,
+          content: friendly,
           timestamp: new Date().toISOString(),
-          metadata: { error: true, isSystemError: true }
+          metadata: { error: true, isSystemError: true, originalError: err?.message }
         } as any);
-        setError(err.message);
+        setError(friendly);
       } finally {
         console.log('[ChatShell] handleSend finally block executing, resetting loading states');
         setIsSending(false);
