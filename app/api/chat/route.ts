@@ -543,10 +543,7 @@ export async function POST(request: NextRequest) {
             safetyData, stateData, adaptiveMode, state, emotionObj, analysis, agentTrace,
             sceneContext, webSearchDecision,
           });
-          return;
-        }
-
-        if (routeType === 'support') {
+        } else if (routeType === 'support') {
           await handleSupportRoute({
             writer, message, history, processedHistory, sessionId, userId, traceMetadata,
             requestStartedAt, saveAssistantMessage, scheduleConversationSummaryRefresh,
@@ -556,22 +553,26 @@ export async function POST(request: NextRequest) {
             modelOverride: effectiveModelOverride, agentTrace,
             sceneContext, webSearchDecision,
           });
-          return;
-        }
-
-        if (routeType === 'assessment') {
+        } else if (routeType === 'assessment') {
           await handleAssessmentRoute({
             writer, message, history, processedHistory, sessionId, userId, traceMetadata,
             requestStartedAt, saveAssistantMessage, scheduleConversationSummaryRefresh,
             safetyData, stateData, adaptiveMode, assessmentStage, memoryContext, agentTrace,
             sceneContext, webSearchDecision,
           });
-          return;
+        } else {
+          // Fallback — should not reach here
+          await saveAssistantMessage('Unexpected error: No route matched.');
+          throw new Error('Unexpected route match');
         }
 
-        // Fallback — should not reach here
-        await saveAssistantMessage('Unexpected error: No route matched.');
-        throw new Error('Unexpected route match');
+        // 记忆提取必须在 execute 内、handler 完成后触发：此处 sessionId/userId 已确定。
+        // 旧实现把触发放在 stream 创建后的微任务里（见下方已删代码），那时 execute 尚未执行、
+        // finalSessionId/finalUserId 仍是 undefined，导致 triggerAsyncMemoryExtraction 早退，
+        // 聊天记忆永不生成（#16 根因）。
+        if (sessionId && userId) {
+          triggerAsyncMemoryExtraction(sessionId, userId);
+        }
       },
       onError: (error) => {
         logError('chat-api-stream-error', {
@@ -580,9 +581,6 @@ export async function POST(request: NextRequest) {
         return error instanceof Error ? error.message : '聊天处理失败';
       },
     });
-
-    // 异步触发记忆提取 — 不阻塞响应
-    Promise.resolve().then(() => triggerAsyncMemoryExtraction(finalSessionId, finalUserId));
 
     return createUIMessageStreamResponse({ stream });
   });

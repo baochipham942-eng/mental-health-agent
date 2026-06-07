@@ -58,7 +58,10 @@ export const RelationshipSchema = z.object({
 });
 
 export const ExtractedMemorySchema = z.object({
-    topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning', 'communication_style']),
+    // 模型偶尔会返回枚举外的 topic（如把"喜欢钓鱼"标成 hobby/interest），
+    // 不兜底的话一条不合规就会让整批 memories 的 Zod 校验失败、记忆全部丢弃（#16 次因）。
+    // 用 .catch 让未知 topic 回落到 personal_context，保住记忆内容本身，只默认其分类。
+    topic: z.enum(['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning', 'communication_style']).catch('personal_context'),
     content: z.string(),
     confidence: z.number().min(0).max(1),
     entities: z.array(EntitySchema).optional(),
