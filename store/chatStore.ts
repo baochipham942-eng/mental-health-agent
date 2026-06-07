@@ -21,7 +21,7 @@ export interface SkillProgress {
 export type ChatModelId = 'deepseek' | 'kimi' | 'openrouter';
 
 export const CHAT_MODELS: Record<ChatModelId, { label: string; modelName: string }> = {
-  deepseek: { label: 'DeepSeek R3', modelName: 'deepseek-chat' },
+  deepseek: { label: 'DeepSeek V3', modelName: 'deepseek-chat' },
   kimi: { label: 'Kimi K2.5', modelName: 'kimi-k2.5' },
   openrouter: { label: 'GPT 5.5', modelName: 'openai/gpt-5.5' },
 };

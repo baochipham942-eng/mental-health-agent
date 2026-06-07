@@ -42,7 +42,7 @@ vi.mock('@/store/chatStore', () => ({
         setCurrentModel: vi.fn(),
     }),
     CHAT_MODELS: {
-        deepseek: { label: 'DeepSeek R3', modelName: 'deepseek-chat' },
+        deepseek: { label: 'DeepSeek V3', modelName: 'deepseek-chat' },
         kimi: { label: 'Kimi K2.5', modelName: 'kimi-k2.5' },
         openrouter: { label: 'GPT 5.5', modelName: 'openai/gpt-5.5' },
     },
