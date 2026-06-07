@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { MentorSection } from '@/components/settings/MentorSection';
 import { MBTISection } from '@/components/lab/MBTISection';
 import { CustomMasterSection } from '@/components/lab/CustomMasterSection';
@@ -19,9 +19,19 @@ export function LabContent() {
         { key: 'custom', label: '自定义大师', icon: '✨', activeColor: 'text-indigo-700' },
     ];
 
-    const tabWidth = 130;
-    const activeIndex = tabs.findIndex(t => t.key === activeTab);
-    const pillLeft = 6 + activeIndex * tabWidth; // 1.5 = 6px padding
+    // 测量真实按钮位置/宽度来定位高亮 pill，避免写死宽度导致热区与可见文字错位、指示器滞后
+    const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+    const [pill, setPill] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+
+    useLayoutEffect(() => {
+        const updatePill = () => {
+            const el = tabRefs.current[activeTab];
+            if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth });
+        };
+        updatePill();
+        window.addEventListener('resize', updatePill);
+        return () => window.removeEventListener('resize', updatePill);
+    }, [activeTab]);
 
     return (
         <div className="w-full">
@@ -34,23 +44,23 @@ export function LabContent() {
             {/* Tab Navigation */}
             <div className="flex justify-center mb-8">
                 <div className="bg-gray-100/80 p-1.5 rounded-full inline-flex relative">
-                    {/* Animated Background Pill */}
+                    {/* Animated Background Pill - 宽度/位置由真实按钮测量得出 */}
                     <div
                         className="absolute top-1.5 bottom-1.5 rounded-full bg-white shadow-xs transition-all duration-300 ease-in-out pointer-events-none"
-                        style={{ left: pillLeft, width: tabWidth }}
+                        style={{ left: pill.left, width: pill.width, opacity: pill.width ? 1 : 0 }}
                     />
 
                     {tabs.map((tab) => (
                         <button
                             key={tab.key}
+                            ref={(el) => { tabRefs.current[tab.key] = el; }}
                             onClick={() => setActiveTab(tab.key)}
                             className={cn(
-                                "relative z-10 py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-300 flex items-center justify-center gap-1.5",
+                                "relative z-10 py-2 px-4 rounded-full text-sm font-semibold transition-colors duration-300 flex items-center justify-center gap-1.5 whitespace-nowrap",
                                 activeTab === tab.key
                                     ? tab.activeColor
                                     : "text-gray-500 hover:text-gray-700"
                             )}
-                            style={{ width: tabWidth }}
                         >
                             <span>{tab.icon} {tab.label}</span>
                         </button>
