@@ -55,8 +55,9 @@ export function HomePageClient(props: HomePageClientProps) {
           if (MOOD_THEMES[moodKey]) {
             applyMoodColor(MOOD_THEMES[moodKey].color);
           }
-          // 直接进入新对话
-          router.push('/');
+          // 直接进入新对话（#4：原为 router.push('/') 会落到会话列表 dashboard，
+          // 情绪铺垫后还要再点一次"开始新对话"，体验断点。改为直达新对话页）
+          router.push('/c/new');
         }}
       />
     );
