@@ -27,6 +27,7 @@ interface User {
     phone: string | null;
     createdAt: string;
     lastLoginAt: string | null;
+    lastActiveAt: string | null;
     conversationCount: number;
     conversationMessageCount: number;
     labSessionCount: number;
@@ -47,7 +48,7 @@ export default function UsersPage() {
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [search, setSearch] = useState('');
-    const [sortBy, setSortBy] = useState('lastLoginAt');
+    const [sortBy, setSortBy] = useState('lastActiveAt');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const pageSize = 20;
 
@@ -177,8 +178,8 @@ export default function UsersPage() {
             ),
         },
         {
-            title: '上次登录',
-            dataIndex: 'lastLoginAt',
+            title: '最近活跃',
+            dataIndex: 'lastActiveAt',
             width: 160,
             sorter: true,
             render: (date: string | null) => (

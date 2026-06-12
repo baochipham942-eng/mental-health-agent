@@ -6,6 +6,49 @@ import { isAdminSession } from '@/lib/auth/admin';
 
 export const dynamic = 'force-dynamic';
 
+const userListSelect = {
+    id: true,
+    username: true,
+    nickname: true,
+    avatar: true,
+    phone: true,
+    createdAt: true,
+    lastLoginAt: true,
+    lastSessionAt: true,
+    _count: {
+        select: {
+            conversations: true,
+            labSessions: true,
+        },
+    },
+    conversations: {
+        select: {
+            updatedAt: true,
+            _count: {
+                select: { messages: true }
+            }
+        }
+    },
+    labSessions: {
+        select: {
+            updatedAt: true,
+            messageCount: true
+        }
+    }
+} satisfies Prisma.UserSelect;
+
+type UserListRow = Prisma.UserGetPayload<{ select: typeof userListSelect }>;
+type FormattedUser = ReturnType<typeof formatUser>;
+
+const dbSortFields = new Set(['createdAt', 'lastLoginAt', 'nickname', 'username']);
+const computedSortFields = new Set([
+    'lastActiveAt',
+    'conversationCount',
+    'conversationMessageCount',
+    'labSessionCount',
+    'labMessageCount',
+]);
+
 /**
  * 手机号脱敏处理
  * 例如: 13812345678 -> 138****5678
@@ -14,6 +57,70 @@ function maskPhone(phone: string | null): string | null {
     if (!phone) return null;
     if (phone.length < 7) return phone;
     return phone.slice(0, 3) + '****' + phone.slice(-4);
+}
+
+function getLatestDate(...dates: Array<Date | null | undefined>): Date | null {
+    return dates.reduce<Date | null>((latest, date) => {
+        if (!date) return latest;
+        if (!latest || date.getTime() > latest.getTime()) return date;
+        return latest;
+    }, null);
+}
+
+function formatUser(user: UserListRow) {
+    const conversationMessageCount = user.conversations.reduce(
+        (sum, conv) => sum + conv._count.messages,
+        0
+    );
+    const labMessageCount = user.labSessions.reduce(
+        (sum, lab) => sum + (lab.messageCount || 0),
+        0
+    );
+    const lastConversationAt = getLatestDate(...user.conversations.map((conv) => conv.updatedAt));
+    const lastLabSessionAt = getLatestDate(...user.labSessions.map((lab) => lab.updatedAt));
+    const lastActiveAt = getLatestDate(
+        user.lastLoginAt,
+        user.lastSessionAt,
+        lastConversationAt,
+        lastLabSessionAt
+    );
+
+    // 管理员手机号列表
+    const adminPhones = ['15110203706', '18717878760'];
+    const adminUsernames = ['demo', '15110203706', '18717878760'];
+
+    return {
+        id: user.id,
+        username: user.username,
+        nickname: user.nickname || user.username,
+        avatar: user.avatar,
+        phone: maskPhone(user.phone),
+        createdAt: user.createdAt.toISOString(),
+        lastLoginAt: user.lastLoginAt?.toISOString() || null,
+        lastActiveAt: lastActiveAt?.toISOString() || null,
+        conversationCount: user._count.conversations,
+        conversationMessageCount,
+        labSessionCount: user._count.labSessions,
+        labMessageCount,
+        isAdmin: adminUsernames.includes(user.username) || Boolean(user.phone && adminPhones.includes(user.phone)),
+    };
+}
+
+function getComputedSortValue(user: FormattedUser, sortBy: string): number {
+    switch (sortBy) {
+        case 'lastActiveAt':
+            return user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
+        case 'conversationCount':
+            return user.conversationCount;
+        case 'conversationMessageCount':
+            return user.conversationMessageCount;
+        case 'labSessionCount':
+            return user.labSessionCount;
+        case 'labMessageCount':
+            return user.labMessageCount;
+        default:
+            return 0;
+    }
 }
 
 /**
@@ -34,8 +141,11 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = parseInt(searchParams.get('pageSize') || '20');
         const search = searchParams.get('search') || '';
-        const sortBy = searchParams.get('sortBy') || 'createdAt';
-        const sortOrder = searchParams.get('sortOrder') || 'desc';
+        const requestedSortBy = searchParams.get('sortBy') || 'lastActiveAt';
+        const sortBy = dbSortFields.has(requestedSortBy) || computedSortFields.has(requestedSortBy)
+            ? requestedSortBy
+            : 'lastActiveAt';
+        const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
         const skip = (page - 1) * pageSize;
 
         // 构建搜索条件
@@ -51,81 +161,35 @@ export async function GET(request: NextRequest) {
         const total = await prisma.user.count({ where: whereCondition });
 
         // 查询用户列表（包含会话数和实验室会话数统计）
-        // 当按 lastLoginAt 排序时：有登录记录的按登录时间排序，没有的按注册时间排序
+        // lastActiveAt 是展示层合成字段，取 lastLoginAt / lastSessionAt / 最近会话更新时间的最大值。
         const orderByClause: Prisma.UserOrderByWithRelationInput[] = sortBy === 'lastLoginAt'
             ? [
                 { lastLoginAt: { sort: sortOrder as Prisma.SortOrder, nulls: 'last' } },
                 { createdAt: sortOrder as Prisma.SortOrder }
               ]
+            : computedSortFields.has(sortBy)
+            ? [{ createdAt: sortOrder as Prisma.SortOrder }]
             : [{ [sortBy]: sortOrder as Prisma.SortOrder }];
 
+        const shouldSortInMemory = computedSortFields.has(sortBy);
         const users = await prisma.user.findMany({
             where: whereCondition,
-            skip,
-            take: pageSize,
+            skip: shouldSortInMemory ? undefined : skip,
+            take: shouldSortInMemory ? undefined : pageSize,
             orderBy: orderByClause,
-            select: {
-                id: true,
-                username: true,
-                nickname: true,
-                avatar: true,
-                phone: true,
-                createdAt: true,
-                lastLoginAt: true,
-                _count: {
-                    select: {
-                        conversations: true,
-                        labSessions: true,
-                    },
-                },
-                // 包含会话和实验室数据用于计算对话次数
-                conversations: {
-                    select: {
-                        _count: {
-                            select: { messages: true }
-                        }
-                    }
-                },
-                labSessions: {
-                    select: {
-                        messageCount: true
-                    }
-                }
-            },
+            select: userListSelect,
         });
 
-        // 管理员手机号列表
-        const adminPhones = ['15110203706', '18717878760'];
-        const adminUsernames = ['demo', '15110203706', '18717878760'];
-
-        // 格式化响应，脱敏手机号，标记管理员
-        const formattedUsers = users.map((user) => {
-            // 计算咨询会话的总对话次数
-            const conversationMessageCount = user.conversations.reduce(
-                (sum, conv) => sum + conv._count.messages,
-                0
-            );
-            // 计算实验室的总对话次数
-            const labMessageCount = user.labSessions.reduce(
-                (sum, lab) => sum + (lab.messageCount || 0),
-                0
-            );
-
-            return {
-                id: user.id,
-                username: user.username,
-                nickname: user.nickname || user.username,
-                avatar: user.avatar,
-                phone: maskPhone(user.phone),
-                createdAt: user.createdAt.toISOString(),
-                lastLoginAt: user.lastLoginAt?.toISOString() || null,
-                conversationCount: user._count.conversations,
-                conversationMessageCount, // 咨询会话对话次数
-                labSessionCount: user._count.labSessions,
-                labMessageCount, // 实验室对话次数
-                isAdmin: adminUsernames.includes(user.username) || (user.phone && adminPhones.includes(user.phone)),
-            };
-        });
+        const formattedUsers = users.map(formatUser);
+        const pageUsers = shouldSortInMemory
+            ? formattedUsers
+                .sort((a, b) => {
+                    const aValue = getComputedSortValue(a, sortBy);
+                    const bValue = getComputedSortValue(b, sortBy);
+                    return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+                })
+                .slice(skip, skip + pageSize)
+            : formattedUsers;
 
         // 统计数据
         const todayStart = new Date();
@@ -148,7 +212,7 @@ export async function GET(request: NextRequest) {
             total,
             page,
             pageSize,
-            users: formattedUsers,
+            users: pageUsers,
             stats: {
                 totalUsers,
                 todayNewUsers,
