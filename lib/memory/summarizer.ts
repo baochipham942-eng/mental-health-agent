@@ -9,6 +9,12 @@ import { getConversationUserId, findSessionSummaryV2Emotion } from './data-bridg
 import { recordSessionMetrics } from '@/lib/ai/progress/tracker';
 import { sessionSummaryV2Writer } from './session-summary-v2-writer';
 
+export type SummaryMessage = { role: string; content?: string | null };
+
+export const ROLLING_SUMMARY_USER_TURN_THRESHOLD = 20;
+export const ROLLING_SUMMARY_USER_TURN_GAP = 8;
+export const EXIT_SUMMARY_MIN_USER_TURNS = 2;
+
 /**
  * 为一组消息生成摘要
  */
@@ -37,17 +43,28 @@ export async function generateSummary(messages: Array<{ role: string; content: s
     }
 }
 
+export function countUserTurns(messages: SummaryMessage[]): number {
+    return messages.filter(m => m.role === 'user' && (m.content || '').trim().length > 0).length;
+}
+
 /**
  * 判断是否需要对会话进行摘要
- * 规则：消息数量超过 threshold 且距离上次摘要超过 gap 轮
+ * 规则：用户回合数超过 threshold 且距离上次摘要超过 gap 轮
  */
 export function shouldSummarize(
-    messageCount: number,
-    currentThreshold: number = 20,
-    summaryGap: number = 8
+    userTurnCount: number,
+    currentThreshold: number = ROLLING_SUMMARY_USER_TURN_THRESHOLD,
+    summaryGap: number = ROLLING_SUMMARY_USER_TURN_GAP
 ): boolean {
-    if (messageCount < currentThreshold) return false;
-    return (messageCount - currentThreshold) % summaryGap === 0;
+    if (userTurnCount < currentThreshold) return false;
+    return (userTurnCount - currentThreshold) % summaryGap === 0;
+}
+
+export function shouldSummarizeOnSessionEnd(
+    messages: SummaryMessage[],
+    minUserTurns: number = EXIT_SUMMARY_MIN_USER_TURNS
+): boolean {
+    return countUserTurns(messages) >= minUserTurns;
 }
 
 /**

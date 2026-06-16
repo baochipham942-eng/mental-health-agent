@@ -249,7 +249,7 @@ export default function LoginPage() {
                             </Button>
 
                             <div className="pt-2">
-                                <Button type="text" size="small" className="text-gray-400 hover:text-gray-600" onClick={() => setView('LOGIN')}>
+                                <Button type="text" size="small" className="text-gray-600 hover:text-gray-900" onClick={() => setView('LOGIN')}>
                                     切换账号
                                 </Button>
                             </div>
@@ -296,7 +296,7 @@ export default function LoginPage() {
                             </form>
 
                             <div className="mt-6 flex items-center justify-between text-sm">
-                                <span className="text-gray-400">还没有账号？</span>
+                                <span className="text-gray-600">还没有账号？</span>
                                 <Button type="text" className="px-0 text-indigo-600 font-medium" onClick={() => setView('REGISTER')}>
                                     立即注册
                                 </Button>
@@ -356,7 +356,7 @@ export default function LoginPage() {
                                 </Button>
                             </form>
                             <div className="mt-6 text-center">
-                                <Button type="text" className="text-gray-500" onClick={() => setView('LOGIN')}>
+                                <Button type="text" className="text-gray-600 hover:text-gray-900" onClick={() => setView('LOGIN')}>
                                     返回登录
                                 </Button>
                             </div>

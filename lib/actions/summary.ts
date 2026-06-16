@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { generateSessionSummary } from '@/lib/ai/summary';
 import { evaluateAndSaveConversation } from './evaluation';
+import { shouldSummarizeOnSessionEnd } from '@/lib/memory/summarizer';
 
 /**
  * 为指定会话生成摘要
@@ -46,9 +47,9 @@ export async function generateSummaryForSession(conversationId: string) {
             return existingSummary;
         }
 
-        // 3. 检查消息数量（至少需要 2 条消息）
-        if (conversation.messages.length < 2) {
-            console.warn('[Server Action] Not enough messages for summary, need at least 2');
+        // 3. 检查用户回合数：短聊至少需要 2 个用户回合，避免问候和空泛单轮生成噪声摘要。
+        if (!shouldSummarizeOnSessionEnd(conversation.messages)) {
+            console.warn('[Server Action] Not enough user turns for summary, need at least 2');
             // 返回一个简单的 fallback 摘要（包含 UI 必需字段）
             return {
                 id: 'fallback',

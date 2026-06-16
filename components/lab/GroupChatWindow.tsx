@@ -249,7 +249,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                 继续讨论
                             </button>
                             <button
-                                onClick={() => sendMessage('请各位对刚才的讨论做一个简短的总结。')}
+                                onClick={() => sendMessage('请各位对刚才的讨论做一个简短的总结。', 'summarize')}
                                 className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                             >
                                 总结观点

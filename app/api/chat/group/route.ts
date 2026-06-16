@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { orchestrateGroupChat, GroupMode, GroupSSEPayload } from '@/lib/ai/group/orchestrator';
+import { orchestrateGroupChat, type GroupIntent, type GroupMode, type GroupSSEPayload } from '@/lib/ai/group/orchestrator';
 import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
 import { prisma } from '@/lib/db/prisma';
 import { extractLabInsights } from '@/lib/memory/lab-extractor';
@@ -23,11 +23,12 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { messages, mentorIds, mode, topic } = body as {
-            messages: Array<{ role: 'user' | 'assistant'; content: string; mentorId?: string }>;
+        const { messages, mentorIds, mode, topic, intent = 'discuss' } = body as {
+            messages: Array<{ role: 'user' | 'assistant'; content: string; mentorId?: string; round?: number }>;
             mentorIds: string[];
             mode: GroupMode;
             topic?: string;
+            intent?: GroupIntent;
         };
 
         if (!mentorIds || !Array.isArray(mentorIds) || mentorIds.length < 2 || mentorIds.length > 4) {
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: '消息不能为空' }, { status: 400 });
+        }
+
+        if (intent !== 'discuss' && intent !== 'summarize') {
+            return NextResponse.json({ error: '不支持的圆桌操作' }, { status: 400 });
         }
 
         const lastUserMsg = messages.filter(m => m.role === 'user').pop();
@@ -58,6 +63,7 @@ export async function POST(request: NextRequest) {
                         mode,
                         topic,
                         messages,
+                        intent,
                     });
 
                     for await (const event of generator) {

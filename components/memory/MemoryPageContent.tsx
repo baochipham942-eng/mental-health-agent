@@ -54,6 +54,19 @@ const TOPIC_CONFIG: Record<string, {
 // Tab顺序
 const TAB_ORDER = ['emotional_pattern', 'coping_preference', 'personal_context', 'therapy_progress', 'trigger_warning'];
 
+// 清洗记忆文案（用户可见层）：
+// 1) 去掉形如 "[实验室洞察:trigger_topic]" 的内部抽取标签前缀，不该暴露给用户
+// 2) 把临床第三人称"用户"改成更亲和的"你"，贴合"解压搭子"去医疗化定位
+function sanitizeMemoryContent(raw: string): string {
+    if (!raw) return raw;
+    let text = raw.trim();
+    // 去掉一个或多个开头的 [xxx] 内部标签
+    text = text.replace(/^(\s*\[[^\]]*\]\s*)+/, '');
+    // 第二人称化，避免案例笔记口吻
+    text = text.replace(/用户/g, '你');
+    return text.trim();
+}
+
 // V2 ProfileMemory kind → 前端 topic 映射
 const KIND_TO_TOPIC: Record<string, string> = {
     trigger: 'trigger_warning',
@@ -117,12 +130,19 @@ export function MemoryPageContent() {
             const res = await fetch('/api/memory');
             if (!res.ok) throw new Error('获取记忆失败');
             const data = await res.json();
-            // API 返回 ProfileMemory（kind 字段），映射为前端 topic
+            // API 返回 ProfileMemory（kind 字段），映射为前端 topic，并清洗用户可见文案
             const mapped = (data.memories || []).map((m: any) => ({
                 ...m,
+                content: sanitizeMemoryContent(m.content),
                 topic: m.topic || KIND_TO_TOPIC[m.kind] || 'personal_context',
             }));
             setMemories(mapped);
+            // 默认落到第一个有内容的 Tab，避免一进页面就停在空分类显示"暂无…"
+            const topicOf = (m: any) => m.topic || KIND_TO_TOPIC[m.kind || ''] || 'personal_context';
+            setActiveTab(prev => {
+                if (mapped.some((m: any) => topicOf(m) === prev)) return prev;
+                return TAB_ORDER.find(t => mapped.some((m: any) => topicOf(m) === t)) || prev;
+            });
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -243,7 +263,7 @@ export function MemoryPageContent() {
                         {/* Phase 3 Visualization: Memory Strength */}
                         <StrengthIndicator strength={memory.memoryStrength} count={memory.accessCount} />
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-start">
+                    <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 self-start">
                         <Button
                             type="text"
                             size="mini"

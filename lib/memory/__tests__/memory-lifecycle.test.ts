@@ -194,7 +194,7 @@ vi.mock('@/lib/db/prisma', () => ({
 }));
 
 // ====== 导入被测模块 ======
-import { MemoryCandidateService } from '../memory-candidate-service';
+import { dedupeExtractedMemories, MemoryCandidateService } from '../memory-candidate-service';
 import { ProfileMemoryMergeService } from '../profile-memory-merge-service';
 import { MemoryContextService } from '../memory-context-service';
 import { SessionSummaryV2Writer } from '../session-summary-v2-writer';
@@ -289,6 +289,45 @@ describe('Phase 1: 记忆提取与候选保存', () => {
 
     expect(extracted).toHaveLength(0);
     expect(mockGenerateStructured).not.toHaveBeenCalled();
+  });
+
+  it('同一轮提取结果会在保存前去重并保留更丰富版本', async () => {
+    seedConversation([
+      { role: 'user', content: '最近工作压力很大，领导总是批评我' },
+      { role: 'assistant', content: '听起来你承受了不少压力' },
+      { role: 'user', content: '每次汇报前都很焦虑，胸口发紧' },
+      { role: 'assistant', content: '这种身体反应很常见' },
+    ]);
+
+    mockGenerateStructured.mockResolvedValueOnce({
+      memories: [
+        { topic: 'trigger_warning', content: '工作汇报前会焦虑，胸口发紧', confidence: 0.84 },
+        { topic: 'trigger_warning', content: '每次工作汇报前都很焦虑，胸口发紧，担心被领导批评', confidence: 0.9 },
+        { topic: 'personal_context', content: '你最近承受了较大的工作压力', confidence: 0.82 },
+      ],
+    });
+
+    const service = new MemoryCandidateService();
+    const extracted = await service.extractAndSave(TEST_CONV_ID);
+
+    expect(extracted).toHaveLength(2);
+    expect(extracted[0].content).toContain('担心被领导批评');
+    expect(memoryCandidateStore).toHaveLength(2);
+  });
+
+  it('同一轮单类记忆最多保留 2 条，避免短聊刷屏', () => {
+    const deduped = dedupeExtractedMemories([
+      { topic: 'personal_context', content: '你最近在车企做数字化项目', confidence: 0.9 },
+      { topic: 'life_event', content: '你这段时间在推进一个很重的上线项目', confidence: 0.88 },
+      { topic: 'core_belief', content: '你很在意把事情做到可靠', confidence: 0.87 },
+      { topic: 'coping_preference', content: '你适合先把问题拆成几个小块处理', confidence: 0.86 },
+    ]);
+
+    expect(deduped.map(memory => memory.topic)).toEqual([
+      'personal_context',
+      'life_event',
+      'coping_preference',
+    ]);
   });
 });
 

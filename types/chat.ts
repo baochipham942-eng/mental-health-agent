@@ -133,6 +133,8 @@ export interface GroupMessage {
   targetMentorId?: string;
 }
 
+export type GroupChatIntent = 'discuss' | 'summarize';
+
 // 群组对话 SSE 事件类型
 export type GroupSSEEvent =
   | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }

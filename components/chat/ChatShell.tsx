@@ -10,10 +10,12 @@ import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
 import { Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
-import { hideSession } from '@/lib/actions/chat';
+import { completeSession, hideSession } from '@/lib/actions/chat';
+import { generateSummaryForSession } from '@/lib/actions/summary';
 import { BreathingOrb } from './BreathingOrb';
 import { MoodBar } from './MoodBar';
 import { MoodTheme, MOOD_THEMES, emotionToMoodTheme, applyMoodColor, getMoodShiftText } from '@/lib/mood-theme';
+import { getRandomTherapist, getTherapistProfile, type TherapistProfile } from '@/lib/ai/persona/therapist-profiles';
 
 const DebugDrawer = dynamic(() => import('./DebugDrawer').then(mod => mod.DebugDrawer), { ssr: false });
 const TherapistSelector = dynamic(() => import('./TherapistSelector').then(mod => mod.TherapistSelector), { ssr: false });
@@ -140,6 +142,7 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [showTherapistSelector, setShowTherapistSelector] = useState(false);
   const [therapistChecked, setTherapistChecked] = useState(false);
+  const [activeTherapist, setActiveTherapist] = useState<TherapistProfile | null>(null);
 
 
 
@@ -282,27 +285,32 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Mount only
 
-  // P5: 首次新对话时，若用户无偏好治疗师则随机分配一个（不弹出选择器）
+  // P5: 获取当前聊天风格。首次新对话无偏好时随机分配，不弹选择器。
   useEffect(() => {
-    if (!sessionId && !therapistChecked && user) {
+    if (!therapistChecked && user) {
       setTherapistChecked(true);
       fetch('/api/user/preferences')
         .then(res => res.json())
         .then(data => {
-          if (!data.preferredTherapist) {
-            // 随机分配治疗师，不弹出选择器，让用户直接进入聊天
-            const therapistIds = ['xiaowarm', 'mingyuan', 'qinghe'];
-            const randomId = therapistIds[Math.floor(Math.random() * therapistIds.length)];
-            fetch('/api/user/preferences', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ preferredTherapist: randomId }),
-            }).catch(() => {}); // 静默失败
+          const preferred = getTherapistProfile(data.preferredTherapist || '');
+          if (preferred) {
+            setActiveTherapist(preferred);
+            return;
           }
+
+          if (sessionId || isReadOnly) return;
+
+          const randomProfile = getRandomTherapist();
+          setActiveTherapist(randomProfile);
+          fetch('/api/user/preferences', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preferredTherapist: randomProfile.id }),
+          }).catch(() => {}); // 静默失败
         })
         .catch(() => {}); // 静默失败
     }
-  }, [sessionId, therapistChecked, user]);
+  }, [sessionId, therapistChecked, user, isReadOnly]);
 
   // Sync draft to store
   useEffect(() => {
@@ -1034,13 +1042,30 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           style={{ flexShrink: 0, width: '100%', zIndex: 20 }}
         >
           <div className="w-full px-5 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5 flex-1 relative">
-              <BreathingOrb theme={currentMoodTheme} />
-              <div>
+            <div className="flex items-center gap-2.5 flex-1 min-w-0 relative">
+              <div className="flex items-center gap-2 shrink-0">
+                <BreathingOrb theme={currentMoodTheme} />
+                {activeTherapist && (
+                  <div
+                    className="h-8 w-8 rounded-full border border-gray-200 bg-white shadow-xs flex items-center justify-center"
+                    aria-label={`当前聊天风格：${activeTherapist.name}`}
+                    title={`${activeTherapist.name}：${activeTherapist.description}`}
+                  >
+                    <span className="text-[17px] leading-none">{activeTherapist.avatar}</span>
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
                 <h1 className="text-[15px] font-semibold text-gray-800 leading-tight">心灵树洞</h1>
-                <div className="text-xs text-gray-400 flex items-center gap-1">
+                <div className="text-xs text-gray-400 flex items-center gap-1 min-w-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{isSessionEnded ? '已结束' : '倾听中'}</span>
+                  <span className="truncate">
+                    {isSessionEnded
+                      ? '已结束'
+                      : activeTherapist
+                        ? `${activeTherapist.name}陪你聊一会儿`
+                        : '倾听中'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1104,7 +1129,11 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         {showTherapistSelector && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-50/95 backdrop-blur-xs">
             <TherapistSelector
-              onSelect={() => setShowTherapistSelector(false)}
+              onSelect={(therapistId) => {
+                const selected = getTherapistProfile(therapistId);
+                if (selected) setActiveTherapist(selected);
+                setShowTherapistSelector(false);
+              }}
               onSkip={() => setShowTherapistSelector(false)}
             />
           </div>
@@ -1177,10 +1206,23 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
           onStay={() => setShowLeaveDialog(false)}
           onLeave={async () => {
             setShowLeaveDialog(false);
+            const endingSessionId = internalSessionId || sessionIdRef.current;
             setTimeLeft(0);
-            ArcoMessage.success('对话已完成');
-            // 返回会话列表
-            router.push('/');
+            try {
+              if (endingSessionId) {
+                await completeSession(endingSessionId);
+                generateSummaryForSession(endingSessionId).catch(err => {
+                  console.error('[ChatShell] Background summary generation failed:', err);
+                });
+              }
+              resetConversation();
+              ArcoMessage.success('对话已完成');
+              router.push('/');
+            } catch (err) {
+              console.error('[ChatShell] Failed to complete session:', err);
+              ArcoMessage.error('对话已保存，稍后可以继续查看');
+              router.push('/');
+            }
           }}
         />
 

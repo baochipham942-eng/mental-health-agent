@@ -5,6 +5,7 @@ import { createProfileMemory } from './data-bridge';
 import type { MemoryKind } from './v2-types';
 import type { MemoryTopic } from './types';
 import { memoryCache } from './memory-cache';
+import { logError } from '@/lib/observability/logger';
 
 // Schema for deep psychological insights
 const LabInsightSchema = z.object({
@@ -23,15 +24,17 @@ const LAB_EXTRACTOR_PROMPT = `
 **提取原则**：
 1. **忽略皮毛**：忽略用户为了配合角色扮演而说的客套话、场景设定（如“我正在雅典广场上”）。
 2. **直击内核**：关注用户表达的**核心价值观、恐惧、渴望、认知扭曲**或**情感模式**。
-3. **抽象化**：将具体的对话内容抽象为心理学描述。
-   - 例子：用户对苏格拉底说”我怕输，不敢去比赛”，提取为”用户表现出对失败的强烈的灾难化思维，回避竞争场景”。
+3. **抽象化**：将具体的对话内容抽象为对 TA 心理模式的描述，但要用第二人称“你”来写。
+   - 例子：用户说”我怕输，不敢去比赛”，提取为”你似乎挺怕失败的，遇到有竞争的场合会本能地想躲开”。
 4. **保守原则**：如果不确定，不要提取。只提取有价值的洞察。
 5. **分类**：每条洞察需标注 insightType：
-   - thinking_preference: 用户的思维偏好或认知风格（如”倾向二元思维”、”偏好感性决策”）
-   - trigger_topic: 能触发用户强烈情绪反应的话题或场景
-   - effective_intervention: 在对话中对用户明显起作用的方法或角度
+   - thinking_preference: 你的思维偏好或认知风格（如”倾向二元思维”、”偏好感性决策”）
+   - trigger_topic: 能触发你强烈情绪反应的话题或场景
+   - effective_intervention: 在对话中对你明显起作用的方法或角度
+6. **表达风格**：始终用第二人称“你”，像一个懂你的朋友在轻轻复述对你的观察——温暖、平实、口语化。
+   不要用“用户”这种第三人称，也不要用“认知扭曲”“灾难化”“核心冲突”“症状”等临床或诊断式措辞。
 
-请输出 JSON 格式的 insight 列表。
+请输出 JSON 格式的 insight 列表（content 字段用第二人称“你”书写）。
 `;
 
 /** topic -> kind 映射 */
@@ -108,7 +111,9 @@ export async function extractLabInsights(
         const sourceId = `lab_${contextType}_${contextId}`;
 
         for (const insight of object.insights) {
-            const finalContent = `[实验室洞察:${insight.insightType}] ${insight.content}`;
+            // 不再把内部分类标签拼进 content —— 否则会在"我的记忆"页面把 [实验室洞察:xxx] 暴露给用户。
+            // insightType 改为编码进 sourceConversationId，内部仍可追溯来源与类型。
+            const finalContent = insight.content;
             const kind = mapTopicToKind(insight.topic as MemoryTopic);
 
             await createProfileMemory({
@@ -117,7 +122,7 @@ export async function extractLabInsights(
                 content: finalContent,
                 priority: kindPriority(kind),
                 confidence: insight.confidence * 0.85, // 实验室洞察惩罚系数
-                sourceConversationId: sourceId,
+                sourceConversationId: `${sourceId}#${insight.insightType}`,
             });
             savedCount++;
         }
@@ -130,7 +135,13 @@ export async function extractLabInsights(
         return savedCount;
 
     } catch (error) {
-        console.error('[LabExtractor] Failed to extract:', error);
+        logError('lab-memory-extraction-failed', {
+            userId,
+            contextType,
+            contextId,
+            messageCount: messages.length,
+            error: error instanceof Error ? error.message : String(error),
+        });
         return 0; // Fail safe
     }
 }

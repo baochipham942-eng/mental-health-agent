@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import type { ChatUIMessage, ChatUIChunk } from '@/types/chat-ui-message';
 import { ChatService } from '@/lib/services/chat-service';
-import { generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
+import { countUserTurns, generateSummary, shouldSummarize, updateConversationSummary } from '@/lib/memory/summarizer';
 import {
   memoryCandidateService,
   profileMemoryMergeService,
@@ -138,16 +138,17 @@ export function scheduleConversationSummaryRefresh(params: {
     { role: 'assistant', content: assistantReply },
   ];
 
-  if (!shouldSummarize(summaryHistory.length)) return;
+  const userTurnCount = countUserTurns(summaryHistory);
+  if (!shouldSummarize(userTurnCount)) return;
 
   runAfterResponse(async () => {
     try {
-      logInfo('summarizer-refresh-start', { sessionId });
+      logInfo('summarizer-refresh-start', { sessionId, userTurnCount });
       const summary = await generateSummary(summaryHistory);
       if (summary) {
         // updateConversationSummary 内部已处理 V2 upsert + progress metrics
         await updateConversationSummary(sessionId, summary);
-        logInfo('summarizer-refresh-done', { sessionId });
+        logInfo('summarizer-refresh-done', { sessionId, userTurnCount });
       }
     } catch (e: any) {
       logError('summarizer-refresh-failed', { sessionId, error: e?.message });

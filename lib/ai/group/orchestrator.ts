@@ -23,12 +23,14 @@ import { generateOpening, decideNextSpeaker, generateTransition } from './modera
 import { synthesize } from './synthesizer-agent';
 
 export type GroupMode = 'discuss' | 'debate';
+export type GroupIntent = 'discuss' | 'summarize';
 
 interface GroupChatOptions {
     mentorIds: string[];
     mode: GroupMode;
+    intent?: GroupIntent;
     topic?: string;
-    messages: Array<{ role: 'user' | 'assistant'; content: string; mentorId?: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string; mentorId?: string; round?: number }>;
 }
 
 interface MentorTurn {
@@ -47,7 +49,7 @@ interface MentorTurn {
 export async function* orchestrateGroupChat(
     options: GroupChatOptions
 ): AsyncGenerator<GroupSSEPayload> {
-    const { mentorIds, mode, topic, messages } = options;
+    const { mentorIds, mode, topic, messages, intent = 'discuss' } = options;
 
     const mentors = mentorIds
         .map(id => getMentor(id))
@@ -62,9 +64,35 @@ export async function* orchestrateGroupChat(
     const lastUserMessage = userMessages[userMessages.length - 1]?.content || topic || '';
     const effectiveTopic = topic || lastUserMessage;
 
+    if (intent === 'summarize') {
+        const synthesisStart = Date.now();
+        const priorReplies = buildPriorMentorTurns(messages, mentors);
+
+        yield { type: 'moderator', content: '我把刚才的观点整理一下——', action: 'synthesize' };
+
+        if (priorReplies.length === 0) {
+            yield { type: 'synthesis', content: '还没有足够的圆桌发言可以总结。先让几位大师各自说一轮，再来整理会更有意义。' };
+        } else {
+            const summary = await synthesize(
+                mentors, mode, effectiveTopic,
+                priorReplies.map(r => ({
+                    mentorName: r.mentorName,
+                    mentorId: r.mentorId,
+                    content: r.content,
+                    round: r.round,
+                }))
+            );
+            yield { type: 'synthesis', content: summary };
+        }
+
+        yield { type: 'phase_metrics', phase: 'synthesis', durationMs: Date.now() - synthesisStart };
+        yield { type: 'done' };
+        return;
+    }
+
     // 计算当前轮次
-    const existingRounds = messages.filter(m => m.role === 'assistant').length;
-    const isFirstInteraction = existingRounds === 0;
+    const existingMentorReplies = messages.filter(m => m.role === 'assistant' && m.mentorId).length;
+    const isFirstInteraction = existingMentorReplies === 0;
 
     // 所有轮次的回复收集（用于 Synthesizer）
     const allReplies: MentorTurn[] = [];
@@ -86,7 +114,7 @@ export async function* orchestrateGroupChat(
     }
 
     // ═══ PHASE 1: Round 1 — 并行独立表态（Layer 3）═══
-    const round1 = isFirstInteraction ? 1 : Math.floor(existingRounds / mentors.length) + 1;
+    const round1 = isFirstInteraction ? 1 : Math.floor(existingMentorReplies / mentors.length) + 1;
 
     // 辩论模式：先分析立场
     let stanceInfo = '';
@@ -561,11 +589,37 @@ ${parallelNote}
     return prompt;
 }
 
+function buildPriorMentorTurns(
+    messages: Array<{ role: string; content: string; mentorId?: string; round?: number }>,
+    mentors: MentorPersona[],
+): MentorTurn[] {
+    let inferredIndex = 0;
+
+    return messages
+        .filter(m => m.role === 'assistant' && m.mentorId)
+        .map(m => {
+            const mentor = mentors.find(mt => mt.id === m.mentorId);
+            if (!mentor) return null;
+
+            const inferredRound = Math.floor(inferredIndex / Math.max(mentors.length, 1)) + 1;
+            inferredIndex += 1;
+
+            return {
+                mentorId: mentor.id,
+                mentorName: mentor.name,
+                mentor,
+                content: m.content,
+                round: m.round && m.round > 0 ? m.round : inferredRound,
+            };
+        })
+        .filter((m): m is MentorTurn => Boolean(m));
+}
+
 /**
  * 构建共享历史上下文
  */
 function buildSharedHistory(
-    messages: Array<{ role: string; content: string; mentorId?: string }>,
+    messages: Array<{ role: string; content: string; mentorId?: string; round?: number }>,
     mentors: MentorPersona[],
     _currentRound: number,
 ): string {

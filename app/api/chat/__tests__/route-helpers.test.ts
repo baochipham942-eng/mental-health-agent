@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { decideRouteByRules, buildFallbackQuickAnalysis } from '../route-helpers';
+import { countUserTurns, shouldSummarize, shouldSummarizeOnSessionEnd } from '@/lib/memory/summarizer';
 
 // ====== decideRouteByRules ======
 
@@ -150,5 +151,41 @@ describe('buildFallbackQuickAnalysis', () => {
         expect(result).toHaveProperty('personaReasoning');
         expect(result).toHaveProperty('memoryCheck');
         expect(result).toHaveProperty('dialogueIntent');
+    });
+});
+
+// ====== summary threshold helpers ======
+
+describe('summary threshold helpers', () => {
+    it('按有效用户消息计用户回合', () => {
+        const messages = [
+            { role: 'assistant', content: '你好' },
+            { role: 'user', content: '最近压力很大' },
+            { role: 'assistant', content: '我在听' },
+            { role: 'user', content: ' ' },
+            { role: 'user', content: '晚上睡不着' },
+        ];
+
+        expect(countUserTurns(messages)).toBe(2);
+    });
+
+    it('长聊滚动摘要保留 20 个用户回合门槛，每 8 回合刷新', () => {
+        expect(shouldSummarize(19)).toBe(false);
+        expect(shouldSummarize(20)).toBe(true);
+        expect(shouldSummarize(27)).toBe(false);
+        expect(shouldSummarize(28)).toBe(true);
+    });
+
+    it('结束会话时至少 2 个用户回合才生成轻量摘要', () => {
+        expect(shouldSummarizeOnSessionEnd([
+            { role: 'user', content: '你好' },
+            { role: 'assistant', content: '你好，想聊什么？' },
+        ])).toBe(false);
+
+        expect(shouldSummarizeOnSessionEnd([
+            { role: 'user', content: '最近压力很大' },
+            { role: 'assistant', content: '我在听' },
+            { role: 'user', content: '主要是项目一直延期' },
+        ])).toBe(true);
     });
 });

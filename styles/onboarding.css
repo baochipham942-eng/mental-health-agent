@@ -304,17 +304,21 @@
   left: 50%;
   transform: translateX(-50%);
   font-size: 13px;
-  color: #b0b5c0;
+  color: #4b5563;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   z-index: 10;
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(156, 163, 175, 0.35);
+  border-radius: 999px;
+  padding: 8px 14px;
   font-family: inherit;
 }
 
 .ob-skip:hover {
-  color: #6b7280;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(107, 114, 128, 0.45);
 }
 
 /* 移动端适配 */

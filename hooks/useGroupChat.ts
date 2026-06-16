@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { GroupMessage, GroupSSEEvent } from '@/types/chat';
+import type { GroupChatIntent, GroupMessage, GroupSSEEvent } from '@/types/chat';
 
 interface UseGroupChatOptions {
     mentorIds: string[];
@@ -11,7 +11,7 @@ interface UseGroupChatOptions {
 
 export interface UseGroupChatReturn {
     messages: GroupMessage[];
-    sendMessage: (content: string) => void;
+    sendMessage: (content: string, intent?: GroupChatIntent) => void;
     isLoading: boolean;
     activeMentorId: string | null;
     currentRound: number;
@@ -41,7 +41,7 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         content: string;
     } | null>(null);
 
-    const sendMessage = useCallback(async (content: string) => {
+    const sendMessage = useCallback(async (content: string, intent: GroupChatIntent = 'discuss') => {
         if (isLoading || !content.trim()) return;
 
         const userMsg: GroupMessage = {
@@ -53,11 +53,15 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
-        const allMessages = [...messages, userMsg].map(m => ({
-            role: m.role === 'moderator' || m.role === 'synthesis' ? 'assistant' as const : m.role,
-            content: m.content,
-            mentorId: m.mentorId,
-        }));
+        const allMessages = [...messages, userMsg].map(m => {
+            const role: 'user' | 'assistant' = m.role === 'user' ? 'user' : 'assistant';
+            return {
+                role,
+                content: m.content,
+                mentorId: m.mentorId,
+                round: m.round,
+            };
+        });
 
         const controller = new AbortController();
         abortRef.current = controller;
@@ -71,6 +75,7 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                     mentorIds,
                     mode,
                     topic,
+                    intent,
                 }),
                 signal: controller.signal,
             });

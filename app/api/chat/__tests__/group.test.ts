@@ -131,6 +131,13 @@ describe('POST /api/chat/group', () => {
         expect(res.status).toBe(400);
     });
 
+    it('非法 intent → 400', async () => {
+        const res = await POST(createRequest({ ...validBody, intent: 'skip-round' }));
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toContain('不支持');
+    });
+
     it('mentorIds 不是数组 → 400', async () => {
         const res = await POST(createRequest({ ...validBody, mentorIds: 'socrates' }));
         expect(res.status).toBe(400);
@@ -192,6 +199,15 @@ describe('POST /api/chat/group', () => {
                 mentorIds: ['socrates', 'jung'],
                 mode: 'discuss',
                 topic: '自由与安全',
+            }),
+        );
+    });
+
+    it('总结观点 → 传递 summarize intent 给 orchestrator', async () => {
+        await POST(createRequest({ ...validBody, intent: 'summarize' }));
+        expect(orchestrateGroupChat).toHaveBeenCalledWith(
+            expect.objectContaining({
+                intent: 'summarize',
             }),
         );
     });
