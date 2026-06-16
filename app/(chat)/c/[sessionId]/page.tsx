@@ -28,7 +28,7 @@ export default async function SessionPage(props: SessionPageProps) {
         redirect('/login');
     }
 
-    const conversation = await getSessionById(params.sessionId);
+    const conversation = await getSessionById(params.sessionId, session.user.id);
     console.log('[SessionPage] Conversation loaded:', {
         found: !!conversation,
         msgCount: conversation?.messages?.length || 0

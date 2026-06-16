@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MentorPersona } from '@/lib/ai/mentors/personas';
 import { Button, Input, Message, Card } from '@arco-design/web-react';
-import { MentorChatWindow } from '@/components/settings/MentorChatWindow';
 import { IconRobot, IconEdit, IconMessage } from '@arco-design/web-react/icon';
+
+const MentorChatWindow = dynamic(() => import('@/components/settings/MentorChatWindow').then(mod => mod.MentorChatWindow), {
+    ssr: false,
+});
 
 export function CustomMasterSection() {
     const [name, setName] = useState('');

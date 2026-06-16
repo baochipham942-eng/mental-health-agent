@@ -13,9 +13,7 @@ import './globals.css';
 import '@arco-design/web-react/dist/css/arco.css';
 import { ArcoConfigProvider } from '@/components/providers/ArcoConfigProvider';
 
-import { NextAuthSessionProvider } from '@/components/providers/NextAuthSessionProvider';
 import { WeChatFontHandler } from '@/components/layout/WeChatFontHandler';
-import { PostHogProvider } from '@/components/providers/PostHogProvider';
 import { PostHogPageView } from '@/components/providers/PostHogPageView';
 
 export const metadata: Metadata = {
@@ -36,21 +34,16 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="h-full">
       <body className="h-full min-h-dvh bg-gray-50 text-gray-900 antialiased">
-        <PostHogProvider>
-          <PostHogPageView />
-          <NextAuthSessionProvider>
-            <WeChatFontHandler />
-            <ArcoConfigProvider>
-              {children}
-            </ArcoConfigProvider>
-          </NextAuthSessionProvider>
-          <div id="modal-root" />
-        </PostHogProvider>
+        <PostHogPageView />
+        <WeChatFontHandler />
+        <ArcoConfigProvider>
+          {children}
+        </ArcoConfigProvider>
+        <div id="modal-root" />
       </body>
     </html>
   );
 }
-
 
 
 

@@ -18,7 +18,7 @@ export default async function ChatPage(props: ChatPageProps) {
         redirect('/login');
     }
 
-    const conversation = await getSessionById(params.sessionId);
+    const conversation = await getSessionById(params.sessionId, session.user.id);
 
     if (!conversation) {
         notFound();

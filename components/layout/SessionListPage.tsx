@@ -26,6 +26,8 @@ interface SessionListPageProps {
   nickname?: string | null;
   avatar?: string | null;
   isAdmin?: boolean;
+  sessionsLoading?: boolean;
+  onSessionHidden?: (id: string) => void;
 }
 
 // 快捷功能列表
@@ -80,6 +82,8 @@ export function SessionListPage({
   nickname,
   avatar,
   isAdmin,
+  sessionsLoading = false,
+  onSessionHidden,
 }: SessionListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -240,12 +244,14 @@ export function SessionListPage({
           <div className="flex items-center justify-between mb-3.5">
             <span className="text-sm font-medium text-gray-400">历史对话</span>
             <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-lg">
-              {sessions.length} 条
+              {sessionsLoading ? '...' : sessions.length} 条
             </span>
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white rounded-xl scrollbar-hide">
-            {sessions.length === 0 ? (
+            {sessionsLoading ? (
+              <SessionListSkeleton />
+            ) : sessions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                 <div className="text-4xl mb-3">💭</div>
                 <p className="text-sm">还没有对话记录</p>
@@ -257,6 +263,7 @@ export function SessionListPage({
                   key={session.id}
                   session={session}
                   hideSessionAction={hideSessionAction}
+                  onSessionHidden={onSessionHidden}
                 />
               ))
             )}
@@ -287,9 +294,11 @@ export function SessionListPage({
 function SessionItem({
   session,
   hideSessionAction,
+  onSessionHidden,
 }: {
   session: Session;
   hideSessionAction: (id: string) => Promise<void>;
+  onSessionHidden?: (id: string) => void;
 }) {
   const [isHiding, setIsHiding] = useState(false);
   const { isConsulting, currentSessionId, resetConversation } = useChatStore();
@@ -338,6 +347,7 @@ function SessionItem({
         setIsHiding(true);
         try {
           await hideSessionAction(session.id);
+          onSessionHidden?.(session.id);
           ArcoMessage.success('已删除');
         } catch {
           ArcoMessage.error('操作失败');
@@ -384,5 +394,21 @@ function SessionItem({
 
       <span className="text-gray-300 text-base shrink-0 group-hover:translate-x-0.5 transition-transform">›</span>
     </Link>
+  );
+}
+
+function SessionListSkeleton() {
+  return (
+    <div className="p-4 space-y-3" aria-hidden="true">
+      {[0, 1, 2, 3].map(index => (
+        <div key={index} className="flex items-center gap-3.5">
+          <div className="w-[38px] h-[38px] rounded-full bg-gray-100 animate-pulse shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="h-4 w-3/5 rounded bg-gray-100 animate-pulse" />
+            <div className="mt-2 h-3 w-20 rounded bg-gray-100 animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

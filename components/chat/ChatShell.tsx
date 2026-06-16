@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useChatStore, CHAT_MODELS } from '@/store/chatStore';
 import { getStructuredReplyFallback, sendChatMessage } from '@/lib/api/chat';
 import { Message, SessionStatus } from '@/types/chat';
@@ -8,15 +9,16 @@ import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ChatActionProvider } from './ChatContext'; // Imported
-import { DebugDrawer } from './DebugDrawer';
 import { Modal, Tag, Message as ArcoMessage } from '@arco-design/web-react';
 import { hideSession } from '@/lib/actions/chat';
-import { TherapistSelector } from './TherapistSelector';
 import { BreathingOrb } from './BreathingOrb';
 import { MoodBar } from './MoodBar';
-import { LeaveDialog } from './LeaveDialog';
-import { MoodShiftToast } from './MoodShiftToast';
 import { MoodTheme, MOOD_THEMES, emotionToMoodTheme, applyMoodColor, getMoodShiftText } from '@/lib/mood-theme';
+
+const DebugDrawer = dynamic(() => import('./DebugDrawer').then(mod => mod.DebugDrawer), { ssr: false });
+const TherapistSelector = dynamic(() => import('./TherapistSelector').then(mod => mod.TherapistSelector), { ssr: false });
+const LeaveDialog = dynamic(() => import('./LeaveDialog').then(mod => mod.LeaveDialog), { ssr: false });
+const MoodShiftToast = dynamic(() => import('./MoodShiftToast').then(mod => mod.MoodShiftToast), { ssr: false });
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

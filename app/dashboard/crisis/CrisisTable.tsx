@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Table, Tag, Button, Empty, Modal, Input, Message } from '@arco-design/web-react';
+import { useEffect, useState } from 'react';
+import { Table, Tag, Button, Empty, Modal, Input, Message, Spin } from '@arco-design/web-react';
 import type { ColumnProps } from '@arco-design/web-react/es/Table';
 
 interface Escalation {
@@ -24,10 +24,6 @@ interface Escalation {
     };
 }
 
-interface CrisisTableProps {
-    escalations: Escalation[];
-}
-
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
     PENDING: { label: '待处理', color: 'red' },
     ACKNOWLEDGED: { label: '已确认', color: 'orange' },
@@ -45,10 +41,37 @@ function formatTime(dateStr: string) {
     });
 }
 
-export function CrisisTable({ escalations: initialEscalations }: CrisisTableProps) {
-    const [escalations, setEscalations] = useState(initialEscalations);
+export function CrisisTable() {
+    const [escalations, setEscalations] = useState<Escalation[]>([]);
     const [filter, setFilter] = useState<string>('ALL');
     const [loading, setLoading] = useState<string | null>(null);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetch('/api/crisis?limit=100')
+            .then(async res => {
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || '加载失败');
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!cancelled) setEscalations(data.escalations || []);
+            })
+            .catch(error => {
+                if (!cancelled) Message.error(`危机记录加载失败: ${error.message}`);
+            })
+            .finally(() => {
+                if (!cancelled) setInitialLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filtered = filter === 'ALL'
         ? escalations
@@ -165,8 +188,19 @@ export function CrisisTable({ escalations: initialEscalations }: CrisisTableProp
         ...Object.entries(STATUS_CONFIG).map(([k, v]) => ({ key: k, label: v.label })),
     ];
 
+    const pendingCount = escalations.filter(e => e.status === 'PENDING').length;
+    const acknowledgedCount = escalations.filter(e => e.status === 'ACKNOWLEDGED').length;
+    const resolvedCount = escalations.filter(e => e.status === 'RESOLVED').length;
+
     return (
         <div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <StatCard label="待处理" count={pendingCount} color="red" loading={initialLoading} />
+                <StatCard label="已确认" count={acknowledgedCount} color="yellow" loading={initialLoading} />
+                <StatCard label="已解决" count={resolvedCount} color="green" loading={initialLoading} />
+                <StatCard label="总计" count={escalations.length} color="gray" loading={initialLoading} />
+            </div>
+
             <div className="mb-4 flex gap-2">
                 {FILTER_OPTIONS.map(s => (
                     <Button
@@ -183,11 +217,32 @@ export function CrisisTable({ escalations: initialEscalations }: CrisisTableProp
             <Table
                 columns={columns}
                 data={filtered}
+                loading={initialLoading}
                 rowKey="id"
                 pagination={filtered.length > 20 ? { pageSize: 20 } : false}
-                noDataElement={<Empty description="暂无记录" />}
+                noDataElement={initialLoading ? <Spin /> : <Empty description="暂无记录" />}
                 rowClassName={(record) => record.status === 'PENDING' ? 'bg-red-50/50' : ''}
             />
+        </div>
+    );
+}
+
+function StatCard({ label, count, color, loading }: { label: string; count: number; color: string; loading: boolean }) {
+    const colorMap: Record<string, string> = {
+        red: 'bg-red-50 text-red-700 border-red-200',
+        yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        green: 'bg-green-50 text-green-700 border-green-200',
+        gray: 'bg-gray-50 text-gray-700 border-gray-200',
+    };
+
+    return (
+        <div className={`rounded-lg border p-4 ${colorMap[color]}`}>
+            <p className="text-sm font-medium">{label}</p>
+            {loading ? (
+                <div className="mt-3 h-8 w-14 rounded bg-current/10 animate-pulse" aria-hidden="true" />
+            ) : (
+                <p className="text-3xl font-bold mt-1">{count}</p>
+            )}
         </div>
     );
 }

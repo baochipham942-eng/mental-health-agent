@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
+        const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10) || 100, 100);
 
         const where: any = {};
         if (status) {
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
                     select: { id: true, username: true, nickname: true },
                 },
             },
+            take: limit,
         });
 
         return NextResponse.json({ escalations });

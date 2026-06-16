@@ -1,13 +1,35 @@
 'use client';
 
-import React, { useState, useRef, useLayoutEffect } from 'react';
-import { MentorSection } from '@/components/settings/MentorSection';
-import { MBTISection } from '@/components/lab/MBTISection';
-import { CustomMasterSection } from '@/components/lab/CustomMasterSection';
-import { GroupChatSection } from '@/components/lab/GroupChatSection';
+import React, { useState, useRef, useLayoutEffect, lazy, Suspense } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 type Tab = 'wisdom' | 'mirrors' | 'custom' | 'roundtable';
+
+const MentorSection = lazy(() =>
+    import('@/components/settings/MentorSection').then(module => ({ default: module.MentorSection }))
+);
+const MBTISection = lazy(() =>
+    import('@/components/lab/MBTISection').then(module => ({ default: module.MBTISection }))
+);
+const CustomMasterSection = lazy(() =>
+    import('@/components/lab/CustomMasterSection').then(module => ({ default: module.CustomMasterSection }))
+);
+const GroupChatSection = lazy(() =>
+    import('@/components/lab/GroupChatSection').then(module => ({ default: module.GroupChatSection }))
+);
+
+function TabPanelFallback() {
+    return (
+        <div className="min-h-[360px] rounded-xl border border-gray-100 bg-white p-6">
+            <div className="h-6 w-40 rounded bg-gray-100 animate-pulse" />
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {[0, 1, 2].map(index => (
+                    <div key={index} className="h-40 rounded-xl bg-gray-100 animate-pulse" />
+                ))}
+            </div>
+        </div>
+    );
+}
 
 export function LabContent() {
     const [activeTab, setActiveTab] = useState<Tab>('wisdom');
@@ -70,10 +92,12 @@ export function LabContent() {
 
             {/* Content Area - Full Width */}
             <div className="w-full min-h-[600px]">
-                {activeTab === 'wisdom' && <MentorSection />}
-                {activeTab === 'mirrors' && <MBTISection />}
-                {activeTab === 'custom' && <CustomMasterSection />}
-                {activeTab === 'roundtable' && <GroupChatSection />}
+                <Suspense fallback={<TabPanelFallback />}>
+                    {activeTab === 'wisdom' && <MentorSection />}
+                    {activeTab === 'mirrors' && <MBTISection />}
+                    {activeTab === 'custom' && <CustomMasterSection />}
+                    {activeTab === 'roundtable' && <GroupChatSection />}
+                </Suspense>
             </div>
         </div>
     );

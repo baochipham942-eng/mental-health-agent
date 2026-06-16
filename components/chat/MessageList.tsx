@@ -1,10 +1,13 @@
 'use client';
 
 import { Message } from '@/types/chat';
-import { MessageBubble } from './MessageBubble';
-import { useEffect, useRef, useState, useCallback, RefObject } from 'react';
+import { useEffect, useRef, useState, useCallback, RefObject, lazy, Suspense } from 'react';
 import { useHasHydrated } from '@/store/chatStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
+
+const MessageBubble = lazy(() =>
+  import('./MessageBubble').then(module => ({ default: module.MessageBubble }))
+);
 
 interface MessageListProps {
   messages: Message[];
@@ -82,6 +85,18 @@ function ThinkingIndicator() {
 
 // 虚拟化阈值：消息数少于此值时使用普通渲染
 const VIRTUALIZATION_THRESHOLD = 50;
+
+function MessageBubbleFallback({ isUser }: { isUser: boolean }) {
+  return (
+    <div className={`flex mb-4 ${isUser ? 'justify-end' : 'justify-start'}`} aria-hidden="true">
+      <div
+        className={`h-14 rounded-xl bg-gray-100 animate-pulse ${
+          isUser ? 'w-44 max-w-[80%]' : 'w-56 max-w-[85%]'
+        }`}
+      />
+    </div>
+  );
+}
 
 export function MessageList({ messages, isLoading, isSending, messageExtras, onSendMessage, scrollContainerRef, sessionId }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -314,18 +329,20 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
-                <MessageBubble
-                  message={message}
-                  routeType={extras?.routeType}
-                  assessmentStage={extras?.assessmentStage}
-                  toolCalls={extras?.toolCalls}
-                  sessionId={sessionId}
-                  actionCards={extras?.actionCards}
-                  assistantQuestions={extras?.assistantQuestions}
-                  validationError={extras?.validationError}
-                  onSendMessage={onSendMessage}
-                  isSending={isSending}
-                />
+                <Suspense fallback={<MessageBubbleFallback isUser={message.role === 'user'} />}>
+                  <MessageBubble
+                    message={message}
+                    routeType={extras?.routeType}
+                    assessmentStage={extras?.assessmentStage}
+                    toolCalls={extras?.toolCalls}
+                    sessionId={sessionId}
+                    actionCards={extras?.actionCards}
+                    assistantQuestions={extras?.assistantQuestions}
+                    validationError={extras?.validationError}
+                    onSendMessage={onSendMessage}
+                    isSending={isSending}
+                  />
+                </Suspense>
               </div>
             );
           })}
@@ -341,19 +358,20 @@ export function MessageList({ messages, isLoading, isSending, messageExtras, onS
         {messages.map((message) => {
           const extras = messageExtras?.get(message.id);
           return (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              routeType={extras?.routeType}
-              assessmentStage={extras?.assessmentStage}
-              toolCalls={extras?.toolCalls}
-              sessionId={sessionId}
-              actionCards={extras?.actionCards}
-              assistantQuestions={extras?.assistantQuestions}
-              validationError={extras?.validationError}
-              onSendMessage={onSendMessage}
-              isSending={isSending}
-            />
+            <Suspense key={message.id} fallback={<MessageBubbleFallback isUser={message.role === 'user'} />}>
+              <MessageBubble
+                message={message}
+                routeType={extras?.routeType}
+                assessmentStage={extras?.assessmentStage}
+                toolCalls={extras?.toolCalls}
+                sessionId={sessionId}
+                actionCards={extras?.actionCards}
+                assistantQuestions={extras?.assistantQuestions}
+                validationError={extras?.validationError}
+                onSendMessage={onSendMessage}
+                isSending={isSending}
+              />
+            </Suspense>
           );
         })}
 

@@ -74,13 +74,14 @@ export async function createNewSessionAndReturnId(): Promise<string> {
     return conversation.id;
 }
 
-export async function getSessionHistory() {
-    const session = await auth();
-    if (!session?.user?.id) return [];
+export async function getSessionHistory(userId?: string) {
+    const session = userId ? null : await auth();
+    const effectiveUserId = userId ?? session?.user?.id;
+    if (!effectiveUserId) return [];
 
     const conversations = await prisma.conversation.findMany({
         where: {
-            userId: session.user.id,
+            userId: effectiveUserId,
             isHidden: false, // 排除隐藏的会话
         },
         include: {
@@ -121,14 +122,15 @@ export async function hideSession(sessionId: string): Promise<void> {
     revalidatePath('/');
 }
 
-export async function getSessionById(sessionId: string) {
-    const session = await auth();
-    if (!session?.user?.id) return null;
+export async function getSessionById(sessionId: string, userId?: string) {
+    const session = userId ? null : await auth();
+    const effectiveUserId = userId ?? session?.user?.id;
+    if (!effectiveUserId) return null;
 
     const conversation = await prisma.conversation.findFirst({
         where: {
             id: sessionId,
-            userId: session.user.id,
+            userId: effectiveUserId,
         },
         include: {
             messages: {

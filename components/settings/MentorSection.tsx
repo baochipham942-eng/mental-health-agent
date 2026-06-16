@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MENTORS, MentorPersona } from '@/lib/ai/mentors/personas';
 import { Button, Card } from '@arco-design/web-react';
-import { MentorChatWindow } from './MentorChatWindow';
 import { cn } from '@/lib/utils/cn';
+
+const MentorChatWindow = dynamic(() => import('./MentorChatWindow').then(mod => mod.MentorChatWindow), {
+    ssr: false,
+});
 
 export function MentorSection() {
     const [activeMentor, setActiveMentor] = useState<MentorPersona | null>(null);

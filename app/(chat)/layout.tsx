@@ -24,11 +24,11 @@ export default async function ChatLayout({
     }
 
     // 确保用户拥有人格特质（昵称/头像）
-    await ensureUserProfile();
+    await ensureUserProfile(session);
 
     return (
         <div className="h-screen flex flex-col overflow-hidden bg-[#F7F8FA]">
-            <AuthSync />
+            <AuthSync user={session.user} />
             {children}
         </div>
     );

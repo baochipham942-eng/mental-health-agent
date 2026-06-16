@@ -34,6 +34,8 @@ interface CalibrationSample {
   userInput: string;
   aiReply: string;
   history: Array<{ role: string; content: string }>;
+  historyCount?: number;
+  hasFullHistory?: boolean;
   llmJudgeResult: 'Pass' | 'Wrong' | 'Drift';
   llmJudgeCritique: string;
   humanLabel: 'Pass' | 'Wrong' | 'Drift' | null;
@@ -69,6 +71,8 @@ export default function CalibrationPage() {
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<CalibrationReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [currentDetail, setCurrentDetail] = useState<CalibrationSample | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // 加载校准集
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function CalibrationPage() {
   const loadSamples = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/eval/calibration');
+      const res = await fetch('/api/eval/calibration?compact=1');
       if (res.ok) {
         const data = await res.json();
         setSamples(data.samples || []);
@@ -89,6 +93,33 @@ export default function CalibrationPage() {
     } catch { /* ignore */ }
     finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    const sample = samples[currentIdx];
+    if (!sample || sample.hasFullHistory || currentDetail?.id === sample.id) return;
+
+    let cancelled = false;
+    setDetailLoading(true);
+
+    fetch(`/api/eval/calibration?id=${encodeURIComponent(sample.id)}`)
+      .then(async res => {
+        if (!res.ok) throw new Error('detail failed');
+        return res.json();
+      })
+      .then(data => {
+        if (!cancelled) setCurrentDetail(data.sample || null);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIdx, currentDetail?.id, samples]);
 
   const loadReport = useCallback(async () => {
     setReportLoading(true);
@@ -123,6 +154,9 @@ export default function CalibrationPage() {
         const updated = [...samples];
         updated[currentIdx] = { ...sample, humanLabel: label, humanNote: note || null };
         setSamples(updated);
+        if (currentDetail?.id === sample.id) {
+          setCurrentDetail({ ...currentDetail, humanLabel: label, humanNote: note || null });
+        }
         setNote('');
 
         // 跳到下一个未标注的样本
@@ -171,7 +205,8 @@ export default function CalibrationPage() {
   const labeledCount = samples.filter(s => s.humanLabel !== null).length;
   const progressPct = totalCount > 0 ? Math.round(labeledCount / totalCount * 100) : 0;
 
-  const current = samples[currentIdx];
+  const compactCurrent = samples[currentIdx];
+  const current = currentDetail?.id === compactCurrent?.id ? currentDetail : compactCurrent;
   const dimMeta = current ? DIMENSION_META[current.dimension] : null;
 
   if (loading) {
@@ -222,6 +257,15 @@ export default function CalibrationPage() {
           {/* 左侧：对话上下文 */}
           <div className="lg:col-span-2 space-y-4">
             {/* 对话历史 */}
+            {detailLoading && !current.hasFullHistory && (
+              <Card className="shadow-xs" title={<span className="text-sm font-semibold">对话历史</span>}>
+                <div className="space-y-2" aria-hidden="true">
+                  {[0, 1, 2].map(index => (
+                    <div key={index} className="h-10 rounded-sm bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              </Card>
+            )}
             {current.history.length > 0 && (
               <Card className="shadow-xs" title={<span className="text-sm font-semibold">对话历史</span>}
                 bodyStyle={{ maxHeight: 200, overflowY: 'auto' }}>

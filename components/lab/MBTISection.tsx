@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MBTI_PERSONAS, MBTIPersona, getMBTIPersona } from '@/lib/ai/mbti/personas';
 import { Button, Select, Message, Tooltip } from '@arco-design/web-react';
 import { IconSwap, IconUser } from '@arco-design/web-react/icon';
-import { MBTIChatWindow } from './MBTIChatWindow';
 import { cn } from '@/lib/utils/cn';
 
 const Option = Select.Option;
+const MBTIChatWindow = dynamic(() => import('./MBTIChatWindow').then(mod => mod.MBTIChatWindow), {
+    ssr: false,
+});
 
 export function MBTISection() {
     const [userType, setUserType] = useState<string>('INTJ'); // Default

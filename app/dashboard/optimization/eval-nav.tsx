@@ -49,6 +49,7 @@ export default function EvalNav() {
             <div className="max-w-7xl mx-auto flex items-center gap-4 h-12">
                 <Link
                     href="/"
+                    prefetch={false}
                     className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mr-1"
                 >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -74,6 +75,7 @@ export default function EvalNav() {
                                     <Link
                                         key={item.href}
                                         href={item.href}
+                                        prefetch={false}
                                         className={cn(
                                             'px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors',
                                             isActive

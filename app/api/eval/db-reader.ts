@@ -19,14 +19,25 @@ const PROD_BUNDLE_PATH = path.join(/* turbopackIgnore: true */ process.cwd(), 'd
 const PROD_TMP_PATH = '/tmp/eval-academic.db';
 
 function resolveDbPath(): string | null {
-  if (!IS_PROD) {
-    return fs.existsSync(DEV_DB_PATH) ? DEV_DB_PATH : null;
-  }
-  if (fs.existsSync(PROD_TMP_PATH)) return PROD_TMP_PATH;
-  if (fs.existsSync(PROD_BUNDLE_PATH)) {
-    fs.copyFileSync(PROD_BUNDLE_PATH, PROD_TMP_PATH);
+  const sourcePath = fs.existsSync(PROD_BUNDLE_PATH)
+    ? PROD_BUNDLE_PATH
+    : fs.existsSync(DEV_DB_PATH)
+      ? DEV_DB_PATH
+      : null;
+
+  if (!IS_PROD) return sourcePath;
+
+  if (sourcePath) {
+    const shouldRefreshTmp =
+      !fs.existsSync(PROD_TMP_PATH) ||
+      fs.statSync(sourcePath).mtimeMs > fs.statSync(PROD_TMP_PATH).mtimeMs;
+
+    if (shouldRefreshTmp) {
+      fs.copyFileSync(sourcePath, PROD_TMP_PATH);
+    }
     return PROD_TMP_PATH;
   }
+  if (fs.existsSync(PROD_TMP_PATH)) return PROD_TMP_PATH;
   return null;
 }
 

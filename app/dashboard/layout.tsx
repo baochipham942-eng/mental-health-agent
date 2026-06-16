@@ -15,11 +15,11 @@ export default async function DashboardLayout({
     if (!session?.user) {
         redirect('/login');
     }
-    await ensureUserProfile();
+    await ensureUserProfile(session);
 
     return (
         <div className="h-screen flex flex-col overflow-hidden bg-[#F7F8FA]">
-            <AuthSync />
+            <AuthSync user={session.user} />
             <DashboardBackLink />
             <div className="flex-1 overflow-y-auto">
                 {children}

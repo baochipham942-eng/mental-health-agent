@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MENTORS, MentorPersona } from '@/lib/ai/mentors/personas';
 import { Button, Input } from '@arco-design/web-react';
 import { cn } from '@/lib/utils/cn';
-import { GroupChatWindow } from './GroupChatWindow';
 
 type GroupMode = 'discuss' | 'debate';
+const GroupChatWindow = dynamic(() => import('./GroupChatWindow').then(mod => mod.GroupChatWindow), {
+    ssr: false,
+});
 
 export function GroupChatSection() {
     const [selectedMentors, setSelectedMentors] = useState<string[]>([]);

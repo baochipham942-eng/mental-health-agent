@@ -26,6 +26,8 @@ interface HomePageClientProps {
 export function HomePageClient(props: HomePageClientProps) {
   const router = useRouter();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [sessions, setSessions] = useState<Session[]>(props.sessions);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   useEffect(() => {
     // 检查是否完成过 onboarding
@@ -40,6 +42,32 @@ export function HomePageClient(props: HomePageClientProps) {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (showOnboarding !== false) return;
+
+    let cancelled = false;
+    setSessionsLoading(true);
+
+    fetch('/api/sessions/history')
+      .then(async res => {
+        if (!res.ok) throw new Error('Failed to load sessions');
+        return res.json();
+      })
+      .then(data => {
+        if (!cancelled) setSessions(data.sessions || []);
+      })
+      .catch(() => {
+        if (!cancelled) setSessions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showOnboarding]);
 
   // 等待客户端判断
   if (showOnboarding === null) {
@@ -63,5 +91,14 @@ export function HomePageClient(props: HomePageClientProps) {
     );
   }
 
-  return <SessionListPage {...props} />;
+  return (
+    <SessionListPage
+      {...props}
+      sessions={sessions}
+      sessionsLoading={sessionsLoading}
+      onSessionHidden={(id) => {
+        setSessions(current => current.filter(session => session.id !== id));
+      }}
+    />
+  );
 }

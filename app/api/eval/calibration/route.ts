@@ -10,7 +10,17 @@ import path from 'path';
 
 const CALIBRATION_FILE = path.join(process.cwd(), 'data/calibration/calibration-set-v1.json');
 
-export async function GET() {
+function compactSample(sample: any) {
+  const { history: _history, ...rest } = sample;
+  return {
+    ...rest,
+    history: [],
+    historyCount: Array.isArray(sample.history) ? sample.history.length : 0,
+    hasFullHistory: false,
+  };
+}
+
+export async function GET(req: NextRequest) {
   try {
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({
@@ -21,6 +31,20 @@ export async function GET() {
 
     const raw = fs.readFileSync(CALIBRATION_FILE, 'utf-8');
     const samples = JSON.parse(raw);
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (id) {
+      const sample = samples.find((item: any) => item.id === id);
+      if (!sample) {
+        return NextResponse.json({ error: `样本 ${id} 不存在` }, { status: 404 });
+      }
+      return NextResponse.json({ sample: { ...sample, hasFullHistory: true } });
+    }
+
+    if (searchParams.get('compact') === '1') {
+      return NextResponse.json({ samples: samples.map(compactSample) });
+    }
 
     return NextResponse.json({ samples });
   } catch (err: any) {

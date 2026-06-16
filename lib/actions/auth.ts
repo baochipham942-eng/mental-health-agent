@@ -2,6 +2,7 @@
 
 import { auth, signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import type { Session } from 'next-auth';
 import { prisma } from '@/lib/db/prisma';
 import { getRandomProfile, getProfileById } from '@/lib/constants/userProfiles';
 import { revalidatePath } from 'next/cache';
@@ -46,9 +47,20 @@ export async function authenticate(
  * 如果没有则随机分配一个。
  * 针对 'demo' 用户，特殊处理为'忠诚'系列。
  */
-export async function ensureUserProfile() {
-    const session = await auth();
+export async function ensureUserProfile(sessionOverride?: Session | null) {
+    const session = sessionOverride ?? await auth();
     if (!session?.user?.id) return null;
+
+    const sessionUser = session.user as any;
+    const username = sessionUser.username || sessionUser.name;
+    const loyalProfile = username === 'demo' ? getProfileById('loyal') : null;
+    const sessionAlreadyComplete =
+        Boolean(sessionUser.nickname && sessionUser.avatar && sessionUser.quickLoginToken) &&
+        (!loyalProfile || (sessionUser.nickname === loyalProfile.nickname && sessionUser.avatar === loyalProfile.avatar));
+
+    if (sessionAlreadyComplete) {
+        return false;
+    }
 
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
@@ -68,7 +80,6 @@ export async function ensureUserProfile() {
 
     // Special handling: 'demo' user forced to 'loyal' profile
     if (user.username === 'demo') {
-        const loyalProfile = getProfileById('loyal');
         if (loyalProfile && (user.nickname !== loyalProfile.nickname || user.avatar !== loyalProfile.avatar)) {
             updateData.nickname = loyalProfile.nickname;
             updateData.avatar = loyalProfile.avatar;
