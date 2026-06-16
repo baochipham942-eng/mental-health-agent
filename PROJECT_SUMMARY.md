@@ -1,13 +1,13 @@
 # 心灵树洞 — 项目总结
 
-> 最后更新：2026-03-15
+> 最后更新：2026-06-16
 
 ## 一、项目概述
 
 **项目名称**：心灵树洞（Mental Health Agent）
 **产品定位**：AI 陪伴式解压工具，"职场解压搭子"
 **核心理念**：表层去医疗化的轻松陪伴，底层保留完整 CBT 专业能力
-**技术栈**：Next.js 14 + TypeScript + PostgreSQL + DeepSeek（多 LLM 支持）
+**技术栈**：Next.js 16 + React 19 + TypeScript 6 + PostgreSQL + DeepSeek（多 LLM 支持）
 **部署平台**：Vercel（预览）+ 阿里云 FC（生产）
 **开发状态**：多个完整功能模块上线，持续迭代中
 
@@ -232,11 +232,29 @@
 - Layer 1：代码规则（no-medical-label / no-gaslighting / reply-length）
 - Layer 2：LLM Judge（8 维度：empathy / safety / coherence / persona 等）
 
+**评测中心 Dashboard（4 组导航）**：
+- 评测组：实验列表 / 数据集管理 / 数据集版本 / 评分器 / 校准 / Prompt CI
+- 观测组：线上质量（评分趋势 + 维度标注）/ 轨迹分析 / 观测统计 / 安全红线
+- 优化组：根因分析 / Prompt 版本 / 版本对比（雷达图 + AI 洞察）
+- 标注组：标注队列（Workbench）/ 标注一致性（Cohen's Kappa）
+
+**架构解耦（data-bridge 模式）**：
+- `lib/eval/data-bridge.ts` 和 `lib/memory/data-bridge.ts` 是各自模块唯一 Prisma 访问点
+- `eval-events.ts` 让业务代码只 emit 低分回流、Prompt 版本注册等事件
+- `instrumentation.ts` 在 Node.js runtime 启动时导入 `lib/eval/init.ts` 注册事件监听
+- 评分维度、轨迹权重、安全规则外置到 JSON，由 TypeScript loader 提供类型安全访问
+
 **6 层根因诊断**（取代原有扎根理论编码）：
 - 诊断瀑布：编排&架构 → 工程&代码 → 防护规则 → 评估器 → 数据/模型 → 提示词
 - 每条建议含 dismissal_reason（排除上层理由）+ 失败模式标签
 - 建议生命周期：采纳/拒绝/搁置 + 备注持久化
 - 根因总览页只读缓存，不触发 LLM 调用
+
+### 4.5 用户行为分析
+
+- **PostHog PageView**：App Router 路由变化时手动 capture `$pageview`
+- **性能策略**：idle 后动态加载 SDK，关闭 autocapture、session recording、surveys、performance capture、dead click capture
+- **接入点**：`app/layout.tsx` 挂载 `PostHogPageView`
 
 ---
 
@@ -245,7 +263,7 @@
 ### 5.1 整体分层
 
 ```
-前端（Next.js 14 App Router）
+前端（Next.js 16 App Router）
   Chat UI ←→ Dashboard（评测中心 / 记忆 / 危机 / 进度 / 探索工坊）
         │
         │ API Routes
@@ -275,11 +293,11 @@ app/
     chat/group/route.ts         # 圆桌群组 API
     chat/mbti/route.ts          # MBTI 对话 API
     memory/                     # 记忆管理
-    eval/                       # 评测系统
+    eval/                       # 评测系统（version-compare/annotations/security/trace 等）
     progress/                   # 进度追踪
     auth/[...nextauth]/         # 认证
   dashboard/
-    optimization/               # 评测中心
+    optimization/               # 评测中心（评测/观测/优化/标注）
     memory/                     # 记忆管理
     crisis/                     # 危机管理
     progress/                   # 进度追踪
@@ -293,6 +311,7 @@ components/
   lab/                          # 探索工坊（MBTI/群聊/自定义大师）
   settings/                     # 导师区域（智慧殿堂）
   progress/                     # 情绪趋势面板
+  providers/                    # PostHogPageView / Arco / NextAuth provider
 
 lib/
   llm/index.ts                  # 统一 LLM 层（5 provider）
@@ -307,9 +326,22 @@ lib/
     guardrails/                 # 安全防线
     crisis-classifier.ts        # 危机检测
     persona/                    # 治疗师风格
-  memory/                       # 记忆系统
+  memory/
+    data-bridge.ts              # Prisma 唯一访问点（纯数据对象）
+    index.ts                    # Memory V2 入口
+  eval/
+    data-bridge.ts              # Prisma 唯一访问点（纯数据对象）
+    eval-store.ts               # SQLite 存储层
+    eval-events.ts              # 事件总线
+    config/                     # 评测配置（JSON + TS 加载器）
+    prompt-ci-store.ts          # Prompt CI 存储
+    dataset-version-store.ts    # 数据集版本存储
+    annotation-task-store.ts    # 标注任务存储
+    security-event-store.ts     # 安全红线事件存储
+    trace-extractor.ts          # 对话链路轨迹提取
   observability/                # Langfuse 监控
 
+instrumentation.ts              # Next.js 启动 hook，注册 eval 事件监听
 scripts/eval-academic/          # 评测 Runner
 tests/eval/                     # 评测数据 + 结果
 ```
@@ -334,6 +366,7 @@ tests/eval/                     # 评测数据 + 结果
 | 工具 | 用途 |
 |------|------|
 | Langfuse | LLM 调用追踪、成本监控、对话质量分析 |
+| PostHog | 页面浏览追踪，idle 后动态加载，重型采集关闭 |
 | 结构化日志 | logInfo/logWarn（session / user / route / duration）|
 | StreamData | 前端实时接收 metadata（emotion / safety / state / memory）|
 
@@ -377,10 +410,14 @@ tests/eval/                     # 评测数据 + 结果
 | 6 层根因诊断（取代扎根理论） | 强制从架构→代码→规则→评估器→数据→提示词逐层排除，避免所有建议都是"改 prompt" |
 | 建议生命周期管理 | 采纳/拒绝/搁置 + 备注，跟踪优化进展 |
 | 记忆系统 V2 统一 | 删除 V1 遗忘曲线/consolidator/retriever，简化为 profile+summary 两层 |
+| data-bridge 解耦模式 | eval/memory 模块各有独立 Prisma 数据桥接层，返回纯数据对象，降低跨模块类型耦合 |
+| 事件总线解耦 eval 回流 | 业务代码 emit 事件，eval 模块在启动时注册监听，避免反向依赖扩散 |
+| 评测配置外置 JSON | 评分维度、轨迹权重、安全规则从代码中抽出，方便调整和审阅 |
+| PostHog 轻量 pageview | 只保留页面浏览追踪，关闭 Session Recording 等重型能力，降低首屏和网络负担 |
 | bun 开发 + pnpm 部署 | bun 速度快适合本地，Vercel 原生支持 pnpm |
 | PostgreSQL + pgvector | 关系数据 + 向量检索一体化 |
 | Onboarding 改为目的导向 | 情绪意象选择让用户困惑，目的导向更直觉 |
 
 ---
 
-*本文档对应项目版本：2026-03-15*
+*本文档对应项目版本：2026-06-16*

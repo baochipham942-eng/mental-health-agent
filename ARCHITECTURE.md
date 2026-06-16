@@ -1,6 +1,6 @@
 # 项目架构文档
 
-> 最后更新：2026-03-15
+> 最后更新：2026-06-16
 
 ## 一、系统概览
 
@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    前端（Next.js 14）                  │
+│                    前端（Next.js 16）                  │
 │  Chat UI  ←→  Dashboard（评测中心/记忆/危机/进度/探索工坊）  │
 └────────────────────┬────────────────────────────────┘
                      │ API Routes
@@ -17,12 +17,17 @@
 │  ┌──────┐ ┌──────────┐ ┌────────┐ ┌──────────────┐ │
 │  │ Chat │ │ Memory   │ │ Auth   │ │ Eval System  │ │
 │  │ API  │ │ APIs     │ │ NextAuth│ │ (评测中心)    │ │
-│  └──┬───┘ └──────────┘ └────────┘ └──────┬───────┘ │
-│     │                                     │         │
+│  └──┬───┘ └────┬─────┘ └────────┘ └──────┬───────┘ │
+│     │          │                          │         │
+│     │   data-bridge.ts             data-bridge.ts   │
+│     │   (唯一 Prisma 访问点)       (唯一 Prisma 访问点) │
+│     │          │                          │         │
 │  ┌──┴──────────────────────────┐  ┌──────┴───────┐ │
 │  │     Multi-Agent 对话引擎     │  │  Eval Runner │ │
 │  │  Triage → Counselor → Safety│  │  (学术数据集)  │ │
 │  └──┬──────────────────────────┘  └──────────────┘ │
+│     │                    eval-events.ts             │
+│     │              (事件总线解耦反向依赖)              │
 └─────┼───────────────────────────────────────────────┘
       │
 ┌─────┴───────────────────────────────────────────────┐
@@ -185,13 +190,17 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 
 ### 4.1 整体设计
 
-评测系统采用学术数据集驱动的自动化评测 + 根因诊断闭环：
+评测系统采用学术数据集驱动的自动化评测 + 根因诊断闭环，eval/memory 通过 data-bridge 解耦 Prisma 访问：
 
 ```
-┌─────────────────────────────────────────────────┐
-│              评测中心 Dashboard                    │
-│  实验列表 │ 数据集管理 │ 评分器 │ 根因总览 │ 校准   │
-└────────┬────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                    评测中心 Dashboard（4 组导航）                │
+│                                                               │
+│  评测: 实验 │ 数据集 │ 数据集版本 │ 评分器 │ 校准 │ CI         │
+│  观测: 线上质量 │ 轨迹分析 │ 观测统计 │ 安全红线              │
+│  优化: 根因分析 │ Prompt版本 │ 版本对比（雷达图+AI洞察）      │
+│  标注: 标注队列（Workbench）│ 标注一致性（Cohen's Kappa）     │
+└────────┬──────────────────────────────────────────────────────┘
          │
     ┌────┴────┐
     │ 新建实验 │ ← 选择数据集 + 用例 + 模型(2级) + 配置
@@ -302,6 +311,33 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
 - LLM 分析仅在实验详情页手动触发
 - `timeoutMs: 60000` 防止长 prompt 超时
 
+### 4.5 data-bridge 解耦模式
+
+eval 和 memory 模块各有独立的 `data-bridge.ts`，作为该模块唯一的 Prisma 访问点：
+
+```
+业务代码（lib/actions、API routes）
+  │
+  ├─ eval-events.ts（事件总线）── emit ──→ eval/init.ts（监听）── 调用 ──→ auto-ingest / prompt-eval-trigger
+  │
+  ├─ eval/data-bridge.ts ──→ Prisma（Conversation/PromptVersion 等业务表）
+  │                      └─→ eval-store.ts ──→ SQLite（ConversationEvaluation）
+  │
+  └─ memory/data-bridge.ts ──→ Prisma（ProfileMemory/SessionSummaryV2 等）
+
+instrumentation.ts ──→ eval/init.ts（Next.js 启动时注册事件监听）
+```
+
+**事件总线 `eval-events.ts`**：
+- `evaluation:low-score`：低分对话自动回流到 eval_cases
+- `prompt:version-registered`：新 Prompt 版本触发自动评测
+
+**配置外置 `lib/eval/config/`**：
+- `grader-dimensions.json`：评分维度定义 + 权重预设 + 代码检查规则
+- `trace-weights.json`：轨迹步骤权重
+- `guard-rules.json`：安全防护关键词 + PII 正则
+- `index.ts`：类型安全加载器（JSON 存数据，TypeScript 存类型和逻辑）
+
 ## 五、记忆系统
 
 ```
@@ -330,6 +366,10 @@ streamText(messages, { provider, modelOverride, onFinish, ... })
   ├─ 提取：异步 MemoryExtractor（每次对话后触发）
   ├─ 检索：Memory V2（profile + summary 两层并行）
   └─ 定时清理：/api/cron/prune-memory（maxAge: 90 天, minConfidence: 0.5）
+
+数据访问（data-bridge 模式）
+  └─ memory/data-bridge.ts — 唯一 Prisma 访问点
+      所有函数返回纯数据对象（ProfileMemoryRow/SessionSummaryV2Row），不暴露 Prisma 类型
 ```
 
 ## 六、安全架构
@@ -392,20 +432,28 @@ Layer 5: 运行时限制 — 非管理员禁止 provider/model override
 | 工具 | 用途 |
 |------|------|
 | Langfuse | LLM 调用追踪、成本监控、对话质量分析 |
+| PostHog | 客户端页面浏览追踪，idle 后动态加载，手动 capture `$pageview` |
 | 结构化日志 | logInfo/logWarn（session/user/route/duration） |
 | StreamData | 前端实时接收 metadata（emotion/safety/state/memory） |
 | 转化漏斗 | `l0_chat_start` → `l1_skill_recommended` → `l1_skill_clicked` → `l1_skill_completed` → `l2_lab_entered`（写入 ProgressMetric） |
+
+PostHog 性能策略：
+- `PostHogPageView` 挂在 `app/layout.tsx`，监听 App Router 路由变化
+- SDK 在浏览器 idle 阶段动态 import，避免进入首屏关键路径
+- `capture_pageview: false`，由组件手动触发 `$pageview`
+- 关闭 autocapture、session recording、surveys、performance capture、dead click capture
 
 ## 九、技术栈
 
 | 层 | 技术 |
 |----|------|
-| 前端 | Next.js 14 + React 18 + TypeScript + TailwindCSS + ArcoDesign + Framer Motion |
-| 状态 | Zustand 4.4 |
+| 前端 | Next.js 16 + React 19 + TypeScript 6 + TailwindCSS 4 + ArcoDesign 2.66 + Framer Motion 12 |
+| 状态 | Zustand 5 |
 | 后端 | Next.js API Routes (Serverless) |
-| 认证 | NextAuth 5.0.0-beta.30 |
-| 数据库 | PostgreSQL (Neon) + Prisma ORM + SQLite (评测) |
+| 认证 | NextAuth 5.0.0-beta.31 |
+| 数据库 | PostgreSQL (Neon) + Prisma ORM 7 + SQLite (评测) |
 | AI | DeepSeek + OpenAI + Kimi + OpenRouter + GLM（通过 lib/llm 统一层） |
-| AI SDK | Vercel AI SDK 3.4 |
+| AI SDK | Vercel AI SDK 6 |
 | 监控 | Langfuse 3.38 |
+| 用户分析 | PostHog pageview analytics（重型采集关闭） |
 | 包管理 | bun (开发) + pnpm (Vercel 部署) |

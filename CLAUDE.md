@@ -11,6 +11,15 @@ AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊
 - Layer 2（主动探索）: 对话排练、深度自我了解、成长记录
 - Layer 3（专业评估）: 情绪健康度检查(PHQ-9)、压力指数检查(GAD-7)
 
+## LLM Wiki
+
+项目知识库采用 Karpathy-style LLM Wiki：编译知识和原始材料分开保存，目录不进 git。
+
+| 目录 | 用途 |
+|------|------|
+| `wiki/` | LLM 维护的编译知识，例如 CBT 概念、产品设计模式、评测方法论 |
+| `raw/` | 不可变源材料，例如论文、设计文章、用户反馈 |
+
 ## Tech Stack
 
 ### Frontend
@@ -35,6 +44,7 @@ AI 陪伴式解压工具，定位为"职场解压搭子"。表层是轻松的聊
 - Zod 4 (validation), bcryptjs (password hashing)
 - react-markdown 10 (content rendering)
 - Baidu AIP SDK (speech synthesis)
+- posthog-js 1.374 (lazy pageview analytics)
 
 ## Project Structure
 ```
@@ -53,22 +63,42 @@ app/
       status/[runId]/       #   轮询评测状态
       runs/route.ts         #   实验列表
       datasets/route.ts     #   数据集/用例查询
+      dataset-versions/     #   数据集版本管理 + compare
       trend/route.ts        #   评分趋势聚合 API
       prompt-versions/      #   Prompt 版本列表 + 评分聚合
+      version-compare/      #   Prompt 版本维度对比
+      dimension-stats/      #   维度评分统计
+      annotations/          #   人工标注 CRUD
+      annotation-tasks/     #   标注任务队列 + Workbench
+      agreement/            #   标注一致性统计
+      trace/                #   对话链路轨迹分析
+      ci-runs/              #   Prompt CI 运行记录
+      security/             #   安全红线事件
+      report/               #   评测报告导出
+      config/               #   评测配置读取
       analyze/route.ts      #   AI 根因诊断 + 建议生命周期管理
     metrics/stats/route.ts  # Token/延迟/错误率统计 API
     optimization/           # Prompt optimization APIs
     auth/[...nextauth]/     # Authentication
   dashboard/
-    optimization/           # 评测中心 Dashboard
+    optimization/           # 评测中心 Dashboard（评测/观测/优化/标注）
+      eval-nav.tsx          #   4 组导航栏
       page.tsx              #   实验列表 + 新建实验弹窗
       exp/[runId]/page.tsx  #   实验详情（维度/对话/评分/AI分析）
       datasets/             #   数据集管理
+        versions/           #     数据集版本管理
       graders/              #   评分器配置
+      calibration/          #   校准
+      ci-runs/              #   Prompt CI 运行历史
       analysis/             #   根因总览（6 层诊断 + 建议生命周期）
-      online-quality/       #   线上质量监控（评分趋势 + 低分追踪）
+      online-quality/       #   线上质量监控（评分趋势 + 维度标注 + 低分追踪）
+      trace/                #   轨迹分析
       prompt-versions/      #   Prompt 版本管理（版本链 + Diff + 评分对比）
+      version-compare/      #   版本对比（雷达图 + AI 洞察）
       metrics/              #   观测统计（Token/延迟/错误率趋势）
+      security/             #   安全红线事件监控
+      annotation-queue/     #   标注队列 + Workbench
+      agreement/            #   标注一致性
     memory/                 # 记忆管理 Dashboard
     crisis/                 # 危机管理 Dashboard
     progress/               # 进度追踪 Dashboard
@@ -94,16 +124,41 @@ lib/
     support.ts              # Support reply (streamSupportReply)
     skills.ts               # Skill cards detection + config
   memory/
+    data-bridge.ts          # Memory 数据桥接层（唯一 Prisma 访问点）
     index.ts                # Memory V2 统一入口（profile + summary 两层）
     lab-extractor.ts        # 探索工坊记忆提取
     session-summary-v2-writer.ts  # 会话摘要写入
   eval/
+    data-bridge.ts          # Eval 数据桥接层（唯一 Prisma 访问点）
+    eval-store.ts           # SQLite 存储层
+    eval-events.ts          # 事件总线（解耦业务代码对 eval 的反向依赖）
+    init.ts                 # 启动初始化（由 instrumentation.ts 导入）
+    config/                 # 评测配置（JSON 存数据，TS 存类型）
+      grader-dimensions.json #  评分维度 + 权重预设 + 代码检查规则
+      trace-weights.json    #   轨迹步骤权重
+      guard-rules.json      #   安全防护规则
+      index.ts              #   类型安全加载器
     auto-ingest.ts          # Bad Case 自动回流（低分对话 → SQLite eval_cases）
     db-writer.ts            # SQLite 写入器（better-sqlite3，WAL 模式）
     prompt-version.ts       # Prompt 版本服务（注册/查询/diff/评分聚合）
+    prompt-ci-store.ts      # Prompt CI 存储
+    dataset-version-store.ts # 数据集版本存储
+    annotation-task-store.ts # 标注任务存储
+    agreement-stats.ts      # 标注一致性统计
+    security-event-store.ts # 安全红线事件存储
+    security-metrics.ts     # 安全指标聚合
+    trace-extractor.ts      # 轨迹提取
+    report-builder.ts       # 评测报告生成器
   observability/
     langfuse.ts             # LLM monitoring
     metrics-collector.ts    # ChatMetric 采集器（Token/延迟/错误率）
+
+components/
+  providers/
+    PostHogPageView.tsx     # idle 后动态加载 PostHog 并手动上报 pageview
+    PostHogProvider.tsx     # 备用 provider，当前 layout 未挂载
+
+instrumentation.ts          # Next.js 启动 hook，初始化 eval 事件监听
 
 scripts/
   eval-academic/
@@ -199,8 +254,8 @@ Identifies 11 emotion types with 0-10 intensity scoring:
 
 ### Memory System
 - Multi-turn conversation support (last 10 turns)
-- Session memory management
-- Memory consolidation with forgetting curve
+- Memory V2: ProfileMemory + SessionSummaryV2 + SessionMetadata
+- `lib/memory/data-bridge.ts` 是 memory 模块唯一 Prisma 访问点，返回纯数据对象
 - 定时清理 cron（`/api/cron/prune-memory`，90 天 + 置信度 < 0.5）
 
 ### 评测闭环（借鉴 CozeLoop 方法论）
@@ -209,8 +264,17 @@ Identifies 11 emotion types with 0-10 intensity scoring:
 - **评分趋势**：按日聚合 pass/warn/fail 分布，线上质量 Dashboard 可视化
 - **Bad Case 自动回流**：低分对话（overallScore ≤ 2）自动写入 SQLite eval_cases
 - **Prompt 版本管理**：SHA256 去重 + 版本链，评分与版本关联，Diff 对比
+- **版本对比**：雷达图 + 维度标注 + AI 洞察
 - **观测统计**：ChatMetric 采集 Token/延迟/错误率，deepseek + compat provider 自动写入
 - **数据模型**：ConversationEvaluation（+evalSource）、PromptVersion、ChatMetric
+- **data-bridge 解耦**：eval/memory 模块各有独立 Prisma 数据桥接层，业务代码不直接依赖 Prisma 类型
+- **事件总线**：`eval-events.ts` 解耦低分回流和 Prompt 版本注册触发逻辑
+- **配置外置**：评分维度、轨迹权重、安全规则从 JSON 加载
+
+### 用户行为分析
+- **PostHog PageView**：`PostHogPageView` 在 idle 后动态 import SDK，手动上报 `$pageview`
+- **性能约束**：关闭 autocapture、session recording、surveys、performance capture、dead click capture
+- **App Router 适配**：监听 pathname/searchParams，路由变化时手动 capture
 
 ## 用户可见文案规范
 
