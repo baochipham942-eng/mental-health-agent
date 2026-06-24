@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getRunResults } from '../db-reader';
+import { requireEvalAuth } from '../auth-guard';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 const CODING_DIR = path.join(process.cwd(), 'data/coding');
@@ -103,6 +104,9 @@ function extractFailCases(runData: any): OpenCodeTag[] {
 }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireEvalAuth(req);
+  if (denied) return denied;
+
   try {
     const runId = new URL(req.url).searchParams.get('runId');
     if (!runId) return NextResponse.json({ error: 'runId required' }, { status: 400 });
@@ -126,6 +130,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireEvalAuth(req);
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const { action, runId } = body;

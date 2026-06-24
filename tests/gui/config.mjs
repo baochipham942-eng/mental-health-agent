@@ -6,7 +6,7 @@
  */
 
 // 火山引擎 API 配置
-export const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY || 'f5c52332-99e3-4e5b-9235-e6b61da87f12';
+export const VOLCENGINE_API_KEY = process.env.VOLCENGINE_API_KEY || '';
 export const BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 export const MODEL = 'doubao-seed-1-6-vision-250815';
 
@@ -24,6 +24,10 @@ export const GUI_DEFAULTS = {
  * 创建标准 GUIAgent 模型配置
  */
 export function getModelConfig() {
+    if (!VOLCENGINE_API_KEY) {
+        throw new Error('VOLCENGINE_API_KEY is required for GUI tests');
+    }
+
     return {
         baseURL: BASE_URL,
         apiKey: VOLCENGINE_API_KEY,

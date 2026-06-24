@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { deepseek } from '@/lib/ai/deepseek';
+import { checkRateLimit } from '@/lib/api/rate-limit';
 
 /**
  * 冷启动预热端点
@@ -13,7 +14,13 @@ import { deepseek } from '@/lib/ai/deepseek';
  * - 用户在 Onboarding 选择图片时触发（注册前 10-20 秒）
  * - 无需鉴权，仅做连接预热，不返回任何业务数据
  */
-export async function POST() {
+function warmupRateLimitKey(request: Request) {
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const realIp = request.headers.get('x-real-ip');
+  return `warmup:${forwardedFor || realIp || 'unknown'}`;
+}
+
+async function runWarmup() {
   const start = Date.now();
   const results: Record<string, { ok: boolean; ms: number }> = {};
 
@@ -48,7 +55,22 @@ export async function POST() {
   });
 }
 
-// 允许 GET 请求（方便健康检查工具调用）
+export async function POST(request: Request) {
+  const limit = checkRateLimit(warmupRateLimitKey(request), 3, 60_000);
+  if (!limit.success) {
+    return NextResponse.json(
+      { error: 'Too many warmup requests' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((limit.retryAfterMs || 0) / 1000)) },
+      },
+    );
+  }
+
+  return runWarmup();
+}
+
+// GET 只做轻量存活响应，避免公开健康检查触发 DB/LLM 成本。
 export async function GET() {
-  return POST();
+  return NextResponse.json({ ok: true });
 }

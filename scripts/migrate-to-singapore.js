@@ -1,9 +1,14 @@
 // 数据库迁移脚本：从美国东部迁移到新加坡
-// 使用原始 SQL 直接连接，避免环境变量干扰
+// 用显式环境变量传入连接串，避免把数据库凭据写进 git。
 const { Client } = require('pg');
 
-const OLD_DATABASE_URL = "postgresql://neondb_owner:npg_i4wXSFkBIW6x@ep-snowy-bird-ahi67rrf-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require";
-const NEW_DATABASE_URL = "postgresql://neondb_owner:npg_TaNS79hMoRCU@ep-mute-resonance-a10pw66s-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const OLD_DATABASE_URL = process.env.MIGRATION_OLD_DATABASE_URL;
+const NEW_DATABASE_URL = process.env.MIGRATION_NEW_DATABASE_URL;
+
+if (!OLD_DATABASE_URL || !NEW_DATABASE_URL) {
+    console.error('请设置 MIGRATION_OLD_DATABASE_URL 和 MIGRATION_NEW_DATABASE_URL');
+    process.exit(1);
+}
 
 // 需要迁移的表（按依赖顺序）
 const TABLES = [

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireEvalAuth } from '../auth-guard';
 
 const CALIBRATION_FILE = path.join(process.cwd(), 'data/calibration/calibration-set-v1.json');
 
@@ -21,6 +22,9 @@ function compactSample(sample: any) {
 }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireEvalAuth(req);
+  if (denied) return denied;
+
   try {
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({
@@ -53,6 +57,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireEvalAuth(req);
+  if (denied) return denied;
+
   try {
     if (!fs.existsSync(CALIBRATION_FILE)) {
       return NextResponse.json({ error: '校准集不存在' }, { status: 404 });
