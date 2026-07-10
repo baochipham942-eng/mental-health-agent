@@ -12,7 +12,7 @@ vi.mock('./safety-agent', () => ({
     getSafetyAgent: vi.fn(() => ({
         run: vi.fn(),
         name: 'safety',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
     })),
     DEFAULT_SAFE: {
         reasoning: 'Safety check skipped (normal)',
@@ -81,7 +81,7 @@ function createSafetyResult(overrides?: Record<string, any>) {
         },
         latency: 0,
         agentName: 'safety',
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
     };
 }
 

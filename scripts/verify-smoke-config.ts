@@ -177,7 +177,7 @@ function checkLLMConfig(expectedConfig: ConfigFile | null): ConfigCheck[] {
   const checks: ConfigCheck[] = [];
   
   // 从代码中读取默认值（硬编码）
-  const model = 'deepseek-chat';
+  const model = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash';
   const defaultTemperature = 0.7;
   const defaultMaxTokens = 2000;
   const conclusionTemperature = 0.3;
@@ -320,7 +320,7 @@ function printConfiguration() {
   }
 
   // LLM 配置
-  const model = 'deepseek-chat';
+  const model = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash';
   const defaultTemperature = 0.7;
   const defaultMaxTokens = 2000;
   const conclusionTemperature = 0.3;

@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { getRunResults } from '../db-reader';
 import { requireEvalAuth } from '../auth-guard';
+import { DEEPSEEK_MODEL, withThinkingDisabled } from '@/lib/ai/deepseek';
 
 const RESULTS_DIR = path.join(process.cwd(), 'tests/eval/results');
 const CODING_DIR = path.join(process.cwd(), 'data/coding');
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest) {
         const res = await fetch(`${apiUrl}/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: prompt }], temperature: temp, max_tokens: maxTokens }),
+          body: JSON.stringify(withThinkingDisabled({ model: DEEPSEEK_MODEL, messages: [{ role: 'user', content: prompt }], temperature: temp, max_tokens: maxTokens })),
         });
         const d = await res.json() as any;
         return d.choices?.[0]?.message?.content?.trim() || '';

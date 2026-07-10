@@ -34,10 +34,12 @@ async function main() {
     const { createOpenAI } = await import('@ai-sdk/openai');
     const { generateText } = await import('ai');
 
-    // Judge Setup
+    // Judge Setup（deepseek-v4 默认思考模式会挤占 max_tokens，用共享 fetch 注入 thinking disabled）
+    const { deepseekNoThinkingFetch } = await import('../lib/ai/deepseek');
     const deepseek = createOpenAI({
         baseURL: 'https://api.deepseek.com',
         apiKey: process.env.DEEPSEEK_API_KEY,
+        fetch: deepseekNoThinkingFetch,
     });
 
     async function judgeResponse(input: string, output: string, cot: any): Promise<{ score: number; reason: string }> {
@@ -60,7 +62,7 @@ async function main() {
 
         try {
             const { text } = await generateText({
-                model: deepseek('deepseek-chat'),
+                model: deepseek(process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash'),
                 messages: [{ role: 'user', content: prompt }]
             });
             const clean = text.replace(/```json|```/g, '').trim();

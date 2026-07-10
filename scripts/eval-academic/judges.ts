@@ -523,6 +523,8 @@ export async function runLLMJudges(params: {
           ],
           temperature: 0,
           ...(params.model.startsWith('gpt-5') ? { max_completion_tokens: 400 } : { max_tokens: 400 }),
+          // deepseek-v4 默认思考模式会挤占 max_tokens，关闭（见 lib/ai/deepseek.ts 文件头注释）
+          ...(params.model.startsWith('deepseek-v4') ? { thinking: { type: 'disabled' } } : {}),
         }),
       });
 

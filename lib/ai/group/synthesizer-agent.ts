@@ -8,7 +8,7 @@
  */
 
 import { generateText } from 'ai';
-import { getKimiModel } from '../kimi';
+import { deepseek, DEEPSEEK_MODEL } from '../deepseek';
 import { MentorPersona } from '../mentors/personas';
 import { GroupMode } from './orchestrator';
 
@@ -52,7 +52,7 @@ ${discussion}`;
         await new Promise(r => setTimeout(r, 1500));
       }
       const { text } = await generateText({
-        model: getKimiModel(),
+        model: deepseek(DEEPSEEK_MODEL),
         system: systemPrompt,
         prompt: userPrompt,
         temperature: 0.6,

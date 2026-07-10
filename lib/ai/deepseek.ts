@@ -1,3 +1,14 @@
+/**
+ * DeepSeek Provider — 全项目默认 LLM
+ *
+ * 模型说明：
+ * - 默认模型 deepseek-v4-flash **默认开启思考模式**：返回 reasoning_content，
+ *   即使 reasoning_effort: "low" 也要烧 ~100 reasoning token，且推理会挤占
+ *   max_tokens 导致 content 为空 —— 对情绪分析等小额度（max_tokens≈200）调用是生产事故级风险。
+ * - 因此本文件对所有 deepseek-v4* 请求统一注入 `thinking: { type: 'disabled' }`
+ *   （实测 reasoning_tokens=0、content 正常），已显式设置 thinking 的请求不覆盖。
+ * - legacy 别名 deepseek-chat（= v4-flash 非思考模式）2026-07-24 弃用，不能退回去用。
+ */
 import { ActionCardSchema, AssessmentConclusionSchema, CrisisClassificationSchema, EmotionAnalysisSchema } from './schemas';
 import { EmotionAnalysis } from '../../types/emotion';
 import { SYSTEM_PROMPT, EMOTION_ANALYSIS_PROMPT } from './prompts';
@@ -9,15 +20,50 @@ import { SDK_TOOLS } from './tools';
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions';
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
+// 全项目统一的 DeepSeek 默认模型（可用 DEEPSEEK_CHAT_MODEL 环境变量覆盖）
+export const DEEPSEEK_MODEL = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash';
+
 // Vercel AI SDK Integration
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { streamText, generateText } from 'ai';
 
 const deepseekBaseUrl = (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1').replace(/\/chat\/completions$/, '');
 
+/**
+ * 给原始请求体注入 thinking disabled（原因见文件头注释）。
+ * 仅对 deepseek-v4* 模型生效（DEEPSEEK_CHAT_MODEL 可被 env 覆盖成别的模型），
+ * 已显式设置 thinking 的请求不覆盖。
+ */
+export function withThinkingDisabled<T extends { model?: string; thinking?: unknown }>(body: T): T {
+  if (typeof body.model === 'string' && body.model.startsWith('deepseek-v4') && body.thinking === undefined) {
+    return { ...body, thinking: { type: 'disabled' } } as T;
+  }
+  return body;
+}
+
+/**
+ * 自定义 fetch：向 AI SDK provider 的请求体注入 thinking disabled
+ * （照 lib/ai/kimi.ts 的 kimiNoReasoningFetch 既有模式）
+ */
+export const deepseekNoThinkingFetch: typeof globalThis.fetch = async (input, init) => {
+  if (init?.body && typeof init.body === 'string') {
+    try {
+      const body = JSON.parse(init.body);
+      if (typeof body.model === 'string' && body.model.startsWith('deepseek-v4') && body.thinking === undefined) {
+        body.thinking = { type: 'disabled' };
+        init = { ...init, body: JSON.stringify(body) };
+      }
+    } catch {
+      // JSON 解析失败不影响原始请求
+    }
+  }
+  return globalThis.fetch(input, init);
+};
+
 export const deepseek = createDeepSeek({
   apiKey: DEEPSEEK_API_KEY,
   baseURL: deepseekBaseUrl,
+  fetch: deepseekNoThinkingFetch,
 });
 
 export interface ChatMessage {
@@ -92,8 +138,8 @@ export async function chatCompletion(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
+    body: JSON.stringify(withThinkingDisabled({
+      model: DEEPSEEK_MODEL,
       messages: messagesWithCache,
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 2000,
@@ -101,7 +147,7 @@ export async function chatCompletion(
       response_format: options?.responseFormat ? { type: options.responseFormat } : undefined,
       tools: options?.tools,
       tool_choice: options?.toolChoice,
-    }),
+    })),
   });
 
   if (!response.ok) {
@@ -130,7 +176,7 @@ export async function chatCompletion(
   const traceTarget = parentCtx?.trace || createTrace(
     'chatCompletion',
     {
-      model: 'deepseek-chat',
+      model: DEEPSEEK_MODEL,
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 2000,
       responseFormat: options?.responseFormat,
@@ -140,7 +186,7 @@ export async function chatCompletion(
     messages
   );
   if (traceTarget) {
-    const generation = createGeneration(traceTarget, 'DeepSeek Chat', messages, 'deepseek-chat');
+    const generation = createGeneration(traceTarget, 'DeepSeek Chat', messages, DEEPSEEK_MODEL);
     endGeneration(generation, output, {
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
@@ -238,7 +284,7 @@ export async function streamChatCompletion(
   }));
 
   const result = await streamText({
-    model: deepseek('deepseek-chat'),
+    model: deepseek(DEEPSEEK_MODEL),
     messages: coreMessages,
     temperature: options?.temperature ?? 0.7,
     maxOutputTokens: options?.max_tokens ?? 2000,
@@ -266,7 +312,7 @@ export async function streamChatCompletion(
           const traceTarget = parentCtx?.trace || createTrace(
             'streamChatCompletion',
             {
-              model: 'deepseek-chat',
+              model: DEEPSEEK_MODEL,
               temperature: options?.temperature ?? 0.7,
               max_tokens: options?.max_tokens ?? 2000,
               finishReason,
@@ -277,7 +323,7 @@ export async function streamChatCompletion(
           );
 
           if (traceTarget) {
-            const generation = createGeneration(traceTarget, 'DeepSeek Stream', messages, 'deepseek-chat');
+            const generation = createGeneration(traceTarget, 'DeepSeek Stream', messages, DEEPSEEK_MODEL);
             endGeneration(generation, text, {
               promptTokens: usage.inputTokens,
               completionTokens: usage.outputTokens,
@@ -296,7 +342,7 @@ export async function streamChatCompletion(
             const { recordMetric: recordChatMetric } = await import('@/lib/observability/metrics-collector');
             recordChatMetric({
               conversationId: convId,
-              model: 'deepseek-chat',
+              model: DEEPSEEK_MODEL,
               promptTokens: usage.inputTokens ?? 0,
               completionTokens: usage.outputTokens ?? 0,
               totalTokens: usage.totalTokens ?? 0,

@@ -18,6 +18,7 @@ import {
   updateTraceEvalLabels,
 } from '@/lib/eval/trace';
 import type { TraceEvalInput } from '@/lib/eval/trace';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,7 @@ function getEvalConfig() {
   return {
     apiKey: process.env.DEEPSEEK_API_KEY || '',
     apiUrl: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
-    model: process.env.EVAL_MODEL || 'deepseek-chat',
+    model: process.env.EVAL_MODEL || DEEPSEEK_MODEL,
   };
 }
 

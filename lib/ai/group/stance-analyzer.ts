@@ -1,4 +1,4 @@
-import { deepseek } from '@/lib/ai/deepseek';
+import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { MentorPersona } from '@/lib/ai/mentors/personas';
@@ -26,7 +26,7 @@ export async function analyzeStances(
         .join('\n');
 
     const { object } = await generateObject({
-        model: deepseek('deepseek-chat'),
+        model: deepseek(DEEPSEEK_MODEL),
         schema: StanceSchema,
         prompt: `你是一位哲学辩论主持人。以下大师将围绕一个话题展开辩论。
 请根据每位大师的思想体系和核心理念，快速判断他们对这个话题最可能持有的立场。

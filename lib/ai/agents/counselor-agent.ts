@@ -6,6 +6,7 @@
 
 import { BaseAgent } from './base-agent';
 import { streamText, type ChatMessage, type LlmProviderName } from '@/lib/llm';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { IDENTITY_PROMPT } from '../prompts';
 import type { AdaptiveMode } from '../persona-manager';
 
@@ -33,7 +34,7 @@ class CounselorAgentImpl extends BaseAgent<CounselorInput, CounselorOutput> {
     constructor() {
         super({
             name: 'counselor',
-            model: 'deepseek-chat',
+            model: DEEPSEEK_MODEL,
             systemPrompt: IDENTITY_PROMPT,
             timeout: 30000, // 流式回复需要更长超时
             fallbackData: null,

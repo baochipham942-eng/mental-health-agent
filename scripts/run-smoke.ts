@@ -717,7 +717,7 @@ function printConfiguration() {
   }
 
   // LLM 配置（从代码中读取默认值）
-  const model = 'deepseek-chat'; // 硬编码在 lib/ai/deepseek.ts
+  const model = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash'; // 与 lib/ai/deepseek.ts 的 DEEPSEEK_MODEL 保持一致
   const defaultTemperature = 0.7;
   const defaultMaxTokens = 2000;
   const conclusionTemperature = 0.3; // lib/ai/assessment/conclusion.ts

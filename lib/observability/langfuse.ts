@@ -103,7 +103,8 @@ export function createGeneration(
     trace: ReturnType<typeof createTrace>,
     name: string,
     input: any,
-    model: string = 'deepseek-chat'
+    // 不 import lib/ai/deepseek 的 DEEPSEEK_MODEL（deepseek.ts 引用本文件，会造成循环依赖），直接读 env
+    model: string = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash'
 ) {
     if (!trace) {
         return null;

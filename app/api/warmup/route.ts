@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
-import { deepseek } from '@/lib/ai/deepseek';
+import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { checkRateLimit } from '@/lib/api/rate-limit';
 
 /**
@@ -38,7 +38,7 @@ async function runWarmup() {
     const llmStart = Date.now();
     const { generateText } = await import('ai');
     await generateText({
-      model: deepseek('deepseek-chat'),
+      model: deepseek(DEEPSEEK_MODEL),
       prompt: 'hi',
       maxOutputTokens: 1,
     });

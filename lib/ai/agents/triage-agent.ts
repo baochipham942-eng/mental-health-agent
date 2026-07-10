@@ -143,7 +143,7 @@ export async function runTriageWithFallback(input: TriageInput): Promise<AgentRe
     // 弱化 triage：默认不再做第二层慢模型回退，避免在后台拖长主链尾部。
     if (process.env.TRIAGE_ENABLE_DEEP_FALLBACK === '1') {
         try {
-            const { chatStructuredCompletion } = await import('../deepseek');
+            const { chatStructuredCompletion, DEEPSEEK_MODEL } = await import('../deepseek');
             const { z } = await import('zod');
             type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -164,7 +164,7 @@ export async function runTriageWithFallback(input: TriageInput): Promise<AgentRe
                 data: { ...CONSERVATIVE_TRIAGE, ...dsResult },
                 latency: result.latency,
                 agentName: 'triage-deepseek-fallback',
-                model: 'deepseek-chat',
+                model: DEEPSEEK_MODEL,
             };
         } catch (_) {}
     }

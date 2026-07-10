@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCounselorAgent } from './counselor-agent';
 import type { CounselorInput } from './counselor-agent';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 
 // Mock LLM layer
 vi.mock('@/lib/llm', () => ({
@@ -219,8 +220,8 @@ describe('CounselorAgent', () => {
             expect(getCounselorAgent().name).toBe('counselor');
         });
 
-        it('model 为 deepseek-chat', () => {
-            expect(getCounselorAgent().model).toBe('deepseek-chat');
+        it('model 为 DEEPSEEK_MODEL', () => {
+            expect(getCounselorAgent().model).toBe(DEEPSEEK_MODEL);
         });
     });
 });

@@ -6,6 +6,7 @@
 
 import { BaseAgent } from './base-agent';
 import { generateStructured, type ChatMessage } from '@/lib/llm';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { getSafetyLlmProvider } from '@/lib/llm/config';
 import { z } from 'zod';
 
@@ -56,7 +57,7 @@ class SafetyAgentImpl extends BaseAgent<SafetyInput, SafetyAssessment> {
     constructor() {
         super({
             name: 'safety',
-            model: 'deepseek-chat',
+            model: DEEPSEEK_MODEL,
             systemPrompt: SAFETY_AGENT_PROMPT,
             timeout: 5000,
             fallbackData: DEFAULT_SAFE,

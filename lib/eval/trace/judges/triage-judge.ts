@@ -11,6 +11,7 @@
  */
 
 import type { TraceEvalInput, StepEvalResult } from '../types';
+import { withThinkingDisabled } from '@/lib/ai/deepseek';
 
 /** CoT 输出格式后缀 */
 const COT_SUFFIX = `
@@ -79,7 +80,7 @@ export async function judge(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${config.apiKey}`,
       },
-      body: JSON.stringify({
+      body: JSON.stringify(withThinkingDisabled({
         model: config.model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -87,7 +88,7 @@ export async function judge(
         ],
         temperature: 0,
         max_tokens: 400,
-      }),
+      })),
     });
 
     const data = await response.json() as any;

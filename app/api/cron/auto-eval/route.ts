@@ -16,6 +16,7 @@ import {
 import { evaluateAndSaveConversation } from '@/lib/actions/evaluation';
 import { evaluateTrace } from '@/lib/eval/trace';
 import { writeTraceEval } from '@/lib/eval/trace/db';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
                             }, {
                                 apiKey: process.env.DEEPSEEK_API_KEY || '',
                                 apiUrl: process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1',
-                                model: process.env.EVAL_MODEL || 'deepseek-chat',
+                                model: process.env.EVAL_MODEL || DEEPSEEK_MODEL,
                             });
                             writeTraceEval(traceResult, {
                                 traceJson: JSON.stringify(agentTrace),

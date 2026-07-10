@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getSafetyAgent, SafetyAssessmentSchema, DEFAULT_SAFE, SAFETY_AGENT_PROMPT } from './safety-agent';
 import type { SafetyInput, SafetyAssessment } from './safety-agent';
+import { DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 
 // Mock LLM layer
 vi.mock('@/lib/llm', () => ({
@@ -233,9 +234,9 @@ describe('SafetyAgent', () => {
             expect(agent.name).toBe('safety');
         });
 
-        it('model 为 deepseek-chat', () => {
+        it('model 为 DEEPSEEK_MODEL', () => {
             const agent = getSafetyAgent();
-            expect(agent.model).toBe('deepseek-chat');
+            expect(agent.model).toBe(DEEPSEEK_MODEL);
         });
 
         it('返回结果包含 latency', async () => {

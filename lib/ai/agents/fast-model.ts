@@ -1,4 +1,5 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { DEEPSEEK_MODEL, deepseekNoThinkingFetch } from '../deepseek';
 
 type FastProviderName = 'deepseek' | 'openrouter' | 'groq';
 
@@ -33,7 +34,7 @@ export function getFastAgentConfig(): {
   if (providerName === 'deepseek') {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      return { provider: null, providerName, model: process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat' };
+      return { provider: null, providerName, model: DEEPSEEK_MODEL };
     }
 
     return {
@@ -41,9 +42,11 @@ export function getFastAgentConfig(): {
         name: 'deepseek-fast',
         baseURL: process.env.DEEPSEEK_API_URL?.replace(/\/chat\/completions$/, '') || 'https://api.deepseek.com/v1',
         apiKey,
+        // fast 路径更不该思考：注入 thinking disabled（见 lib/ai/deepseek.ts 文件头注释）
+        fetch: deepseekNoThinkingFetch,
       }),
       providerName,
-      model: process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat',
+      model: DEEPSEEK_MODEL,
     };
   }
 

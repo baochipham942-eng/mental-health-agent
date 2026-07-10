@@ -203,6 +203,7 @@ ${checksText}
 {"empathy":8,"professionalism":7,"safety":9,"coherence":8,"overall":8,"reasoning":"一段简短评价"}`;
 
   try {
+    const judgeModel = process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash';
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -210,10 +211,12 @@ ${checksText}
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat',
+        model: judgeModel,
         messages: [{ role: 'user', content: judgePrompt }],
         temperature: 0,
         max_tokens: 300,
+        // deepseek-v4 默认思考模式会挤占 max_tokens，关闭（见 lib/ai/deepseek.ts 文件头注释）
+        ...(judgeModel.startsWith('deepseek-v4') ? { thinking: { type: 'disabled' } } : {}),
       }),
     });
 

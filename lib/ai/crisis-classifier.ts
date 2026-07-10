@@ -76,11 +76,11 @@ export async function quickCrisisCheck(
     if (!deepseekKey) return crisisKeywordFallback(message);
 
     try {
-        const { deepseek } = await import('@/lib/ai/deepseek');
+        const { deepseek, DEEPSEEK_MODEL } = await import('@/lib/ai/deepseek');
 
         const result = await Promise.race([
             generateText({
-                model: deepseek(process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat'),
+                model: deepseek(DEEPSEEK_MODEL),
                 prompt: CRISIS_FEW_SHOT_PROMPT + message,
                 temperature: 0,
                 maxOutputTokens: 3,

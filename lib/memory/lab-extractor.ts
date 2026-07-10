@@ -1,4 +1,4 @@
-import { deepseek } from '@/lib/ai/deepseek';
+import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { createProfileMemory } from './data-bridge';
@@ -93,7 +93,7 @@ export async function extractLabInsights(
             .join('\n');
 
         const { object } = await generateObject({
-            model: deepseek('deepseek-chat'),
+            model: deepseek(DEEPSEEK_MODEL),
             schema: LabInsightSchema,
             prompt: `${LAB_EXTRACTOR_PROMPT}\n\n【对话内容】\n${conversationText}`,
             temperature: 0.3,

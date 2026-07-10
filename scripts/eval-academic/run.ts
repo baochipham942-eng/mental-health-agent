@@ -41,7 +41,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const API_URL = process.env.EVAL_API_URL || 'http://localhost:3002/api/chat';
 const JUDGE_API_KEY = process.env.JUDGE_API_KEY || process.env.DEEPSEEK_API_KEY || '';
 const JUDGE_API_URL = process.env.JUDGE_API_URL || (process.env.DEEPSEEK_API_URL?.replace(/\/chat\/completions$/, '') || 'https://api.deepseek.com/v1');
-const JUDGE_MODEL = process.env.JUDGE_MODEL || process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-chat';
+const JUDGE_MODEL = process.env.JUDGE_MODEL || process.env.DEEPSEEK_CHAT_MODEL || 'deepseek-v4-flash';
 const EVAL_CHAT_MODEL = process.env.EVAL_CHAT_MODEL || '';  // 评测用的对话模型（空=默认 deepseek）
 const EVAL_CHAT_PROVIDER = process.env.EVAL_CHAT_PROVIDER || '';  // 评测用的 provider（空=自动推断）
 const DEFAULT_LIMIT = 20;
@@ -745,6 +745,8 @@ ${items}
         ],
         temperature: 0,
         ...(JUDGE_MODEL.startsWith('gpt-5') ? { max_completion_tokens: 800 } : { max_tokens: 800 }),
+        // deepseek-v4 默认思考模式会挤占 max_tokens，关闭（见 lib/ai/deepseek.ts 文件头注释）
+        ...(JUDGE_MODEL.startsWith('deepseek-v4') ? { thinking: { type: 'disabled' } } : {}),
       }),
     });
 

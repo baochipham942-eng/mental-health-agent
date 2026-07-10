@@ -5,6 +5,7 @@ vi.mock('@/lib/ai/deepseek', () => ({
     chatStructuredCompletion: vi.fn(),
     chatCompletion: vi.fn(),
     deepseek: vi.fn(() => (model: string) => model),
+    DEEPSEEK_MODEL: 'deepseek-v4-flash',
 }));
 
 vi.mock('ai', () => ({

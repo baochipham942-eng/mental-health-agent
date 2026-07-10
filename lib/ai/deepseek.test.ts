@@ -6,7 +6,7 @@ vi.hoisted(() => {
     process.env.DEEPSEEK_API_KEY = 'test-key';
 });
 
-import { chatCompletion, chatStructuredCompletion } from './deepseek';
+import { chatCompletion, chatStructuredCompletion, deepseekNoThinkingFetch } from './deepseek';
 
 function mockFetch(data: any, ok = true, status = 200) {
     return vi.spyOn(global, 'fetch').mockResolvedValue({
@@ -84,6 +84,52 @@ describe('chatCompletion', () => {
         fetchSpy = mockFetch(makeApiResponse('', 'I cannot help with that'));
         await expect(chatCompletion([{ role: 'user', content: 'bad' }]))
             .rejects.toThrow('AI refused to respond');
+    });
+
+    it('deepseek-v4 请求体自动注入 thinking disabled', async () => {
+        fetchSpy = mockFetch(makeApiResponse('ok'));
+        await chatCompletion([{ role: 'user', content: 'hi' }]);
+        const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+        expect(body.thinking).toEqual({ type: 'disabled' });
+    });
+});
+
+describe('deepseekNoThinkingFetch', () => {
+    let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+    afterEach(() => {
+        fetchSpy?.mockRestore();
+    });
+
+    function sentBody() {
+        return JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    }
+
+    it('deepseek-v4 模型 → 注入 thinking disabled', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({ model: 'deepseek-v4-flash', messages: [] }),
+        });
+        expect(sentBody().thinking).toEqual({ type: 'disabled' });
+    });
+
+    it('非 v4 模型 → 请求体不动', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({ model: 'some-other-model', messages: [] }),
+        });
+        expect(sentBody().thinking).toBeUndefined();
+    });
+
+    it('已显式设置 thinking → 不覆盖', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({ model: 'deepseek-v4-flash', thinking: { type: 'enabled' } }),
+        });
+        expect(sentBody().thinking).toEqual({ type: 'enabled' });
     });
 });
 
