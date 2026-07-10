@@ -62,7 +62,8 @@ export function parseMentorReply(
     const trimmed = raw.trim().replace(/^\[[^\]]{1,30}\][:：]\s*/, '');
 
     if (trimmed.startsWith('[PASS]')) {
-        const reason = trimmed.slice('[PASS]'.length).trim().slice(0, 40);
+        // 模型会往理由里走私正文（真跑实测）：只取第一个短句并硬顶 30 字
+        const reason = trimmed.slice('[PASS]'.length).trim().split(/[。！？：；—\n]/)[0].slice(0, 30);
         return { content: '', wantToRespond: [], passed: true, ...(reason ? { passReason: reason } : {}) };
     }
 
@@ -276,9 +277,10 @@ export async function* orchestrateGroupChat(
                 if (wantedResponder) {
                     nextMentorId = wantedResponder;
                     const wantedMentor = getMentor(wantedResponder);
+                    moderatorPrompt = `${wantedMentor?.name || ''}，${prevReply.mentorName}似乎在等你的回应。`;
                     yield {
                         type: 'moderator',
-                        content: `${wantedMentor?.name || ''}，${prevReply.mentorName}似乎在等你的回应。`,
+                        content: moderatorPrompt,
                         action: 'point',
                         targetMentorId: wantedResponder,
                     };
@@ -293,6 +295,7 @@ export async function* orchestrateGroupChat(
                             break;
                         }
                         nextMentorId = decision.nextSpeakerId;
+                        moderatorPrompt = decision.prompt;
                         if (decision.prompt) {
                             yield {
                                 type: 'moderator',
@@ -323,7 +326,7 @@ export async function* orchestrateGroupChat(
             // 先生成再宣布发言者：弃权时不留空气泡
             const turn = await streamMentorReply(
                 mentor, mentors, mode, effectiveTopic, lastUserMessage,
-                stanceInfo, sharedHistory, currentRoundReplies, round1, userContext
+                stanceInfo, sharedHistory, currentRoundReplies, round1, userContext, moderatorPrompt
             );
 
             if (turn.passed) {
@@ -395,6 +398,7 @@ export async function* orchestrateGroupChat(
 
                 for (let i = 0; i < mentors.length; i++) {
                     let nextMentorId: string;
+                    let moderatorPrompt = '';
 
                     // Moderator 动态点名
                     const prevReply = round2Replies[round2Replies.length - 1];
@@ -403,9 +407,10 @@ export async function* orchestrateGroupChat(
                     if (wantedResponder) {
                         nextMentorId = wantedResponder;
                         const wm = getMentor(wantedResponder);
+                        moderatorPrompt = `${wm?.name}，${prevReply?.mentorName}点名请你回应。`;
                         yield {
                             type: 'moderator',
-                            content: `${wm?.name}，请回应。`,
+                            content: moderatorPrompt,
                             action: 'point',
                             targetMentorId: wantedResponder,
                         };
@@ -421,6 +426,7 @@ export async function* orchestrateGroupChat(
                                 break;
                             }
                             nextMentorId = decision.nextSpeakerId;
+                            moderatorPrompt = decision.prompt;
                             if (decision.prompt) {
                                 yield {
                                     type: 'moderator',
@@ -448,7 +454,7 @@ export async function* orchestrateGroupChat(
                     // 先生成再宣布发言者：弃权时不留空气泡
                     const turn = await streamMentorReply(
                         mentor, mentors, mode, effectiveTopic, lastUserMessage,
-                        stanceInfo, sharedHistory, round2Replies, round2, userContext
+                        stanceInfo, sharedHistory, round2Replies, round2, userContext, moderatorPrompt
                     );
 
                     if (turn.passed) {
@@ -597,6 +603,7 @@ async function streamMentorReply(
     currentRoundReplies: MentorTurn[],
     round: number,
     userContext: string,
+    moderatorPrompt?: string,
 ): Promise<MentorTurn> {
     const systemPrompt = buildMentorSystemPrompt(mentor, allMentors, mode, topic, stanceInfo, false, userContext);
 
@@ -608,6 +615,8 @@ async function streamMentorReply(
             content: `[${turn.mentor.avatar} ${turn.mentorName}]: ${turn.content}`,
         })),
         { role: 'user', content: userMessage },
+        // 主持人的点名引导必须进被点名者的上下文——否则大师看不到追问、只会对原始问题复读
+        ...(moderatorPrompt ? [{ role: 'user' as const, content: `[🎭 主持人]: ${moderatorPrompt}` }] : []),
     ];
 
     let fullContent = '';
@@ -687,6 +696,7 @@ function buildMentorSystemPrompt(
     const parallelNote = isParallelRound
         ? `\n注意：这是第一轮，你还没有看到其他大师的观点。请独立表达你对话题的看法。`
         : `\n**你有不发言的权利**：如果你没有新的、值得补充的观点（想说的已被别人说过，或这个话题不在你的思想射程内），请只回复 [PASS]，可在后面用一句话（20字内）说明，例如"[PASS] 卡尼曼已说出我想说的"。宁可倾听，不要凑数。
+**不要复读**：前情回顾中署名为你的发言是你自己说过的话。本轮发言必须带来增量——优先回应主持人刚提出的问题或其他大师的最新观点；如果只是想重申已说过的立场，请 [PASS]。
 **想请谁回应**：如果你希望某位大师回应你的观点，在发言最后单独一行写 @大师名（例如"@卡尼曼"）。不需要时省略。仅仅提到名字不算请求回应。`;
 
     let prompt = `${mentor.systemPrompt}
@@ -702,7 +712,7 @@ ${parallelNote}
 1. 控制在 200 字以内，简洁有力
 2. 如果前面有其他大师发言，可以回应他们的观点（赞同、补充或反驳）
 3. 用你独有的思维方式和语言风格发言
-4. 不要重复其他大师已经说过的论点
+4. 不要重复其他大师或你自己已经说过的论点
 5. 直接用你的口吻说话，不要加"XX说："前缀`;
 
     if (userContext) {

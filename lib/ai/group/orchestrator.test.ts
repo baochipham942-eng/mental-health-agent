@@ -86,6 +86,12 @@ describe('parseMentorReply 弃权协议与显式 @', () => {
         expect(r.wantToRespond).toEqual([]);
     });
 
+    it('PASS 理由只取第一个短句，拦截内容走私', () => {
+        const r = parseMentorReply('[PASS] 让我用思想实验替代重复论证：假设你现在有两份offer——A是维持现状', socrates, all);
+        expect(r.passed).toBe(true);
+        expect(r.passReason).toBe('让我用思想实验替代重复论证');
+    });
+
     it('剥掉模型模仿共享历史格式的自名前缀', () => {
         const r = parseMentorReply(`[⚖️ 丹尼尔·卡尼曼]：朋友，我能感受到你的纠结。`, socrates, all);
         expect(r.content).toBe('朋友，我能感受到你的纠结。');
