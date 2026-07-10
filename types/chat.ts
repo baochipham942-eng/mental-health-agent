@@ -75,6 +75,17 @@ export interface Emotion {
 }
 
 export type ChatState = 'normal' | 'awaiting_followup' | 'in_crisis';
+
+/**
+ * 流式 data-state / 持久化 meta.state 里可能混入非枚举值
+ * （管理员 CoT 的 reasoning 文本、legacy 对象格式），
+ * 回填 currentState 前必须过这道白名单，否则下一轮请求会撞服务端 z.enum 报 400。
+ */
+export function toChatState(value: unknown): ChatState | undefined {
+  return value === 'normal' || value === 'awaiting_followup' || value === 'in_crisis'
+    ? value
+    : undefined;
+}
 export type AssessmentStage = 'intake' | 'conclusion'; // Removed gap_followup
 
 /**
@@ -137,6 +148,7 @@ export type GroupChatIntent = 'discuss' | 'summarize';
 
 // 群组对话 SSE 事件类型
 export type GroupSSEEvent =
+  | { type: 'lab_session'; labSessionId: string }
   | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
   | { type: 'mentor_chunk'; content: string }
   | { type: 'mentor_end'; mentorId: string }

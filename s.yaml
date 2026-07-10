@@ -33,6 +33,14 @@ resources:
               - POST
               - PUT
               - DELETE
+        # FC 预热：每 5 分钟触发一次，事件调用会 POST 到 custom runtime 的 /invoke，
+        # next.config.js 已把 /invoke rewrite 到 /api/warmup（keep-alive 端点）
+        - triggerName: keep-alive-timer
+          triggerType: timer
+          triggerConfig:
+            cronExpression: "@every 5m"
+            enable: true
+            payload: '{"source":"keep-alive-timer"}'
       environmentVariables:
         PORT: "3000"
         NODE_ENV: "production"

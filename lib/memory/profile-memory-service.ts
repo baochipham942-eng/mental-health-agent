@@ -32,16 +32,23 @@ function kindWeight(kind: string): number {
   }
 }
 
-function relevanceScore(record: ProfileMemoryRecord, keywords: string[]): number {
-  const keywordMatches = keywords.reduce((score, keyword) => {
+// 无关键词交集时的最低置信度门槛：低置信度记忆（如实验室单次推断，写入即 <0.5）
+// 只在与当前消息有关键词交集时才注入，避免弱证据记忆出现在所有话题里。
+// 0.6 取自主链路提取的常见置信度下沿（extractor 下限 0.5、典型 0.8+）。
+export const MIN_STANDALONE_CONFIDENCE = 0.6;
+
+function keywordMatchScore(record: ProfileMemoryRecord, keywords: string[]): number {
+  return keywords.reduce((score, keyword) => {
     if (record.content.includes(keyword)) {
       return score + Math.min(keyword.length * 3, 12);
     }
     return score;
   }, 0);
+}
 
+function relevanceScore(record: ProfileMemoryRecord, keywordScore: number): number {
   return (
-    keywordMatches +
+    keywordScore +
     kindWeight(record.kind) +
     Math.min(record.priority, 100) * 0.5 +
     Math.min(record.confidence, 1) * 20
@@ -49,23 +56,27 @@ function relevanceScore(record: ProfileMemoryRecord, keywords: string[]): number
 }
 
 export class ProfileMemoryService {
-  async listTop(userId: string, message: string, limit: number = 6): Promise<ProfileMemoryRecord[]> {
-    const candidates = await findProfileMemoriesTop(userId, Math.max(limit * 4, 20));
+  /** 按 userId 稳定的候选池（不依赖当前消息，可缓存） */
+  async listCandidates(userId: string, limit: number = 6): Promise<ProfileMemoryRecord[]> {
+    return findProfileMemoriesTop(userId, Math.max(limit * 4, 20));
+  }
 
+  /** 用当前消息对候选池重新排序/过滤（每轮调用，不可缓存结果） */
+  rankTop(candidates: ProfileMemoryRecord[], message: string, limit: number = 6): ProfileMemoryRecord[] {
     const keywords = extractKeywords(message);
     return candidates
-      .map((record: ProfileMemoryRecord) => ({
-        record,
-        score: relevanceScore(record, keywords),
-      }))
-      .sort(
-        (
-          a: { record: ProfileMemoryRecord; score: number },
-          b: { record: ProfileMemoryRecord; score: number }
-        ) => b.score - a.score || b.record.updatedAt.getTime() - a.record.updatedAt.getTime()
+      .map((record) => ({ record, keywordScore: keywordMatchScore(record, keywords) }))
+      .filter(({ record, keywordScore }) =>
+        keywordScore > 0 || record.confidence >= MIN_STANDALONE_CONFIDENCE
       )
+      .map(({ record, keywordScore }) => ({ record, score: relevanceScore(record, keywordScore) }))
+      .sort((a, b) => b.score - a.score || b.record.updatedAt.getTime() - a.record.updatedAt.getTime())
       .slice(0, limit)
-      .map((item: { record: ProfileMemoryRecord; score: number }) => item.record);
+      .map((item) => item.record);
+  }
+
+  async listTop(userId: string, message: string, limit: number = 6): Promise<ProfileMemoryRecord[]> {
+    return this.rankTop(await this.listCandidates(userId, limit), message, limit);
   }
 }
 

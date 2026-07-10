@@ -38,9 +38,11 @@ const HARMFUL_KEYWORDS = [
 // ============================================================
 // 系统信息泄露模式
 // ============================================================
+// \s 必须有上界：无界 \s* 会让模式长度超过流式护栏的尾部缓冲（TAIL_BUFFER_SIZE），
+// 且几十个空白隔开的两个词也不构成真实泄露
 const SYSTEM_LEAK_PATTERNS = [
-    /system\s*prompt/i,
-    /initial\s*instructions?/i,
+    /system\s{0,20}prompt/i,
+    /initial\s{0,20}instructions?/i,
     /我的系统提示/,
     /我的角色设定/,
     /我被设定为/,
@@ -76,11 +78,13 @@ export function guardOutput(agentResponse: string): OutputGuardResult {
 
     // 2. 系统信息泄露检测
     for (const pattern of SYSTEM_LEAK_PATTERNS) {
-        if (pattern.test(response)) {
+        // 全局替换：同一模式出现多次时逐一遮蔽（裸 pattern.replace 只替换首个）
+        const globalPattern = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+        const replaced = response.replace(globalPattern, '[内容已隐藏]');
+        if (replaced !== response) {
             issues.push('system_leak');
             logWarn('output-guard-leak', { pattern: pattern.source });
-            // 替换泄露部分
-            response = response.replace(pattern, '[内容已隐藏]');
+            response = replaced;
         }
     }
 

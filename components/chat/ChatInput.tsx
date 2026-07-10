@@ -25,6 +25,19 @@ function ToolboxIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+/**
+ * 工具箱第一层：职场任务语言（用户视角的场景），技术名称下沉到副标题。
+ * key 用于拼出 "我想试试{key}"，必须能命中 lib/ai/skills.ts detectDirectSkillRequest 的正则。
+ */
+export const TOOLBOX_TASKS = [
+  { key: '溪流落叶', emoji: '🎈', label: '下班后脑子停不下来', skill: '溪流落叶', desc: '放下打转的念头', gradient: 'from-sky-50 to-violet-100' },
+  { key: '4-7-8呼吸法', emoji: '🌬️', label: '被领导批了，先缓一缓', skill: '4-7-8呼吸法', desc: '一分钟平复下来', gradient: 'from-blue-50 to-blue-100' },
+  { key: '空椅子', emoji: '🪑', label: '明天要谈薪，陪我排练', skill: '空椅子', desc: '提前排练关键对话', gradient: 'from-amber-50 to-amber-100' },
+  { key: '认知重构', emoji: '🧠', label: '同事越界，想想怎么回应', skill: '认知重构', desc: '理清想法再回应', gradient: 'from-indigo-50 to-indigo-100' },
+  { key: '空椅子', emoji: '💬', label: '心里堵着，想把话说出来', skill: '空椅子', desc: '想说什么都可以', gradient: 'from-rose-50 to-rose-100' },
+  { key: '情绪记录', emoji: '🌡️', label: '记录今天压力来自哪里', skill: '情绪记录', desc: '看清压力的来源', gradient: 'from-teal-50 to-teal-100' },
+] as const;
+
 interface ChatInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -233,29 +246,21 @@ export function ChatInput({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-xs text-gray-400 font-medium mb-2 px-1">解压工具箱</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[
-                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习", desc: "缓解焦虑" },
-                { key: "正念冥想", emoji: "🧘", label: "正念冥想", desc: "放松身心" },
-                { key: "空椅子", emoji: "🪑", label: "空椅子", desc: "释放情绪" },
-                { key: "着陆技术", emoji: "🦶", label: "五感着陆", desc: "缓解恐慌" },
-                { key: "溪流落叶", emoji: "🎈", label: "放飞念头", desc: "改善纠结" },
-                { key: "行为激活", emoji: "⚡️", label: "行为激活", desc: "提升动力" },
-                { key: "情绪记录", emoji: "🌡️", label: "情绪记录", desc: "觉察当下" },
-              ].map((skill) => (
+            <div className="flex flex-col gap-1">
+              {TOOLBOX_TASKS.map((task) => (
                 <div
-                  key={skill.key}
+                  key={task.label}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${skill.label} - ${skill.desc}`}
-                  onClick={() => { onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSend(`我想试试${skill.key}`); setDesktopMenuOpen(false); } }}
+                  aria-label={`${task.label} - ${task.skill}`}
+                  onClick={() => { onSend(`我想试试${task.key}`); setDesktopMenuOpen(false); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSend(`我想试试${task.key}`); setDesktopMenuOpen(false); } }}
                   className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group"
                 >
-                  <span className="text-xl shrink-0">{skill.emoji}</span>
+                  <span className="text-xl shrink-0">{task.emoji}</span>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">{skill.label}</div>
-                    <div className="text-[11px] text-gray-400">{skill.desc}</div>
+                    <div className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors whitespace-nowrap">{task.label}</div>
+                    <div className="text-[11px] text-gray-400">{task.skill} · {task.desc}</div>
                   </div>
                 </div>
               ))}
@@ -296,30 +301,23 @@ export function ChatInput({
             }
             className="rounded-t-2xl [&_.arco-drawer-header]:border-none [&_.arco-drawer-header]:pt-4"
           >
-            <div className="grid grid-cols-4 gap-3 pb-6 px-1">
-              {[
-                { key: "4-7-8呼吸法", emoji: "🌬️", label: "呼吸练习", gradient: "from-blue-50 to-blue-100" },
-                { key: "正念冥想", emoji: "🧘", label: "正念冥想", gradient: "from-purple-50 to-purple-100" },
-                { key: "空椅子", emoji: "🪑", label: "空椅子", gradient: "from-amber-50 to-amber-100" },
-                { key: "着陆技术", emoji: "🦶", label: "五感着陆", gradient: "from-teal-50 to-teal-100" },
-                { key: "溪流落叶", emoji: "🎈", label: "放飞念头", gradient: "from-sky-50 to-violet-100" },
-                { key: "行为激活", emoji: "⚡️", label: "行为激活", gradient: "from-orange-50 to-orange-100" },
-                { key: "情绪记录", emoji: "🌡️", label: "情绪记录", gradient: "from-rose-50 to-rose-100" },
-              ].map((skill) => (
+            <div className="flex flex-col gap-1 pb-6 px-1">
+              {TOOLBOX_TASKS.map((task) => (
                 <div
-                  key={skill.key}
+                  key={task.label}
                   onClick={() => {
-                    onSend(`我想试试${skill.key}`);
+                    onSend(`我想试试${task.key}`);
                     setSkillsOpen(false);
                   }}
-                  className="flex flex-col items-center gap-2 p-2 active:scale-95 rounded-xl transition-all cursor-pointer"
+                  className="flex items-center gap-3 p-2 active:scale-[0.98] rounded-xl transition-all cursor-pointer"
                 >
-                  <div className={`w-12 h-12 bg-linear-to-br ${skill.gradient} rounded-2xl flex items-center justify-center text-2xl shadow-xs border border-white/60`}>
-                    {skill.emoji}
+                  <div className={`w-11 h-11 bg-linear-to-br ${task.gradient} rounded-xl flex items-center justify-center text-xl shadow-xs border border-white/60 shrink-0`}>
+                    {task.emoji}
                   </div>
-                  <span className="text-[11px] font-medium text-gray-600 text-center leading-tight">
-                    {skill.label}
-                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-700">{task.label}</div>
+                    <div className="text-[11px] text-gray-400">{task.skill} · {task.desc}</div>
+                  </div>
                 </div>
               ))}
             </div>

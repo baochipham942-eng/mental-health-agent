@@ -40,8 +40,8 @@ describe('extractMemoriesFromMessages', () => {
         const result = await extractMemoriesFromMessages(messages);
         expect(result).toHaveLength(1);
         // Phone number should be redacted by redactPII
-        expect(result[0].content).toContain('[手机号已脱敏]');
-        expect(result[0].content).not.toContain('13812345678');
+        expect(result![0].content).toContain('[手机号已脱敏]');
+        expect(result![0].content).not.toContain('13812345678');
     });
 
     it('confidence 被限制在 [0.5, 1] 范围内', async () => {
@@ -55,17 +55,17 @@ describe('extractMemoriesFromMessages', () => {
             { role: 'user', content: '测试' },
         ]);
         const result = await extractMemoriesFromMessages(messages);
-        expect(result[0].confidence).toBe(0.5);
-        expect(result[1].confidence).toBe(1);
+        expect(result![0].confidence).toBe(0.5);
+        expect(result![1].confidence).toBe(1);
     });
 
-    it('API 失败 → 返回 [] 不抛异常', async () => {
+    it('API 失败 → 返回 null 不抛异常（区分「失败」与「真无记忆」）', async () => {
         mockChatStructured.mockRejectedValue(new Error('API timeout'));
         const messages = createConversationMessages([
             { role: 'user', content: '测试' },
         ]);
         const result = await extractMemoriesFromMessages(messages);
-        expect(result).toEqual([]);
+        expect(result).toBeNull();
     });
 });
 

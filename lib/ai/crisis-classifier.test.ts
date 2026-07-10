@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { quickCrisisCheck, quickCrisisKeywordCheck, classifyCrisisIntent } from './crisis-classifier';
+import { quickCrisisCheck, quickCrisisKeywordCheck, classifyCrisisIntent, resolveCrisisCheckWithSoftWait } from './crisis-classifier';
 
 vi.mock('@/lib/ai/deepseek', () => ({
     chatStructuredCompletion: vi.fn(),
@@ -179,6 +179,59 @@ describe('quickCrisisCheck (few-shot)', () => {
             new Promise((resolve) => setTimeout(() => resolve({ text: 'YES' } as any), 5000))
         );
         expect(await quickCrisisCheck('我不想活了，觉得活着没有意义', 10)).toBe(true);
+    });
+});
+
+// ====== resolveCrisisCheckWithSoftWait — 关键路径两段式 ======
+
+describe('resolveCrisisCheckWithSoftWait', () => {
+    it('安全底线：关键词命中立即判危机，不等 LLM（LLM 永不返回也必须阻断）', async () => {
+        const neverResolve = new Promise<boolean>(() => { });
+        const start = Date.now();
+        const result = await resolveCrisisCheckWithSoftWait({
+            message: '我想割腕',
+            crisisCheckPromise: neverResolve,
+            softWaitMs: 5000,
+        });
+        expect(result).toEqual({ isCrisis: true, keywordHit: true, llmTimedOut: false });
+        expect(Date.now() - start).toBeLessThan(200);
+    });
+
+    it('无关键词 + LLM soft-wait 超时 → 先按非危机放行（走 support 流）并标记 llmTimedOut', async () => {
+        const slowCrisis = new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 3000));
+        const result = await resolveCrisisCheckWithSoftWait({
+            message: '好绝望啊',
+            crisisCheckPromise: slowCrisis,
+            softWaitMs: 20,
+        });
+        expect(result).toEqual({ isCrisis: false, keywordHit: false, llmTimedOut: true });
+    });
+
+    it('无关键词 + LLM 在窗口内返回危机 → 判危机', async () => {
+        const result = await resolveCrisisCheckWithSoftWait({
+            message: '好绝望啊',
+            crisisCheckPromise: Promise.resolve(true),
+            softWaitMs: 500,
+        });
+        expect(result).toEqual({ isCrisis: true, keywordHit: false, llmTimedOut: false });
+    });
+
+    it('无关键词 + LLM 在窗口内返回非危机 → 非危机且不标记超时', async () => {
+        const result = await resolveCrisisCheckWithSoftWait({
+            message: '今天好累',
+            crisisCheckPromise: Promise.resolve(false),
+            softWaitMs: 500,
+        });
+        expect(result).toEqual({ isCrisis: false, keywordHit: false, llmTimedOut: false });
+    });
+
+    it('LLM promise reject → 按非危机处理，不抛错', async () => {
+        const result = await resolveCrisisCheckWithSoftWait({
+            message: '今天好累',
+            crisisCheckPromise: Promise.reject(new Error('boom')),
+            softWaitMs: 500,
+        });
+        expect(result.isCrisis).toBe(false);
     });
 });
 

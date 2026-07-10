@@ -16,6 +16,7 @@
 
 import { streamText } from 'ai';
 import { deepseek, DEEPSEEK_MODEL, ChatMessage } from '@/lib/ai/deepseek';
+import { guardOutput } from '@/lib/ai/guardrails/output-guard';
 import { getMentor, MentorPersona } from '@/lib/ai/mentors/personas';
 import { analyzeStances, getDebateOrder } from './stance-analyzer';
 import { generateOpening, decideNextSpeaker, generateTransition } from './moderator-agent';
@@ -23,6 +24,9 @@ import { synthesize } from './synthesizer-agent';
 
 export type GroupMode = 'discuss' | 'debate';
 export type GroupIntent = 'discuss' | 'summarize';
+
+// 圆桌单次 LLM 调用统一超时（超时算一次失败，走已有的重试→弃权链路）
+const GROUP_LLM_TIMEOUT_MS = 20_000;
 
 interface GroupChatOptions {
     mentorIds: string[];
@@ -32,6 +36,8 @@ interface GroupChatOptions {
     messages: Array<{ role: 'user' | 'assistant'; content: string; mentorId?: string; round?: number }>;
     /** 用户既往洞察（ProfileMemory 内容，第二人称），用于开场白与大师 prompt 的延续感注入 */
     userInsights?: string[];
+    /** 请求中止信号：客户端断线后不再发起剩余 LLM 调用 */
+    signal?: AbortSignal;
 }
 
 interface MentorTurn {
@@ -84,6 +90,22 @@ export function parseMentorReply(
 }
 
 /**
+ * 输出护栏：圆桌是"先拿全文再假流式"，所有 LLM 生成的用户可见文本
+ * （大师发言 / 主持人 / 总结 / 弃权理由）在分块吐出之前必须过这里。
+ * fail-closed：护栏自身异常时返回固定安全文案，不透传原文。
+ */
+const GROUP_GUARD_FALLBACK = '这段话我想再斟酌一下，先不展开了。';
+
+function safeGuardText(text: string): string {
+    try {
+        return guardOutput(text).redactedResponse; // safe 时 redactedResponse 即原文
+    } catch (e) {
+        console.error('[Orchestrator] output guard failed:', e);
+        return GROUP_GUARD_FALLBACK;
+    }
+}
+
+/**
  * 构建用户既往洞察上下文块（记忆注入）
  */
 function buildUserContextBlock(userInsights?: string[]): string {
@@ -99,7 +121,8 @@ function buildUserContextBlock(userInsights?: string[]): string {
 export async function* orchestrateGroupChat(
     options: GroupChatOptions
 ): AsyncGenerator<GroupSSEPayload> {
-    const { mentorIds, mode, topic, messages, intent = 'discuss', userInsights } = options;
+    const { mentorIds, mode, topic, messages, intent = 'discuss', userInsights, signal } = options;
+    if (signal?.aborted) return;
     const userContext = buildUserContextBlock(userInsights);
 
     const mentors = mentorIds
@@ -133,7 +156,7 @@ export async function* orchestrateGroupChat(
                     round: r.round,
                 }))
             );
-            yield { type: 'synthesis', content: summary };
+            yield { type: 'synthesis', content: safeGuardText(summary) };
         }
 
         yield { type: 'phase_metrics', phase: 'synthesis', durationMs: Date.now() - synthesisStart };
@@ -155,7 +178,7 @@ export async function* orchestrateGroupChat(
             const opening = await generateOpening(mentors, mode, effectiveTopic, userInsights);
             yield {
                 type: 'moderator',
-                content: opening,
+                content: safeGuardText(opening),
                 action: 'opening',
             };
         } catch (e) {
@@ -221,12 +244,10 @@ export async function* orchestrateGroupChat(
                 round: round1,
             };
 
-            // 分段发送以模拟流式效果
+            // 保留分块事件结构（前端逐块渲染），连续 yield 不再人为 sleep 拖慢
             const chunks = splitIntoChunks(result.content, 20);
             for (const chunk of chunks) {
                 yield { type: 'mentor_chunk', content: chunk };
-                // 微小延迟让前端有时间渲染
-                await sleep(30);
             }
 
             yield { type: 'mentor_end', mentorId: result.mentorId };
@@ -245,6 +266,8 @@ export async function* orchestrateGroupChat(
         let consecutivePasses = 0;
 
         for (let i = 0; i < mentors.length; i++) {
+            if (signal?.aborted) return; // 断线后不再点名剩余大师
+
             let nextMentorId: string;
             let moderatorPrompt = '';
 
@@ -256,7 +279,7 @@ export async function* orchestrateGroupChat(
                         remainingMentors, round1
                     );
                     nextMentorId = decision.nextSpeakerId;
-                    moderatorPrompt = decision.prompt;
+                    moderatorPrompt = safeGuardText(decision.prompt);
 
                     yield {
                         type: 'moderator',
@@ -295,11 +318,11 @@ export async function* orchestrateGroupChat(
                             break;
                         }
                         nextMentorId = decision.nextSpeakerId;
-                        moderatorPrompt = decision.prompt;
-                        if (decision.prompt) {
+                        moderatorPrompt = safeGuardText(decision.prompt);
+                        if (moderatorPrompt) {
                             yield {
                                 type: 'moderator',
-                                content: decision.prompt,
+                                content: moderatorPrompt,
                                 action: 'point',
                                 targetMentorId: nextMentorId,
                                 decision: { reason: decision.reason, shouldContinue: decision.shouldContinue },
@@ -354,11 +377,10 @@ export async function* orchestrateGroupChat(
                 round: round1,
             };
 
-            // 流式输出
+            // 保留分块事件结构，连续 yield 不再人为 sleep 拖慢
             const contentChunks = splitIntoChunks(turn.content, 15);
             for (const chunk of contentChunks) {
                 yield { type: 'mentor_chunk', content: chunk };
-                await sleep(25);
             }
 
             yield { type: 'mentor_end', mentorId: mentor.id };
@@ -371,6 +393,7 @@ export async function* orchestrateGroupChat(
     }
 
     // ═══ PHASE 2: Round 2+（如果首次交互，自动进行第二轮）═══
+    if (signal?.aborted) return;
     if (isFirstInteraction && mentors.length >= 2) {
         // Moderator 过渡语
         try {
@@ -382,7 +405,7 @@ export async function* orchestrateGroupChat(
 
             yield {
                 type: 'moderator',
-                content: transition,
+                content: safeGuardText(transition),
                 action: 'transition',
             };
 
@@ -397,6 +420,8 @@ export async function* orchestrateGroupChat(
                     .join('\n\n');
 
                 for (let i = 0; i < mentors.length; i++) {
+                    if (signal?.aborted) return; // 断线后不再点名剩余大师
+
                     let nextMentorId: string;
                     let moderatorPrompt = '';
 
@@ -426,11 +451,11 @@ export async function* orchestrateGroupChat(
                                 break;
                             }
                             nextMentorId = decision.nextSpeakerId;
-                            moderatorPrompt = decision.prompt;
-                            if (decision.prompt) {
+                            moderatorPrompt = safeGuardText(decision.prompt);
+                            if (moderatorPrompt) {
                                 yield {
                                     type: 'moderator',
-                                    content: decision.prompt,
+                                    content: moderatorPrompt,
                                     action: 'point',
                                     targetMentorId: nextMentorId,
                                     decision: { reason: decision.reason, shouldContinue: decision.shouldContinue },
@@ -485,7 +510,6 @@ export async function* orchestrateGroupChat(
                     const chunks = splitIntoChunks(turn.content, 15);
                     for (const chunk of chunks) {
                         yield { type: 'mentor_chunk', content: chunk };
-                        await sleep(25);
                     }
 
                     yield { type: 'mentor_end', mentorId: mentor.id };
@@ -501,6 +525,7 @@ export async function* orchestrateGroupChat(
     }
 
     // ═══ PHASE 3: Synthesizer 总结（Layer 3）═══
+    if (signal?.aborted) return;
     // 门槛按"首轮全员 + 第二轮至少一位"计（引入弃权后不再假设两整轮全员发言）
     if (allReplies.length >= mentors.length + 1 || !isFirstInteraction) {
         const synthesisStart = Date.now();
@@ -517,7 +542,7 @@ export async function* orchestrateGroupChat(
                 }))
             );
 
-            yield { type: 'synthesis', content: summary };
+            yield { type: 'synthesis', content: safeGuardText(summary) };
         } catch (e) {
             console.error('[Orchestrator] Synthesis failed:', e);
         }
@@ -555,6 +580,7 @@ async function generateRound1Parallel(
                     messages,
                     temperature: 0.9,
                     maxOutputTokens: 400,
+                    abortSignal: AbortSignal.timeout(GROUP_LLM_TIMEOUT_MS),
                 }));
 
                 if (text && text.trim().length > 0) {
@@ -563,11 +589,11 @@ async function generateRound1Parallel(
                         mentorId: mentor.id,
                         mentorName: mentor.name,
                         mentor,
-                        content: parsed.content,
+                        content: safeGuardText(parsed.content),
                         round: 1,
                         wantToRespond: parsed.wantToRespond,
                         passed: parsed.passed,
-                        ...(parsed.passReason ? { passReason: parsed.passReason } : {}),
+                        ...(parsed.passReason ? { passReason: safeGuardText(parsed.passReason) } : {}),
                     };
                 }
                 console.warn(`[Round1 Parallel] ${mentor.name} returned empty (attempt ${attempt + 1})`);
@@ -632,6 +658,8 @@ async function streamMentorReply(
                 messages,
                 temperature: 0.9,
                 maxOutputTokens: 400,
+                // 超时覆盖整段流消费；触发时 for-await 抛错，走本循环的重试→弃权
+                abortSignal: AbortSignal.timeout(GROUP_LLM_TIMEOUT_MS),
             });
 
             for await (const chunk of result.textStream) {
@@ -664,11 +692,11 @@ async function streamMentorReply(
         mentorId: mentor.id,
         mentorName: mentor.name,
         mentor,
-        content: parsed.content,
+        content: safeGuardText(parsed.content),
         round,
         wantToRespond: parsed.wantToRespond,
         passed: parsed.passed,
-        ...(parsed.passReason ? { passReason: parsed.passReason } : {}),
+        ...(parsed.passReason ? { passReason: safeGuardText(parsed.passReason) } : {}),
     };
 }
 
@@ -818,6 +846,7 @@ function sleep(ms: number) {
 
 // SSE 事件类型（扩展）
 export type GroupSSEPayload =
+    | { type: 'lab_session'; labSessionId: string } // route 层开桌时发出，orchestrator 不产生
     | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
     | { type: 'mentor_chunk'; content: string }
     | { type: 'mentor_end'; mentorId: string }

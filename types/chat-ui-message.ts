@@ -28,7 +28,7 @@ export type ChatUIMessage = UIMessage<
   // typed data parts
   {
     'route': { routeType: RouteTypeName };
-    'state': { state: string; reasoning?: string };
+    'state': { state?: string; reasoning?: string };
     'emotion': { label: string; score: number };
     'safety': {
       label: string;

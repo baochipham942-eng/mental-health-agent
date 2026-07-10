@@ -59,9 +59,10 @@ describe('P0-2: PERSONA_INVARIANTS', () => {
     expect(PERSONA_INVARIANTS).toContain('疗愈');
   });
 
-  it('应包含篇幅和格式要求', () => {
+  it('应包含篇幅要求，且不再强制加粗格式', () => {
     expect(PERSONA_INVARIANTS).toContain('3-5 句');
-    expect(PERSONA_INVARIANTS).toContain('加粗');
+    // 加粗硬门槛已移除（反向奖励咨询腔模板），回复形态由 dialogueIntent 策略决定
+    expect(PERSONA_INVARIANTS).not.toContain('加粗');
   });
 });
 

@@ -4,7 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic';
 import { useChatStore, CHAT_MODELS } from '@/store/chatStore';
 import { getStructuredReplyFallback, sendChatMessage } from '@/lib/api/chat';
-import { Message, SessionStatus } from '@/types/chat';
+import { Message, SessionStatus, toChatState } from '@/types/chat';
 import { useRouter } from 'next/navigation';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
@@ -235,9 +235,14 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         const lastMsg = initialMessages[initialMessages.length - 1];
         if (lastMsg?.role === 'assistant' && lastMsg.metadata) {
           updateState({
-            currentState: (lastMsg.metadata as any).state || undefined,
+            // meta.state 可能是 {reasoning, route} 对象或 reasoning 文本（且普通用户回灌已剥掉），
+            // 只有合法枚举值才能回填 currentState 并随下一轮请求发回服务端
+            currentState: toChatState((lastMsg.metadata as any).state),
             routeType: lastMsg.metadata.routeType,
-            assessmentStage: lastMsg.metadata.assessmentStage
+            // 枚举守卫：legacy DB 行可能存 'gap_followup' 等废弃值，原样回传会被服务端 schema 拒 400
+            assessmentStage: lastMsg.metadata.assessmentStage === 'intake' || lastMsg.metadata.assessmentStage === 'conclusion'
+              ? lastMsg.metadata.assessmentStage
+              : undefined
           });
         }
       } else {
@@ -959,7 +964,9 @@ export function ChatShell({ sessionId, initialMessages, isReadOnly = false, init
         } as any);
 
         updateState({
-          currentState: responseData.state,
+          // data-state 可能携带管理员 CoT 的 reasoning 文本（assessment 路由不覆写枚举值），
+          // 非枚举值回填会让下一轮请求撞服务端 z.enum 报 400
+          currentState: toChatState(responseData.state),
           routeType: responseData.routeType,
           assessmentStage: responseData.assessmentStage,
           initialMessage: currentInitialMessage,

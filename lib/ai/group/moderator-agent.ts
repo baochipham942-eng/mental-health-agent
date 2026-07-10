@@ -11,8 +11,12 @@
 import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import { deepseek, DEEPSEEK_MODEL } from '../deepseek';
+import { withResilience } from '@/lib/llm/resilience';
 import { MentorPersona } from '../mentors/personas';
 import { GroupMode } from './orchestrator';
+
+// 圆桌单次 LLM 调用统一超时（调用方对失败均有兜底：开场跳过/点名回退顺位）
+const LLM_TIMEOUT_MS = 20_000;
 
 // 主持人决策：下一步该谁发言
 const NextSpeakerSchema = z.object({
@@ -41,7 +45,7 @@ export async function generateOpening(
     ? `\n这位朋友此前在这里聊过的一些背景（仅供你理解TA，可以用一句话自然带出延续感，例如"上次聊到……"，但不要罗列细节、不要让TA觉得被档案化）：\n${userInsights.slice(0, 3).map(i => `- ${i}`).join('\n')}`
     : '';
 
-  const { text } = await generateText({
+  const { text } = await withResilience(() => generateText({
     model: deepseek(DEEPSEEK_MODEL),
     system: `你是一位优雅睿智的圆桌论道主持人。你的风格简洁有力，善于用一两句话点燃话题。
 不要说废话，不要自我介绍。直接引出话题和第一位发言者。
@@ -51,7 +55,7 @@ export async function generateOpening(
 请写一段开场白，引出话题并点名第一位发言者。`,
     temperature: 0.8,
     maxOutputTokens: 150,
-  });
+  }), { timeoutMs: LLM_TIMEOUT_MS, maxRetries: 1, label: 'group-opening' });
 
   return text;
 }
@@ -74,7 +78,7 @@ export async function decideNextSpeaker(
     .map(m => `- ${m.id}: ${m.name}（${m.title}，${m.description}）`)
     .join('\n');
 
-  const { object } = await generateObject({
+  const { object } = await withResilience(() => generateObject({
     model: deepseek(DEEPSEEK_MODEL),
     schema: NextSpeakerSchema,
     system: `你是圆桌论道的主持人。你的职责是根据讨论走向，选择最合适的下一位发言者。
@@ -95,7 +99,7 @@ ${availableMentors}
 
 请选择下一位发言者。`,
     temperature: 0.5,
-  });
+  }), { timeoutMs: LLM_TIMEOUT_MS, maxRetries: 1, label: 'group-next-speaker' });
 
   return object;
 }
@@ -111,7 +115,7 @@ export async function generateTransition(
     .map(r => `[${r.mentorName}]: ${r.content.slice(0, 100)}...`)
     .join('\n');
 
-  const { text } = await generateText({
+  const { text } = await withResilience(() => generateText({
     model: deepseek(DEEPSEEK_MODEL),
     system: `你是圆桌论道主持人。上一轮讨论刚结束，你需要：
 1. 用一两句话点评上一轮的亮点或核心分歧
@@ -124,7 +128,7 @@ export async function generateTransition(
 ${summary}`,
     temperature: 0.7,
     maxOutputTokens: 120,
-  });
+  }), { timeoutMs: LLM_TIMEOUT_MS, maxRetries: 1, label: 'group-transition' });
 
   const shouldEnd = text.includes('[END]') || roundNumber >= 3;
   const transition = text.replace('[END]', '').trim();

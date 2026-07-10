@@ -161,14 +161,13 @@ export function MessageBubble({
     }
   };
 
-  // 决定是否显示 CoT 按钮：只要有任何分析数据就显示
-  // 修改：检查 safety 对象存在（而非 reasoning），确保始终显示 COT
-  const hasThinkingContent = !isUser && !isPlaceholderMessage && message.metadata && (
-    message.metadata.safety || // 只要有安全评估就显示
-    message.metadata.routeType || // 有接待专家就显示
-    (message.emotion && message.emotion.label !== '未表达') || // 有明确情绪就显示
-    message.metadata.memory?.check !== '无' || // 有记忆操作就显示
-    message.metadata.memory?.retrieved
+  // 决定是否显示 CoT 按钮：只在元数据里真有内部调试数据时渲染。
+  // 服务端只给管理员下发 safety/persona/memory 等调试字段（response-visibility.ts），
+  // 普通用户元数据里没有这些字段，界面保持干净；routeType/emotion 是产品字段，不作为触发条件。
+  const hasThinkingContent = !isUser && !isPlaceholderMessage && Boolean(
+    message.metadata?.safety ||
+    message.metadata?.persona?.reasoning ||
+    (message.metadata?.memory && (message.metadata.memory.check !== '无' || message.metadata.memory.retrieved))
   );
 
   const sceneInsight = !isUser ? buildSceneInsight(message.metadata?.scene) : null;

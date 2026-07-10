@@ -61,6 +61,14 @@ function mapTopicToKind(topic: MemoryTopic): MemoryKind {
     }
 }
 
+// 单次深层推断不当稳定事实：低置信度起步（典型 0.6-0.9 → 0.3-0.45，低于主链路
+// 提取下限 0.5 与 prune cron 阈值 0.5），排序时 confidence 权重自然降权，且在
+// rankTop 的 MIN_STANDALONE_CONFIDENCE 门槛下只有与当前消息相关才会注入。
+// 后续主链路提取到同指纹/近似内容时，merge 服务会把置信度升到主链路水平。
+export const LAB_CONFIDENCE_FACTOR = 0.5;
+/** lab 来源 priority 降档，排序时低于主链路同 kind 记忆 */
+export const LAB_PRIORITY_PENALTY = 20;
+
 /** kind -> priority 映射 */
 function kindPriority(kind: MemoryKind): number {
     switch (kind) {
@@ -120,8 +128,8 @@ export async function extractLabInsights(
                 userId,
                 kind,
                 content: finalContent,
-                priority: kindPriority(kind),
-                confidence: insight.confidence * 0.85, // 实验室洞察惩罚系数
+                priority: kindPriority(kind) - LAB_PRIORITY_PENALTY,
+                confidence: insight.confidence * LAB_CONFIDENCE_FACTOR,
                 sourceConversationId: `${sourceId}#${insight.insightType}`,
             });
             savedCount++;

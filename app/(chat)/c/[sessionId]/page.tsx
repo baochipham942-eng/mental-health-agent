@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ChatShell } from '@/components/chat/ChatShell';
 import { getSessionById } from '@/lib/actions/chat';
 import { auth } from '@/auth';
+import { isAdminSession } from '@/lib/auth/admin';
+import { sanitizeMessageMetaForUser } from '@/app/api/chat/response-visibility';
 import { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -61,11 +63,12 @@ export default async function SessionPage(props: SessionPageProps) {
         isCompleted
     });
 
-    // Transform Prisma messages to UI messages
+    // Transform Prisma messages to UI messages（普通用户剥掉内部分析 meta）
+    const isAdminUser = isAdminSession(session);
     const uiMessages = conversation.messages.map(msg => ({
         ...msg,
         timestamp: msg.createdAt.toISOString(),
-        metadata: msg.meta || undefined,
+        metadata: (isAdminUser ? msg.meta : sanitizeMessageMetaForUser(msg.meta)) || undefined,
     }));
 
     return (

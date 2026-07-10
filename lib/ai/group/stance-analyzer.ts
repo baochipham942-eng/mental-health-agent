@@ -1,7 +1,11 @@
 import { deepseek, DEEPSEEK_MODEL } from '@/lib/ai/deepseek';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { withResilience } from '@/lib/llm/resilience';
 import { MentorPersona } from '@/lib/ai/mentors/personas';
+
+// 圆桌单次 LLM 调用统一超时（失败由 orchestrator 兜底：跳过立场分析，按原序发言）
+const LLM_TIMEOUT_MS = 20_000;
 
 const StanceSchema = z.object({
     stances: z.array(z.object({
@@ -25,7 +29,7 @@ export async function analyzeStances(
         .map(m => `- ${m.id}: ${m.name}（${m.title}）— ${m.description}`)
         .join('\n');
 
-    const { object } = await generateObject({
+    const { object } = await withResilience(() => generateObject({
         model: deepseek(DEEPSEEK_MODEL),
         schema: StanceSchema,
         prompt: `你是一位哲学辩论主持人。以下大师将围绕一个话题展开辩论。
@@ -39,7 +43,7 @@ ${mentorDescriptions}
 请为每位大师判断立场（for=支持/赞同、against=反对/质疑、neutral=中立/超越二元）。
 一句话说明理由。`,
         temperature: 0.3,
-    });
+    }), { timeoutMs: LLM_TIMEOUT_MS, maxRetries: 1, label: 'group-stance' });
 
     return object;
 }

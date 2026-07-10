@@ -4,8 +4,9 @@ import type { ChatUIMessage, ChatUIChunk } from '@/types/chat-ui-message';
 import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryContextService } from '@/lib/memory';
-import { getMentor } from '@/lib/ai/mentors/personas';
-import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { getMentor, MentorPersona } from '@/lib/ai/mentors/personas';
+import { mentorBodySchema } from '@/lib/api/chat-request-schema';
+import { guardInput, getBlockedResponse, createOutputGuardStream } from '@/lib/ai/guardrails';
 import { prisma } from '@/lib/db/prisma';
 import { extractLabInsights } from '@/lib/memory/lab-extractor';
 import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
@@ -25,21 +26,42 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { messages, mentorId, customMentor, sessionId: clientSessionId } = body;
+        // 请求体校验：role 只允许 user/assistant（伪造 system 直接拒）、
+        // 长度/条数钳制、customMentor 收敛为服务端消费的字段
+        const bodyCheck = mentorBodySchema.safeParse(body);
+        if (!bodyCheck.success) {
+            const issue = bodyCheck.error.issues[0];
+            logError('mentor-chat-request-invalid', { path: issue?.path?.join('.'), code: issue?.code });
+            return NextResponse.json({ error: '请求参数不合法' }, { status: 400 });
+        }
+        const { messages, mentorId, customMentor, sessionId: clientSessionId } = bodyCheck.data;
 
-        const lastMessage = messages?.[messages.length - 1];
+        const lastMessage = messages[messages.length - 1];
         const messageContent = lastMessage?.content;
 
         if (!messageContent || messageContent.trim().length === 0) {
             return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
         }
 
-        let mentor = getMentor(mentorId);
+        let mentor: Pick<MentorPersona, 'id' | 'name' | 'systemPrompt'> | undefined =
+            getMentor(mentorId ?? '');
         if (!mentor && customMentor) {
-            mentor = customMentor;
+            mentor = { id: customMentor.id ?? 'custom', name: customMentor.name, systemPrompt: customMentor.systemPrompt };
         }
         if (!mentor) {
             return NextResponse.json({ error: 'Mentor not found' }, { status: 400 });
+        }
+
+        // 会话信任边界：客户端传入 sessionId 时校验归属与类型，不属于当前用户则 404
+        if (clientSessionId) {
+            const owned = await prisma.labSession.findUnique({
+                where: { id: clientSessionId },
+                select: { userId: true, labType: true },
+            });
+            const expectedLabType = customMentor ? 'custom' : 'wisdom';
+            if (!owned || owned.userId !== userId || owned.labType !== expectedLabType) {
+                return NextResponse.json({ error: '会话不存在' }, { status: 404 });
+            }
         }
 
         // 1. Input Guard
@@ -142,7 +164,10 @@ ${memoryContext}
                     max_tokens: 800,
                     onFinish: async (text) => { fullReply = text; },
                 });
-                writer.merge(result.toUIMessageStream() as ReadableStream<ChatUIChunk>);
+                writer.merge(
+                    (result.toUIMessageStream() as ReadableStream<ChatUIChunk>)
+                        .pipeThrough(createOutputGuardStream<ChatUIChunk>({ logContext: { route: 'mentor' } })),
+                );
             },
             onFinish: async () => {
                 // 7. Async: Save assistant message + extract insights

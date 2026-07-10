@@ -84,6 +84,7 @@ vi.mock('@/lib/ai/agents/orchestrator', () => ({
 // Mock crisis classifier
 vi.mock('@/lib/ai/crisis-classifier', () => ({
     quickCrisisCheck: vi.fn().mockResolvedValue(false),
+    resolveCrisisCheckWithSoftWait: vi.fn().mockResolvedValue({ isCrisis: false, llmTimedOut: false }),
     assessCrisisDeescalation: vi.fn().mockResolvedValue({ isSafe: false, confidence: 0.5, reason: 'test' }),
 }));
 

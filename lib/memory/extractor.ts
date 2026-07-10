@@ -19,11 +19,12 @@ import { logError } from '@/lib/observability/logger';
 /**
  * 从对话消息中提取记忆
  * @param messages 对话消息列表
- * @returns 提取的记忆列表
+ * @returns 提取的记忆列表；LLM 调用失败返回 null（区别于"真无记忆"的 []，
+ *          调用方据此决定是否推进增量水位线/留 retry 日志）
  */
 export async function extractMemoriesFromMessages(
     messages: ConversationMessage[]
-): Promise<ExtractedMemory[]> {
+): Promise<ExtractedMemory[] | null> {
     // 过滤出用户消息作为分析重点
     const userMessages = messages.filter(m => m.role === 'user');
 
@@ -62,15 +63,15 @@ export async function extractMemoriesFromMessages(
             confidence: Math.min(1, Math.max(0.5, m.confidence || 0.8)),
         }));
     } catch (error) {
-        // 结构化记录失败，让线上限流/超时/schema 不匹配等可观测（不再只 console.error 静默吞掉）。
-        // 仍返回 [] 以不打断调用方；调用方日志的 count:0 因此可能是「失败」也可能是「真无记忆」，
-        // 两者靠本条 ERROR 事件区分。
+        // 结构化记录失败，让线上限流/超时/schema 不匹配等可观测。
+        // 返回 null（而非 []）让调用方能区分「失败」和「真无记忆」——
+        // 增量提取失败时不能推进水位线，否则这批消息永远不会被重新分析。
         logError('memory-extraction-llm-failed', {
             error: error instanceof Error ? error.message : String(error),
             messageCount: messages.length,
             provider: getMemoryLlmProvider(),
         });
-        return [];
+        return null;
     }
 }
 
@@ -85,7 +86,7 @@ export async function extractMemoriesFromConversations(
     for (const conv of conversations) {
         try {
             const memories = await extractMemoriesFromMessages(conv.messages);
-            results.set(conv.id, memories);
+            results.set(conv.id, memories ?? []);
         } catch (error) {
             console.error(`[MemoryExtractor] Failed for conversation ${conv.id}:`, error);
             results.set(conv.id, []);

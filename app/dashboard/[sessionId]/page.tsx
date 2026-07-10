@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { getSessionById } from '@/lib/actions/chat';
 import { auth } from '@/auth';
+import { isAdminSession } from '@/lib/auth/admin';
+import { sanitizeMessageMetaForUser } from '@/app/api/chat/response-visibility';
 import { ChatShell } from '@/components/chat/ChatShell';
 
 interface ChatPageProps {
@@ -29,12 +31,13 @@ export default async function ChatPage(props: ChatPageProps) {
         return <div>Unauthorized</div>;
     }
 
-    // Transform Prisma messages to UI messages
+    // Transform Prisma messages to UI messages（普通用户剥掉内部分析 meta）
     // Map 'meta' from DB to 'metadata' for frontend, and fix "Invalid Date" issue
+    const isAdminUser = isAdminSession(session);
     const uiMessages = conversation.messages.map(msg => ({
         ...msg,
         timestamp: msg.createdAt.toISOString(),
-        metadata: msg.meta || undefined, // Load actionCards and other metadata from DB
+        metadata: (isAdminUser ? msg.meta : sanitizeMessageMetaForUser(msg.meta)) || undefined,
     }));
 
     return (

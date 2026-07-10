@@ -42,15 +42,26 @@ export function withThinkingDisabled<T extends { model?: string; thinking?: unkn
 }
 
 /**
- * 自定义 fetch：向 AI SDK provider 的请求体注入 thinking disabled
- * （照 lib/ai/kimi.ts 的 kimiNoReasoningFetch 既有模式）
+ * 自定义 fetch：向 AI SDK provider 的请求体注入两类默认值
+ * 1. thinking disabled（照 lib/ai/kimi.ts 的 kimiNoReasoningFetch 既有模式）
+ * 2. 首条 system 消息的 cache_control 前缀缓存 —— 对齐非流式 chatCompletion 的注入策略，
+ *    覆盖 streamChatCompletion 等所有走 AI SDK provider 的流式路径
  */
 export const deepseekNoThinkingFetch: typeof globalThis.fetch = async (input, init) => {
   if (init?.body && typeof init.body === 'string') {
     try {
       const body = JSON.parse(init.body);
+      let mutated = false;
       if (typeof body.model === 'string' && body.model.startsWith('deepseek-v4') && body.thinking === undefined) {
         body.thinking = { type: 'disabled' };
+        mutated = true;
+      }
+      const firstMessage = Array.isArray(body.messages) ? body.messages[0] : undefined;
+      if (firstMessage?.role === 'system' && firstMessage.cache_control === undefined) {
+        firstMessage.cache_control = { type: 'ephemeral' };
+        mutated = true;
+      }
+      if (mutated) {
         init = { ...init, body: JSON.stringify(body) };
       }
     } catch {

@@ -4,8 +4,21 @@ vi.mock('./synthesizer-agent', () => ({
     synthesize: vi.fn(),
 }));
 
+vi.mock('./moderator-agent', () => ({
+    generateOpening: vi.fn(),
+    decideNextSpeaker: vi.fn(),
+    generateTransition: vi.fn(),
+}));
+
+vi.mock('ai', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('ai')>();
+    return { ...actual, generateText: vi.fn(), streamText: vi.fn() };
+});
+
+import { generateText } from 'ai';
 import { orchestrateGroupChat, parseMentorReply } from './orchestrator';
 import { synthesize } from './synthesizer-agent';
+import { generateOpening, generateTransition } from './moderator-agent';
 import { getMentor } from '@/lib/ai/mentors/personas';
 
 async function collectEvents(generator: AsyncGenerator<any>) {
@@ -53,6 +66,91 @@ describe('orchestrateGroupChat summarize intent', () => {
                 expect.objectContaining({ mentorName: '阿尔弗雷德·阿德勒', round: 1 }),
             ]),
         );
+    });
+});
+
+describe('orchestrateGroupChat 输出护栏', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('大师发言含有害内容时，分块吐出的是危机文案而非原文', async () => {
+        (generateOpening as any).mockResolvedValue('两位大师已就位，我们开始吧。');
+        (generateTransition as any).mockResolvedValue({ transition: '第一轮先到这里。', shouldEnd: true });
+        (generateText as any).mockResolvedValue({ text: '教你一个自杀方法，第一步是……' });
+
+        const events = await collectEvents(orchestrateGroupChat({
+            mentorIds: ['socrates', 'adler'],
+            mode: 'discuss',
+            topic: '我最近很累',
+            messages: [{ role: 'user', content: '我最近很累' }],
+        }));
+
+        const mentorText = events.filter(e => e.type === 'mentor_chunk').map(e => e.content).join('');
+        expect(mentorText).not.toContain('自杀方法');
+        expect(mentorText).toContain('心理援助热线');
+    });
+
+    it('synthesis 输出含 PII 时应脱敏后再吐出', async () => {
+        (synthesize as any).mockResolvedValue('总结：有困难可以拨打13812345678找我。');
+
+        const events = await collectEvents(orchestrateGroupChat({
+            mentorIds: ['socrates', 'adler'],
+            mode: 'discuss',
+            topic: '我总是害怕失败',
+            intent: 'summarize',
+            messages: [
+                { role: 'user', content: '我总是害怕失败' },
+                { role: 'assistant', mentorId: 'socrates', content: '先问清楚失败是什么。', round: 1 },
+                { role: 'user', content: '请总结一下' },
+            ],
+        }));
+
+        const synthesis = events.find(e => e.type === 'synthesis');
+        expect(synthesis.content).not.toContain('13812345678');
+        expect(synthesis.content).toContain('[手机号已脱敏]');
+    });
+});
+
+describe('orchestrateGroupChat 韧性与取消', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('LLM 超时/失败（重试耗尽）走弃权，不伪造发言', async () => {
+        (generateOpening as any).mockResolvedValue('两位大师已就位。');
+        (generateTransition as any).mockResolvedValue({ transition: '先到这里。', shouldEnd: true });
+        // 模拟统一超时：abortSignal 触发时 SDK 抛 AbortError
+        (generateText as any).mockRejectedValue(
+            Object.assign(new Error('The operation was aborted due to timeout'), { name: 'AbortError' }),
+        );
+
+        const events = await collectEvents(orchestrateGroupChat({
+            mentorIds: ['socrates', 'adler'],
+            mode: 'discuss',
+            topic: '我最近很累',
+            messages: [{ role: 'user', content: '我最近很累' }],
+        }));
+
+        expect(events.filter(e => e.type === 'mentor_pass')).toHaveLength(2);
+        expect(events.some(e => e.type === 'mentor_start')).toBe(false);
+        expect(events[events.length - 1].type).toBe('done');
+    }, 15_000);
+
+    it('signal 已 abort 时不再产生任何事件（不调用剩余 mentor）', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        const events = await collectEvents(orchestrateGroupChat({
+            mentorIds: ['socrates', 'adler'],
+            mode: 'discuss',
+            topic: '我最近很累',
+            messages: [{ role: 'user', content: '我最近很累' }],
+            signal: controller.signal,
+        }));
+
+        expect(events).toEqual([]);
+        expect(generateText).not.toHaveBeenCalled();
     });
 });
 

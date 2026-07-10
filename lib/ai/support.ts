@@ -1,6 +1,6 @@
 import { generateText, type ChatMessage, type LlmProviderName } from '@/lib/llm';
 import { UI_TOOLS } from './tools';
-import { IDENTITY_PROMPT } from './prompts';
+import { IDENTITY_PROMPT, buildIntentReplyGuidance } from './prompts';
 import { buildSystemPrompt as buildAdaptivePrompt, AdaptiveMode } from './persona-manager';
 import { getCounselorAgent } from './agents/counselor-agent';
 import { getSupportLlmProvider } from '@/lib/llm/config';
@@ -28,13 +28,11 @@ export const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
 
 **当前模式**：支持性对话（非评估阶段）
 
-**回复结构（必须遵循）**：
-1. **第 1-2 句**：准确映射用户的情绪，使用具体的情感词汇
-   - ✅ "听起来你感到很疲惫/委屈/焦虑..."
-   - ❌ 避免空洞的"我理解你"
-2. **第 3-4 句**：如果需要，用温和的方式延续话题
-   - 将提问包裹在关心中："我有些好奇..."、"方便的话..."
-3. **篇幅**：控制在 2-4 句话，保持对话节奏；不要重复任何句子或段落
+**回复原则**：
+1. 首句直接回应用户此刻真正要的东西（事实/建议/共鸣/闲聊），不套固定模板。
+2. 情绪映射只在用户明确表达情绪、且你有把握时使用（"听起来你很疲惫/委屈/焦虑"）；用户问事实、求建议或分享好消息时，不要先贴情绪标签。避免空洞的"我理解你"。
+3. 需要延续话题时，将提问包裹在关心中："我有些好奇..."、"方便的话..."
+4. 篇幅控制在 2-4 句话，保持对话节奏；不要重复任何句子或段落
 
 **技能卡片触发规则（最高优先级）**：
 1. **明确请求（Explicit）**：用户直接说"我想做个练习"、"我也要试那个空椅子" → 可以直接调用工具。
@@ -128,12 +126,13 @@ export const SUPPORT_PROMPT = `${IDENTITY_PROMPT}
 export async function generateSupportReply(
   userMessage: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-  memoryContext?: string
+  memoryContext?: string,
+  dialogueIntent?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${SUPPORT_PROMPT}${memoryContext ? `\n\n${memoryContext}` : ''}`,
+      content: `${SUPPORT_PROMPT}${buildIntentReplyGuidance(dialogueIntent)}${memoryContext ? `\n\n${memoryContext}` : ''}`,
     },
     ...history.map(msg => ({
       role: msg.role as 'user' | 'assistant',
@@ -171,6 +170,8 @@ export async function streamSupportReply(
     userPreferences?: string[];
     providerOverride?: LlmProviderName;
     modelOverride?: string;
+    /** triage 产出的 dialogueIntent，决定本轮回复形态（倾诉/求建议/事实问题等） */
+    dialogueIntent?: string;
   }
 ) {
   const finalSystemPrompt = options?.adaptiveMode
@@ -178,13 +179,16 @@ export async function streamSupportReply(
     : SUPPORT_PROMPT;
 
   // Sprint 3: 懒注册 Prompt 版本（内存去重，仅新内容触发 DB 写入）
+  // 注意：注册的是不含逐轮 intent 策略的基础 prompt，避免每种 intent 都产生一个版本
   lazyRegisterPrompt('support_prompt', finalSystemPrompt);
+
+  const intentGuidance = buildIntentReplyGuidance(options?.dialogueIntent);
 
   const result = await getCounselorAgent().run({
     message: userMessage,
     history: history as ChatMessage[],
     provider: options?.providerOverride || getSupportLlmProvider(),
-    systemPrompt: `${finalSystemPrompt}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
+    systemPrompt: `${finalSystemPrompt}${intentGuidance}${options?.systemInstructionInjection ? `\n\n${options.systemInstructionInjection}` : ''}`,
     memoryContext: options?.memoryContext,
     onFinish: options?.onFinish,
     enableTools: true,

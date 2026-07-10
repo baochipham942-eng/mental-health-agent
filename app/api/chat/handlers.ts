@@ -19,9 +19,13 @@ function pipeLLMStream(
   result: { toUIMessageStream: () => ReadableStream<unknown> },
   params: FirstTokenLogParams,
 ): ReadableStream<ChatUIChunk> {
-  return (result.toUIMessageStream() as ReadableStream<ChatUIChunk>).pipeThrough(
-    createFirstTokenLogger<ChatUIChunk>(params),
-  );
+  return (result.toUIMessageStream() as ReadableStream<ChatUIChunk>)
+    .pipeThrough(createFirstTokenLogger<ChatUIChunk>(params))
+    .pipeThrough(createOutputGuardStream<ChatUIChunk>({
+      // crisis 路由（含 urgent）整体缓冲审查后再发：首字延迟换确定性安全
+      mode: params.routeType === 'crisis' ? 'buffer' : 'stream',
+      logContext: { sessionId: params.sessionId, routeType: params.routeType },
+    }));
 }
 import { streamCrisisReply } from '@/lib/ai/crisis';
 import { streamSupportReply } from '@/lib/ai/support';
@@ -35,6 +39,7 @@ import { createCrisisEscalation } from '@/lib/ai/crisis-escalation';
 import { assessCrisisDeescalation } from '@/lib/ai/crisis-classifier';
 import { logInfo, logWarn } from '@/lib/observability/logger';
 import { guardOutput } from '@/lib/ai/guardrails/output-guard';
+import { createOutputGuardStream } from '@/lib/ai/guardrails/stream-guard';
 import { trackFunnel } from '@/lib/observability/funnel';
 import { recordMetric } from '@/lib/ai/progress/tracker';
 import type { DialogueContext } from '@/lib/ai/dialogue/state-machine';
@@ -356,6 +361,8 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
   userPreferences: string[];
   providerOverride?: LlmProviderName;
   modelOverride?: string;
+  /** triage 产出的意图，决定本轮回复形态（不传时 streamSupportReply 走默认引导） */
+  dialogueIntent?: string;
 }): Promise<void> {
   const {
     writer,
@@ -383,6 +390,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     providerOverride,
     modelOverride,
     agentTrace,
+    dialogueIntent,
   } = params;
 
   // TODO: MOCK_SUPPORT_REPLY=1 mock 路径在 v6 升级时移除 —
@@ -441,6 +449,7 @@ export async function handleSupportRoute(params: BaseHandlerParams & {
     memoryContext,
     systemInstructionInjection: combinedInjection || undefined,
     adaptiveMode,
+    dialogueIntent,
     therapistId: userTherapistPref?.preferredTherapist || undefined,
     userPreferences,
     providerOverride,

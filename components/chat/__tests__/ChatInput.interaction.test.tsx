@@ -133,14 +133,58 @@ describe('ChatInput 技能面板', () => {
         expect(screen.getByText('解压工具箱')).toBeInTheDocument();
     });
 
-    it('桌面端：面板包含所有 7 个技能', () => {
+    it('第一层为职场任务语言，技术名称下沉到副标题', () => {
         render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
-        expect(screen.getAllByText('呼吸练习').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('正念冥想').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('空椅子').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('五感着陆').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('放飞念头').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('行为激活').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('情绪记录').length).toBeGreaterThan(0);
+        // 任务语言（第一层）
+        for (const label of [
+            '下班后脑子停不下来',
+            '被领导批了，先缓一缓',
+            '明天要谈薪，陪我排练',
+            '同事越界，想想怎么回应',
+            '心里堵着，想把话说出来',
+            '记录今天压力来自哪里',
+        ]) {
+            expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+        }
+        // 技术名称（副标题）
+        expect(screen.getAllByText(/溪流落叶/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/4-7-8呼吸法/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/空椅子/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/认知重构/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/情绪记录/).length).toBeGreaterThan(0);
+    });
+
+    it('点击任务项发送对应技能触发消息（映射稳定）', () => {
+        render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        const cases: Array<[string, string]> = [
+            ['下班后脑子停不下来', '我想试试溪流落叶'],
+            ['被领导批了，先缓一缓', '我想试试4-7-8呼吸法'],
+            ['明天要谈薪，陪我排练', '我想试试空椅子'],
+            ['同事越界，想想怎么回应', '我想试试认知重构'],
+            ['心里堵着，想把话说出来', '我想试试空椅子'],
+            ['记录今天压力来自哪里', '我想试试情绪记录'],
+        ];
+        for (const [label, message] of cases) {
+            onSend.mockClear();
+            fireEvent.click(screen.getByText(label));
+            expect(onSend).toHaveBeenCalledWith(message);
+        }
+    });
+
+    it('触发消息能命中 detectDirectSkillRequest 的技能路由', async () => {
+        const { detectDirectSkillRequest } = await import('@/lib/ai/skills');
+        expect(detectDirectSkillRequest('我想试试溪流落叶')).toBe('leaves_stream');
+        expect(detectDirectSkillRequest('我想试试4-7-8呼吸法')).toBe('breathing');
+        expect(detectDirectSkillRequest('我想试试空椅子')).toBe('empty_chair');
+        expect(detectDirectSkillRequest('我想试试认知重构')).toBe('reframing');
+        expect(detectDirectSkillRequest('我想试试情绪记录')).toBe('mood_tracker');
+    });
+
+    it('面板文案不含用户可见禁用词', () => {
+        const { container } = render(<ChatInput value="" onChange={onChange} onSend={onSend} />);
+        const text = container.textContent || '';
+        for (const banned of ['咨询', '疗愈', '心理评估', '症状', 'PHQ', 'GAD']) {
+            expect(text).not.toContain(banned);
+        }
     });
 });

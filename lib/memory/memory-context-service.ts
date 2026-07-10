@@ -43,41 +43,56 @@ export class MemoryContextService {
     userId: string,
     message: string,
   ): Promise<MemoryContextResult> {
-    // 缓存命中：直接返回，跳过数据库查询
-    const cached = memoryCache.get(userId);
-    if (cached) {
-      logInfo('memory-v2-context-cache-hit', { userId });
-      return cached;
-    }
-
     const startedAt = Date.now();
     try {
-      const profilePromise = (async () => {
-        const profileStartedAt = Date.now();
-        const profileMemories = await profileMemoryService.listTop(userId, message, 6);
-        return {
-          profileMemories,
-          profileQueryDurationMs: Date.now() - profileStartedAt,
+      // 缓存只存按 userId 稳定的候选池快照；排序依赖当前 message，
+      // 缓存命中也必须每轮重新 rankTop，否则切话题会复用上一话题的注入文本。
+      let snapshot = memoryCache.get(userId);
+      let profileQueryDurationMs = 0;
+      let summaryQueryDurationMs = 0;
+
+      if (snapshot) {
+        logInfo('memory-v2-context-cache-hit', { userId });
+      } else {
+        const profilePromise = (async () => {
+          const profileStartedAt = Date.now();
+          const candidates = await profileMemoryService.listCandidates(userId, 6);
+          return {
+            candidates,
+            profileQueryDurationMs: Date.now() - profileStartedAt,
+          };
+        })();
+
+        const summaryPromise = (async () => {
+          const summaryStartedAt = Date.now();
+          const recentSummaries = await sessionSummaryV2Service.listRecent(userId, 2);
+          return {
+            recentSummaries,
+            summaryQueryDurationMs: Date.now() - summaryStartedAt,
+          };
+        })();
+
+        const metadataPromise = getSessionMetadata(userId).catch(() => null);
+
+        const [profileResult, summaryResult, sessionMeta] = await Promise.all([
+          profilePromise,
+          summaryPromise,
+          metadataPromise,
+        ]);
+
+        profileQueryDurationMs = profileResult.profileQueryDurationMs;
+        summaryQueryDurationMs = summaryResult.summaryQueryDurationMs;
+
+        snapshot = {
+          candidates: profileResult.candidates,
+          recentSummaries: summaryResult.recentSummaries,
+          sessionMetadataText: sessionMeta ? formatSessionMetadata(sessionMeta) : '',
         };
-      })();
+        memoryCache.set(userId, snapshot);
+      }
 
-      const summaryPromise = (async () => {
-        const summaryStartedAt = Date.now();
-        const recentSummaries = await sessionSummaryV2Service.listRecent(userId, 2);
-        return {
-          recentSummaries,
-          summaryQueryDurationMs: Date.now() - summaryStartedAt,
-        };
-      })();
-
-      const metadataPromise = getSessionMetadata(userId).catch(() => null);
-
-      const [
-        { profileMemories, profileQueryDurationMs },
-        { recentSummaries, summaryQueryDurationMs },
-        sessionMeta,
-      ] = await Promise.all([profilePromise, summaryPromise, metadataPromise]);
-
+      const profileMemories = profileMemoryService.rankTop(snapshot.candidates, message, 6);
+      const { recentSummaries } = snapshot;
       const totalDurationMs = Date.now() - startedAt;
 
       logInfo('memory-v2-context', {
@@ -89,13 +104,13 @@ export class MemoryContextService {
         summaryQueryDurationMs,
       });
 
-      const result: MemoryContextResult = {
+      return {
         profileMemories,
         recentSummaries,
         injectedText: buildMemoryInjection({
           profileMemories,
           recentSummaries,
-          sessionMetadataText: sessionMeta ? formatSessionMetadata(sessionMeta) : '',
+          sessionMetadataText: snapshot.sessionMetadataText,
         }),
         source: 'memory-v2',
         metrics: {
@@ -104,11 +119,6 @@ export class MemoryContextService {
           summaryQueryDurationMs,
         },
       };
-
-      // 写入缓存
-      memoryCache.set(userId, result);
-
-      return result;
     } catch (error) {
       const totalDurationMs = Date.now() - startedAt;
       console.error('[MemoryContextService] V2 lookup failed:', error);

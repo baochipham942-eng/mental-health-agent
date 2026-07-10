@@ -31,6 +31,8 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
     const [activeMentorId, setActiveMentorId] = useState<string | null>(null);
     const [currentRound, setCurrentRound] = useState(0);
     const abortRef = useRef<AbortController | null>(null);
+    // 服务端开桌时下发的 LabSession id：续轮只传新消息，历史由服务端从 DB 回灌
+    const labSessionIdRef = useRef<string | null>(null);
     const currentMentorMsgRef = useRef<{
         id: string;
         mentorId: string;
@@ -53,15 +55,19 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
-        const allMessages = [...messages, userMsg].map(m => {
-            const role: 'user' | 'assistant' = m.role === 'user' ? 'user' : 'assistant';
-            return {
-                role,
-                content: m.content,
-                mentorId: m.mentorId,
-                round: m.round,
-            };
-        });
+        const labSessionId = labSessionIdRef.current;
+        // 已有 labSessionId 时只传本次新消息；否则（首轮/兜底）传全量历史
+        const outgoingMessages = labSessionId
+            ? [{ role: 'user' as const, content: userMsg.content }]
+            : [...messages, userMsg].map(m => {
+                const role: 'user' | 'assistant' = m.role === 'user' ? 'user' : 'assistant';
+                return {
+                    role,
+                    content: m.content,
+                    mentorId: m.mentorId,
+                    round: m.round,
+                };
+            });
 
         const controller = new AbortController();
         abortRef.current = controller;
@@ -71,17 +77,20 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: allMessages,
+                    messages: outgoingMessages,
                     mentorIds,
                     mode,
                     topic,
                     intent,
+                    ...(labSessionId ? { labSessionId } : {}),
                 }),
                 signal: controller.signal,
             });
 
             if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
+                // 服务端限流/校验错误带有用户文案（429 太频繁 / 404 会话不存在），透传给用户而非静默失败
+                const serverError = await response.json().catch(() => null);
+                throw new Error(serverError?.error || `API error: ${response.status}`);
             }
 
             const reader = response.body?.getReader();
@@ -115,6 +124,15 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         } catch (error: any) {
             if (error.name !== 'AbortError') {
                 console.error('[useGroupChat] Error:', error);
+                // 以主持人身份把错误说给用户听，避免"消息上屏后无声无息"
+                setMessages(prev => [...prev, {
+                    id: generateId(),
+                    role: 'moderator' as const,
+                    content: error?.message && !String(error.message).startsWith('API error')
+                        ? String(error.message)
+                        : '这一轮没能顺利进行，稍等片刻再试试吧',
+                    timestamp: new Date().toISOString(),
+                }]);
             }
         } finally {
             if (currentMentorMsgRef.current) {
@@ -128,6 +146,11 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
 
     function handleSSEEvent(event: GroupSSEEvent) {
         switch (event.type) {
+            case 'lab_session': {
+                labSessionIdRef.current = event.labSessionId;
+                break;
+            }
+
             case 'mentor_start': {
                 currentMentorMsgRef.current = {
                     id: generateId(),
@@ -247,6 +270,7 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
         stop();
         setMessages([]);
         setCurrentRound(0);
+        labSessionIdRef.current = null;
     }, [stop]);
 
     return {

@@ -25,6 +25,7 @@ vi.mock('@/lib/services/chat-service', () => ({
     ChatService: {
         saveUserMessage: vi.fn(),
         saveAssistantMessage: vi.fn(),
+        verifyConversationOwnership: vi.fn().mockResolvedValue(true),
     },
 }));
 
@@ -177,6 +178,16 @@ describe('POST /api/chat', () => {
         it('纯空格 message → 400', async () => {
             const response = await POST(createRequest({ message: '   ' }));
             expect(response.status).toBe(400);
+        });
+
+        it('超过条数上限的全量历史 → 钳制放行而非 400（长会话不报废）', async () => {
+            const { CHAT_LIMITS } = await import('@/lib/api/chat-request-schema');
+            const history = Array.from({ length: CHAT_LIMITS.historyMaxItems + 60 }, (_, i) => ({
+                role: i % 2 === 0 ? 'user' : 'assistant',
+                content: `msg-${i}`,
+            }));
+            const response = await POST(createRequest({ message: '继续聊', sessionId: 'sess-1', history }));
+            expect(response.status).toBe(200);
         });
     });
 

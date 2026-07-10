@@ -77,18 +77,13 @@ describe('LabInsightSchema', () => {
     expect(() => LabInsightSchema.parse(data)).toThrow();
   });
 
-  it('should format content prefix correctly', () => {
-    const insight = {
-      content: '倾向二元思维',
-      insightType: 'thinking_preference' as const,
-    };
-    const finalContent = `[实验室洞察:${insight.insightType}] ${insight.content}`;
-    expect(finalContent).toBe('[实验室洞察:thinking_preference] 倾向二元思维');
-  });
-
-  it('should apply 0.85 confidence factor', () => {
+  it('should apply low-confidence admission factor (below prune threshold 0.5)', () => {
+    // 与 lab-extractor.ts 的 LAB_CONFIDENCE_FACTOR 保持一致：
+    // 单次深层推断低置信度起步，重复证据经 merge 服务升级
+    const LAB_CONFIDENCE_FACTOR = 0.5;
     const rawConfidence = 0.8;
-    const adjusted = rawConfidence * 0.85;
-    expect(adjusted).toBeCloseTo(0.68, 2);
+    const adjusted = rawConfidence * LAB_CONFIDENCE_FACTOR;
+    expect(adjusted).toBeCloseTo(0.4, 2);
+    expect(adjusted).toBeLessThan(0.5);
   });
 });

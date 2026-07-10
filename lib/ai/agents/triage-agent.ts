@@ -46,7 +46,7 @@ export const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输�
   "adaptiveMode": "guardian" | "companion" | "guide" | "coach",
   "personaReasoning": "一句话",
   "memoryCheck": "无 或 需要记录的关键词",
-  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up",
+  "dialogueIntent": "opening" | "sharing" | "exploring" | "seeking_solutions" | "wrapping_up" | "rehearsal" | "factual_question" | "positive_sharing",
   "scene": {
     "id": "workplace_boundary" | "student_pressure" | "caregiver_burden" | "general_support",
     "role": "knowledge_worker" | "student" | "caregiver" | "unknown",
@@ -64,6 +64,7 @@ export const WEAK_TRIAGE_PROMPT = `你是心理对话弱 triage 助手。只输�
 - 普通聊天或未表达情绪时，emotion.label 用“未表达”，score 用 0。
 - triage 很弱，保守、简短、不要过度推断。
 - dialogueIntent 为 wrapping_up 仅当用户明确告别时使用。完成练习后的反馈（如"我完成了XX练习"）应判为 sharing，不是 wrapping_up。
+- dialogueIntent 补充分类：rehearsal=用户想练习/模拟一段对话（如"帮我练练怎么跟领导提离职"）；factual_question=用户在问事实或信息（如"什么是正念"），不是倾诉；positive_sharing=用户分享好消息或正面进展。倾诉负面经历用 sharing，明确要建议/方法用 seeking_solutions。
 - scene 是辅助字段，不确定时给 general_support，confidence 保守。`;
 
 class TriageAgentImpl extends BaseAgent<TriageInput, QuickAnalysis> {

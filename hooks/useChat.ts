@@ -58,7 +58,7 @@ export function useChat() {
           // 老结构 state 是 {reasoning, overallProgress}；v6 part 只带 state 字符串和 reasoning，做最小映射
           metadata = {
             ...metadata,
-            state: { reasoning: part.data.reasoning || part.data.state, overallProgress: 0 },
+            state: { reasoning: part.data.reasoning || part.data.state || '', overallProgress: 0 },
           };
           continue;
         }

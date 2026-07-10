@@ -3,13 +3,16 @@
  *
  * LRU 缓存，key = userId，TTL = 5 分钟
  * 用于避免 getContext() 每次请求都查数据库
+ *
+ * 只缓存按 userId 稳定的记忆源快照（MemorySourceSnapshot），
+ * 不缓存排序后的注入文本——排序依赖当前 message，按 userId 缓存会跨话题串味。
  */
 
-import type { MemoryContextResult } from './v2-types';
+import type { MemorySourceSnapshot } from './v2-types';
 import { logInfo, logDebug } from '@/lib/observability/logger';
 
 export interface MemoryCacheEntry {
-  result: MemoryContextResult;
+  result: MemorySourceSnapshot;
   /** 缓存写入时间（ms） */
   timestamp: number;
 }
@@ -43,7 +46,7 @@ export class MemoryCache {
    * 查询缓存，未命中或已过期返回 null
    * 命中时更新访问顺序（LRU）
    */
-  get(userId: string): MemoryContextResult | null {
+  get(userId: string): MemorySourceSnapshot | null {
     const entry = this.cache.get(userId);
     if (!entry) return null;
 
@@ -63,7 +66,7 @@ export class MemoryCache {
   /**
    * 写入缓存，超过 maxSize 时淘汰最久未访问的条目
    */
-  set(userId: string, result: MemoryContextResult): void {
+  set(userId: string, result: MemorySourceSnapshot): void {
     // 如果已存在，先删除（保证插入到末尾）
     this.cache.delete(userId);
 

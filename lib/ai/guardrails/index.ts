@@ -6,3 +6,4 @@
 
 export { guardInput, getBlockedResponse, type InputGuardResult } from './input-guard';
 export { guardOutput, type OutputGuardResult } from './output-guard';
+export { createOutputGuardStream, STREAM_GUARD_FALLBACK, type StreamGuardMode } from './stream-guard';

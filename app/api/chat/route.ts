@@ -11,6 +11,7 @@ import { detectQuestionnaireRequest } from '@/lib/ai/assessment/questionnaire';
 import { ChatService } from '@/lib/services/chat-service';
 import { determinePersonaMode } from '@/lib/ai/persona-manager';
 import { isGuidedExercise, buildExerciseSystemInjection } from '@/lib/ai/exercise-engine';
+import { resolveCrisisCheckWithSoftWait } from '@/lib/ai/crisis-classifier';
 import { startEarlyPrefetch, buildChatPrefetchContext } from './prefetch';
 import {
   handleAssessmentRoute,
@@ -30,10 +31,12 @@ import {
   trackDialogueState,
   triggerAsyncMemoryExtraction,
 } from './route-helpers';
+import { writeChatPreludeMetadata } from './response-visibility';
 import { DEFAULT_SAFE, getSafetyAgent } from '@/lib/ai/agents/safety-agent';
 import { runWithTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
 import { checkRateLimit } from '@/lib/api/rate-limit';
+import { chatBodySchema, clampChatHistory } from '@/lib/api/chat-request-schema';
 import { SKILL_CARDS, detectDirectSkillRequest } from '@/lib/ai/skills';
 import { resolveSceneContext } from '@/lib/ai/scene';
 import { assessWebSearchNeed, executeWebSearchIfNeeded, resolveWebSearchCapability } from '@/lib/ai/websearch';
@@ -53,8 +56,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let finalSessionId: string | undefined;
-  let finalUserId: string | undefined;
   const requestStartedAt = Date.now();
 
   // Parse body up front — early-bail errors should return JSON, not stream
@@ -70,26 +71,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '消息内容不能为空' }, { status: 400 });
   }
 
+  // 0.0.2 请求体校验：role 枚举/长度/条数钳制，system 角色在此被拒。
+  // 客户端发全量历史，长会话会自然超过上限——先钳制（留最近的）再校验，避免老会话永久 400
+  (body as { history?: unknown }).history = clampChatHistory(body.history);
+  const bodyCheck = chatBodySchema.safeParse(body);
+  if (!bodyCheck.success) {
+    const issue = bodyCheck.error.issues[0];
+    logWarn('chat-request-invalid', { path: issue?.path?.join('.'), code: issue?.code });
+    return NextResponse.json({ error: '请求参数不合法' }, { status: 400 });
+  }
+
+  // 0.0.3 服务端可信会话边界：匿名请求忽略传入 sessionId；登录用户校验 conversation 归属
+  const authStartedAt = Date.now();
+  const session = await auth();
+  const authDurationMs = Date.now() - authStartedAt;
+  const userId: string | undefined = session?.user?.id;
+  const sessionId: string | undefined = userId ? body.sessionId : undefined;
+  if (sessionId && userId) {
+    const owned = await ChatService.verifyConversationOwnership(sessionId, userId);
+    if (!owned) {
+      logWarn('chat-session-ownership-denied', { sessionId, userId });
+      return NextResponse.json({ error: '无权访问该会话' }, { status: 403 });
+    }
+  }
+
   // 0.0.5 FAST SKILL CARD PATH - 极速路径，跳过所有 LLM 调用
   const directSkillType = detectDirectSkillRequest(message);
   if (directSkillType) {
     logInfo('fast-skill-path', { skillType: directSkillType });
     const skill = SKILL_CARDS[directSkillType];
 
-    if (body.sessionId) {
-      ChatService.saveAssistantMessage(body.sessionId, getSkillIntroMessage(directSkillType), {
+    if (sessionId) {
+      ChatService.saveAssistantMessage(sessionId, getSkillIntroMessage(directSkillType), {
         routeType: 'support', actionCards: [skill], fastSkillResponse: true,
       });
     }
 
     return createSkillCardStreamResponse(directSkillType, {
       emotion: { label: 'neutral', score: 5 },
-      safety: {
-        label: 'normal',
-        score: 0,
-        reasoning: '检测到明确练习请求，正在为你开启极速引导',
-        constraints: [],
-      },
+      safety: isAdminSession(session)
+        ? {
+            label: 'normal',
+            score: 0,
+            reasoning: '检测到明确练习请求，正在为你开启极速引导',
+            constraints: [],
+          }
+        : undefined,
     });
   }
 
@@ -126,16 +153,8 @@ export async function POST(request: NextRequest) {
         const providerOverride = deriveProvider(requestedProvider, requestedModel);
         const modelOverride = requestedModel || undefined;
 
-        // 0.2 Auth + early prefetch
+        // 0.2 Early prefetch（auth 已在路由入口完成，sessionId 已过归属校验）
         const { orchestrationPromise, crisisCheckPromise } = startEarlyPrefetch({ message, history });
-
-        const authStartedAt = Date.now();
-        const session = await auth();
-        const authDurationMs = Date.now() - authStartedAt;
-        finalSessionId = body.sessionId;
-        finalUserId = session?.user?.id;
-        const sessionId = finalSessionId;
-        const userId = finalUserId;
 
         const isAdminUser = isAdminSession(session);
         const effectiveProviderOverride = isAdminUser ? providerOverride : undefined;
@@ -144,7 +163,7 @@ export async function POST(request: NextRequest) {
         logInfo('chat-request', {
           hasSession: !!session,
           userId,
-          sessionId: body.sessionId,
+          sessionId,
           messageLen: message.length,
           authDurationMs,
         });
@@ -153,7 +172,22 @@ export async function POST(request: NextRequest) {
           ChatService.saveUserMessage(sessionId, userId, message);
         }
 
-        const saveAssistantMessage = createAssistantMessageSaver(sessionId);
+        // crisis LLM soft-wait 超时标记（两段式危机检查见下方 0.55）
+        let crisisLlmTimedOut = false;
+
+        const baseSaveAssistantMessage = createAssistantMessageSaver(sessionId);
+        // LLM 危机结果晚到（soft-wait 超时后才返回 true）时写入本轮消息 meta，供下一轮升级为 crisis 路由。
+        // quickCrisisCheck 内部有 CRISIS_CHECK_TIMEOUT_MS 兜底，这里的 await 有界且在流结束后执行，不占关键路径。
+        const saveAssistantMessage: typeof baseSaveAssistantMessage = async (content, meta) => {
+          if (crisisLlmTimedOut && sessionId && routeType !== 'crisis') {
+            const lateCrisis = await crisisCheckPromise.catch(() => false);
+            if (lateCrisis) {
+              logWarn('crisis-late-escalation-flagged', { sessionId, userId });
+              meta = { ...meta, pendingCrisisEscalation: true };
+            }
+          }
+          return baseSaveAssistantMessage(content, meta);
+        };
 
         // 0.5 DB Prefetch
         let memoryContext = '';
@@ -202,7 +236,22 @@ export async function POST(request: NextRequest) {
           skippedForFirstTurn: isFirstTurn,
         });
 
-        const crisisCheckResult = await crisisCheckPromise;
+        // 0.55 crisis check 两段式：同步关键词快筛命中立即阻断（安全底线，不许软化）；
+        // LLM 语义评估只 soft-wait，超时先走 support 流，晚到的危机结果经 saveAssistantMessage 记录供下一轮升级
+        const crisisSoftWaitStartedAt = Date.now();
+        const crisisCheck = await resolveCrisisCheckWithSoftWait({ message, crisisCheckPromise });
+        crisisLlmTimedOut = crisisCheck.llmTimedOut;
+        const pendingCrisisEscalation =
+          !crisisCheck.isCrisis && (lastAssistantMsg?.meta as any)?.pendingCrisisEscalation === true;
+        const crisisCheckResult = crisisCheck.isCrisis || pendingCrisisEscalation;
+        logInfo('chat-crisis-check', {
+          sessionId, userId,
+          crisisSoftWaitMs: Date.now() - crisisSoftWaitStartedAt,
+          keywordHit: crisisCheck.keywordHit,
+          llmTimedOut: crisisCheck.llmTimedOut,
+          pendingCrisisEscalation,
+          crisisCheckResult,
+        });
 
         const routeDecision = decideRouteByRules({
           message, state, assessmentStage, questionnaireType,
@@ -211,6 +260,13 @@ export async function POST(request: NextRequest) {
         routeType = routeDecision.routeType;
 
         const analysis = softOrchestrationResult?.triage.data || buildFallbackQuickAnalysis({ crisisCheckResult });
+
+        // crisis LLM 超时时用 triage 的安全判定补位：两个独立信号不该被一次超时同时丢掉
+        if (crisisCheck.llmTimedOut && routeType !== 'crisis'
+          && (analysis.safety === 'crisis' || analysis.safety === 'urgent')) {
+          logWarn('chat-crisis-escalated-by-triage', { sessionId, userId, triageSafety: analysis.safety });
+          routeType = 'crisis';
+        }
         let safetyAgentResult = softOrchestrationResult?.safety || {
           success: false,
           data: DEFAULT_SAFE,
@@ -248,7 +304,7 @@ export async function POST(request: NextRequest) {
         } else if (retrievalResult && typeof retrievalResult === 'object') {
           const retrievalData = retrievalResult as any;
           memoryContext = retrievalData.contextString || retrievalData.injectedText || '';
-          if (retrievalData.memories?.length > 0) {
+          if (isAdminUser && retrievalData.memories?.length > 0) {
             writer.write({
               type: 'data-relevant-memories',
               data: {
@@ -261,7 +317,7 @@ export async function POST(request: NextRequest) {
               },
             });
           }
-          if (retrievalData.source === 'memory-v2') {
+          if (isAdminUser && retrievalData.source === 'memory-v2') {
             writer.write({
               type: 'data-trace',
               data: {
@@ -446,28 +502,25 @@ export async function POST(request: NextRequest) {
         });
 
         // ============================================================
-        // 写入 pre-stream 元数据 parts
+        // 写入 pre-stream 元数据 parts（内部分析仅管理员可见）
         // ============================================================
-        writer.write({ type: 'data-route', data: { routeType } });
-        writer.write({ type: 'data-state', data: { state: stateData.reasoning, reasoning: stateData.reasoning } });
-        writer.write({ type: 'data-safety', data: safetyData });
-        writer.write({ type: 'data-persona', data: personaData });
-        writer.write({ type: 'data-memory', data: memoryData });
-        writer.write({ type: 'data-scene', data: sceneContext });
-        writer.write({ type: 'data-websearch', data: webSearchDecision });
-        writer.write({
-          type: 'data-dialogue',
-          data: {
+        writeChatPreludeMetadata(writer, {
+          isAdmin: isAdminUser,
+          routeType,
+          sceneContext,
+          webSearchDecision,
+          adaptiveMode,
+          stateData,
+          safetyData,
+          personaData,
+          memoryData,
+          dialogueData: {
             turn: conversationTurn,
             phase: dialoguePhase,
             machineState: dialogueCtx?.state,
             riskLevel: riskSignals.level,
           },
-        });
-        writer.write({ type: 'data-adaptive-mode', data: { mode: adaptiveMode } });
-        writer.write({
-          type: 'data-trace',
-          data: {
+          traceData: {
             questionnaireDetected: questionnaireType || undefined,
             emotionTrajectory: dialogueCtx?.emotionTrajectory || [],
             dialogueIntent: (analysis as any).dialogueIntent || null,
@@ -552,6 +605,7 @@ export async function POST(request: NextRequest) {
             userPreferences, providerOverride: effectiveProviderOverride,
             modelOverride: effectiveModelOverride, agentTrace,
             sceneContext, webSearchDecision,
+            dialogueIntent: (analysis as any)?.dialogueIntent || undefined,
           });
         } else if (routeType === 'assessment') {
           await handleAssessmentRoute({

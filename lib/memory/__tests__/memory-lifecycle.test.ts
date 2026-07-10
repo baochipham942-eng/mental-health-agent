@@ -12,11 +12,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // vi.hoisted() 声明在 vi.mock 工厂中引用的变量，确保 hoisting 后仍可访问
 const {
   profileMemoryStore, memoryCandidateStore, sessionSummaryV2Store,
+  memoryExtractionLogStore,
   userStore, conversationStore, idState, nextId, matchesWhere, createDelegate,
-  mockGenerateStructured,
+  mockGenerateStructured, mockGenerateObject,
 } = vi.hoisted(() => {
   const _idState = { counter: 0 };
   const _nextId = () => `cuid_${++_idState.counter}`;
+
+  // 简化版 orderBy（单键/多键、asc/desc），供 findMany/findFirst 使用
+  function _applyOrderBy(rows: any[], orderBy: any): any[] {
+    if (!orderBy) return rows;
+    const specs = Array.isArray(orderBy) ? orderBy : [orderBy];
+    return [...rows].sort((a, b) => {
+      for (const spec of specs) {
+        const [key, dir] = Object.entries(spec)[0] as [string, string];
+        if (a[key] === b[key]) continue;
+        const cmp = a[key] > b[key] ? 1 : -1;
+        return dir === 'desc' ? -cmp : cmp;
+      }
+      return 0;
+    });
+  }
 
   function _matchesWhere(row: any, where: any): boolean {
     for (const [key, val] of Object.entries(where || {})) {
@@ -34,7 +50,7 @@ const {
   function _createDelegate(store: any[]) {
     return {
       findMany: vi.fn(({ where, orderBy, take }: any = {}) => {
-        let results = store.filter((row) => _matchesWhere(row, where));
+        let results = _applyOrderBy(store.filter((row) => _matchesWhere(row, where)), orderBy);
         if (take) results = results.slice(0, take);
         return Promise.resolve(results);
       }),
@@ -47,15 +63,15 @@ const {
         });
         return Promise.resolve(row || null);
       }),
-      findFirst: vi.fn(({ where }: any = {}) => {
-        const row = store.find((r) => {
+      findFirst: vi.fn(({ where, orderBy }: any = {}) => {
+        const matches = _applyOrderBy(store.filter((r) => {
           for (const [key, val] of Object.entries(where || {})) {
             if (val === null && r[key] !== null) return false;
             if (val !== null && val !== undefined && r[key] !== val) return false;
           }
           return true;
-        });
-        return Promise.resolve(row || null);
+        }), orderBy);
+        return Promise.resolve(matches[0] || null);
       }),
       create: vi.fn(({ data }: any) => {
         const row = { id: _nextId(), createdAt: new Date(), updatedAt: new Date(), ...data };
@@ -131,6 +147,7 @@ const {
     profileMemoryStore: [] as any[],
     memoryCandidateStore: [] as any[],
     sessionSummaryV2Store: [] as any[],
+    memoryExtractionLogStore: [] as any[],
     userStore: [] as any[],
     conversationStore: [] as any[],
     idState: _idState,
@@ -138,6 +155,7 @@ const {
     matchesWhere: _matchesWhere,
     createDelegate: _createDelegate,
     mockGenerateStructured: vi.fn(),
+    mockGenerateObject: vi.fn(),
   };
 });
 
@@ -149,6 +167,13 @@ vi.mock('@/lib/llm', () => ({
 }));
 vi.mock('@/lib/ai/deepseek', () => ({
   chatCompletion: vi.fn().mockResolvedValue({ reply: '对话摘要文本' }),
+  deepseek: vi.fn().mockReturnValue('mock-model'),
+  DEEPSEEK_MODEL: 'deepseek-chat',
+}));
+
+// Mock AI SDK（lab-extractor 的 generateObject）
+vi.mock('ai', () => ({
+  generateObject: (...args: any[]) => mockGenerateObject(...args),
 }));
 
 // Mock 缓存层（测试中不需要真实缓存行为）
@@ -167,6 +192,7 @@ vi.mock('@/lib/db/prisma', () => ({
     profileMemory: createDelegate(profileMemoryStore),
     memoryCandidate: createDelegate(memoryCandidateStore),
     sessionSummaryV2: createDelegate(sessionSummaryV2Store),
+    memoryExtractionLog: createDelegate(memoryExtractionLogStore),
     user: {
       findUnique: vi.fn(({ where }: any) => {
         const user = userStore.find((u) => u.id === where.id);
@@ -187,7 +213,16 @@ vi.mock('@/lib/db/prisma', () => ({
     conversation: {
       findUnique: vi.fn(({ where, include }: any) => {
         const conv = conversationStore.find((c) => c.id === where.id);
-        return Promise.resolve(conv || null);
+        if (!conv) return Promise.resolve(null);
+        // 支持增量提取的 include.messages.where.createdAt.gt 过滤
+        const gt = include?.messages?.where?.createdAt?.gt;
+        if (gt) {
+          return Promise.resolve({
+            ...conv,
+            messages: conv.messages.filter((m: any) => m.createdAt > gt),
+          });
+        }
+        return Promise.resolve(conv);
       }),
     },
   },
@@ -197,6 +232,9 @@ vi.mock('@/lib/db/prisma', () => ({
 import { dedupeExtractedMemories, MemoryCandidateService } from '../memory-candidate-service';
 import { ProfileMemoryMergeService } from '../profile-memory-merge-service';
 import { MemoryContextService } from '../memory-context-service';
+import { extractLabInsights } from '../lab-extractor';
+import { memoryCache } from '../memory-cache';
+import { prisma } from '@/lib/db/prisma';
 import { SessionSummaryV2Writer } from '../session-summary-v2-writer';
 import { updateSessionMetadata, getSessionMetadata, formatSessionMetadata } from '../session-metadata';
 import { buildMemoryFingerprint } from '../fingerprint';
@@ -236,6 +274,7 @@ beforeEach(() => {
   profileMemoryStore.length = 0;
   memoryCandidateStore.length = 0;
   sessionSummaryV2Store.length = 0;
+  memoryExtractionLogStore.length = 0;
   userStore.length = 0;
   conversationStore.length = 0;
   idState.counter = 0;
@@ -247,12 +286,14 @@ beforeEach(() => {
 
 describe('Phase 1: 记忆提取与候选保存', () => {
   it('从对话中提取记忆并保存为候选', async () => {
-    // 准备：一段包含个人信息的对话
+    // 准备：一段包含个人信息的对话（3 个用户回合，满足提取降频门槛）
     seedConversation([
       { role: 'user', content: '最近工作压力很大，领导总是批评我' },
       { role: 'assistant', content: '听起来你承受了不少压力' },
       { role: 'user', content: '是的，每次汇报前都很焦虑，胸口发紧' },
       { role: 'assistant', content: '这种身体反应很常见' },
+      { role: 'user', content: '晚上也睡不好，总想着工作的事' },
+      { role: 'assistant', content: '压力已经影响到睡眠了' },
     ]);
 
     // Mock LLM 返回提取结果
@@ -297,6 +338,8 @@ describe('Phase 1: 记忆提取与候选保存', () => {
       { role: 'assistant', content: '听起来你承受了不少压力' },
       { role: 'user', content: '每次汇报前都很焦虑，胸口发紧' },
       { role: 'assistant', content: '这种身体反应很常见' },
+      { role: 'user', content: '晚上也睡不好，总想着工作的事' },
+      { role: 'assistant', content: '压力已经影响到睡眠了' },
     ]);
 
     mockGenerateStructured.mockResolvedValueOnce({
@@ -719,12 +762,14 @@ describe('Phase 6: 记忆指纹', () => {
 
 describe('Phase 7: 完整生命周期（提取→候选→合并→注入）', () => {
   it('一轮对话产生的记忆能在下轮注入', async () => {
-    // Step 1: 准备对话
+    // Step 1: 准备对话（3 个用户回合，满足提取降频门槛）
     seedConversation([
       { role: 'user', content: '我很害怕每次给领导汇报工作' },
       { role: 'assistant', content: '听起来汇报工作给你带来了很大的压力' },
       { role: 'user', content: '对，每次汇报前胸口就发紧' },
       { role: 'assistant', content: '这种身体反应是焦虑的常见表现' },
+      { role: 'user', content: '晚上也睡不好' },
+      { role: 'assistant', content: '睡眠也受到影响了' },
     ]);
     seedUser();
 
@@ -769,5 +814,189 @@ describe('Phase 7: 完整生命周期（提取→候选→合并→注入）', (
     expect(context.injectedText).toContain('用户稳定信息');
     expect(context.injectedText).toContain('trigger');
     expect(context.injectedText).toContain('用户行为模式'); // Session Metadata
+  });
+});
+
+// ============================================================
+// Phase 8: 记忆质量三件套（缓存按池存 / lab 准入降级 / 增量提取）
+// ============================================================
+
+describe('Phase 8a: 缓存与检索按当前消息重排', () => {
+  const rankCandidates = () => [
+    {
+      id: 'pm-run', userId: TEST_USER_ID, kind: 'coping',
+      content: '跑步能帮你缓解压力', priority: 75, confidence: 0.9,
+      deletedAt: null, updatedAt: new Date(), sourceConversationId: null,
+    },
+    {
+      id: 'pm-breath', userId: TEST_USER_ID, kind: 'coping',
+      content: '深呼吸练习让你平静下来', priority: 75, confidence: 0.9,
+      deletedAt: null, updatedAt: new Date(), sourceConversationId: null,
+    },
+  ];
+
+  it('切话题后注入文本随 query 变化（重新排序）', async () => {
+    seedUser();
+    profileMemoryStore.push(...rankCandidates());
+
+    const service = new MemoryContextService();
+    const r1 = await service.getContext(TEST_USER_ID, '跑步');
+    const r2 = await service.getContext(TEST_USER_ID, '深呼吸');
+
+    expect(r1.profileMemories[0].id).toBe('pm-run');
+    expect(r2.profileMemories[0].id).toBe('pm-breath');
+    expect(r1.injectedText).not.toBe(r2.injectedText);
+  });
+
+  it('缓存命中时复用候选池但仍按当前消息重排，不查库', async () => {
+    const snapshot = {
+      candidates: rankCandidates(),
+      recentSummaries: [],
+      sessionMetadataText: '',
+    };
+    (memoryCache.get as any)
+      .mockReturnValueOnce(snapshot)
+      .mockReturnValueOnce(snapshot);
+
+    const service = new MemoryContextService();
+    const r1 = await service.getContext(TEST_USER_ID, '跑步');
+    const r2 = await service.getContext(TEST_USER_ID, '深呼吸');
+
+    expect(r1.profileMemories[0].id).toBe('pm-run');
+    expect(r2.profileMemories[0].id).toBe('pm-breath');
+    expect((prisma as any).profileMemory.findMany).not.toHaveBeenCalled();
+  });
+
+  it('低置信度记忆只在与当前消息相关时注入', async () => {
+    seedUser();
+    profileMemoryStore.push({
+      id: 'pm-lab-low', userId: TEST_USER_ID, kind: 'identity',
+      content: '你对存在主义哲学感兴趣', priority: 40, confidence: 0.4,
+      deletedAt: null, updatedAt: new Date(),
+      sourceConversationId: 'lab_mentor_socrates#thinking_preference',
+    });
+
+    const service = new MemoryContextService();
+    const unrelated = await service.getContext(TEST_USER_ID, '工作压力');
+    expect(unrelated.injectedText).not.toContain('存在主义');
+
+    const related = await service.getContext(TEST_USER_ID, '哲学');
+    expect(related.injectedText).toContain('存在主义');
+    expect(related.injectedText).toContain('探索工坊发现');
+  });
+});
+
+describe('Phase 8b: lab 洞察准入降级', () => {
+  it('lab 洞察以低置信度 + 降档 priority 写入，不直接成为稳定事实', async () => {
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        insights: [{
+          topic: 'personal_context',
+          content: '你对哲学思辨很感兴趣',
+          confidence: 0.8,
+          insightType: 'thinking_preference',
+        }],
+      },
+    });
+
+    const saved = await extractLabInsights(TEST_USER_ID, [
+      { role: 'user', content: '我想聊聊人生意义' },
+      { role: 'assistant', content: '未经省察的人生不值得过' },
+    ], 'mentor', 'socrates');
+
+    expect(saved).toBe(1);
+    const row = profileMemoryStore[0];
+    // 0.8 * LAB_CONFIDENCE_FACTOR(0.5) = 0.4，低于 prune 阈值与主链路提取下限 0.5
+    expect(row.confidence).toBeCloseTo(0.4, 5);
+    expect(row.confidence).toBeLessThan(0.5);
+    // identity 60 - LAB_PRIORITY_PENALTY(20)
+    expect(row.priority).toBe(40);
+    expect(row.sourceConversationId).toBe('lab_mentor_socrates#thinking_preference');
+  });
+});
+
+describe('Phase 8c: 增量提取', () => {
+  it('只分析水位线后的新消息，不足 3 个新用户回合时跳过', async () => {
+    seedUser();
+    const past = Date.now() - 60_000;
+    const msg = (i: number, role: string, content: string, t: number) =>
+      ({ id: `m${i}`, role, content, createdAt: new Date(t) });
+    conversationStore.push({
+      id: TEST_CONV_ID,
+      userId: TEST_USER_ID,
+      messages: [
+        msg(0, 'user', '最近工作压力很大', past),
+        msg(1, 'assistant', '听起来很辛苦', past + 1000),
+        msg(2, 'user', '每次汇报前都焦虑', past + 2000),
+        msg(3, 'assistant', '这种反应很常见', past + 3000),
+        msg(4, 'user', '晚上也睡不好', past + 4000),
+        msg(5, 'assistant', '睡眠也受影响了', past + 5000),
+      ],
+    });
+    mockGenerateStructured.mockResolvedValueOnce({
+      memories: [{ topic: 'trigger_warning', content: '工作汇报前会焦虑', confidence: 0.9 }],
+    });
+
+    const service = new MemoryCandidateService();
+    const first = await service.extractAndSave(TEST_CONV_ID);
+    expect(first).toHaveLength(1);
+    expect(mockGenerateStructured).toHaveBeenCalledTimes(1);
+    expect(memoryExtractionLogStore).toHaveLength(1);
+    expect(memoryExtractionLogStore[0].status).toBe('success');
+    // 水位线 = 最后一条已处理消息的时间，而非日志写入时间
+    expect(memoryExtractionLogStore[0].createdAt.getTime()).toBe(past + 5000);
+
+    // 无新消息 → 跳过，不再调 LLM
+    const second = await service.extractAndSave(TEST_CONV_ID);
+    expect(second).toHaveLength(0);
+    expect(mockGenerateStructured).toHaveBeenCalledTimes(1);
+
+    // 新增 1 个用户回合 → 不足 3，仍跳过
+    const now = Date.now();
+    conversationStore[0].messages.push(
+      msg(6, 'user', '换个话题，最近想学画画', now),
+      msg(7, 'assistant', '很好的兴趣', now + 1000),
+    );
+    const third = await service.extractAndSave(TEST_CONV_ID);
+    expect(third).toHaveLength(0);
+    expect(mockGenerateStructured).toHaveBeenCalledTimes(1);
+
+    // 攒够 3 个新用户回合 → 提取，且 LLM 只收到水位线后的新片段
+    conversationStore[0].messages.push(
+      msg(8, 'user', '周末打算去美术馆', now + 2000),
+      msg(9, 'assistant', '听起来不错', now + 3000),
+      msg(10, 'user', '画画让我很放松', now + 4000),
+      msg(11, 'assistant', '这是很好的解压方式', now + 5000),
+    );
+    mockGenerateStructured.mockResolvedValueOnce({ memories: [] });
+    await service.extractAndSave(TEST_CONV_ID);
+    expect(mockGenerateStructured).toHaveBeenCalledTimes(2);
+    const prompt = mockGenerateStructured.mock.calls[1][0][1].content;
+    expect(prompt).not.toContain('最近工作压力很大'); // 旧消息不再重复分析
+    expect(prompt).toContain('画画让我很放松');
+  });
+
+  it('LLM 提取失败不推进水位线，留 pending_retry 日志', async () => {
+    seedUser();
+    seedConversation([
+      { role: 'user', content: '最近工作压力很大' },
+      { role: 'assistant', content: '听起来很辛苦' },
+      { role: 'user', content: '每次汇报前都焦虑' },
+      { role: 'assistant', content: '这种反应很常见' },
+      { role: 'user', content: '晚上也睡不好' },
+      { role: 'assistant', content: '睡眠也受影响了' },
+    ]);
+    mockGenerateStructured.mockRejectedValueOnce(new Error('rate limited'));
+
+    const service = new MemoryCandidateService();
+    const out = await service.extractAndSave(TEST_CONV_ID);
+    expect(out).toHaveLength(0);
+    expect(memoryExtractionLogStore).toHaveLength(1);
+    expect(memoryExtractionLogStore[0].status).toBe('pending_retry');
+
+    // 水位线未推进：同批消息再次送审
+    mockGenerateStructured.mockResolvedValueOnce({ memories: [] });
+    await service.extractAndSave(TEST_CONV_ID);
+    expect(mockGenerateStructured).toHaveBeenCalledTimes(2);
   });
 });

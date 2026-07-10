@@ -89,29 +89,8 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
         setInput('');
     };
 
+    // 洞察提取已由服务端在每轮持久化时完成，关桌不再重复触发
     const handleClose = () => {
-        if (messages.length >= 2) {
-            const userMsgs = messages.filter(m => m.role === 'user');
-            if (userMsgs.length > 0) {
-                fetch('/api/memory/lab-extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        messages: messages.map(m => ({
-                            role: m.role === 'moderator' || m.role === 'synthesis' ? 'assistant' : m.role,
-                            content: m.mentorName
-                                ? `[${m.mentorName}]: ${m.content}`
-                                : m.role === 'moderator'
-                                    ? `[主持人]: ${m.content}`
-                                    : m.content,
-                        })),
-                        contextType: 'group',
-                        contextId: mentorIds.join(','),
-                        groupConfig: { mentorIds, mode },
-                    }),
-                }).catch(e => console.error('Background extraction failed:', e));
-            }
-        }
         onClose();
     };
 

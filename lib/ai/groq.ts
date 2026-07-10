@@ -28,7 +28,7 @@ export interface QuickAnalysis {
     adaptiveMode: 'guardian' | 'companion' | 'guide' | 'coach';
     personaReasoning: string; // 角色选择理由
     memoryCheck: string; // 记忆检查结果：是否值得记录？关键词是什么？
-    dialogueIntent?: 'opening' | 'sharing' | 'exploring' | 'seeking_solutions' | 'wrapping_up';
+    dialogueIntent?: 'opening' | 'sharing' | 'exploring' | 'seeking_solutions' | 'wrapping_up' | 'rehearsal' | 'factual_question' | 'positive_sharing';
     scene?: {
         id?: 'workplace_boundary' | 'student_pressure' | 'caregiver_burden' | 'general_support';
         role?: 'knowledge_worker' | 'student' | 'caregiver' | 'unknown';

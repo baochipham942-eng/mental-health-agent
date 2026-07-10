@@ -1,8 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { logExercise } from '@/lib/actions/exercise';
 
-export function MoodTracker() {
+interface MoodTrackerProps {
+    /** 提交后回调，由父卡片标记练习完成 */
+    onComplete?: () => void;
+}
+
+export function MoodTracker({ onComplete }: MoodTrackerProps) {
     const [selectedMood, setSelectedMood] = useState<number | null>(null);
     const [note, setNote] = useState('');
     const [submitted, setSubmitted] = useState(false);
@@ -18,16 +24,29 @@ export function MoodTracker() {
     const handleSubmit = () => {
         if (!selectedMood) return;
         setSubmitted(true);
-        // TODO: 调用 API 保存或更新上下文
+        // 乐观展示，保存失败只记日志（与 ActionCardItem.handleRatingSubmit 同策略）
+        logExercise({
+            cardId: '情绪记录',
+            title: '情绪记录',
+            durationSeconds: 0,
+            preMoodScore: selectedMood,
+            postMoodScore: selectedMood,
+            feedback: note.trim() || undefined,
+        }).catch((e) => console.error('[MoodTracker] 保存失败', e));
+        onComplete?.();
     };
+
+    const selectedMeta = moods.find((m) => m.value === selectedMood);
 
     // 统一容器结构 — 避免 submitted 切换时 DOM 结构变化导致父卡片高度跳变
     return (
         <div className="flex flex-col gap-6 p-4 min-h-[200px]">
             {submitted ? (
                 <div className="flex flex-col items-center justify-center flex-1 bg-green-50/50 rounded-xl py-6">
-                    <div className="text-4xl mb-3 animate-bounce">✨</div>
-                    <p className="text-base font-medium text-green-800">心情记录已保存</p>
+                    <div className="text-4xl mb-3 animate-bounce">{selectedMeta?.emoji ?? '✨'}</div>
+                    <p className="text-base font-medium text-green-800">
+                        已记下{selectedMeta ? `「${selectedMeta.label}」` : ''}的心情
+                    </p>
                     <p className="text-sm text-green-600 mt-1">记录当下是了解自己的第一步</p>
                 </div>
             ) : (

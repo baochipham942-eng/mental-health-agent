@@ -5,6 +5,10 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Arco 按需 import，避免整包 JS 进 bundle
+  experimental: {
+    optimizePackageImports: ['@arco-design/web-react'],
+  },
   // 压缩输出
   compress: true,
   // 图片优化（Vercel 自动处理）
@@ -33,6 +37,11 @@ const nextConfig = {
       {
         source: '/:filename*.txt',
         destination: '/:filename*.txt',
+      },
+      // FC timer trigger（keep-alive）的事件调用打到 custom runtime 的 /invoke，转给预热端点
+      {
+        source: '/invoke',
+        destination: '/api/warmup',
       },
     ];
   },

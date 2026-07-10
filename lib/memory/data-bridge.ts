@@ -342,14 +342,19 @@ export async function updateUserSession(
 // Conversation Queries（供 memory 模块使用）
 // ============================================================
 
-/** 查询对话及消息（含 role/content，用于记忆提取） */
+/** 查询对话及消息（含 role/content，用于记忆提取）。传 messagesAfter 只取该时刻之后的新消息（增量提取） */
 export async function getConversationWithMessages(
   conversationId: string,
+  messagesAfter?: Date,
 ): Promise<ConversationWithMessages | null> {
   const conv = await prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
-      messages: { orderBy: { createdAt: 'asc' }, take: 50 },
+      messages: {
+        ...(messagesAfter ? { where: { createdAt: { gt: messagesAfter } } } : {}),
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      },
     },
   });
   if (!conv) return null;
@@ -377,6 +382,32 @@ export async function getConversationUserId(
 // ============================================================
 // MemoryExtractionLog Queries（cron retry 用）
 // ============================================================
+
+/**
+ * 创建记忆提取日志（success 同时充当增量提取水位线；pending_retry 供 retry cron 重试）。
+ * createdAt 传"最后一条已处理消息的时间"作为精确水位线，避免提取期间新写入的消息被跳过。
+ */
+export async function createExtractionLog(data: {
+  conversationId: string;
+  extractedCount: number;
+  status: string;
+  error?: string | null;
+  createdAt?: Date;
+}): Promise<void> {
+  await prisma.memoryExtractionLog.create({ data });
+}
+
+/** 最近一次成功提取时间（增量提取水位线），无记录返回 null */
+export async function findLastExtractionSuccessAt(
+  conversationId: string,
+): Promise<Date | null> {
+  const log = await prisma.memoryExtractionLog.findFirst({
+    where: { conversationId, status: 'success' },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  return log?.createdAt ?? null;
+}
 
 /** 查询待重试的记忆提取日志 */
 export async function findPendingExtractionLogs(

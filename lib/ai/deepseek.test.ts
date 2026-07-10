@@ -131,6 +131,50 @@ describe('deepseekNoThinkingFetch', () => {
         });
         expect(sentBody().thinking).toEqual({ type: 'enabled' });
     });
+
+    // ====== 流式路径 cache_control（对齐非流式 chatCompletion 的注入策略） ======
+
+    it('首条 system 消息 → 注入 cache_control', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({
+                model: 'deepseek-v4-flash',
+                messages: [
+                    { role: 'system', content: 'sys prompt' },
+                    { role: 'user', content: 'hi' },
+                ],
+            }),
+        });
+        expect(sentBody().messages[0].cache_control).toEqual({ type: 'ephemeral' });
+        expect(sentBody().messages[1].cache_control).toBeUndefined();
+        // thinking disabled 注入不受影响
+        expect(sentBody().thinking).toEqual({ type: 'disabled' });
+    });
+
+    it('首条消息不是 system → 不注入 cache_control', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({
+                model: 'deepseek-v4-flash',
+                messages: [{ role: 'user', content: 'hi' }],
+            }),
+        });
+        expect(sentBody().messages[0].cache_control).toBeUndefined();
+    });
+
+    it('已显式设置 cache_control → 不覆盖', async () => {
+        fetchSpy = mockFetch({});
+        await deepseekNoThinkingFetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            body: JSON.stringify({
+                model: 'deepseek-v4-flash',
+                messages: [{ role: 'system', content: 'sys', cache_control: { type: 'custom' } }],
+            }),
+        });
+        expect(sentBody().messages[0].cache_control).toEqual({ type: 'custom' });
+    });
 });
 
 describe('chatStructuredCompletion', () => {

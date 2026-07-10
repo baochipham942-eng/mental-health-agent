@@ -15,11 +15,20 @@ vi.mock('@/lib/db/prisma', () => ({
         labSession: {
             create: vi.fn().mockResolvedValue({ id: 'group-session-1' }),
             update: vi.fn().mockResolvedValue({}),
+            count: vi.fn().mockResolvedValue(0),
+            findUnique: vi.fn().mockResolvedValue(null),
         },
         labMessage: {
             createMany: vi.fn().mockResolvedValue({ count: 5 }),
+            findMany: vi.fn().mockResolvedValue([]),
+            count: vi.fn().mockResolvedValue(0),
         },
     },
+}));
+
+// 内存限流器是真实现（10 次/分钟/用户），本文件 15+ 个用例共用同一 userId 会被真限流打爆
+vi.mock('@/lib/api/rate-limit', () => ({
+    checkRateLimit: vi.fn().mockReturnValue({ success: true }),
 }));
 
 vi.mock('@/lib/ai/guardrails', () => ({
@@ -246,7 +255,9 @@ describe('POST /api/chat/group', () => {
         const res = await POST(createRequest(validBody));
         expect(res.status).toBe(200);
         const events = await readSSEStream(res);
-        expect(events.length).toBe(0); // 正常返回空流，不 crash
+        // 新开桌会先发 lab_session 事件；orchestrator 无输出时不应有其他事件
+        const nonSessionEvents = events.filter(e => JSON.parse(e).type !== 'lab_session');
+        expect(nonSessionEvents.length).toBe(0); // 正常返回空流，不 crash
     });
 
     // ====== 错误处理 ======

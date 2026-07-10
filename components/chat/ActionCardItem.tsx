@@ -397,7 +397,17 @@ export function ActionCardItem({ card, index, messageId, sessionId }: ActionCard
                       onStart={handleWidgetStart}
                     />
                   ) : card.widget === 'mood_tracker' ? (
-                    <MoodTracker />
+                    // 心情记录无评分环节：提交即完成，完成卡片由 Widget 内部展示
+                    <MoodTracker
+                      onComplete={() => {
+                        if (!isCompleted) {
+                          updateSkillProgress(cardId, {
+                            status: 'done',
+                            completedSteps: Array.from({ length: stepsCount }, (_, i) => i),
+                          });
+                        }
+                      }}
+                    />
                   ) : card.widget === 'empty_chair' ? ( // 新增：空椅子
                     <BasicEmptyChair
                       onComplete={handleWidgetComplete}

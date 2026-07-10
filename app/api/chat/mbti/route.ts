@@ -5,7 +5,8 @@ import { auth } from '@/auth';
 import { streamChatCompletion, ChatMessage } from '@/lib/ai/deepseek';
 import { memoryContextService } from '@/lib/memory';
 import { getMBTIPersona } from '@/lib/ai/mbti/personas';
-import { guardInput, getBlockedResponse } from '@/lib/ai/guardrails';
+import { mbtiBodySchema } from '@/lib/api/chat-request-schema';
+import { guardInput, getBlockedResponse, createOutputGuardStream } from '@/lib/ai/guardrails';
 import { runWithTrace, getCurrentTrace } from '@/lib/observability/trace-context';
 import { updateTrace } from '@/lib/observability/langfuse';
 
@@ -23,17 +24,22 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { messages, mbtiType } = body;
+        // 请求体校验：role 只允许 user/assistant（伪造 system 直接拒）、长度/条数钳制
+        const bodyCheck = mbtiBodySchema.safeParse(body);
+        if (!bodyCheck.success) {
+            return NextResponse.json({ error: '请求参数不合法' }, { status: 400 });
+        }
+        const { messages, mbtiType } = bodyCheck.data;
 
         // Vercel AI SDK sends 'messages' array. Get the last message as current input.
-        const lastMessage = messages?.[messages.length - 1];
+        const lastMessage = messages[messages.length - 1];
         const messageContent = lastMessage?.content;
 
         if (!messageContent || messageContent.trim().length === 0) {
             return NextResponse.json({ error: 'Message cannot be empty' }, { status: 400 });
         }
 
-        const persona = getMBTIPersona(mbtiType);
+        const persona = getMBTIPersona(mbtiType ?? '');
         if (!persona) {
             return NextResponse.json({ error: 'MBTI persona not found' }, { status: 400 });
         }
@@ -102,7 +108,10 @@ ${memoryContext}
                     temperature: 0.9,
                     max_tokens: 800,
                 });
-                writer.merge(result.toUIMessageStream() as ReadableStream<ChatUIChunk>);
+                writer.merge(
+                    (result.toUIMessageStream() as ReadableStream<ChatUIChunk>)
+                        .pipeThrough(createOutputGuardStream<ChatUIChunk>({ logContext: { route: 'mbti' } })),
+                );
             },
             onError: (error) => {
                 console.error('MBTI stream error:', error);

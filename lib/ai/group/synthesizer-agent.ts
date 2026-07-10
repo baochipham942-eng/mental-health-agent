@@ -57,6 +57,8 @@ ${discussion}`;
         prompt: userPrompt,
         temperature: 0.6,
         maxOutputTokens: 400,
+        // 统一超时：超时算一次失败，走本循环的重试/兜底总结
+        abortSignal: AbortSignal.timeout(20_000),
       });
 
       if (text && text.trim().length > 0) return text;

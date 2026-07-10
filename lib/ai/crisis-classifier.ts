@@ -57,8 +57,37 @@ const CRISIS_INTENT_KEYWORDS = [
     '永远睡', '没有我会更好', '活着没意义', '活着没有意义',
 ];
 
-function crisisKeywordFallback(message: string): boolean {
+/**
+ * 同步关键词快筛：命中即视为显式危机表达
+ * 关键路径直接调用（零延迟），也作为 LLM 超时/失败时的保守兜底（宁可误报不可漏判）
+ */
+export function crisisKeywordCheck(message: string): boolean {
     return CRISIS_INTENT_KEYWORDS.some(kw => message.includes(kw));
+}
+
+/**
+ * 关键路径两段式危机检查：
+ * 1. 同步关键词快筛 —— 命中立即判危机（安全底线，不等 LLM，不许软化）
+ * 2. LLM 语义评估 soft-wait —— 最多等 softWaitMs，超时先按非危机放行走 support 流；
+ *    晚到且为危机的 LLM 结果由调用方记录到消息元数据，供下一轮升级
+ */
+export async function resolveCrisisCheckWithSoftWait(params: {
+    message: string;
+    crisisCheckPromise: Promise<boolean>;
+    softWaitMs?: number;
+}): Promise<{ isCrisis: boolean; keywordHit: boolean; llmTimedOut: boolean }> {
+    const { message, crisisCheckPromise } = params;
+    if (crisisKeywordCheck(message)) {
+        return { isCrisis: true, keywordHit: true, llmTimedOut: false };
+    }
+    // 默认 1200ms：低于 DeepSeek 3-token 补全的真实 TTFB（国内直连典型 0.8-2s）会让
+    // 语义检测每轮必超时、当轮退化为纯关键词匹配；安全路径宁可多等半秒
+    const softWaitMs = params.softWaitMs ?? Number(process.env.CRISIS_SOFT_WAIT_MS || 1200);
+    const llmResult = await Promise.race([
+        crisisCheckPromise.catch(() => false),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), softWaitMs)),
+    ]);
+    return { isCrisis: llmResult === true, keywordHit: false, llmTimedOut: llmResult === null };
 }
 
 /**
@@ -73,7 +102,7 @@ export async function quickCrisisCheck(
     timeoutMs = Number(process.env.CRISIS_CHECK_TIMEOUT_MS || 1500),
 ): Promise<boolean> {
     const deepseekKey = process.env.DEEPSEEK_API_KEY;
-    if (!deepseekKey) return crisisKeywordFallback(message);
+    if (!deepseekKey) return crisisKeywordCheck(message);
 
     try {
         const { deepseek, DEEPSEEK_MODEL } = await import('@/lib/ai/deepseek');
@@ -90,14 +119,14 @@ export async function quickCrisisCheck(
 
         if (!result) {
             console.log('[CrisisCheck] DeepSeek timeout, falling back to keyword check');
-            return crisisKeywordFallback(message);
+            return crisisKeywordCheck(message);
         }
 
         const answer = result.text.trim().toUpperCase();
         return answer.startsWith('YES');
     } catch (error) {
         console.warn('[CrisisCheck] DeepSeek failed, falling back to keyword check:', error instanceof Error ? error.message : error);
-        return crisisKeywordFallback(message);
+        return crisisKeywordCheck(message);
     }
 }
 
@@ -256,5 +285,5 @@ export async function assessCrisisDeescalation(
  */
 export function quickCrisisKeywordCheck(message: string): boolean {
     console.warn('[CrisisClassifier] quickCrisisKeywordCheck is deprecated, use quickCrisisCheck instead');
-    return crisisKeywordFallback(message);
+    return crisisKeywordCheck(message);
 }
