@@ -51,6 +51,16 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // 圆桌跨会话记忆：读取用户既往洞察注入开场白与大师 prompt（fail-open，读不到不阻塞开桌）
+        let userInsights: string[] = [];
+        try {
+            const { findProfileMemoriesTop } = await import('@/lib/memory/data-bridge');
+            const memories = await findProfileMemoriesTop(userId, 5);
+            userInsights = memories.map(m => m.content);
+        } catch (e: any) {
+            logError('group-chat-memory-load-failed', { error: e?.message });
+        }
+
         // 收集所有 SSE 事件用于持久化
         const allEvents: GroupSSEPayload[] = [];
         const encoder = new TextEncoder();
@@ -64,6 +74,7 @@ export async function POST(request: NextRequest) {
                         topic,
                         messages,
                         intent,
+                        userInsights,
                     });
 
                     for await (const event of generator) {
@@ -215,6 +226,10 @@ async function persistGroupSession(
                 }
                 currentMentorId = null;
                 currentMentorContent = '';
+                break;
+
+            case 'mentor_pass':
+                // 弃权是轻量状态，不作为发言持久化（回放时前情回顾也不需要它）
                 break;
 
             case 'moderator':

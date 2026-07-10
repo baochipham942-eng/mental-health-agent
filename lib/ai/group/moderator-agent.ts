@@ -10,7 +10,7 @@
 
 import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
-import { getKimiModel } from '../kimi';
+import { deepseek, DEEPSEEK_MODEL } from '../deepseek';
 import { MentorPersona } from '../mentors/personas';
 import { GroupMode } from './orchestrator';
 
@@ -29,6 +29,7 @@ export async function generateOpening(
   mentors: MentorPersona[],
   mode: GroupMode,
   topic: string,
+  userInsights?: string[],
 ): Promise<string> {
   const mentorList = mentors
     .map(m => `${m.avatar} ${m.name}（${m.title}）`)
@@ -36,13 +37,17 @@ export async function generateOpening(
 
   const modeLabel = mode === 'debate' ? '辩论' : '讨论';
 
+  const insightBlock = userInsights && userInsights.length > 0
+    ? `\n这位朋友此前在这里聊过的一些背景（仅供你理解TA，可以用一句话自然带出延续感，例如"上次聊到……"，但不要罗列细节、不要让TA觉得被档案化）：\n${userInsights.slice(0, 3).map(i => `- ${i}`).join('\n')}`
+    : '';
+
   const { text } = await generateText({
-    model: getKimiModel(),
+    model: deepseek(DEEPSEEK_MODEL),
     system: `你是一位优雅睿智的圆桌论道主持人。你的风格简洁有力，善于用一两句话点燃话题。
 不要说废话，不要自我介绍。直接引出话题和第一位发言者。
 控制在 80 字以内。`,
     prompt: `今天的${modeLabel}话题是：「${topic}」
-参与的大师有：${mentorList}
+参与的大师有：${mentorList}${insightBlock}
 请写一段开场白，引出话题并点名第一位发言者。`,
     temperature: 0.8,
     maxOutputTokens: 150,
@@ -70,7 +75,7 @@ export async function decideNextSpeaker(
     .join('\n');
 
   const { object } = await generateObject({
-    model: getKimiModel(),
+    model: deepseek(DEEPSEEK_MODEL),
     schema: NextSpeakerSchema,
     system: `你是圆桌论道的主持人。你的职责是根据讨论走向，选择最合适的下一位发言者。
 选择标准：
@@ -107,7 +112,7 @@ export async function generateTransition(
     .join('\n');
 
   const { text } = await generateText({
-    model: getKimiModel(),
+    model: deepseek(DEEPSEEK_MODEL),
     system: `你是圆桌论道主持人。上一轮讨论刚结束，你需要：
 1. 用一两句话点评上一轮的亮点或核心分歧
 2. 引导进入下一轮，或者判断讨论已经充分可以总结了

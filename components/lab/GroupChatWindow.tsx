@@ -121,7 +121,7 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
 
     // 判断是否需要显示轮次分隔线
     const shouldShowRoundSeparator = (msg: GroupMessage, index: number) => {
-        if (msg.role === 'user' || msg.role === 'moderator' || msg.role === 'synthesis' || !msg.round) return false;
+        if (msg.role === 'user' || msg.role === 'moderator' || msg.role === 'synthesis' || msg.role === 'pass' || !msg.round) return false;
         const prevMsg = messages[index - 1];
         if (!prevMsg) return false;
         if (prevMsg.role === 'user') return false;
@@ -205,6 +205,14 @@ export function GroupChatWindow({ mentorIds, mode, topic, onClose }: GroupChatWi
                                     <div className="px-4 py-3 rounded-xl bg-blue-600 text-white text-[15px] leading-relaxed shadow-xs">
                                         {msg.content}
                                     </div>
+                                </div>
+                            ) : msg.role === 'pass' ? (
+                                <div className="flex items-center gap-2 justify-center text-xs text-gray-400 py-1">
+                                    <span>{msg.mentorAvatar}</span>
+                                    <span>
+                                        {msg.mentorName}点了点头，选择倾听
+                                        {msg.content ? `——${msg.content}` : ''}
+                                    </span>
                                 </div>
                             ) : msg.role === 'moderator' ? (
                                 <ModeratorBubble msg={msg} />

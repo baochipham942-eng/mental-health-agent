@@ -175,6 +175,22 @@ export function useGroupChat(options: UseGroupChatOptions): UseGroupChatReturn {
                 break;
             }
 
+            case 'mentor_pass': {
+                // 弃权：安静的状态行，不是发言气泡
+                const passMsg: GroupMessage = {
+                    id: generateId(),
+                    role: 'pass',
+                    content: event.reason || '',
+                    mentorId: event.mentorId,
+                    mentorName: event.mentorName,
+                    mentorAvatar: event.mentorAvatar,
+                    round: event.round,
+                    timestamp: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, passMsg]);
+                break;
+            }
+
             case 'moderator': {
                 const modMsg: GroupMessage = {
                     id: generateId(),

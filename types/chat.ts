@@ -120,7 +120,7 @@ export interface ActionCard {
 // 群组对话（圆桌论道）消息
 export interface GroupMessage {
   id: string;
-  role: 'user' | 'assistant' | 'moderator' | 'synthesis';
+  role: 'user' | 'assistant' | 'moderator' | 'synthesis' | 'pass';
   content: string;
   mentorId?: string;
   mentorName?: string;
@@ -140,6 +140,7 @@ export type GroupSSEEvent =
   | { type: 'mentor_start'; mentorId: string; mentorName: string; mentorAvatar: string; mentorColor: string; round: number }
   | { type: 'mentor_chunk'; content: string }
   | { type: 'mentor_end'; mentorId: string }
+  | { type: 'mentor_pass'; mentorId: string; mentorName: string; mentorAvatar: string; round: number; reason?: string }
   | { type: 'moderator'; content: string; action: 'opening' | 'point' | 'transition' | 'synthesize'; targetMentorId?: string }
   | { type: 'synthesis'; content: string }
   | { type: 'round_end'; round: number }

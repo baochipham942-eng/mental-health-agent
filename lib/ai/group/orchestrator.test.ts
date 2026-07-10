@@ -4,8 +4,9 @@ vi.mock('./synthesizer-agent', () => ({
     synthesize: vi.fn(),
 }));
 
-import { orchestrateGroupChat } from './orchestrator';
+import { orchestrateGroupChat, parseMentorReply } from './orchestrator';
 import { synthesize } from './synthesizer-agent';
+import { getMentor } from '@/lib/ai/mentors/personas';
 
 async function collectEvents(generator: AsyncGenerator<any>) {
     const events: any[] = [];
@@ -52,5 +53,41 @@ describe('orchestrateGroupChat summarize intent', () => {
                 expect.objectContaining({ mentorName: '阿尔弗雷德·阿德勒', round: 1 }),
             ]),
         );
+    });
+});
+
+describe('parseMentorReply 弃权协议与显式 @', () => {
+    const socrates = getMentor('socrates')!;
+    const adler = getMentor('adler')!;
+    const jung = getMentor('jung')!;
+    const all = [socrates, adler, jung];
+
+    it('[PASS] 开头视为弃权，并截取一句话理由', () => {
+        const r = parseMentorReply('[PASS] 阿德勒已说出我想说的', socrates, all);
+        expect(r.passed).toBe(true);
+        expect(r.passReason).toBe('阿德勒已说出我想说的');
+        expect(r.content).toBe('');
+    });
+
+    it('单独一行 @大师名 解析为显式回应请求（支持部分名匹配）', () => {
+        const r = parseMentorReply(`未经审视的恐惧不值得服从。\n@荣格`, socrates, all);
+        expect(r.passed).toBe(false);
+        expect(r.wantToRespond).toEqual([jung.id]);
+    });
+
+    it('正文中仅提到名字不再视为想回应（旧启发式已退役）', () => {
+        const r = parseMentorReply(`我不同意${adler.name}刚才的说法，勇气不是口号。`, socrates, all);
+        expect(r.wantToRespond).toEqual([]);
+        expect(r.passed).toBe(false);
+    });
+
+    it('不会把 @ 自己解析为回应请求', () => {
+        const r = parseMentorReply(`我再补充一点。\n@${socrates.name}`, socrates, all);
+        expect(r.wantToRespond).toEqual([]);
+    });
+
+    it('剥掉模型模仿共享历史格式的自名前缀', () => {
+        const r = parseMentorReply(`[⚖️ 丹尼尔·卡尼曼]：朋友，我能感受到你的纠结。`, socrates, all);
+        expect(r.content).toBe('朋友，我能感受到你的纠结。');
     });
 });
